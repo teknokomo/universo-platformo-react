@@ -6322,6 +6322,56 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       security: *a1
+  /applications/{applicationId}/runtime/workspaces/{workspaceId}/convert:
+    post:
+      tags:
+        - Applications
+      summary: POST
+        /applications/{applicationId}/runtime/workspaces/{workspaceId}/convert
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_post_applications_applicationId_runtime_workspaces_workspaceId_convert
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: workspaceId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "201":
+          $ref: "#/components/responses/CreatedSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
   /applications/{applicationId}/runtime/workspaces/{workspaceId}/copy:
     post:
       tags:

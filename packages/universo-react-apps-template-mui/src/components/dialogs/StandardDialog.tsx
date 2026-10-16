@@ -13,6 +13,8 @@ export interface StandardDialogProps {
     maxWidth?: DialogProps['maxWidth']
     fullWidth?: boolean
     isBusy?: boolean
+    /** Optional WAI-ARIA describedby id for danger framing or auxiliary copy. */
+    ariaDescribedBy?: string
 }
 
 /**
@@ -28,12 +30,20 @@ export function StandardDialog({
     actions,
     maxWidth = 'sm',
     fullWidth = true,
-    isBusy = false
+    isBusy = false,
+    ariaDescribedBy
 }: StandardDialogProps) {
     const titleId = `runtime-standard-dialog-${useId().replace(/:/g, '')}`
 
     return (
-        <Dialog open={open} onClose={isBusy ? undefined : onClose} aria-labelledby={titleId} maxWidth={maxWidth} fullWidth={fullWidth}>
+        <Dialog
+            open={open}
+            onClose={isBusy ? undefined : onClose}
+            aria-labelledby={titleId}
+            {...(ariaDescribedBy ? { 'aria-describedby': ariaDescribedBy } : {})}
+            maxWidth={maxWidth}
+            fullWidth={fullWidth}
+        >
             <DialogTitle id={titleId}>{title}</DialogTitle>
             <DialogContent>{children}</DialogContent>
             {actions ? <DialogActions sx={{ p: 3, pt: 2, gap: 1, justifyContent: 'flex-end' }}>{actions}</DialogActions> : null}

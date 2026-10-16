@@ -7,13 +7,23 @@ export interface MockDbExecutor extends DbExecutor {
 }
 
 export function createMockDbExecutor(): { executor: MockDbExecutor; txExecutor: MockDbExecutor } {
+    // Keep the historical empty-result default when a test never configures
+    // `executor.query`.
+    const executorQuery: jest.Mock = jest.fn().mockResolvedValue([])
+
+    // Nested transaction callbacks route unconfigured `txExecutor.query` calls
+    // through the parent's query mock, mirroring the real RLS executor where a
+    // savepoint shares the parent connection. Tests that configure
+    // `txExecutor.query.mockImplementation(...)` replace the delegation.
+    const txQuery: jest.Mock = jest.fn(async (sql: string, params?: unknown[]) => executorQuery(sql, params))
+
     const txExecutor: MockDbExecutor = {
-        query: jest.fn().mockResolvedValue([]),
+        query: txQuery,
         transaction: jest.fn(async (fn: (exec: DbExecutor) => Promise<unknown>) => fn(txExecutor)),
         isReleased: jest.fn().mockReturnValue(false)
     }
     const executor: MockDbExecutor = {
-        query: jest.fn().mockResolvedValue([]),
+        query: executorQuery,
         transaction: jest.fn(async (fn: (exec: DbExecutor) => Promise<unknown>) => fn(txExecutor)),
         isReleased: jest.fn().mockReturnValue(false)
     }

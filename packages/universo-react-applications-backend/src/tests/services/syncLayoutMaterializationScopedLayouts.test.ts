@@ -13,6 +13,7 @@ import type { PublishedApplicationSnapshot } from './syncLayoutMaterializationHa
 describe('sync layout workspace and scoped materialization', () => {
     it('preserves a non-default scoped layout and allows runtime fallback to the global default', () => {
         const snapshot: PublishedApplicationSnapshot = {
+            entities: {},
             layouts: [createGlobalDashboardLayout()],
             scopedLayouts: [
                 {
@@ -43,6 +44,7 @@ describe('sync layout workspace and scoped materialization', () => {
 
     it('injects workspace switcher widgets into global layouts when runtime workspaces are enabled', () => {
         const snapshot: PublishedApplicationSnapshot = {
+            entities: {},
             layouts: [
                 {
                     id: 'global-layout-1',
@@ -96,6 +98,7 @@ describe('sync layout workspace and scoped materialization', () => {
 
     it('allocates fresh UUID-v7 placeholders for inherited projection rows', () => {
         const snapshot: PublishedApplicationSnapshot = {
+            entities: {},
             layouts: [createGlobalDashboardLayout()],
             scopedLayouts: [
                 {
@@ -141,6 +144,7 @@ describe('sync layout workspace and scoped materialization', () => {
     it('remaps an overlay-owned child from its base parent to the scoped container clone', () => {
         const baseContainerId = '018f8a78-7b8f-7c1d-a111-2222333344b1'
         const snapshot: PublishedApplicationSnapshot = {
+            entities: {},
             layouts: [createGlobalDashboardLayout()],
             scopedLayouts: [
                 {
@@ -223,6 +227,7 @@ describe('sync layout workspace and scoped materialization', () => {
         const scopedLayoutId = '018f8a78-7b8f-7c1d-a111-2222333344a3'
         const scopeEntityId = '018f8a78-7b8f-7c1d-a111-2222333344a4'
         const snapshot: PublishedApplicationSnapshot = {
+            entities: {},
             layouts: [
                 {
                     id: globalLayoutId,
@@ -272,6 +277,7 @@ describe('sync layout workspace and scoped materialization', () => {
 
     it('materializes scoped layouts from global layouts, sparse overrides, and entity-owned widgets', () => {
         const snapshot: PublishedApplicationSnapshot = {
+            entities: {},
             layouts: [
                 {
                     id: 'global-layout-1',
@@ -372,7 +378,7 @@ describe('sync layout workspace and scoped materialization', () => {
             ...snapshot,
             layoutWidgetOverrides: [
                 {
-                    ...snapshot.layoutWidgetOverrides?.[0],
+                    ...(snapshot.layoutWidgetOverrides as Array<Record<string, unknown>> | undefined)?.[0],
                     parentWidgetId: '018f8a78-7b8f-7c1d-a111-2222333344af',
                     slotKey: 'column:main'
                 }
@@ -395,6 +401,7 @@ describe('sync layout workspace and scoped materialization', () => {
 
     it('preserves scoped Dashboard host configuration while widget visibility stays placement-owned', () => {
         const snapshot: PublishedApplicationSnapshot = {
+            entities: {},
             layouts: [
                 {
                     id: 'global-layout-1',
@@ -484,6 +491,7 @@ describe('sync layout workspace and scoped materialization', () => {
 
     it('drops inherited widgets that are marked as deleted overrides', () => {
         const snapshot: PublishedApplicationSnapshot = {
+            entities: {},
             layouts: [
                 {
                     id: 'global-layout-1',
@@ -541,6 +549,7 @@ describe('sync layout workspace and scoped materialization', () => {
 
     it('rejects inactive widgets with invalid zones instead of silently reinterpreting them', () => {
         const snapshot: PublishedApplicationSnapshot = {
+            entities: {},
             layouts: [createGlobalDashboardLayout()],
             layoutZoneWidgets: [
                 {
@@ -667,26 +676,29 @@ describe('sync layout workspace and scoped materialization', () => {
 
         expect(() => normalizeSnapshotLayouts(snapshot)).toThrow(/config must be an object/)
 
-        snapshot.layouts![0]!.config = { sideMenu: 'invalid' }
+        const layoutRow = snapshot.layouts![0]! as unknown as Record<string, unknown>
+        const zoneWidgetRow = snapshot.layoutZoneWidgets![0]! as unknown as Record<string, unknown>
+
+        layoutRow.config = { sideMenu: 'invalid' }
         expect(() => normalizeSnapshotLayouts(snapshot)).toThrow(/invalid dashboard configuration/)
 
-        snapshot.layouts![0]!.config = []
+        layoutRow.config = []
         expect(() => normalizeSnapshotLayouts(snapshot)).toThrow(/config must be an object/)
 
-        snapshot.layouts![0]!.config = {}
+        layoutRow.config = {}
         expect(() => normalizeSnapshotLayouts(snapshot)).toThrow(/isActive must be a boolean/)
 
-        snapshot.layouts![0]!.isActive = true
-        snapshot.layouts![0]!.sortOrder = 1
+        layoutRow.isActive = true
+        layoutRow.sortOrder = 1
         expect(() => normalizeSnapshotLayoutZoneWidgets(snapshot)).toThrow(/isActive must be a boolean/)
 
-        snapshot.layoutZoneWidgets![0]!.isActive = true
-        snapshot.layoutZoneWidgets![0]!.sourceLineageKey = 42
+        zoneWidgetRow.isActive = true
+        zoneWidgetRow.sourceLineageKey = 42
         expect(() => normalizeSnapshotLayoutZoneWidgets(snapshot)).toThrow(/sourceLineageKey/)
 
-        snapshot.layoutZoneWidgets![0]!.sourceLineageKey = undefined
-        snapshot.defaultLayoutId = 42
-        expect(() => normalizeSnapshotLayouts(snapshot)).toThrow(/defaultLayoutId/)
+        zoneWidgetRow.sourceLineageKey = undefined
+        const snapshotWithBadDefaultLayoutId = { ...snapshot, defaultLayoutId: 42 } as unknown as PublishedApplicationSnapshot
+        expect(() => normalizeSnapshotLayouts(snapshotWithBadDefaultLayoutId)).toThrow(/defaultLayoutId/)
     })
 
     it('fails closed for malformed scoped dashboard layout configuration', () => {

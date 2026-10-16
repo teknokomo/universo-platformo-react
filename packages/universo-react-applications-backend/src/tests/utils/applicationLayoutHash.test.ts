@@ -21,7 +21,7 @@ const makeNestedWidgets = (layoutId: string, containerId: string, childId: strin
     {
         id: containerId,
         layoutId,
-        zone: 'center',
+        zone: 'center' as const,
         widgetKey: 'columnsContainer',
         instanceKey: 'product-grid',
         parentWidgetId: null,
@@ -33,7 +33,7 @@ const makeNestedWidgets = (layoutId: string, containerId: string, childId: strin
     {
         id: childId,
         layoutId,
-        zone: 'center',
+        zone: 'center' as const,
         widgetKey: 'detailsTable',
         instanceKey: 'product-table',
         parentWidgetId: containerId,
@@ -113,7 +113,7 @@ describe('application layout content hash', () => {
                 layout,
                 widgets: [
                     {
-                        zone: 'center',
+                        zone: 'center' as const,
                         widgetKey: 'detailsTable',
                         sortOrder: 1,
                         config: {},
@@ -129,7 +129,7 @@ describe('application layout content hash', () => {
                 layout,
                 widgets: [
                     {
-                        zone: 'center',
+                        zone: 'center' as const,
                         widgetKey: 'detailsTable',
                         instanceKey: 'table',
                         parentWidgetId: null,

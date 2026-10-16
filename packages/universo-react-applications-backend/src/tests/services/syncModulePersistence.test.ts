@@ -1,11 +1,33 @@
 import type { PublishedApplicationSnapshot, SnapshotModuleDefinition } from '../../services/applicationSyncContracts'
 
+import type { ModulePresentation } from '@universo-react/types'
+
 const createCodenameVlc = (primary: string, secondary?: string) => ({
-    _schema: '1',
-    _primary: 'en',
+    _schema: '1' as const,
+    _primary: 'en' as const,
     locales: {
-        en: { content: primary, version: 1, isActive: true },
-        ...(secondary ? { ru: { content: secondary, version: 1, isActive: true } } : {})
+        en: { content: primary, version: 1, isActive: true, createdAt: '1970-01-01T00:00:00.000Z', updatedAt: '1970-01-01T00:00:00.000Z' },
+        ...(secondary
+            ? {
+                  ru: {
+                      content: secondary,
+                      version: 1,
+                      isActive: true,
+                      createdAt: '1970-01-01T00:00:00.000Z',
+                      updatedAt: '1970-01-01T00:00:00.000Z'
+                  }
+              }
+            : {})
+    }
+})
+
+const modulePresentation = (name: string): ModulePresentation => ({
+    name: {
+        _schema: '1',
+        _primary: 'en',
+        locales: {
+            en: { content: name, version: 1, isActive: true, createdAt: '1970-01-01T00:00:00.000Z', updatedAt: '1970-01-01T00:00:00.000Z' }
+        }
     }
 })
 
@@ -23,14 +45,14 @@ type MockSyncKnex = {
     raw: jest.Mock
 }
 
-const mockEnsureSystemTables = jest.fn(async () => undefined)
+const mockEnsureSystemTables: jest.Mock = jest.fn(async () => undefined)
 let currentKnex: MockSyncKnex
 
 jest.mock('../../ddl', () => ({
     getApplicationSyncKnex: () => currentKnex,
     getApplicationSyncDdlServices: () => ({
         generator: {
-            ensureSystemTables: (...args: unknown[]) => mockEnsureSystemTables(...args)
+            ensureSystemTables: async (...args: unknown[]) => mockEnsureSystemTables(...(args as [string, unknown?, unknown?]))
         }
     })
 }))
@@ -43,15 +65,7 @@ const scopedIndexDefinition =
 const createSnapshotModule = (overrides: Partial<SnapshotModuleDefinition> = {}): SnapshotModuleDefinition => ({
     id: overrides.id ?? 'module-1',
     codename: overrides.codename ?? 'quiz-widget',
-    presentation: overrides.presentation ?? {
-        name: {
-            _schema: 'v1',
-            _primary: 'en',
-            locales: {
-                en: { content: 'Quiz widget' }
-            }
-        }
-    },
+    presentation: overrides.presentation ?? modulePresentation('Quiz widget'),
     attachedToKind: overrides.attachedToKind ?? 'object',
     attachedToId: overrides.attachedToId ?? 'object-1',
     moduleRole: overrides.moduleRole ?? 'widget',
@@ -76,15 +90,7 @@ const createSnapshotModule = (overrides: Partial<SnapshotModuleDefinition> = {})
 const createStoredModuleRow = (overrides: Partial<StoredModuleRow> = {}): StoredModuleRow => ({
     id: overrides.id ?? 'module-1',
     codename: overrides.codename ?? 'quiz-widget',
-    presentation: overrides.presentation ?? {
-        name: {
-            _schema: 'v1',
-            _primary: 'en',
-            locales: {
-                en: { content: 'Quiz widget' }
-            }
-        }
-    },
+    presentation: overrides.presentation ?? modulePresentation('Quiz widget'),
     attached_to_kind: overrides.attached_to_kind ?? 'object',
     attached_to_id: overrides.attached_to_id ?? 'object-1',
     module_role: overrides.module_role ?? 'widget',

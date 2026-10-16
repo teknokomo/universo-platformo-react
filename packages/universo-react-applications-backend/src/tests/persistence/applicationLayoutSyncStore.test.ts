@@ -15,11 +15,13 @@ import {
     getPersistedDashboardLayoutConfig,
     getPersistedPublishedLayouts,
     getPersistedPublishedWidgets,
-    type SyncWidgetInput
+    type SyncWidgetInput,
+    type ApplicationLayoutSyncWidgetRow
 } from '../../persistence/applicationLayoutSyncStore'
 import { getPersistedPublishedWidgets as getPublishedWidgetsThroughSyncBoundary } from '../../routes/sync/syncLayoutPersistence'
 
-const createExecutor = (query: DbExecutor['query']): DbExecutor => ({ query })
+const createExecutor = (query: DbExecutor['query']): DbExecutor =>
+    ({ query, transaction: undefined, isReleased: () => false } as unknown as DbExecutor)
 const schemaName = 'app_018f8a787b8f7c1da111222233334444'
 const heroDefinition = LAYOUT_WIDGET_DEFINITIONS.find(({ key }) => key === 'marketing.hero')
 if (!heroDefinition) throw new Error('The marketing hero widget must be registered')
@@ -37,7 +39,9 @@ const heroConfig = (semanticKey: string) =>
         { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
     )
 
-const syncWidget = (widgetKey: string, zone: string, config: Record<string, unknown>): SyncWidgetInput => ({
+type SyncZone = 'left' | 'top' | 'right' | 'bottom' | 'center' | 'marketing-header' | 'marketing-main' | 'marketing-footer'
+
+const syncWidget = (widgetKey: string, zone: SyncZone, config: Record<string, unknown>): SyncWidgetInput => ({
     id: '0190a9b5-3cde-7000-8000-000000000031',
     layoutId: '0190a9b5-3cde-7000-8000-000000000032',
     sourceWidgetId: '0190a9b5-3cde-7000-8000-000000000031',
@@ -231,8 +235,6 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
         const resolved = resolveSyncedApplicationLayoutWidgetState(
             'marketing-page',
             {
-                id: current.id,
-                layoutId: current.layout_id,
                 zone: current.zone,
                 widgetKey: current.widget_key,
                 instanceKey: 'hero',
@@ -241,8 +243,7 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
                 sourceWidgetId: current.id,
                 sortOrder: current.sort_order,
                 config,
-                isActive: true,
-                sourceContentHash: 'new-source'
+                isActive: true
             },
             current
         )
@@ -252,12 +253,33 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
 
     it('fails closed when an inherited widget has lost its source-state baseline', () => {
         const config = heroConfig('default')
+        const currentRow = {
+            id: '0190a9b5-3cde-7000-8000-000000000031',
+            layout_id: '0190a9b5-3cde-7000-8000-000000000032',
+            zone: 'marketing-main',
+            widget_key: 'marketing.hero',
+            instance_key: 'hero',
+            parent_widget_id: null,
+            slot_key: null,
+            sort_order: 0,
+            config,
+            source_config: config,
+            source_state: null,
+            is_active: true,
+            source_widget_id: '0190a9b5-3cde-7000-8000-000000000031',
+            source_base_widget_id: null,
+            source_content_hash: 'source',
+            local_content_hash: 'source',
+            _upl_deleted: false,
+            _app_deleted: false,
+            _upl_created_at: null,
+            version: 1
+        } as unknown as Parameters<typeof resolveSyncedApplicationLayoutWidgetState>[2]
+
         expect(() =>
             resolveSyncedApplicationLayoutWidgetState(
                 'marketing-page',
                 {
-                    id: '0190a9b5-3cde-7000-8000-000000000031',
-                    layoutId: '0190a9b5-3cde-7000-8000-000000000032',
                     zone: 'marketing-main',
                     widgetKey: 'marketing.hero',
                     instanceKey: 'hero',
@@ -266,31 +288,9 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
                     sourceWidgetId: '0190a9b5-3cde-7000-8000-000000000031',
                     sortOrder: 0,
                     config,
-                    isActive: true,
-                    sourceContentHash: 'source'
+                    isActive: true
                 },
-                {
-                    id: '0190a9b5-3cde-7000-8000-000000000031',
-                    layout_id: '0190a9b5-3cde-7000-8000-000000000032',
-                    zone: 'marketing-main',
-                    widget_key: 'marketing.hero',
-                    instance_key: 'hero',
-                    parent_widget_id: null,
-                    slot_key: null,
-                    sort_order: 0,
-                    config,
-                    source_config: config,
-                    source_state: null,
-                    is_active: true,
-                    source_widget_id: '0190a9b5-3cde-7000-8000-000000000031',
-                    source_base_widget_id: null,
-                    source_content_hash: 'source',
-                    local_content_hash: 'source',
-                    _upl_deleted: false,
-                    _app_deleted: false,
-                    _upl_created_at: null,
-                    version: 1
-                }
+                currentRow
             )
         ).toThrow('missing its source-state baseline')
     })

@@ -37,8 +37,8 @@ jest.mock('../../utils', () => ({
 
 jest.mock('../../shared/runtimeHelpers', () => ({
     __esModule: true,
-    normalizeLocale: (...args: unknown[]) => mockNormalizeLocale(...args),
-    resolveUserId: (...args: unknown[]) => mockResolveUserId(...args)
+    normalizeLocale: (locale?: string) => mockNormalizeLocale(locale),
+    resolveUserId: () => mockResolveUserId()
 }))
 
 jest.mock('../../persistence/applicationLayoutsStore', () => ({

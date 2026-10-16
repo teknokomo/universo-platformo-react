@@ -32,17 +32,21 @@ const waitForLockWait = async (knex: Knex, pid: number, timeoutMs: number): Prom
     return false
 }
 
-const toSqlQueryable = (trx: Knex.Transaction): SqlQueryable => ({
-    query: async <T>(sql: string, parameters: unknown[] = []): Promise<T[]> => {
-        const orderedParameters: unknown[] = []
-        const knexSql = sql.replace(/\$(\d+)/gu, (_placeholder, position: string) => {
-            orderedParameters.push(parameters[Number(position) - 1])
-            return '?'
-        })
-        const result = await trx.raw(knexSql, orderedParameters)
-        return result.rows as T[]
-    }
-})
+const toSqlQueryable = (trx: Knex.Transaction): DbExecutor =>
+    ({
+        query: async <T>(sql: string, parameters: unknown[] = []): Promise<T[]> => {
+            const orderedParameters: unknown[] = []
+            const knexSql = sql.replace(/\$(\d+)/gu, (_placeholder, position: string) => {
+                orderedParameters.push(parameters[Number(position) - 1])
+                return '?'
+            })
+            const result = await trx.raw(knexSql, orderedParameters)
+            return result.rows as T[]
+        },
+        // Integration-level lock helpers only read inside the caller's own transaction; the executor handle never manages nested transactions itself.
+        transaction: undefined as never,
+        isReleased: () => false
+    } as unknown as DbExecutor)
 
 const toDbExecutor = (trx: Knex.Transaction): DbExecutor => {
     const queryable = toSqlQueryable(trx)

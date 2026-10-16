@@ -1,13 +1,57 @@
 import type { NextFunction, Request, Response } from 'express'
+import type { DbExecutor } from '@universo-react/utils'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 
+type LocalizedTextFixture = {
+    _schema: '1'
+    _primary: string
+    locales: Record<string, { version: number; content: string; createdAt: string; updatedAt: string; isActive: boolean }>
+}
+
+const vlcText = (content: string, primary = 'en'): LocalizedTextFixture => ({
+    _schema: '1' as const,
+    _primary: primary,
+    locales: {
+        [primary]: { content, version: 1, isActive: true, createdAt: '1970-01-01T00:00:00.000Z', updatedAt: '1970-01-01T00:00:00.000Z' }
+    }
+})
+
+const entityPresentation = (name: string) => ({
+    name: vlcText(name)
+})
+
+const mockEntityPresentationEmpty = { name: vlcText('Unnamed') } as const
+
 const mockSchemaHasTable = jest.fn(async () => false)
+type SyncNoopQueryBuilder = {
+    withSchema: jest.Mock
+    from: jest.Mock
+    table: jest.Mock
+    into: jest.Mock
+    where: jest.Mock
+    andWhere: jest.Mock
+    orWhere: jest.Mock
+    whereIn: jest.Mock
+    whereNotIn: jest.Mock
+    select: jest.Mock
+    orderBy: jest.Mock
+    first: jest.Mock
+    update: jest.Mock
+    insert: jest.Mock
+    del: jest.Mock
+    onConflict: jest.Mock
+    merge: jest.Mock
+    then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) => Promise<unknown>
+    catch: (reject: (reason: unknown) => unknown) => Promise<unknown>
+    finally: (callback: () => void) => Promise<unknown>
+}
+
 const createNoopQueryBuilder = () => {
     let result: unknown = []
-    const builder = {
+    const builder: SyncNoopQueryBuilder = {
         withSchema: jest.fn(() => builder),
         from: jest.fn(() => builder),
         table: jest.fn(() => builder),
@@ -68,6 +112,17 @@ const mockKnex = {
             hasTable: mockSchemaHasTable
         }))
     }
+}
+
+type MockKnexDbExecutorView = {
+    query: (sql: string, parameters?: unknown[]) => Promise<unknown[]>
+    transaction: (callback: (executor: unknown) => Promise<unknown>) => Promise<unknown>
+    isReleased: () => boolean
+}
+const mockKnexExecutor: MockKnexDbExecutorView = {
+    query: jest.fn(async () => []),
+    transaction: mockKnex.transaction,
+    isReleased: () => false
 }
 
 const mockEnsureApplicationAccess = jest.fn()
@@ -185,7 +240,9 @@ describe('applicationSyncRoutes', () => {
     }
 
     const exec = {
-        query: jest.fn(),
+        query: jest.fn(async (_sql: string, _params?: unknown[]): Promise<unknown[]> => []),
+        transaction: jest.fn(async (callback: (executor: unknown) => Promise<unknown>) => callback({})),
+        isReleased: jest.fn(() => false),
         schema: {
             withSchema: jest.fn(() => ({
                 hasTable: mockSchemaHasTable
@@ -197,7 +254,7 @@ describe('applicationSyncRoutes', () => {
         codename: 'products',
         kind: 'object',
         fields: [],
-        presentation: { name: {} },
+        presentation: mockEntityPresentationEmpty,
         config: {},
         physicalTableName: 'products',
         physicalTableEnabled: true
@@ -338,7 +395,7 @@ describe('applicationSyncRoutes', () => {
             '/',
             createApplicationSyncRoutes(
                 options.ensureAuth ?? ensureAuth,
-                () => (options.requestExecutor ?? exec) as never,
+                () => (options.requestExecutor ?? (exec as unknown as DbExecutor)) as never,
                 loadPublishedApplicationSyncContext,
                 mockRateLimiter,
                 mockRateLimiter
@@ -385,7 +442,16 @@ describe('applicationSyncRoutes', () => {
         const unauthenticated = (_req: Request, _res: Response, next: NextFunction) => next()
         const app = express()
         app.use(express.json())
-        app.use('/', createApplicationSyncRoutes(unauthenticated, requestExecutor, jest.fn(), mockRateLimiter, mockRateLimiter))
+        app.use(
+            '/',
+            createApplicationSyncRoutes(
+                unauthenticated,
+                requestExecutor as unknown as () => DbExecutor,
+                jest.fn(),
+                mockRateLimiter,
+                mockRateLimiter
+            )
+        )
         app.use(errorHandler)
 
         await request(app).get('/application/application-1/diff').expect(401)
@@ -716,22 +782,46 @@ describe('applicationSyncRoutes', () => {
                 'hub-learning': {
                     id: 'hub-learning',
                     codename: {
-                        _schema: '1',
-                        _primary: 'en',
+                        _schema: '1' as const,
+                        _primary: 'en' as const,
                         locales: {
-                            en: { content: 'Learning', version: 1, isActive: true },
-                            ru: { content: 'Обучение', version: 1, isActive: true }
+                            en: {
+                                content: 'Learning',
+                                version: 1,
+                                isActive: true,
+                                createdAt: '1970-01-01T00:00:00.000Z',
+                                updatedAt: '1970-01-01T00:00:00.000Z'
+                            },
+                            ru: {
+                                content: 'Обучение',
+                                version: 1,
+                                isActive: true,
+                                createdAt: '1970-01-01T00:00:00.000Z',
+                                updatedAt: '1970-01-01T00:00:00.000Z'
+                            }
                         }
                     },
                     kind: 'hub',
                     fields: [],
                     presentation: {
                         name: {
-                            _schema: '1',
-                            _primary: 'en',
+                            _schema: '1' as const,
+                            _primary: 'en' as const,
                             locales: {
-                                en: { content: 'Learning', version: 1, isActive: true },
-                                ru: { content: 'Обучение', version: 1, isActive: true }
+                                en: {
+                                    content: 'Learning',
+                                    version: 1,
+                                    isActive: true,
+                                    createdAt: '1970-01-01T00:00:00.000Z',
+                                    updatedAt: '1970-01-01T00:00:00.000Z'
+                                },
+                                ru: {
+                                    content: 'Обучение',
+                                    version: 1,
+                                    isActive: true,
+                                    createdAt: '1970-01-01T00:00:00.000Z',
+                                    updatedAt: '1970-01-01T00:00:00.000Z'
+                                }
                             }
                         }
                     },
@@ -740,22 +830,46 @@ describe('applicationSyncRoutes', () => {
                 'page-welcome': {
                     id: 'page-welcome',
                     codename: {
-                        _schema: '1',
-                        _primary: 'en',
+                        _schema: '1' as const,
+                        _primary: 'en' as const,
                         locales: {
-                            en: { content: 'LearnerHome', version: 1, isActive: true },
-                            ru: { content: 'ДоброПожаловать', version: 1, isActive: true }
+                            en: {
+                                content: 'LearnerHome',
+                                version: 1,
+                                isActive: true,
+                                createdAt: '1970-01-01T00:00:00.000Z',
+                                updatedAt: '1970-01-01T00:00:00.000Z'
+                            },
+                            ru: {
+                                content: 'ДоброПожаловать',
+                                version: 1,
+                                isActive: true,
+                                createdAt: '1970-01-01T00:00:00.000Z',
+                                updatedAt: '1970-01-01T00:00:00.000Z'
+                            }
                         }
                     },
                     kind: 'page',
                     fields: [],
                     presentation: {
                         name: {
-                            _schema: '1',
-                            _primary: 'en',
+                            _schema: '1' as const,
+                            _primary: 'en' as const,
                             locales: {
-                                en: { content: 'Welcome', version: 1, isActive: true },
-                                ru: { content: 'Добро пожаловать', version: 1, isActive: true }
+                                en: {
+                                    content: 'Welcome',
+                                    version: 1,
+                                    isActive: true,
+                                    createdAt: '1970-01-01T00:00:00.000Z',
+                                    updatedAt: '1970-01-01T00:00:00.000Z'
+                                },
+                                ru: {
+                                    content: 'Добро пожаловать',
+                                    version: 1,
+                                    isActive: true,
+                                    createdAt: '1970-01-01T00:00:00.000Z',
+                                    updatedAt: '1970-01-01T00:00:00.000Z'
+                                }
                             }
                         }
                     },
@@ -774,7 +888,7 @@ describe('applicationSyncRoutes', () => {
                     codename: 'LmsConfiguration',
                     kind: 'set',
                     fields: [],
-                    presentation: { name: {} },
+                    presentation: mockEntityPresentationEmpty,
                     config: {}
                 },
                 'enum-status': {
@@ -782,7 +896,7 @@ describe('applicationSyncRoutes', () => {
                     codename: 'LearningResourceStatus',
                     kind: 'enumeration',
                     fields: [],
-                    presentation: { name: {} },
+                    presentation: mockEntityPresentationEmpty,
                     config: {}
                 },
                 'object-resources': {
@@ -793,10 +907,10 @@ describe('applicationSyncRoutes', () => {
                         {
                             id: tableFieldId,
                             codename: 'NestedResources',
-                            dataType: 'TABLE',
+                            dataType: 'TABLE' as const,
                             isRequired: false,
                             isDisplayComponent: false,
-                            presentation: { name: {} },
+                            presentation: mockEntityPresentationEmpty,
                             validationRules: {},
                             uiConfig: {},
                             sortOrder: 1,
@@ -804,10 +918,10 @@ describe('applicationSyncRoutes', () => {
                                 {
                                     id: childFieldId,
                                     codename: 'NestedTitle',
-                                    dataType: 'STRING',
+                                    dataType: 'STRING' as const,
                                     isRequired: true,
                                     isDisplayComponent: true,
-                                    presentation: { name: {} },
+                                    presentation: mockEntityPresentationEmpty,
                                     validationRules: { localized: true },
                                     uiConfig: {},
                                     sortOrder: 1,
@@ -816,7 +930,7 @@ describe('applicationSyncRoutes', () => {
                             ]
                         }
                     ],
-                    presentation: { name: {} },
+                    presentation: mockEntityPresentationEmpty,
                     hubs: ['hub-learning'],
                     config: {},
                     physicalTableName: 'resources'
@@ -863,8 +977,8 @@ describe('applicationSyncRoutes', () => {
                             NestedResources: [
                                 {
                                     NestedTitle: {
-                                        _schema: '1',
-                                        _primary: 'ru',
+                                        _schema: '1' as const,
+                                        _primary: 'ru' as const,
                                         locales: {
                                             ru: {
                                                 content: 'Чистая вода',
@@ -887,9 +1001,30 @@ describe('applicationSyncRoutes', () => {
             },
             optionValues: {
                 'enum-status': [
-                    { id: 'status-draft', codename: 'Draft' },
-                    { id: 'status-published', codename: 'Published' },
-                    { id: 'status-archived', codename: 'Archived' }
+                    {
+                        id: 'status-draft',
+                        codename: 'Draft',
+                        objectId: 'enum-status',
+                        sortOrder: 0,
+                        isDefault: true,
+                        presentation: mockEntityPresentationEmpty
+                    },
+                    {
+                        id: 'status-published',
+                        codename: 'Published',
+                        objectId: 'enum-status',
+                        sortOrder: 1,
+                        isDefault: false,
+                        presentation: mockEntityPresentationEmpty
+                    },
+                    {
+                        id: 'status-archived',
+                        codename: 'Archived',
+                        objectId: 'enum-status',
+                        sortOrder: 2,
+                        isDefault: false,
+                        presentation: mockEntityPresentationEmpty
+                    }
                 ]
             },
             layouts: []
@@ -1135,10 +1270,10 @@ describe('applicationSyncRoutes', () => {
                 {
                     id: tableFieldId,
                     codename: 'NestedResources',
-                    dataType: 'TABLE',
+                    dataType: 'TABLE' as const,
                     isRequired: false,
                     isDisplayComponent: false,
-                    presentation: { name: {} },
+                    presentation: mockEntityPresentationEmpty,
                     validationRules: {},
                     uiConfig: {},
                     sortOrder: 1,
@@ -1146,10 +1281,10 @@ describe('applicationSyncRoutes', () => {
                         {
                             id: childFieldId,
                             codename: 'NestedTitle',
-                            dataType: 'STRING',
+                            dataType: 'STRING' as const,
                             isRequired: true,
                             isDisplayComponent: true,
-                            presentation: { name: {} },
+                            presentation: mockEntityPresentationEmpty,
                             validationRules: { localized: true, versioned: true },
                             uiConfig: {},
                             sortOrder: 1,
@@ -1160,19 +1295,19 @@ describe('applicationSyncRoutes', () => {
                 {
                     id: setFieldId,
                     codename: 'Motto',
-                    dataType: 'REF',
+                    dataType: 'REF' as const,
                     isRequired: false,
                     isDisplayComponent: false,
                     targetEntityId: valueGroupId,
                     targetEntityKind: 'set',
                     targetConstantId: constantId,
-                    presentation: { name: {} },
+                    presentation: mockEntityPresentationEmpty,
                     validationRules: {},
                     uiConfig: {},
                     sortOrder: 2
                 }
             ],
-            presentation: { name: {} },
+            presentation: mockEntityPresentationEmpty,
             config: {},
             physicalTableName: 'resources'
         }
@@ -1192,23 +1327,35 @@ describe('applicationSyncRoutes', () => {
                         id: constantId,
                         objectId: valueGroupId,
                         codename: 'MottoConstant',
-                        dataType: 'STRING',
+                        dataType: 'STRING' as const,
                         presentation: {
                             name: {
-                                _schema: '1',
-                                _primary: 'ru',
+                                _schema: '1' as const,
+                                _primary: 'ru' as const,
                                 locales: {
-                                    ru: { content: 'Девиз', version: 1, isActive: true }
+                                    ru: {
+                                        content: 'Девиз',
+                                        version: 1,
+                                        isActive: true,
+                                        createdAt: '1970-01-01T00:00:00.000Z',
+                                        updatedAt: '1970-01-01T00:00:00.000Z'
+                                    }
                                 }
                             }
                         },
                         validationRules: {},
                         uiConfig: {},
                         value: {
-                            _schema: '1',
-                            _primary: 'ru',
+                            _schema: '1' as const,
+                            _primary: 'ru' as const,
                             locales: {
-                                ru: { content: 'Все миры будут нашими!', version: 1, isActive: true }
+                                ru: {
+                                    content: 'Все миры будут нашими!',
+                                    version: 1,
+                                    isActive: true,
+                                    createdAt: '1970-01-01T00:00:00.000Z',
+                                    updatedAt: '1970-01-01T00:00:00.000Z'
+                                }
                             }
                         },
                         sortOrder: 0
@@ -1251,7 +1398,7 @@ describe('applicationSyncRoutes', () => {
                     fields: expect.arrayContaining([
                         expect.objectContaining({
                             id: tableFieldId,
-                            dataType: 'TABLE',
+                            dataType: 'TABLE' as const,
                             childFields: [
                                 expect.objectContaining({
                                     id: childFieldId,
@@ -1272,7 +1419,7 @@ describe('applicationSyncRoutes', () => {
                                 setConstantRef: expect.objectContaining({
                                     id: constantId,
                                     codename: 'MottoConstant',
-                                    dataType: 'STRING',
+                                    dataType: 'STRING' as const,
                                     value: expect.objectContaining({
                                         _primary: 'ru'
                                     })
@@ -1303,10 +1450,10 @@ describe('applicationSyncRoutes', () => {
                 {
                     id: tableFieldId,
                     codename: 'NestedResources',
-                    dataType: 'TABLE',
+                    dataType: 'TABLE' as const,
                     isRequired: false,
                     isDisplayComponent: false,
-                    presentation: { name: {} },
+                    presentation: mockEntityPresentationEmpty,
                     validationRules: {},
                     uiConfig: {},
                     sortOrder: 1,
@@ -1314,10 +1461,10 @@ describe('applicationSyncRoutes', () => {
                         {
                             id: childFieldId,
                             codename: 'NestedTitle',
-                            dataType: 'STRING',
+                            dataType: 'STRING' as const,
                             isRequired: true,
                             isDisplayComponent: true,
-                            presentation: { name: {} },
+                            presentation: mockEntityPresentationEmpty,
                             validationRules: { localized: true, versioned: true },
                             uiConfig: {},
                             sortOrder: 1,
@@ -1328,19 +1475,19 @@ describe('applicationSyncRoutes', () => {
                 {
                     id: setFieldId,
                     codename: 'Motto',
-                    dataType: 'REF',
+                    dataType: 'REF' as const,
                     isRequired: false,
                     isDisplayComponent: false,
                     targetEntityId: valueGroupId,
                     targetEntityKind: 'set',
                     targetConstantId: constantId,
-                    presentation: { name: {} },
+                    presentation: mockEntityPresentationEmpty,
                     validationRules: {},
                     uiConfig: {},
                     sortOrder: 2
                 }
             ],
-            presentation: { name: {} },
+            presentation: mockEntityPresentationEmpty,
             config: {},
             physicalTableName: 'resources'
         }
@@ -1360,23 +1507,35 @@ describe('applicationSyncRoutes', () => {
                         id: constantId,
                         objectId: valueGroupId,
                         codename: 'MottoConstant',
-                        dataType: 'STRING',
+                        dataType: 'STRING' as const,
                         presentation: {
                             name: {
-                                _schema: '1',
-                                _primary: 'ru',
+                                _schema: '1' as const,
+                                _primary: 'ru' as const,
                                 locales: {
-                                    ru: { content: 'Девиз', version: 1, isActive: true }
+                                    ru: {
+                                        content: 'Девиз',
+                                        version: 1,
+                                        isActive: true,
+                                        createdAt: '1970-01-01T00:00:00.000Z',
+                                        updatedAt: '1970-01-01T00:00:00.000Z'
+                                    }
                                 }
                             }
                         },
                         validationRules: {},
                         uiConfig: {},
                         value: {
-                            _schema: '1',
-                            _primary: 'ru',
+                            _schema: '1' as const,
+                            _primary: 'ru' as const,
                             locales: {
-                                ru: { content: 'Все миры будут нашими!', version: 1, isActive: true }
+                                ru: {
+                                    content: 'Все миры будут нашими!',
+                                    version: 1,
+                                    isActive: true,
+                                    createdAt: '1970-01-01T00:00:00.000Z',
+                                    updatedAt: '1970-01-01T00:00:00.000Z'
+                                }
                             }
                         },
                         sortOrder: 0
@@ -1404,12 +1563,12 @@ describe('applicationSyncRoutes', () => {
                             {
                                 id: tableFieldId,
                                 codename: 'NestedResources',
-                                dataType: 'TABLE',
+                                dataType: 'TABLE' as const,
                                 childFields: [
                                     {
                                         id: childFieldId,
                                         codename: 'NestedTitle',
-                                        dataType: 'STRING',
+                                        dataType: 'STRING' as const,
                                         parentComponentId: tableFieldId
                                     }
                                 ]
@@ -1417,7 +1576,7 @@ describe('applicationSyncRoutes', () => {
                             {
                                 id: setFieldId,
                                 codename: 'Motto',
-                                dataType: 'REF',
+                                dataType: 'REF' as const,
                                 targetEntityId: valueGroupId,
                                 targetEntityKind: 'set',
                                 targetConstantId: constantId,
@@ -1686,7 +1845,7 @@ describe('applicationSyncRoutes', () => {
                         kind: 'object',
                         codename: 'products',
                         table_name: 'products',
-                        presentation: { name: {} },
+                        presentation: mockEntityPresentationEmpty,
                         config: {}
                     },
                     {
@@ -1694,7 +1853,7 @@ describe('applicationSyncRoutes', () => {
                         kind: 'set',
                         codename: 'statuses',
                         table_name: 'set_statuses',
-                        presentation: { name: {} },
+                        presentation: mockEntityPresentationEmpty,
                         config: {}
                     }
                 ]
@@ -1713,7 +1872,7 @@ describe('applicationSyncRoutes', () => {
                         target_object_id: null,
                         target_object_kind: null,
                         parent_component_id: null,
-                        presentation: { name: {} },
+                        presentation: mockEntityPresentationEmpty,
                         validation_rules: {},
                         ui_config: {}
                     },
@@ -1729,16 +1888,28 @@ describe('applicationSyncRoutes', () => {
                         target_object_id: 'set-1',
                         target_object_kind: 'set',
                         parent_component_id: null,
-                        presentation: { name: {} },
+                        presentation: mockEntityPresentationEmpty,
                         validation_rules: {},
                         ui_config: {
                             targetConstantId: 'constant-1',
                             setConstantRef: {
                                 id: 'constant-1',
                                 codename: 'active',
-                                dataType: 'STRING',
+                                dataType: 'STRING' as const,
                                 value: 'active',
-                                name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Active', version: 1, isActive: true } } }
+                                name: {
+                                    _schema: '1' as const,
+                                    _primary: 'en' as const,
+                                    locales: {
+                                        en: {
+                                            content: 'Active',
+                                            version: 1,
+                                            isActive: true,
+                                            createdAt: '1970-01-01T00:00:00.000Z',
+                                            updatedAt: '1970-01-01T00:00:00.000Z'
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -1821,19 +1992,19 @@ describe('applicationSyncRoutes', () => {
                     id: 'object-1',
                     kind: 'object',
                     codename: 'products',
-                    presentation: { name: {} },
+                    presentation: mockEntityPresentationEmpty,
                     fields: [
                         {
                             id: 'field-1',
                             codename: 'title',
-                            dataType: 'STRING',
+                            dataType: 'STRING' as const,
                             isRequired: false,
                             isDisplayComponent: true,
                             targetEntityId: null,
                             targetEntityKind: null,
                             targetConstantId: null,
                             parentComponentId: null,
-                            presentation: { name: {} },
+                            presentation: mockEntityPresentationEmpty,
                             validationRules: {},
                             uiConfig: {},
                             physicalColumnName: 'col_title'
@@ -1891,7 +2062,7 @@ describe('applicationSyncRoutes', () => {
                         kind: 'object',
                         codename: 'products',
                         table_name: 'products',
-                        presentation: { name: {} },
+                        presentation: mockEntityPresentationEmpty,
                         config: {}
                     }
                 ]
@@ -1910,7 +2081,7 @@ describe('applicationSyncRoutes', () => {
                         target_object_id: null,
                         target_object_kind: null,
                         parent_component_id: null,
-                        presentation: { name: {} },
+                        presentation: mockEntityPresentationEmpty,
                         validation_rules: {},
                         ui_config: {}
                     }

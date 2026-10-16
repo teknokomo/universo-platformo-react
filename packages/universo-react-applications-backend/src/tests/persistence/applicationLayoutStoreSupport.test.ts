@@ -1,3 +1,4 @@
+import type { DbExecutor } from '@universo-react/utils'
 import { describe, expect, it, jest } from '@jest/globals'
 import { buildSingleTargetWidgetBinding, encodeLayoutWidgetConfigEnvelope, LAYOUT_WIDGET_DEFINITIONS } from '@universo-react/types'
 import { createApplicationLayoutWidgetSourceState } from '../../services/applicationLayoutWidgetSourceState'
@@ -183,9 +184,14 @@ describe('applicationLayoutStoreSupport', () => {
             }
         }
         const row = { ...baseRow, config: { showLeadForm: false }, source_config: heroSourceConfig() }
-        const query = jest.fn().mockResolvedValueOnce([layoutRow]).mockResolvedValueOnce([row])
+        const query = jest.fn(async (_sql: string, _params?: unknown[]): Promise<unknown[]> => [])
+        query.mockResolvedValueOnce([layoutRow]).mockResolvedValueOnce([row])
 
-        const detail = await getApplicationLayoutDetail({ query } as never, 'app_018f8a787b8f7c1da111222233334444', baseRow.layout_id)
+        const detail = await getApplicationLayoutDetail(
+            { query, transaction: () => Promise.resolve(null), isReleased: () => false } as unknown as DbExecutor,
+            'app_018f8a787b8f7c1da111222233334444',
+            baseRow.layout_id
+        )
 
         expect(detail?.widgets[0]?.instanceKey).toBe('hero')
         expect(detail?.widgets[0]?.config).toEqual({ showLeadForm: false })
@@ -222,9 +228,14 @@ describe('applicationLayoutStoreSupport', () => {
             source_config: heroSourceConfig(),
             source_state: sourceState
         }
-        const query = jest.fn().mockResolvedValueOnce([layoutRow]).mockResolvedValueOnce([row])
+        const query = jest.fn(async (_sql: string, _params?: unknown[]): Promise<unknown[]> => [])
+        query.mockResolvedValueOnce([layoutRow]).mockResolvedValueOnce([row])
 
-        const detail = await getApplicationLayoutDetail({ query } as never, 'app_018f8a787b8f7c1da111222233334444', baseRow.layout_id)
+        const detail = await getApplicationLayoutDetail(
+            { query, transaction: () => Promise.resolve(null), isReleased: () => false } as unknown as DbExecutor,
+            'app_018f8a787b8f7c1da111222233334444',
+            baseRow.layout_id
+        )
 
         expect(query.mock.calls[1]?.[0]).toContain('source_state')
         expect(detail?.widgets[0]).toEqual(expect.objectContaining({ sortOrder: 2, isCustomized: true }))

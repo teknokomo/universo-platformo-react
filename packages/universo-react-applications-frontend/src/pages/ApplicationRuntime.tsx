@@ -7,6 +7,7 @@ import Stack from '@mui/material/Stack'
 import { useQuery } from '@tanstack/react-query'
 import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useAuth } from '@universo-react/auth-frontend'
 import {
     AppMainLayout,
     DashboardWidgetSelectionProvider,
@@ -139,6 +140,7 @@ const ApplicationRuntime = ({ applicationIdOverride }: ApplicationRuntimeProps =
     const routeParams = useParams<{ applicationId: string; '*': string }>()
     const applicationId = applicationIdOverride ?? routeParams.applicationId
     const navigate = useNavigate()
+    const { user } = useAuth()
     const [runtimeSearchParams] = useSearchParams()
     const { t, i18n } = useTranslation('applications')
     const requestedWorkspaceId = runtimeSearchParams.get('workspaceId')?.trim() || null
@@ -243,6 +245,7 @@ const ApplicationRuntime = ({ applicationIdOverride }: ApplicationRuntimeProps =
                         locale={requestedLocale}
                         routeWorkspaceId={routeWorkspaceId}
                         routeSection={workspaceRouteSection}
+                        currentUserId={user?.id ?? null}
                         onNavigate={navigate}
                     />
                 </AppMainLayout>

@@ -1829,6 +1829,11 @@ export async function copyApplicationWorkspace(api, applicationId, workspaceId, 
     return response.json()
 }
 
+export async function convertApplicationWorkspaceToShared(api, applicationId, workspaceId) {
+    const response = await sendWithCsrf(api, 'POST', `/api/v1/applications/${applicationId}/runtime/workspaces/${workspaceId}/convert`, {})
+    return response
+}
+
 export async function deleteApplicationWorkspace(api, applicationId, workspaceId) {
     const response = await sendWithCsrf(api, 'DELETE', `/api/v1/applications/${applicationId}/runtime/workspaces/${workspaceId}`)
     if (!response.ok && response.status !== 404) {

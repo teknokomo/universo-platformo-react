@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import RuntimeWorkspacesPage from '../RuntimeWorkspacesPage'
 import ruApps from '../../i18n/locales/ru/apps.json'
 
@@ -32,6 +33,7 @@ const apiMocks = vi.hoisted(() => ({
     updateRuntimeWorkspace: vi.fn(),
     copyRuntimeWorkspace: vi.fn(),
     deleteRuntimeWorkspace: vi.fn(),
+    convertRuntimeWorkspaceToShared: vi.fn(),
     removeRuntimeWorkspaceMember: vi.fn(),
     updateDefaultRuntimeWorkspace: vi.fn(),
     updateRuntimeWorkspaceSettings: vi.fn(),
@@ -275,21 +277,26 @@ vi.mock('../../components/dialogs/ConfirmDeleteDialog', () => ({
         ) : null
 }))
 
-vi.mock('../../api/workspaces', () => ({
-    fetchRuntimeWorkspaces: (...args: unknown[]) => apiMocks.fetchRuntimeWorkspaces(...args),
-    fetchRuntimeWorkspace: (...args: unknown[]) => apiMocks.fetchRuntimeWorkspace(...args),
-    fetchRuntimeWorkspaceMembers: (...args: unknown[]) => apiMocks.fetchRuntimeWorkspaceMembers(...args),
-    fetchRuntimeWorkspaceSettings: (...args: unknown[]) => apiMocks.fetchRuntimeWorkspaceSettings(...args),
-    inviteRuntimeWorkspaceMember: (...args: unknown[]) => apiMocks.inviteRuntimeWorkspaceMember(...args),
-    createRuntimeWorkspace: (...args: unknown[]) => apiMocks.createRuntimeWorkspace(...args),
-    updateRuntimeWorkspace: (...args: unknown[]) => apiMocks.updateRuntimeWorkspace(...args),
-    copyRuntimeWorkspace: (...args: unknown[]) => apiMocks.copyRuntimeWorkspace(...args),
-    deleteRuntimeWorkspace: (...args: unknown[]) => apiMocks.deleteRuntimeWorkspace(...args),
-    removeRuntimeWorkspaceMember: (...args: unknown[]) => apiMocks.removeRuntimeWorkspaceMember(...args),
-    updateDefaultRuntimeWorkspace: (...args: unknown[]) => apiMocks.updateDefaultRuntimeWorkspace(...args),
-    updateRuntimeWorkspaceSettings: (...args: unknown[]) => apiMocks.updateRuntimeWorkspaceSettings(...args),
-    resetRuntimeWorkspaceSeededContent: (...args: unknown[]) => apiMocks.resetRuntimeWorkspaceSeededContent(...args)
-}))
+vi.mock('../../api/workspaces', async (importOriginal) => {
+    const actual = (await importOriginal()) as Record<string, unknown>
+    return {
+        ...actual,
+        fetchRuntimeWorkspaces: (...args: unknown[]) => apiMocks.fetchRuntimeWorkspaces(...args),
+        fetchRuntimeWorkspace: (...args: unknown[]) => apiMocks.fetchRuntimeWorkspace(...args),
+        fetchRuntimeWorkspaceMembers: (...args: unknown[]) => apiMocks.fetchRuntimeWorkspaceMembers(...args),
+        fetchRuntimeWorkspaceSettings: (...args: unknown[]) => apiMocks.fetchRuntimeWorkspaceSettings(...args),
+        inviteRuntimeWorkspaceMember: (...args: unknown[]) => apiMocks.inviteRuntimeWorkspaceMember(...args),
+        createRuntimeWorkspace: (...args: unknown[]) => apiMocks.createRuntimeWorkspace(...args),
+        updateRuntimeWorkspace: (...args: unknown[]) => apiMocks.updateRuntimeWorkspace(...args),
+        copyRuntimeWorkspace: (...args: unknown[]) => apiMocks.copyRuntimeWorkspace(...args),
+        deleteRuntimeWorkspace: (...args: unknown[]) => apiMocks.deleteRuntimeWorkspace(...args),
+        convertRuntimeWorkspaceToShared: (...args: unknown[]) => apiMocks.convertRuntimeWorkspaceToShared(...args),
+        removeRuntimeWorkspaceMember: (...args: unknown[]) => apiMocks.removeRuntimeWorkspaceMember(...args),
+        updateDefaultRuntimeWorkspace: (...args: unknown[]) => apiMocks.updateDefaultRuntimeWorkspace(...args),
+        updateRuntimeWorkspaceSettings: (...args: unknown[]) => apiMocks.updateRuntimeWorkspaceSettings(...args),
+        resetRuntimeWorkspaceSeededContent: (...args: unknown[]) => apiMocks.resetRuntimeWorkspaceSeededContent(...args)
+    }
+})
 
 const createQueryClient = () =>
     new QueryClient({
@@ -403,6 +410,7 @@ describe('RuntimeWorkspacesPage', () => {
         apiMocks.updateRuntimeWorkspace.mockResolvedValue(undefined)
         apiMocks.copyRuntimeWorkspace.mockResolvedValue({ id: 'ws-copy' })
         apiMocks.deleteRuntimeWorkspace.mockResolvedValue(undefined)
+        apiMocks.convertRuntimeWorkspaceToShared.mockResolvedValue({ id: 'ws-personal' })
         apiMocks.updateDefaultRuntimeWorkspace.mockResolvedValue(undefined)
         apiMocks.resetRuntimeWorkspaceSeededContent.mockResolvedValue({
             resetRows: 0,
@@ -1026,5 +1034,153 @@ describe('RuntimeWorkspacesPage', () => {
         expect(ruApps.workspace.settingKeys['learningContent.defaultView']).toBe('Вид контента по умолчанию')
         expect(ruApps.workspace.errors.userNotFound).toBe('Пользователь не найден')
         expect(ruApps.workspace.errors.lastOwnerRemovalBlocked).toBe('Нельзя удалить последнего владельца рабочего пространства')
+        expect(ruApps.workspace.actions.makeShared).toBe('Сделать общим')
+        expect(ruApps.workspace.convertOneWayLine).toBe('Это изменение необратимо.')
+        expect(ruApps.workspace.convertDataLine).toBe('Рабочее пространство, записи и связи сохраняются.')
+    })
+
+    it('converts an owner-owned personal workspace through the explicit confirmation dialog', async () => {
+        renderPage({ currentUserId: 'user-1' })
+        await screen.findByRole('button', { name: 'Personal' })
+
+        fireEvent.click(screen.getAllByRole('button', { name: 'Workspace actions' })[0])
+        expect(await screen.findByRole('menuitem', { name: 'Make shared' })).not.toBeDisabled()
+        fireEvent.click(screen.getByRole('menuitem', { name: 'Make shared' }))
+        // The row actions menu closes when the confirmation dialog opens.
+        await waitFor(() => {
+            expect(screen.queryByRole('menuitem', { name: 'Make shared' })).not.toBeInTheDocument()
+        })
+
+        const dialog = await screen.findByRole('dialog', { name: 'Convert to shared workspace?' })
+        expect(
+            within(dialog).getByText(
+                'Every application member sees this workspace with baseline member rights; existing owner roles are kept.'
+            )
+        ).toBeInTheDocument()
+        expect(within(dialog).getByText('This change is permanent and cannot be undone.')).toBeInTheDocument()
+        // The described-by target covers both the one-way warning and the detail bullet list.
+        expect(dialog).toHaveAttribute('aria-describedby', 'runtime-convert-shared-description')
+        const describedContent = document.getElementById('runtime-convert-shared-description')
+        expect(describedContent?.getAttribute('role') ?? 'group').toBeDefined()
+        expect(describedContent).toHaveTextContent('This change is permanent and cannot be undone.')
+        expect(
+            within(dialog).getByText(
+                'Existing guest links in this workspace become eligible when configured. Anonymous public access is not enabled automatically.'
+            )
+        ).toBeInTheDocument()
+        expect(within(dialog).getByText('The workspace, its records and links are preserved.')).toBeInTheDocument()
+
+        // Initial focus rests on the safe (Cancel) action for an irreversible change.
+        expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Convert to shared' }))
+        await waitFor(() => {
+            expect(apiMocks.convertRuntimeWorkspaceToShared).toHaveBeenCalledWith({
+                apiBaseUrl: '/api/v1',
+                applicationId: 'app-1',
+                workspaceId: 'ws-personal'
+            })
+        })
+        await waitFor(() => {
+            expect(screen.queryByRole('dialog', { name: 'Convert to shared workspace?' })).not.toBeInTheDocument()
+        })
+    })
+
+    it('keeps the conversion action disabled for shared workspaces', async () => {
+        renderPage()
+        await screen.findByRole('button', { name: 'Class A' })
+
+        fireEvent.click(screen.getAllByRole('button', { name: 'Workspace actions' })[1])
+        const makeSharedItem = await screen.findByRole('menuitem', { name: 'Make shared' })
+        expect(makeSharedItem).toHaveAttribute('aria-disabled', 'true')
+    })
+
+    it('disables Make shared for an invited co-owner who does not own the personal workspace', async () => {
+        renderPage({ currentUserId: 'user-2' })
+        await screen.findByRole('button', { name: 'Personal' })
+
+        fireEvent.click(screen.getAllByRole('button', { name: 'Workspace actions' })[0])
+        const makeSharedItem = await screen.findByRole('menuitem', { name: 'Make shared' })
+        expect(makeSharedItem).toHaveAttribute('aria-disabled', 'true')
+    })
+
+    it('supports a keyboard-only conversion path from menu open through dialog confirm', async () => {
+        apiMocks.convertRuntimeWorkspaceToShared.mockResolvedValue({ id: 'ws-personal' })
+        renderPage({ currentUserId: 'user-1' })
+        const user = userEvent.setup()
+        const actionsButton = await screen.findAllByRole('button', { name: 'Workspace actions' })
+
+        // The row menu opens through the button activation seam (happy-dom
+        // lacks the native Enter→click button mapping); the dialog staging
+        // below stays keyboard-driven.
+        fireEvent.click(actionsButton[0]!)
+        const makeSharedItem = await screen.findByRole('menuitem', { name: 'Make shared' })
+        expect(makeSharedItem).not.toBeDisabled()
+        // Menu items are `li` elements without native Enter activation in
+        // happy-dom, so the dialog opens through the item activation seam; the
+        // dialog staging below stays keyboard-driven (initial focus, Tab,
+        // Enter, Escape in the dedicated test).
+        fireEvent.focus(makeSharedItem)
+        fireEvent.click(makeSharedItem)
+
+        const dialog = await screen.findByRole('dialog', { name: 'Convert to shared workspace?' })
+        const cancelButton = within(dialog).getByRole('button', { name: 'Cancel' })
+        expect(cancelButton).toHaveFocus()
+        // Tab really moves focus to the destructive action inside the dialog.
+        await user.tab()
+        const convertButton = within(dialog).getByRole('button', { name: 'Convert to shared' })
+        expect(convertButton).toHaveFocus()
+        // Enter on the focused destructive action confirms the conversion.
+        await user.keyboard('{Enter}')
+        await waitFor(() => {
+            expect(apiMocks.convertRuntimeWorkspaceToShared).toHaveBeenCalledWith({
+                apiBaseUrl: '/api/v1',
+                applicationId: 'app-1',
+                workspaceId: 'ws-personal'
+            })
+        })
+        await waitFor(() => {
+            expect(screen.queryByRole('dialog', { name: 'Convert to shared workspace?' })).not.toBeInTheDocument()
+        })
+    })
+
+    it('closes the conversion dialog with Escape without converting', async () => {
+        renderPage({ currentUserId: 'user-1' })
+        const user = userEvent.setup()
+        await screen.findByRole('button', { name: 'Personal' })
+
+        fireEvent.click(screen.getAllByRole('button', { name: 'Workspace actions' })[0])
+        fireEvent.click(await screen.findByRole('menuitem', { name: 'Make shared' }))
+        const dialog = await screen.findByRole('dialog', { name: 'Convert to shared workspace?' })
+        expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+
+        await user.keyboard('{Escape}')
+        await waitFor(() => {
+            expect(screen.queryByRole('dialog', { name: 'Convert to shared workspace?' })).not.toBeInTheDocument()
+        })
+        expect(apiMocks.convertRuntimeWorkspaceToShared).not.toHaveBeenCalled()
+    })
+
+    it('keeps the conversion dialog open with a localized error when the backend rejects it', async () => {
+        apiMocks.convertRuntimeWorkspaceToShared.mockRejectedValue(
+            Object.assign(new Error('Only the personal workspace owner can convert it to shared'), {
+                code: 'WORKSPACE_CONVERSION_BLOCKED'
+            })
+        )
+        renderPage({ currentUserId: 'user-1' })
+        await screen.findByRole('button', { name: 'Personal' })
+
+        fireEvent.click(screen.getAllByRole('button', { name: 'Workspace actions' })[0])
+        fireEvent.click(await screen.findByRole('menuitem', { name: 'Make shared' }))
+        const dialog = screen.getByRole('dialog', { name: 'Convert to shared workspace?' })
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Convert to shared' }))
+
+        await waitFor(() => {
+            const alerts = within(dialog)
+                .getAllByRole('alert')
+                .map((el) => el.textContent ?? '')
+            expect(alerts).toContain('Only the personal workspace owner can convert it to shared')
+        })
+        expect(screen.getByRole('dialog', { name: 'Convert to shared workspace?' })).toBeInTheDocument()
     })
 })

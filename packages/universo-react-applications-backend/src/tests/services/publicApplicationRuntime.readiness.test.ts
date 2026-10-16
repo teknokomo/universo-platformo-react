@@ -1,3 +1,4 @@
+import type { PublicRuntimeApplicationRow } from '../../services/publicApplicationRuntime'
 import { classifyPublicApplicationReadiness } from '../../services/publicApplicationRuntime'
 
 const applicationId = '0190a9b5-3cde-7abc-8def-0123456789ab'

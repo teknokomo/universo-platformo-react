@@ -36,7 +36,7 @@ export const responseIsMutation = (response: Response, method: string, path: Reg
     response.request().method() === method && path.test(new URL(response.url()).pathname)
 
 export const getWidgetByInstanceKey = (widgets: LayoutZoneWidget[], instanceKey: string): LayoutZoneWidget | undefined =>
-    widgets.find((widget) => readString(readConfig(widget).instanceKey) === instanceKey)
+    widgets.find((widget) => readString(widget.instanceKey) === instanceKey)
 
 export const waitForWidgetState = async (
     api: Parameters<typeof listLayoutZoneWidgets>[0],

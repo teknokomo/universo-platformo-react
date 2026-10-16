@@ -94,15 +94,13 @@ export async function verifyMarketingApplicationAuthoring(options: {
         footer: 'Футер'
     }
     for (const [instanceKey, label] of Object.entries(widgetLabels)) {
-        const widget = marketingWidgets.widgets?.find(
-            (item) => readLayoutWidgetConfig(item).instanceKey === instanceKey && typeof item.id === 'string'
-        )
+        const widget = marketingWidgets.widgets?.find((item) => item.instanceKey === instanceKey && typeof item.id === 'string')
         if (!widget?.id) throw new Error(`The application marketing layout did not expose the ${instanceKey} widget`)
         const surface = page.getByTestId(`layout-widget-${widget.id}`)
         await expect(surface.getByRole('button', { name: label, exact: true })).toBeVisible()
     }
 
-    const featuresWidget = marketingWidgets.widgets?.find((item) => readLayoutWidgetConfig(item).instanceKey === 'features')
+    const featuresWidget = marketingWidgets.widgets?.find((item) => item.instanceKey === 'features')
     if (!featuresWidget?.id) throw new Error('The application marketing layout did not expose the Features widget')
     const featuresToggle = page.getByTestId(`layout-widget-toggle-${featuresWidget.id}`)
     await expect(featuresToggle).toHaveAttribute('aria-label', 'Отключить виджет: Коллекция: Возможности')
@@ -139,13 +137,13 @@ export async function verifyMarketingApplicationAuthoring(options: {
         animations: 'disabled'
     })
 
-    const logoWidget = marketingWidgets.widgets?.find((item) => readLayoutWidgetConfig(item).instanceKey === 'logos')
+    const logoWidget = marketingWidgets.widgets?.find((item) => item.instanceKey === 'logos')
     if (!logoWidget?.id) throw new Error('The application marketing layout did not expose the logos widget')
     await page
         .getByTestId(`layout-widget-${logoWidget.id}`)
         .getByRole('button', { name: 'Редактировать виджет: Коллекция: Логотипы', exact: true })
         .click()
-    const applicationWidgetDialog = page.getByRole('dialog').filter({ has: page.getByTestId('marketing-widget-config-dialog') })
+    const applicationWidgetDialog = page.getByRole('dialog').filter({ has: page.getByTestId('layout-widget-presentation-dialog') })
     await expect(applicationWidgetDialog).toBeVisible()
     await expect(applicationWidgetDialog.getByRole('alert')).toHaveCount(1)
     await expect(applicationWidgetDialog.getByRole('alert')).toHaveText(
@@ -172,7 +170,7 @@ export async function verifyMarketingApplicationAuthoring(options: {
         .getByRole('button', { name: 'Edit widget: Collection: Logo collection', exact: true })
         .click()
     const englishApplicationWidgetDialog = page.getByRole('dialog').filter({
-        has: page.getByTestId('marketing-widget-config-dialog')
+        has: page.getByTestId('layout-widget-presentation-dialog')
     })
     await expect(englishApplicationWidgetDialog).toBeVisible()
     await expect(englishApplicationWidgetDialog.getByRole('alert')).toHaveText(
@@ -193,9 +191,7 @@ export async function verifyMarketingApplicationAuthoring(options: {
     // then reset it through the real UI to the latest source baseline. The
     // Entity binding remains owned by the metahub throughout this round trip.
     const sourceWidgets = (await listLayoutZoneWidgets(api, metahubId, sourceLayoutId)) as { items?: LayoutWidget[] }
-    const sourceLogoWidget = sourceWidgets.items?.find(
-        (widget) => readLayoutWidgetConfig(widget).instanceKey === 'logos' && typeof widget.id === 'string'
-    )
+    const sourceLogoWidget = sourceWidgets.items?.find((widget) => widget.instanceKey === 'logos' && typeof widget.id === 'string')
     if (!sourceLogoWidget?.id || typeof sourceLogoWidget.version !== 'number') {
         throw new Error('The marketing metahub layout did not expose a versioned Logos source widget')
     }
@@ -204,7 +200,7 @@ export async function verifyMarketingApplicationAuthoring(options: {
     const refreshedSourceMaxItems = currentSourceMaxItems === 23 ? 24 : 23
     const bindingBeforeSourceUpdate = await getLayoutZoneWidgetBindings(api, metahubId, sourceLayoutId, sourceLogoWidget.id, 'ru')
 
-    const applicationLogo = marketingWidgets.widgets?.find((widget) => readLayoutWidgetConfig(widget).instanceKey === 'logos')
+    const applicationLogo = marketingWidgets.widgets?.find((widget) => widget.instanceKey === 'logos')
     if (!applicationLogo?.id || typeof applicationLogo.version !== 'number') {
         throw new Error('The materialized application did not expose a versioned Logos widget')
     }
@@ -212,7 +208,7 @@ export async function verifyMarketingApplicationAuthoring(options: {
         .getByTestId(`layout-widget-${applicationLogo.id}`)
         .getByRole('button', { name: 'Редактировать виджет: Коллекция: Логотипы', exact: true })
         .click()
-    const presentationDialog = page.getByRole('dialog').filter({ has: page.getByTestId('marketing-widget-config-dialog') })
+    const presentationDialog = page.getByRole('dialog').filter({ has: page.getByTestId('layout-widget-presentation-dialog') })
     await expect(presentationDialog).toBeVisible()
     const maxItemsField = presentationDialog.getByRole('spinbutton', { name: 'Максимум элементов', exact: true })
     await maxItemsField.fill('17')
@@ -259,7 +255,7 @@ export async function verifyMarketingApplicationAuthoring(options: {
     const applicationAfterSync = (await getApplicationLayout(api, applicationId, applicationMarketingLayout.id)) as {
         widgets?: LayoutWidget[]
     }
-    const logoAfterSync = applicationAfterSync.widgets?.find((widget) => readLayoutWidgetConfig(widget).instanceKey === 'logos')
+    const logoAfterSync = applicationAfterSync.widgets?.find((widget) => widget.instanceKey === 'logos')
     if (!logoAfterSync) throw new Error('The Logos widget disappeared during source synchronization')
     expect(readLayoutWidgetConfig(logoAfterSync).maxItems).toBe(17)
     expect(readLayoutWidgetConfig(logoAfterSync)).not.toHaveProperty('bindings')
@@ -289,7 +285,7 @@ export async function verifyMarketingApplicationAuthoring(options: {
     const applicationAfterReset = (await getApplicationLayout(api, applicationId, applicationMarketingLayout.id)) as {
         widgets?: LayoutWidget[]
     }
-    const logoAfterReset = applicationAfterReset.widgets?.find((widget) => readLayoutWidgetConfig(widget).instanceKey === 'logos')
+    const logoAfterReset = applicationAfterReset.widgets?.find((widget) => widget.instanceKey === 'logos')
     expect(logoAfterReset).toBeDefined()
     expect(readLayoutWidgetConfig(logoAfterReset!)).toMatchObject({ maxItems: refreshedSourceMaxItems })
     expect(logoAfterReset?.sourceConfig).toMatchObject({ maxItems: refreshedSourceMaxItems })
@@ -304,13 +300,13 @@ export async function verifyMarketingApplicationAuthoring(options: {
         animations: 'disabled'
     })
 
-    const brandWidget = marketingWidgets.widgets?.find((item) => readLayoutWidgetConfig(item).instanceKey === 'brand')
+    const brandWidget = marketingWidgets.widgets?.find((item) => item.instanceKey === 'brand')
     if (!brandWidget?.id) throw new Error('The application marketing layout did not expose the brand widget')
     await expect(
         page.getByTestId(`layout-widget-${brandWidget.id}`).getByRole('button', { name: 'Редактировать виджет: Бренд', exact: true })
     ).toHaveCount(0)
 
-    const heroWidget = marketingWidgets.widgets?.find((item) => readLayoutWidgetConfig(item).instanceKey === 'hero')
+    const heroWidget = marketingWidgets.widgets?.find((item) => item.instanceKey === 'hero')
     if (!heroWidget?.id) throw new Error('The application marketing layout did not expose the hero widget')
     const applicationHeroSurface = page.getByTestId(`layout-widget-${heroWidget.id}`)
     await expect(applicationHeroSurface.getByRole('button', { name: 'Дублировать виджет: Главный экран', exact: true })).toHaveCount(0)

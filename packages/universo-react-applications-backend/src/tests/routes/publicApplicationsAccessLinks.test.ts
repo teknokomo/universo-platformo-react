@@ -313,12 +313,12 @@ describe('Public Applications Routes: access links', () => {
 
     it('rejects a guest attempt when its session is revoked and the link is re-enabled while start waits for its lock', async () => {
         let signalAccessLinkLockReached: () => void = () => undefined
-        let releaseAccessLinkLock: (() => void) | null = null
+        const accessLinkLockGate: { release: (() => void) | null } = { release: null }
         const accessLinkLockReached = new Promise<void>((resolve) => {
             signalAccessLinkLockReached = resolve
         })
         const waitForAccessLinkLock = new Promise<void>((resolve) => {
-            releaseAccessLinkLock = resolve
+            accessLinkLockGate.release = resolve
         })
         const race = buildRevokedAttemptRaceDataSource({
             revokeDuringMutation: false,
@@ -335,8 +335,8 @@ describe('Public Applications Routes: access links', () => {
             .then((response) => response)
         await accessLinkLockReached
         race.revokeAndReenableAccessLink()
-        if (!releaseAccessLinkLock) throw new Error('Access-link lock gate was not initialized')
-        releaseAccessLinkLock()
+        if (!accessLinkLockGate.release) throw new Error('Access-link lock gate was not initialized')
+        accessLinkLockGate.release()
         const response = await responsePromise
 
         expect(response.status).toBe(409)

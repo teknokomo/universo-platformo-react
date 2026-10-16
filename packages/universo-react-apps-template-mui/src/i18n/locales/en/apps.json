@@ -473,13 +473,22 @@
             "openMenu": "Workspace actions",
             "edit": "Edit",
             "copy": "Copy",
+            "makeShared": "Make shared",
             "delete": "Delete"
         },
+        "convertTitle": "Convert to shared workspace?",
+        "convertOneWayLine": "This change is permanent and cannot be undone.",
+        "convertVisibilityLine": "Every application member sees this workspace with baseline member rights; existing owner roles are kept.",
+        "convertGuestLinksLine": "Existing guest links in this workspace become eligible when configured. Anonymous public access is not enabled automatically.",
+        "convertDataLine": "The workspace, its records and links are preserved.",
+        "convertConfirm": "Convert to shared",
+        "convertBusy": "Converting…",
         "errors": {
             "userNotFound": "User not found",
             "applicationMemberRequired": "User must be an active application member before being added to a workspace",
             "lastOwnerRemovalBlocked": "Cannot remove the last workspace owner",
             "ownerRequired": "Only workspace owners can manage members",
+            "conversionOwnerRequired": "Only the personal workspace owner can convert it to shared.",
             "accessDenied": "You do not have access to this workspace",
             "userNotWorkspaceMember": "User is not a member of this workspace",
             "memberNotFound": "Workspace member not found",
@@ -494,7 +503,8 @@
             "copyReferenceUnresolved": "A required workspace reference could not be copied.",
             "copyAccessLinkIntakeInvalid": "This workspace has invalid guest intake settings and could not be copied.",
             "personalMutationBlocked": "Personal workspace cannot be changed",
-            "personalDeleteBlocked": "Personal workspace cannot be deleted"
+            "personalDeleteBlocked": "Personal workspace cannot be deleted",
+            "conversionBlocked": "Only the personal workspace owner can convert it to shared"
         },
         "fields": {
             "name": "Name",

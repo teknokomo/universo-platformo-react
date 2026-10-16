@@ -57,9 +57,19 @@ describe('runtime row read payload', () => {
             copySurface: 'dialog'
         }
 
-        const runtimeMetadata = [payload.section, payload.objectCollection, payload.sections[0], payload.objectCollections[0]] as Array<{
-            runtimeConfig: unknown
-        }>
+        type RuntimeReadPayloadFixture = {
+            section: Record<string, unknown>
+            objectCollection: Record<string, unknown>
+            sections: Record<string, unknown>[]
+            objectCollections: Record<string, unknown>[]
+        }
+        const payloadFixture = payload as unknown as RuntimeReadPayloadFixture
+        const runtimeMetadata = [
+            payloadFixture.section,
+            payloadFixture.objectCollection,
+            payloadFixture.sections[0],
+            payloadFixture.objectCollections[0]
+        ]
 
         for (const metadata of runtimeMetadata) {
             expect(objectCollectionRuntimeViewConfigSchema.parse(metadata.runtimeConfig)).toEqual(expectedRuntimeConfig)

@@ -2,6 +2,20 @@ import { materializeSnapshotLayoutsAndWidgets } from '../../routes/sync/syncHelp
 import { buildRuntimeSnapshotForApplicationSync, createGlobalDashboardLayout } from './syncLayoutMaterializationHarness'
 import type { EntityDefinition, PublishedApplicationSnapshot } from './syncLayoutMaterializationHarness'
 
+type SnapshotVlc = {
+    _schema: '1'
+    _primary: string
+    locales: Record<string, { version: number; content: string; createdAt: string; updatedAt: string; isActive: boolean }>
+}
+
+const vlcOne = (content: string, primary = 'en'): SnapshotVlc => ({
+    _schema: '1',
+    _primary: primary,
+    locales: {
+        [primary]: { content, version: 1, isActive: true, createdAt: '1970-01-01T00:00:00.000Z', updatedAt: '1970-01-01T00:00:00.000Z' }
+    }
+})
+
 describe('sync layout Entity scope and renderer config boundary', () => {
     it('remaps scoped layout Entity ids by codename without putting physical ids into widget config', () => {
         const snapshot: PublishedApplicationSnapshot = {
@@ -9,7 +23,9 @@ describe('sync layout Entity scope and renderer config boundary', () => {
                 '019f3100-0000-7000-8000-000000000101': {
                     id: '019f3100-0000-7000-8000-000000000101',
                     kind: 'object',
-                    codename: { _primary: 'en', locales: { en: { content: 'Products' } } }
+                    codename: vlcOne('Products'),
+                    presentation: { name: vlcOne('Products') },
+                    fields: []
                 }
             },
             layouts: [createGlobalDashboardLayout()],
@@ -47,15 +63,20 @@ describe('sync layout Entity scope and renderer config boundary', () => {
             {
                 id: '019f3100-0000-7000-8000-000000000102',
                 kind: 'object',
-                codename: { _primary: 'en', locales: { en: { content: 'Products' } } }
+                codename: vlcOne('Products'),
+                fields: [],
+                presentation: { name: vlcOne('Products') }
             }
-        ] as EntityDefinition[]
+        ] as unknown as EntityDefinition[]
 
         const runtimeSnapshot = buildRuntimeSnapshotForApplicationSync(snapshot, runtimeEntities)
         const materialized = materializeSnapshotLayoutsAndWidgets(runtimeSnapshot)
         const menu = materialized.widgets.find((widget) => widget.instanceKey === 'main-menu')
 
-        expect(runtimeSnapshot.scopedLayouts?.[0]?.scopeEntityId).toBe('019f3100-0000-7000-8000-000000000102')
+        type ScopedLayoutFixture = { scopeEntityId?: string | null }
+        expect((runtimeSnapshot.scopedLayouts as ScopedLayoutFixture[] | undefined)?.[0]?.scopeEntityId).toBe(
+            '019f3100-0000-7000-8000-000000000102'
+        )
         expect(menu?.config).toEqual({ variant: 'generated' })
         expect(JSON.stringify(menu?.config)).not.toContain('019f3100-0000-7000-8000-000000000102')
     })

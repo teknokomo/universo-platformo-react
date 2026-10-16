@@ -21,8 +21,8 @@ jest.mock('../../services/guestAssessmentApplicationRevocation', () => ({
 }))
 
 const vlc = (content: string) => ({
-    _schema: '1',
-    _primary: 'en',
+    _schema: '1' as const,
+    _primary: 'en' as const,
     locales: {
         en: {
             content,
@@ -123,7 +123,7 @@ describe('runtimeWorkspaceService', () => {
         ).resolves.toBeNull()
     })
 
-    it('allows an application administrator to inspect an unassigned workspace without granting membership', async () => {
+    it('allows an application administrator to inspect an unassigned shared workspace without granting membership', async () => {
         const { executor } = createMockDbExecutor()
         executor.query.mockResolvedValue([
             {
@@ -148,6 +148,22 @@ describe('runtimeWorkspaceService', () => {
             })
         ).resolves.toEqual(expect.objectContaining({ id: 'workspace-admin', roleCodename: 'admin' }))
         expect(executor.query).toHaveBeenCalledWith(expect.stringContaining('$3::boolean = true'), ['admin-1', 'workspace-admin', true])
+    })
+
+    it('never resolves another user personal workspace for application administrators without membership', async () => {
+        const { executor } = createMockDbExecutor()
+        // Simulate the isolation-safe lookup: unassigned admins may only reach
+        // non-personal workspaces, even with allowUnassigned enabled.
+        executor.query.mockResolvedValue([])
+
+        await expect(
+            getUserWorkspace(executor, {
+                schemaName,
+                userId: 'admin-1',
+                workspaceId: 'workspace-personal-other',
+                allowUnassigned: true
+            })
+        ).resolves.toBeNull()
     })
 
     it('creates a shared workspace and promotes it to the default workspace', async () => {
@@ -184,6 +200,7 @@ describe('runtimeWorkspaceService', () => {
 
         const result = await createSharedWorkspace(executor, {
             schemaName,
+            applicationId: '018f8a78-7b8f-7c1d-a111-222233334444',
             name: vlc('Class A'),
             description: vlc('Class A description'),
             userId: 'user-1',
@@ -216,6 +233,8 @@ describe('runtimeWorkspaceService', () => {
                 return [{ id: 'workspace-1' }]
             }
 
+            if (sql.includes('pg_advisory_xact_lock')) return []
+
             throw new Error(`Unexpected SQL: ${sql}`)
         })
 
@@ -235,6 +254,8 @@ describe('runtimeWorkspaceService', () => {
             if (sql.includes('SELECT id, workspace_type')) {
                 return [{ id: 'workspace-personal', workspace_type: 'personal' }]
             }
+
+            if (sql.includes('pg_advisory_xact_lock')) return []
 
             throw new Error(`Unexpected SQL: ${sql}`)
         })
@@ -386,6 +407,7 @@ describe('runtimeWorkspaceService', () => {
     it('adds and removes workspace members using role codenames', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
         const generatedIds = ['relation-2']
+        const applicationId = '018f8a78-7b8f-7c1d-a111-222233334401'
 
         txExecutor.query.mockImplementation(async (sql: string, params: unknown[] = []) => {
             if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
@@ -425,6 +447,7 @@ describe('runtimeWorkspaceService', () => {
             if (sql.includes(`UPDATE "${schemaName}"."_app_workspace_user_roles"`)) {
                 expect(params[0]).toBe('workspace-1')
                 expect(params[1]).toBe('user-2')
+                expect(params[3]).toBe(applicationId)
                 return [{ id: 'membership-2' }]
             }
 
@@ -448,9 +471,7 @@ describe('runtimeWorkspaceService', () => {
             }
 
             if (sql.includes(`UPDATE "${schemaName}"."_app_workspace_user_roles"`)) {
-                expect(params[0]).toBe('workspace-1')
-                expect(params[1]).toBe('user-2')
-                return []
+                return [{ id: 'membership-2' }]
             }
 
             return []
@@ -458,6 +479,7 @@ describe('runtimeWorkspaceService', () => {
 
         await addWorkspaceMember(executor, {
             schemaName,
+            applicationId,
             workspaceId: 'workspace-1',
             userId: 'user-2',
             roleCodename: 'member',
@@ -466,6 +488,7 @@ describe('runtimeWorkspaceService', () => {
 
         await removeWorkspaceMember(executor, {
             schemaName,
+            applicationId,
             workspaceId: 'workspace-1',
             userId: 'user-2',
             actorUserId: 'user-1'
@@ -503,11 +526,14 @@ describe('runtimeWorkspaceService', () => {
                 return []
             }
 
+            if (sql.includes('pg_advisory_xact_lock')) return []
+
             throw new Error(`Unexpected SQL: ${sql}`)
         })
 
         await addWorkspaceMember(executor, {
             schemaName,
+            applicationId: '018f8a78-7b8f-7c1d-a111-222233334404',
             workspaceId: 'workspace-1',
             userId: 'user-2',
             roleCodename: 'owner',
@@ -518,6 +544,55 @@ describe('runtimeWorkspaceService', () => {
             expect.stringContaining(`INSERT INTO "${schemaName}"."_app_workspace_user_roles"`),
             expect.anything()
         )
+    })
+
+    it('preserves the baseline member row of an active application member during workspace removal', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+        const applicationId = '018f8a78-7b8f-7c1d-a111-222233334405'
+
+        let preserveSql = ''
+        txExecutor.query.mockImplementation(async (sql: string, params: unknown[] = []) => {
+            if (sql.includes('pg_advisory_xact_lock')) return []
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
+                return [{ workspace_type: 'shared', personal_user_id: null }]
+            }
+
+            if (sql.includes('INNER JOIN') && sql.includes(`"${schemaName}"."_app_workspace_user_roles"`)) {
+                return [
+                    {
+                        id: 'membership-member',
+                        role_id: 'role-member',
+                        is_default_workspace: true,
+                        role_codename: 'member'
+                    }
+                ]
+            }
+
+            if (sql.includes(`UPDATE "${schemaName}"."_app_workspace_user_roles"`)) {
+                preserveSql = sql
+                expect(params[0]).toBe('workspace-1')
+                expect(params[1]).toBe('user-4')
+                expect(params[3]).toBe(applicationId)
+                // Nothing deleted: the user's only row is the platform-owned baseline.
+                return []
+            }
+
+            throw new Error(`Unexpected SQL: ${sql}`)
+        })
+
+        await expect(
+            removeWorkspaceMember(executor, {
+                schemaName,
+                applicationId,
+                workspaceId: 'workspace-1',
+                userId: 'user-4',
+                actorUserId: 'user-1'
+            })
+        ).resolves.toBeUndefined()
+
+        expect(preserveSql).toContain(`applications.rel_application_users au`)
+        expect(preserveSql).toContain(`r.codename = 'member'`)
     })
 
     it('fails closed when removing the last workspace owner', async () => {
@@ -543,12 +618,15 @@ describe('runtimeWorkspaceService', () => {
                 ]
             }
 
+            if (sql.includes('pg_advisory_xact_lock')) return []
+
             throw new Error(`Unexpected SQL: ${sql}`)
         })
 
         await expect(
             removeWorkspaceMember(executor, {
                 schemaName,
+                applicationId: '018f8a78-7b8f-7c1d-a111-222233334404',
                 workspaceId: 'workspace-1',
                 userId: 'user-1',
                 actorUserId: 'user-2'
@@ -655,11 +733,14 @@ describe('runtimeWorkspaceService', () => {
                 return []
             }
 
+            if (sql.includes('pg_advisory_xact_lock')) return []
+
             throw new Error(`Unexpected SQL: ${sql}`)
         })
 
         await addWorkspaceMember(executor, {
             schemaName,
+            applicationId: 'app-1',
             workspaceId: 'workspace-1',
             userId: 'user-2',
             roleCodename: 'member',
@@ -668,6 +749,111 @@ describe('runtimeWorkspaceService', () => {
 
         expect(txExecutor.query).toHaveBeenCalledWith(
             expect.stringContaining(`INSERT INTO "${schemaName}"."_app_workspace_user_roles"`),
+            expect.any(Array)
+        )
+    })
+
+    it('blocks demoting the last owner row through the invite path', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+
+        txExecutor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
+                return [{ workspace_type: 'shared', personal_user_id: null }]
+            }
+
+            if (sql.includes('wur.user_id <>')) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
+                return [{ id: 'role-member' }]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_user_roles"`)) {
+                return [
+                    {
+                        id: 'membership-1',
+                        role_id: 'role-owner',
+                        is_default_workspace: true,
+                        role_codename: 'owner'
+                    }
+                ]
+            }
+
+            if (sql.includes('pg_advisory_xact_lock')) return []
+
+            throw new Error(`Unexpected SQL: ${sql}`)
+        })
+
+        await expect(
+            addWorkspaceMember(executor, {
+                schemaName,
+                applicationId: '018f8a78-7b8f-7c1d-a111-222233334404',
+                workspaceId: 'workspace-1',
+                userId: 'user-1',
+                roleCodename: 'member',
+                actorUserId: 'user-1'
+            })
+        ).rejects.toThrow('Cannot demote the last workspace owner')
+
+        // Failed-guard path must not mutate the role of the last owner.
+        expect(txExecutor.query).not.toHaveBeenCalledWith(expect.stringContaining(`UPDATE "${schemaName}"."_app_workspace_user_roles"`))
+    })
+
+    it('allows demoting an owner when another active owner row exists with application membership', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+
+        txExecutor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
+                return [{ workspace_type: 'shared', personal_user_id: null }]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
+                return [{ id: 'role-member' }]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_user_roles"`)) {
+                return [
+                    {
+                        id: 'membership-1',
+                        role_id: 'role-owner',
+                        is_default_workspace: true,
+                        role_codename: 'owner'
+                    }
+                ]
+            }
+
+            if (sql.includes('wur.user_id <>')) {
+                return [{ id: 'other-owner-row' }]
+            }
+
+            if (sql.includes(`UPDATE "${schemaName}"."_app_workspace_user_roles"`)) {
+                return []
+            }
+
+            if (sql.includes('pg_advisory_xact_lock')) return []
+
+            throw new Error(`Unexpected SQL: ${sql}`)
+        })
+
+        await expect(
+            addWorkspaceMember(executor, {
+                schemaName,
+                applicationId: '018f8a78-7b8f-7c1d-a111-222233334404',
+                workspaceId: 'workspace-1',
+                userId: 'user-1',
+                roleCodename: 'member',
+                actorUserId: 'user-2'
+            })
+        ).resolves.toBeUndefined()
+
+        // Stale owner rows no longer count: the remaining-owner query
+        // requires the other owner to still be an active application member.
+        const remainingOwnerSql = txExecutor.query.mock.calls.map(([sql]) => String(sql)).find((sql) => sql.includes('wur.user_id <>'))
+        expect(remainingOwnerSql).toBeDefined()
+        expect(remainingOwnerSql).toContain('applications.rel_application_users au')
+        expect(txExecutor.query).toHaveBeenCalledWith(
+            expect.stringContaining(`UPDATE "${schemaName}"."_app_workspace_user_roles"`),
             expect.any(Array)
         )
     })

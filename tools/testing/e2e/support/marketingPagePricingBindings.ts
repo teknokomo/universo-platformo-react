@@ -85,7 +85,7 @@ export async function verifyMarketingPricingRecordRelationSetFlow(options: {
     const pricingMenu = page.getByRole('menu')
     await expect(pricingMenu).toBeVisible()
     await pricingMenu.getByRole('menuitem', { name: 'Pricing', exact: true }).click()
-    const pricingConfigDialog = page.getByRole('dialog').filter({ has: page.getByTestId('marketing-widget-config-dialog') })
+    const pricingConfigDialog = page.getByRole('dialog').filter({ has: page.getByTestId('layout-widget-presentation-dialog') })
     await expect(pricingConfigDialog).toBeVisible()
     await pricingConfigDialog.getByRole('button', { name: 'Save', exact: true }).click()
     await expect(pricingConfigDialog).toHaveCount(0)

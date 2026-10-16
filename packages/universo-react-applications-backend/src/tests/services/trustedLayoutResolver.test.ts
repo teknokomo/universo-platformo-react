@@ -15,8 +15,48 @@ const globalWidgetId = '019f2000-0000-7000-8000-000000000020'
 
 const createSnapshot = (): PublishedApplicationSnapshot => ({
     entities: {
-        [objectId]: { id: objectId, kind: 'object', codename: 'Products', fields: [] },
-        [pageId]: { id: pageId, kind: 'page', codename: 'LandingPage', fields: [] }
+        [objectId]: {
+            id: objectId,
+            kind: 'object',
+            codename: 'Products',
+            presentation: {
+                name: {
+                    _schema: '1' as const,
+                    _primary: 'en' as const,
+                    locales: {
+                        en: {
+                            content: 'Products',
+                            version: 1,
+                            isActive: true,
+                            createdAt: '1970-01-01T00:00:00.000Z',
+                            updatedAt: '1970-01-01T00:00:00.000Z'
+                        }
+                    }
+                }
+            },
+            fields: []
+        },
+        [pageId]: {
+            id: pageId,
+            kind: 'page',
+            codename: 'LandingPage',
+            presentation: {
+                name: {
+                    _schema: '1' as const,
+                    _primary: 'en' as const,
+                    locales: {
+                        en: {
+                            content: 'Landing page',
+                            version: 1,
+                            isActive: true,
+                            createdAt: '1970-01-01T00:00:00.000Z',
+                            updatedAt: '1970-01-01T00:00:00.000Z'
+                        }
+                    }
+                }
+            },
+            fields: []
+        }
     },
     layouts: [
         {
@@ -87,7 +127,7 @@ describe('trusted layout materialization', () => {
         const expectedLayout = materialized.layouts.find((layout) => layout.id === resolved.layout.id)
         const stripGeneratedIds = (widgets: typeof resolved.widgets) =>
             widgets.map((widget) => {
-                const comparableWidget = { ...widget }
+                const comparableWidget: Record<string, unknown> = { ...widget }
                 delete comparableWidget.id
                 return comparableWidget
             })

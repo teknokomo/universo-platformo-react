@@ -15,8 +15,18 @@ Workspace-enabled applications expose the runtime workspace model directly in th
 -   create a shared workspace with server-side pagination and search;
 -   invite active application members by email and assign a runtime workspace role;
 -   remove members from a shared workspace;
--   mark a workspace as the current default workspace.
+-   mark a workspace as the current default workspace;
+-   convert their own personal workspace to a shared workspace in place (owners only, one-way);
 -   open Workspace Settings for settings that the application administrator allows to be overridden per workspace.
+
+## Personal And Shared Workspaces
+
+Workspace-enabled applications use a two-tier model:
+
+-   **Personal** workspaces are provisioned automatically for every user and stay visible only to the owner until the owner invites other users by email.
+-   **Shared** workspaces are visible to every active application member with baseline `member` rights; explicit `owner` rows always win.
+-   A workspace owner can convert their own personal workspace to shared **in place** through the workspace card actions menu ("Make shared"). The confirmation dialog is destructive-framed: the change is permanent, membership rows reuse the same workspace id, existing records and links are preserved, and no second workspace is created. After the conversion the workspace becomes visible to all application members; the conversion alone does not publish the workspace. Access links keep resolving through their own eligibility rules, and an administrator can additionally select the workspace as the application public entry when public runtime access is needed.
+-   The conversion cannot be repeated or undone: re-converting returns HTTP 409 (`WORKSPACE_CONVERSION_BLOCKED`). If a user would leave the application while holding the only owner row of any shared workspace, the leave is rejected with HTTP 409 (`APPLICATION_MEMBER_WORKSPACE_OWNERSHIP_REQUIRED`) until ownership is transferred or the workspace is deleted.
 
 ## Why This Matters For LMS
 

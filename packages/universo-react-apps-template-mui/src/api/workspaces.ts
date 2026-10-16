@@ -266,6 +266,20 @@ export async function deleteRuntimeWorkspace(options: { apiBaseUrl: string; appl
     }
 }
 
+/** One-way in-place `personal` → `shared` conversion, owner-only. Keeps the workspace id. */
+export async function convertRuntimeWorkspaceToShared(options: {
+    apiBaseUrl: string
+    applicationId: string
+    workspaceId: string
+}): Promise<RuntimeWorkspaceMutationResponse> {
+    const url = buildRuntimeUrl(options.apiBaseUrl, options.applicationId, `/workspaces/${options.workspaceId}/convert`)
+    const response = await fetchWithCsrf(options.apiBaseUrl, url.toString(), { method: 'POST' })
+    if (!response.ok) {
+        await throwRuntimeWorkspaceApiError(response, 'Failed to convert workspace')
+    }
+    return parseRuntimeWorkspaceResponse(response, runtimeWorkspaceMutationResponseSchema, 'Failed to convert workspace')
+}
+
 export async function updateDefaultRuntimeWorkspace(options: {
     apiBaseUrl: string
     applicationId: string

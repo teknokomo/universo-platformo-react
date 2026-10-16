@@ -1,5 +1,5 @@
 const mockExec = {
-    query: jest.fn(async () => [])
+    query: jest.fn(async (_sql: string, _params?: unknown[]): Promise<unknown[]> => [])
 }
 
 const mockTransaction = jest.fn(async (callback: (trx: unknown) => Promise<void>) => callback({}))

@@ -18,6 +18,20 @@ import {
 import { planMatrixRowsCopy } from '../../services/interpretationNetwork/runtimeInterpretationNetworkMatrixCopy'
 import type { RuntimeSchemaContext } from '../../shared/runtimeHelpers'
 
+type LocalizedTextFixture = {
+    _schema: '1'
+    _primary: string
+    locales: Record<string, { version: number; content: string; createdAt: string; updatedAt: string; isActive: boolean }>
+}
+
+const vlcText = (content: string, primary = 'en'): LocalizedTextFixture => ({
+    _schema: '1',
+    _primary: primary,
+    locales: {
+        [primary]: { content, version: 1, isActive: true, createdAt: '1970-01-01T00:00:00.000Z', updatedAt: '1970-01-01T00:00:00.000Z' }
+    }
+})
+
 describe('runtimeInterpretationNetworkService', () => {
     const schemaName = 'app_018f8a787b8f7c1da111222233334440'
     const workspaceId = '019f2000-0000-7000-8000-000000000010'
@@ -28,14 +42,14 @@ describe('runtimeInterpretationNetworkService', () => {
         expect(
             interpretationNetworkTemplateSaveRequestSchema.safeParse({
                 sourceStructureId: '019f2000-0000-7000-8000-000000000001',
-                templateName: 'Template',
+                templateName: vlcText('Template'),
                 includeMaterials: false,
                 extra: true
             }).success
         ).toBe(false)
         expect(
             interpretationNetworkTemplateInstantiateRequestSchema.safeParse({
-                structureName: 'From template',
+                structureName: vlcText('From template'),
                 expectedVersion: 1,
                 extra: true
             }).success
@@ -477,7 +491,14 @@ describe('runtimeInterpretationNetworkService', () => {
         })
     })
 
-    const makeField = (codename: string, columnName: string, dataType = 'STRING', parentComponentId?: string | null) => ({
+    type RuntimeDataTypeFixture = 'BOOLEAN' | 'STRING' | 'NUMBER' | 'DATE' | 'REF' | 'JSON' | 'TABLE'
+
+    const makeField = (
+        codename: string,
+        columnName: string,
+        dataType: RuntimeDataTypeFixture = 'STRING',
+        parentComponentId?: string | null
+    ) => ({
         id: `${codename}-id`,
         codename,
         column_name: columnName,
@@ -498,67 +519,77 @@ describe('runtimeInterpretationNetworkService', () => {
         childTableName: childFields.length > 0 ? `${tableName}_rows` : undefined
     })
 
-    const makeSurface = (structureMode: 'multiple' | 'singleSystem') =>
-        ({
-            applicationId: 'app-1',
-            schemaName,
-            workspaceId,
-            layoutId: 'layout-1',
-            widgetId: 'widget-1',
-            widgetKey: 'interpretationNetworkWorkspace',
-            widgetConfig: { structureMode },
-            structureMode,
-            featureState: 'ready',
-            missing: [],
-            contracts: {
-                Structure: makeContract('Structure', 'structure', [
-                    makeField('Name', 'name'),
-                    makeField('Description', 'description'),
-                    makeField('SystemKey', 'system_key')
-                ]),
-                Interpretation: makeContract(
-                    'Interpretation',
-                    'interpretation',
-                    [makeField('Title', 'title'), makeField('ParentStructure', 'parent_structure', 'REF')],
-                    [
-                        makeField('CellId', 'cell_id'),
-                        makeField('ParentCellId', 'parent_cell_id'),
-                        makeField('RowKey', 'row_key'),
-                        makeField('ColKey', 'col_key'),
-                        makeField('CellValue', 'cell_value'),
-                        makeField('CellDescription', 'cell_description'),
-                        makeField('MaterialRef', 'material_ref', 'REF')
-                    ]
-                ),
-                Material: makeContract('Material', 'material', [
-                    makeField('Title', 'title'),
-                    makeField('Description', 'description'),
-                    makeField('Body', 'body', 'JSON'),
+    const makeSurface = (structureMode: 'multiple' | 'singleSystem') => ({
+        applicationId: 'app-1',
+        schemaName,
+        workspaceId,
+        layoutId: 'layout-1',
+        widgetId: 'widget-1',
+        widgetKey: 'interpretationNetworkWorkspace' as const,
+        widgetConfig: { structureMode },
+        structureMode,
+        featureState: 'ready' as const,
+        missing: [] as [],
+        contracts: {
+            Structure: makeContract('Structure', 'structure', [
+                makeField('Name', 'name'),
+                makeField('Description', 'description'),
+                makeField('SystemKey', 'system_key')
+            ]),
+            Interpretation: makeContract(
+                'Interpretation',
+                'interpretation',
+                [makeField('Title', 'title'), makeField('ParentStructure', 'parent_structure', 'REF')],
+                [
                     makeField('CellId', 'cell_id'),
-                    makeField('TemplateOwnerId', 'template_owner_id')
-                ]),
-                TableTemplate: makeContract(
-                    'TableTemplate',
-                    'table_template',
-                    [makeField('Name', 'name'), makeField('Description', 'description'), makeField('MaterialPolicy', 'material_policy')],
-                    [
-                        makeField('CellId', 'cell_id'),
-                        makeField('ParentCellId', 'parent_cell_id'),
-                        makeField('RowKey', 'row_key'),
-                        makeField('ColKey', 'col_key'),
-                        makeField('CellValue', 'cell_value'),
-                        makeField('CellDescription', 'cell_description'),
-                        makeField('MaterialRef', 'material_ref', 'REF')
-                    ]
-                )
-            },
-            resolvedObjects: {
-                Structure: 'Structure-object',
-                Interpretation: 'Interpretation-object',
-                Material: 'Material-object',
-                TableTemplate: 'TableTemplate-object'
-            }
-        } as never)
+                    makeField('ParentCellId', 'parent_cell_id'),
+                    makeField('RowKey', 'row_key'),
+                    makeField('ColKey', 'col_key'),
+                    makeField('CellValue', 'cell_value'),
+                    makeField('CellDescription', 'cell_description'),
+                    makeField('MaterialRef', 'material_ref', 'REF')
+                ]
+            ),
+            Material: makeContract('Material', 'material', [
+                makeField('Title', 'title'),
+                makeField('Description', 'description'),
+                makeField('Body', 'body', 'JSON'),
+                makeField('CellId', 'cell_id'),
+                makeField('TemplateOwnerId', 'template_owner_id')
+            ]),
+            TableTemplate: makeContract(
+                'TableTemplate',
+                'table_template',
+                [makeField('Name', 'name'), makeField('Description', 'description'), makeField('MaterialPolicy', 'material_policy')],
+                [
+                    makeField('CellId', 'cell_id'),
+                    makeField('ParentCellId', 'parent_cell_id'),
+                    makeField('RowKey', 'row_key'),
+                    makeField('ColKey', 'col_key'),
+                    makeField('CellValue', 'cell_value'),
+                    makeField('CellDescription', 'cell_description'),
+                    makeField('MaterialRef', 'material_ref', 'REF')
+                ]
+            )
+        },
+        resolvedObjects: {
+            Structure: 'Structure-object',
+            Interpretation: 'Interpretation-object',
+            Material: 'Material-object',
+            TableTemplate: 'TableTemplate-object'
+        }
+    })
+
+    type RuntimeSurfaceFixture = ReturnType<typeof makeSurface> & {
+        contracts: {
+            Interpretation: ReturnType<typeof makeContract>
+            Material: ReturnType<typeof makeContract>
+            TableTemplate: ReturnType<typeof makeContract>
+        }
+    }
+
+    const asSurface = (structureMode: 'multiple' | 'singleSystem'): RuntimeSurfaceFixture =>
+        makeSurface(structureMode) as unknown as RuntimeSurfaceFixture
 
     const makeCtx = (executor: ReturnType<typeof createMockDbExecutor>['executor']): RuntimeSchemaContext => ({
         schemaName,
@@ -611,8 +642,8 @@ describe('runtimeInterpretationNetworkService', () => {
         })
 
         const result = await createStructureAggregate(makeCtx(executor), makeSurface('multiple'), {
-            name: { locales: { en: { content: 'Structure' } }, _primary: 'en' },
-            description: { locales: { en: { content: 'Description' } }, _primary: 'en' },
+            name: vlcText('Structure'),
+            description: vlcText('Description'),
             locale: 'en'
         })
 
@@ -645,7 +676,7 @@ describe('runtimeInterpretationNetworkService', () => {
 
         await expect(
             createStructureAggregate(makeCtx(executor), makeSurface('multiple'), {
-                name: { locales: { en: { content: 'Structure' } }, _primary: 'en' },
+                name: vlcText('Structure'),
                 locale: 'en'
             })
         ).rejects.toMatchObject({ code: 'INTERPRETATION_NETWORK_CHILD_INSERT_FAILED' })
@@ -850,7 +881,7 @@ describe('runtimeInterpretationNetworkService', () => {
 
         await saveStructureAsTemplate(makeCtx(executor), makeSurface('singleSystem'), {
             sourceStructureId,
-            templateName: 'Reusable',
+            templateName: vlcText('Reusable'),
             includeMaterials: true,
             expectedVersion: 2
         })
@@ -920,7 +951,7 @@ describe('runtimeInterpretationNetworkService', () => {
 
         await saveStructureAsTemplate(makeCtx(executor), makeSurface('singleSystem'), {
             sourceStructureId,
-            templateName: 'Reusable with materials',
+            templateName: vlcText('Reusable with materials'),
             includeMaterials: true
         })
 
@@ -992,7 +1023,7 @@ describe('runtimeInterpretationNetworkService', () => {
 
         await saveStructureAsTemplate(makeCtx(executor), makeSurface('multiple'), {
             sourceStructureId,
-            templateName: 'Reusable from CellId',
+            templateName: vlcText('Reusable from CellId'),
             includeMaterials: true
         })
 
@@ -1038,7 +1069,7 @@ describe('runtimeInterpretationNetworkService', () => {
         await expect(
             saveStructureAsTemplate(makeCtx(executor), makeSurface('multiple'), {
                 sourceStructureId,
-                templateName: 'Broken material',
+                templateName: vlcText('Broken material'),
                 includeMaterials: true
             })
         ).rejects.toMatchObject({ code: 'INTERPRETATION_NETWORK_INVALID_MATERIAL' })
@@ -1081,7 +1112,7 @@ describe('runtimeInterpretationNetworkService', () => {
         await expect(
             saveStructureAsTemplate(makeCtx(executor), makeSurface('multiple'), {
                 sourceStructureId,
-                templateName: 'Invalid material',
+                templateName: vlcText('Invalid material'),
                 includeMaterials: true
             })
         ).rejects.toMatchObject({ code: 'INTERPRETATION_NETWORK_INVALID_MATRIX' })
@@ -1130,7 +1161,7 @@ describe('runtimeInterpretationNetworkService', () => {
         await expect(
             saveStructureAsTemplate(makeCtx(executor), makeSurface('multiple'), {
                 sourceStructureId,
-                templateName: 'Duplicate material',
+                templateName: vlcText('Duplicate material'),
                 includeMaterials: true
             })
         ).rejects.toMatchObject({ code: 'INTERPRETATION_NETWORK_INVALID_MATRIX' })
@@ -1194,7 +1225,7 @@ describe('runtimeInterpretationNetworkService', () => {
 
         await instantiateStructureFromTemplate(makeCtx(executor), makeSurface('multiple'), {
             templateId,
-            structureName: 'From template'
+            structureName: vlcText('From template')
         })
 
         expect(materialLookupParams).toContainEqual(['template-cell-with-material'])
@@ -1253,7 +1284,7 @@ describe('runtimeInterpretationNetworkService', () => {
 
         await saveStructureAsTemplate(makeCtx(executor), surfaceWithInternalField, {
             sourceStructureId,
-            templateName: 'Allowlisted fields',
+            templateName: vlcText('Allowlisted fields'),
             includeMaterials: false
         })
 
@@ -1323,7 +1354,7 @@ describe('runtimeInterpretationNetworkService', () => {
     it('fails closed when aggregate material creation receives a server-owned field by codename', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
         const surface = makeSurface('multiple')
-        surface.contracts.Material.fields.CellId.ui_config = { serverOwned: true }
+        ;(surface.contracts.Material.fields.CellId as unknown as { ui_config: Record<string, unknown> }).ui_config = { serverOwned: true }
 
         await expect(
             createMaterialForCell(makeCtx(executor), surface, {
@@ -1372,7 +1403,7 @@ describe('runtimeInterpretationNetworkService', () => {
         await expect(
             instantiateStructureFromTemplate(makeCtx(executor), makeSurface('singleSystem'), {
                 templateId: '019f2000-0000-7000-8000-000000000999',
-                structureName: 'New'
+                structureName: vlcText('New')
             })
         ).rejects.toBeInstanceOf(InterpretationNetworkCommandError)
     })
@@ -1397,16 +1428,10 @@ describe('runtimeInterpretationNetworkService', () => {
             ]
         }
     ])('rejects a source matrix with $label before copying', ({ rows }) => {
-        const surface = makeSurface('multiple') as never
-        expect(() =>
-            planMatrixRowsCopy(
-                rows,
-                (surface as ReturnType<typeof makeSurface>).contracts.Interpretation,
-                (surface as ReturnType<typeof makeSurface>).contracts.TableTemplate,
-                new Map(),
-                false
-            )
-        ).toThrow(expect.objectContaining({ code: 'INTERPRETATION_NETWORK_INVALID_MATRIX' }))
+        const surface = makeSurface('multiple')
+        expect(() => planMatrixRowsCopy(rows, surface.contracts.Interpretation, surface.contracts.TableTemplate, new Map(), false)).toThrow(
+            expect.objectContaining({ code: 'INTERPRETATION_NETWORK_INVALID_MATRIX' })
+        )
     })
 
     it('remaps matrix MaterialRef by source material row id when the source row has both MaterialRef and CellId ownership', () => {
@@ -1447,7 +1472,7 @@ describe('runtimeInterpretationNetworkService', () => {
         await expect(
             saveStructureAsTemplate(ctx, makeSurface('multiple'), {
                 sourceStructureId: '019f2000-0000-7000-8000-000000000901',
-                templateName: 'Denied',
+                templateName: vlcText('Denied'),
                 includeMaterials: false
             })
         ).rejects.toMatchObject({ statusCode: 403, code: 'INTERPRETATION_NETWORK_PERMISSION_DENIED' })

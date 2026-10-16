@@ -386,7 +386,7 @@ export const metadataForSlot = (
     codename,
     kind: 'object',
     tableName: `app_${codename.toLowerCase()}`,
-    config: { capabilities: { dataSchema: { enabled: true }, records: { enabled: true } } },
+    config: { capabilities: { dataSchema: { enabled: true }, records: { enabled: true } } } as Record<string, unknown>,
     components: slot.requirements.components.map((requirement, index) => ({
         objectId: objectIdValue,
         codename: requirement.componentCodename,

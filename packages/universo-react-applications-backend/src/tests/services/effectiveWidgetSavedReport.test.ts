@@ -1,5 +1,6 @@
 import { createMockDbExecutor } from '../utils/dbMocks'
 import { resolveEffectiveWidgetRuntimeData } from '../../services/effectiveWidgetRuntimeDataResolver'
+import type { EffectiveWidgetRuntimeCandidate } from '../../services/effectiveWidgetRuntimeDataContracts'
 import { loadSavedRuntimeReportSource, SavedRuntimeReportSourceError } from '../../persistence/savedRuntimeReportSourceStore'
 
 jest.mock('../../persistence/savedRuntimeReportSourceStore', () => ({
@@ -21,11 +22,12 @@ const scope = {
         readReports: true
     }
 }
-const widget = {
+const widget: EffectiveWidgetRuntimeCandidate = {
     id: 'saved-report',
     widgetKey: 'detailsTable',
     config: { variant: 'report', reportCodename: 'LearnerProgress' },
-    isActive: true
+    isActive: true,
+    bindings: null
 }
 
 describe('effective saved report readiness', () => {
@@ -37,7 +39,7 @@ describe('effective saved report readiness', () => {
             title: { en: 'Progress', ru: 'Прогресс' },
             datasource: { kind: 'records.list', sectionCodename: 'PrivateSource' },
             columns: [{ field: 'PrivateColumn', label: 'Secret', type: 'text' }]
-        })
+        } as unknown as Awaited<ReturnType<typeof loadSavedRuntimeReportSource>>)
         const { executor } = createMockDbExecutor()
         const result = await resolveEffectiveWidgetRuntimeData(executor, scope, [widget], 'ru-RU')
         expect(loadSavedRuntimeReportSource).toHaveBeenCalledWith(executor, scope, 'LearnerProgress')

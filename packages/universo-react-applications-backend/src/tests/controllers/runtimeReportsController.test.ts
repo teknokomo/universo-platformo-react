@@ -3,7 +3,7 @@ import { reportDefinitionSchema, type ReportDefinition } from '@universo-react/t
 
 const mockResolveRuntimeSchema = jest.fn()
 const mockRuntimeQuery = jest.fn()
-const mockCreateQueryHelper = jest.fn(() => mockRuntimeQuery)
+const mockCreateQueryHelper: jest.Mock = jest.fn(() => mockRuntimeQuery)
 const mockExecuteRuntimeRecordsUnionDatasource = jest.fn()
 
 jest.mock('../../shared/runtimeHelpers', () => {

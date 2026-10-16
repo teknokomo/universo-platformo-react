@@ -1,14 +1,14 @@
 import { computePlayCanvasRuntimeManifestChecksum } from '../../../shared/playCanvasRuntimeManifest'
 
 const mockExec = {
-    query: jest.fn(async () => [])
+    query: jest.fn(async (sql: string, params?: unknown[]): Promise<unknown[]> => [])
 }
 
 const mockTrx = {
-    raw: jest.fn(async () => ({ rows: [] }))
+    raw: jest.fn(async (sql: string): Promise<{ rows: unknown[] }> => ({ rows: [] }))
 }
 const mockTransaction = jest.fn(async (callback: (trx: unknown) => Promise<void>) => callback(mockTrx))
-const mockEnsureSystemTables = jest.fn(async () => undefined)
+const mockEnsureSystemTables: jest.Mock = jest.fn(async (schemaName: string, trx?: unknown) => undefined)
 const TEST_SCHEMA = 'app_018f8a787b8f7c1da111222233334444'
 const PROJECT_ID = '018f8a78-7b8f-7c1d-a111-222233334444'
 const SCENE_ID = '018f8a78-7b8f-7c1d-a111-222233334445'
@@ -193,9 +193,12 @@ describe('syncPlayCanvasPersistence', () => {
                 "ON CONFLICT (\n                    source_project_id,\n                    (COALESCE(source_scene_id, '00000000-0000-0000-0000-000000000000'::uuid))\n                 ) WHERE _upl_deleted = false AND _app_deleted = false"
             )
         )
-        const insertParams = insertCall?.[1] as unknown[]
+        const insertParams = (insertCall?.[1] ?? []) as unknown[]
         expect(insertParams.slice(0, 6)).toEqual([PUBLICATION_ID, METAHUB_ID, PROJECT_ID, SCENE_ID, '1', expectedSingleManifestChecksum()])
-        expect(JSON.parse(insertParams[6] as string)).toEqual(snapshotWithManifest().playcanvasRuntimeManifests?.[0])
+        type PlayCanvasManifestFixture = Record<string, unknown>[]
+        expect(JSON.parse(insertParams[6] as string)).toEqual(
+            (snapshotWithManifest().playcanvasRuntimeManifests as PlayCanvasManifestFixture | undefined)?.[0]
+        )
         expect(insertParams.slice(7)).toEqual([1, 1, 1, expect.any(Date), 'user-1'])
     })
 

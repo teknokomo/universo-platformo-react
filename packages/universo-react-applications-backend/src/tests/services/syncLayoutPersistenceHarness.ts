@@ -14,7 +14,7 @@ export type MockSyncKnex = {
     raw: jest.Mock
 }
 
-export const mockEnsureSystemTables = jest.fn(async () => undefined)
+export const mockEnsureSystemTables: jest.Mock = jest.fn(async (schemaName?: string, trx?: unknown) => undefined)
 export const mockSyncExecutor: DbExecutor = {
     query: jest.fn(),
     transaction: jest.fn(),
@@ -350,7 +350,7 @@ jest.mock('../../ddl', () => ({
     getApplicationSyncKnex: () => mockGetCurrentKnex(),
     getApplicationSyncDdlServices: () => ({
         generator: {
-            ensureSystemTables: (...args: unknown[]) => mockEnsureSystemTables(...args)
+            ensureSystemTables: async (...args: unknown[]) => mockEnsureSystemTables(...(args as [string, unknown?, unknown?]))
         }
     })
 }))
@@ -375,7 +375,7 @@ export const createMockSyncKnex = (overrides?: { layoutRows?: StoredRow[]; widge
         ...row
     })
     const normalizeWidgetFixture = (input: StoredRow): StoredRow => {
-        const row = {
+        const row: StoredRow = {
             zone: 'center',
             widget_key: 'columnsContainer',
             instance_key: String(input.instance_key ?? input.id ?? 'fixture-widget'),
@@ -434,7 +434,21 @@ export const createMockSyncKnex = (overrides?: { layoutRows?: StoredRow[]; widge
             (whereNotInColumn === null || !whereNotInValues.includes(row[whereNotInColumn])) &&
             (rawCatalogId === undefined || row.scope_entity_id === rawCatalogId)
 
-        const builder = {
+        type SyncWhereBuilder = {
+            where(filter: Record<string, unknown>): SyncWhereBuilder
+            whereNot(filter: Record<string, unknown>): SyncWhereBuilder
+            whereRaw(sql: string, params: unknown[]): SyncWhereBuilder
+            whereIn(column: string, values: unknown[]): SyncWhereBuilder
+            whereNotIn(column: string, values: unknown[]): SyncWhereBuilder
+            modify(callback: (queryBuilder: SyncWhereBuilder) => void): SyncWhereBuilder
+            first(columns: string[]): Promise<Record<string, unknown> | undefined>
+            select(columns: string[]): Promise<Record<string, unknown>[]>
+            update(payload: Record<string, unknown>): Promise<number>
+            insert(payload: Record<string, unknown>): Promise<Record<string, unknown>[]>
+            del(): Promise<number>
+        }
+
+        const builder: SyncWhereBuilder = {
             where(filter: Record<string, unknown>) {
                 filters.push(filter)
                 return builder
@@ -459,7 +473,7 @@ export const createMockSyncKnex = (overrides?: { layoutRows?: StoredRow[]; widge
                 whereNotInValues = values
                 return builder
             },
-            modify(callback: (queryBuilder: typeof builder) => void) {
+            modify(callback: (queryBuilder: SyncWhereBuilder) => void) {
                 callback(builder)
                 return builder
             },

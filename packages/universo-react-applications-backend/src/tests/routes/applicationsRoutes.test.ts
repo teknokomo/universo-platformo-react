@@ -5,10 +5,10 @@ jest.mock('@universo-react/admin-backend', () => ({
     hasSubjectPermission: jest.fn(async () => false)
 }))
 
-const mockCloneSchemaWithExecutor = jest.fn(async () => undefined)
-const mockGenerateSchemaName = jest.fn((id: string) => `app_${id.replace(/-/g, '')}`)
-const mockGenerateChildTableName = jest.fn((attributeId: string) => `tab_${attributeId.replace(/-/g, '')}`)
-const mockIsValidSchemaName = jest.fn(() => true)
+const mockCloneSchemaWithExecutor: jest.Mock = jest.fn(async (executor?: unknown) => undefined)
+const mockGenerateSchemaName: jest.Mock = jest.fn((id: string) => `app_${id.replace(/-/g, '')}`)
+const mockGenerateChildTableName: jest.Mock = jest.fn((attributeId: string) => `tab_${attributeId.replace(/-/g, '')}`)
+const mockIsValidSchemaName: jest.Mock = jest.fn(() => true)
 
 const mockFindEffectiveLayoutApplication = jest.fn()
 const mockFindEffectiveLayoutBaseWidgets = jest.fn()
@@ -40,6 +40,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { getGlobalRoleCodename, hasSubjectPermission, isSuperuser } from '@universo-react/admin-backend'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
+import type { DbExecutor } from '@universo-react/utils'
 import { createMockDbExecutor, createMockDataStore } from '../utils/dbMocks'
 import { createApplicationsRoutes } from '../../routes/applicationsRoutes'
 import { ROLE_PERMISSIONS } from '../../routes/guards'
@@ -198,10 +199,20 @@ describe('Applications Routes', () => {
     interface TestDataSource {
         query: jest.Mock
         transaction: jest.Mock
+        isReleased: () => boolean
         manager: {
             query: jest.Mock
         }
     }
+
+    // DbExecutor-compatible view used whenever the route expects the full
+    // three-method contract (query/transaction/isReleased).
+    const asDbExecutor = (executor: { query: (sql: string, parameters?: unknown[]) => Promise<unknown[]> }): DbExecutor =>
+        ({
+            query: (sql: string, parameters?: unknown[]) => executor.query(sql, parameters),
+            transaction: (callback: (executor: DbExecutor) => Promise<unknown>) => callback(asDbExecutor(executor)),
+            isReleased: () => false
+        } as unknown as DbExecutor)
 
     const normalizeMembershipRow = (membership: Record<string, unknown> | null) =>
         membership
@@ -282,6 +293,7 @@ describe('Applications Routes', () => {
 
     // Error handler middleware for http-errors compatibility
     const errorHandler = (err: Error & { statusCode?: number; status?: number }, _req: Request, res: Response, _next: NextFunction) => {
+        console.error('[applicationsRoutes-test] Unhandled route error:', err)
         if (res.headersSent) {
             return _next(err)
         }
@@ -1967,7 +1979,7 @@ describe('Applications Routes', () => {
             const values: unknown[] = []
 
             const editClause = await buildRuntimeRecordAccessClause({
-                manager,
+                manager: asDbExecutor(manager),
                 schemaIdent: '"app_deadbeef"',
                 currentWorkspaceId: null,
                 currentUserId: 'shared-user-id',
@@ -1987,7 +1999,7 @@ describe('Applications Routes', () => {
 
             const readValues: unknown[] = []
             const readClause = await buildRuntimeRecordAccessClause({
-                manager,
+                manager: asDbExecutor(manager),
                 schemaIdent: '"app_deadbeef"',
                 currentWorkspaceId: null,
                 currentUserId: 'shared-user-id',
@@ -2041,7 +2053,7 @@ describe('Applications Routes', () => {
             }
             const values: unknown[] = []
             const clause = await buildRuntimeRecordAccessClause({
-                manager,
+                manager: asDbExecutor(manager),
                 schemaIdent: '"app_deadbeef"',
                 currentWorkspaceId: null,
                 currentUserId: 'shared-user-id',
@@ -3109,7 +3121,7 @@ describe('Applications Routes', () => {
     describe('POST /applications/:applicationId/runtime/modules/:moduleId/call', () => {
         const buildRuntimeModulesRouteDataSource = (applicationId: string, moduleRow: Record<string, unknown>) => {
             const runtimeSchemaName = buildRuntimeSchemaName(applicationId)
-            const managerQuery = jest.fn(async (sql: string) => {
+            const managerQuery = jest.fn(async (sql: string, params?: unknown[]) => {
                 if (sql.includes('SELECT to_regclass($1) AS table_name')) {
                     return [{ table_name: `${runtimeSchemaName}._app_modules` }]
                 }
@@ -3121,7 +3133,7 @@ describe('Applications Routes', () => {
                 return []
             })
 
-            const txExecutor = {
+            const txExecutor: { query: typeof managerQuery; transaction: jest.Mock; isReleased: jest.Mock } = {
                 query: managerQuery,
                 transaction: jest.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback(txExecutor)),
                 isReleased: jest.fn(() => false)
@@ -3280,12 +3292,12 @@ describe('Applications Routes', () => {
                     {
                         id: 'new-application-id',
                         name: {
-                            _schema: 'v1',
+                            _schema: '1',
                             _primary: 'en',
                             locales: { en: { content: 'New Application' } }
                         },
                         description: {
-                            _schema: 'v1',
+                            _schema: '1',
                             _primary: 'en',
                             locales: { en: { content: 'Description' } }
                         },
@@ -3354,7 +3366,7 @@ describe('Applications Routes', () => {
                     {
                         id: 'public-application-id',
                         name: {
-                            _schema: 'v1',
+                            _schema: '1',
                             _primary: 'en',
                             locales: { en: { content: 'Public Application' } }
                         },
@@ -3409,7 +3421,7 @@ describe('Applications Routes', () => {
         const buildCopiedApplicationRow = (id: string, overrides: Record<string, unknown> = {}) => ({
             id,
             name: {
-                _schema: 'v1',
+                _schema: '1',
                 _primary: 'en',
                 locales: { en: { content: 'Source App (copy)' } }
             },
@@ -3474,12 +3486,12 @@ describe('Applications Routes', () => {
             const sourceApplication = {
                 id: 'application-1',
                 name: {
-                    _schema: 'v1',
+                    _schema: '1',
                     _primary: 'en',
                     locales: { en: { content: 'Source App' }, ru: { content: 'Исходное приложение' } }
                 },
                 description: {
-                    _schema: 'v1',
+                    _schema: '1',
                     _primary: 'en',
                     locales: { en: { content: 'Source desc' } }
                 },
@@ -3540,7 +3552,7 @@ describe('Applications Routes', () => {
                 sourceApplication: {
                     id: 'application-1',
                     name: {
-                        _schema: 'v1',
+                        _schema: '1',
                         _primary: 'en',
                         locales: { en: { content: 'Source App' } }
                     },
@@ -3592,7 +3604,7 @@ describe('Applications Routes', () => {
                 sourceApplication: {
                     id: 'application-1',
                     name: {
-                        _schema: 'v1',
+                        _schema: '1',
                         _primary: 'en',
                         locales: { en: { content: 'Source App' } }
                     },
@@ -3711,12 +3723,12 @@ describe('Applications Routes', () => {
                         {
                             id: 'application-1',
                             name: {
-                                _schema: 'v1',
+                                _schema: '1',
                                 _primary: 'en',
                                 locales: { en: { content: 'New Name' } }
                             },
                             description: {
-                                _schema: 'v1',
+                                _schema: '1',
                                 _primary: 'en',
                                 locales: { en: { content: 'Old Description' } }
                             },
@@ -3737,12 +3749,12 @@ describe('Applications Routes', () => {
                     {
                         id: 'application-1',
                         name: {
-                            _schema: 'v1',
+                            _schema: '1',
                             _primary: 'en',
                             locales: { en: { content: 'Old Name' } }
                         },
                         description: {
-                            _schema: 'v1',
+                            _schema: '1',
                             _primary: 'en',
                             locales: { en: { content: 'Old Description' } }
                         },
@@ -3793,7 +3805,7 @@ describe('Applications Routes', () => {
                     fields: { student: { displayName: 'DisplayName' } }
                 }
             }
-            let savedSettings: Record<string, unknown> | null = null
+            const settingsCapture: { saved: Record<string, unknown> | null } = { saved: null }
 
             ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
                 if (sql.includes('SELECT *') && sql.includes('FROM applications.rel_application_users')) {
@@ -3809,18 +3821,18 @@ describe('Applications Routes', () => {
                 }
 
                 if (sql.includes('UPDATE applications.obj_applications')) {
-                    savedSettings = JSON.parse(String(params?.[0] ?? '{}'))
+                    settingsCapture.saved = JSON.parse(String(params?.[0] ?? '{}'))
 
                     return [
                         {
                             id: 'application-1',
                             name: {
-                                _schema: 'v1',
+                                _schema: '1',
                                 _primary: 'en',
                                 locales: { en: { content: 'Existing App' } }
                             },
                             description: null,
-                            settings: savedSettings,
+                            settings: settingsCapture.saved,
                             isPublic: false,
                             workspacesEnabled: false,
                             schemaName: 'app_123',
@@ -3839,7 +3851,7 @@ describe('Applications Routes', () => {
                     {
                         id: 'application-1',
                         name: {
-                            _schema: 'v1',
+                            _schema: '1',
                             _primary: 'en',
                             locales: { en: { content: 'Existing App' } }
                         },
@@ -3882,7 +3894,7 @@ describe('Applications Routes', () => {
                 })
                 .expect(200)
 
-            expect(savedSettings).toEqual({
+            expect(settingsCapture.saved).toEqual({
                 dashboardDefaultMode: 'first-menu-item',
                 datasourceExecutionPolicy: 'layout-only',
                 workspaceOpenBehavior: 'default-workspace',
@@ -3905,7 +3917,7 @@ describe('Applications Routes', () => {
                 role: 'owner'
             })
 
-            let savedSettings: Record<string, unknown> | null = null
+            const settingsCapture: { saved: Record<string, unknown> | null } = { saved: null }
 
             ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
                 if (sql.includes('SELECT *') && sql.includes('FROM applications.rel_application_users')) {
@@ -3921,18 +3933,18 @@ describe('Applications Routes', () => {
                 }
 
                 if (sql.includes('UPDATE applications.obj_applications')) {
-                    savedSettings = JSON.parse(String(params?.[0] ?? '{}'))
+                    settingsCapture.saved = JSON.parse(String(params?.[0] ?? '{}'))
 
                     return [
                         {
                             id: 'application-1',
                             name: {
-                                _schema: 'v1',
+                                _schema: '1',
                                 _primary: 'en',
                                 locales: { en: { content: 'Learning App' } }
                             },
                             description: null,
-                            settings: savedSettings,
+                            settings: settingsCapture.saved,
                             isPublic: false,
                             workspacesEnabled: false,
                             schemaName: 'app_learning',
@@ -3951,7 +3963,7 @@ describe('Applications Routes', () => {
                     {
                         id: 'application-1',
                         name: {
-                            _schema: 'v1',
+                            _schema: '1',
                             _primary: 'en',
                             locales: { en: { content: 'Learning App' } }
                         },
@@ -3987,7 +3999,7 @@ describe('Applications Routes', () => {
                 })
                 .expect(200)
 
-            expect(savedSettings).toMatchObject({
+            expect(settingsCapture.saved).toMatchObject({
                 dashboardDefaultMode: 'first-menu-item',
                 learningContent: {
                     defaultView: 'cards'
@@ -4003,7 +4015,7 @@ describe('Applications Routes', () => {
                 role: 'owner'
             })
 
-            let savedSettings: Record<string, unknown> | null = null
+            const settingsCapture: { saved: Record<string, unknown> | null } = { saved: null }
 
             ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
                 if (sql.includes('SELECT *') && sql.includes('FROM applications.rel_application_users')) {
@@ -4019,18 +4031,18 @@ describe('Applications Routes', () => {
                 }
 
                 if (sql.includes('UPDATE applications.obj_applications')) {
-                    savedSettings = JSON.parse(String(params?.[0] ?? '{}'))
+                    settingsCapture.saved = JSON.parse(String(params?.[0] ?? '{}'))
 
                     return [
                         {
                             id: 'application-1',
                             name: {
-                                _schema: 'v1',
+                                _schema: '1',
                                 _primary: 'en',
                                 locales: { en: { content: 'Existing App' } }
                             },
                             description: null,
-                            settings: savedSettings,
+                            settings: settingsCapture.saved,
                             isPublic: false,
                             workspacesEnabled: false,
                             schemaName: 'app_123',
@@ -4049,7 +4061,7 @@ describe('Applications Routes', () => {
                     {
                         id: 'application-1',
                         name: {
-                            _schema: 'v1',
+                            _schema: '1',
                             _primary: 'en',
                             locales: { en: { content: 'Existing App' } }
                         },
@@ -4102,7 +4114,7 @@ describe('Applications Routes', () => {
                 })
                 .expect(200)
 
-            expect(savedSettings?.rolePolicies).toMatchObject({
+            expect(settingsCapture.saved?.rolePolicies).toMatchObject({
                 templates: [
                     {
                         rules: [
@@ -4129,7 +4141,7 @@ describe('Applications Routes', () => {
                 role: 'owner'
             })
 
-            let savedSettings: Record<string, unknown> | null = null
+            const settingsCapture: { saved: Record<string, unknown> | null } = { saved: null }
 
             ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
                 if (sql.includes('SELECT *') && sql.includes('FROM applications.rel_application_users')) {
@@ -4145,18 +4157,18 @@ describe('Applications Routes', () => {
                 }
 
                 if (sql.includes('UPDATE applications.obj_applications')) {
-                    savedSettings = JSON.parse(String(params?.[0] ?? '{}'))
+                    settingsCapture.saved = JSON.parse(String(params?.[0] ?? '{}'))
 
                     return [
                         {
                             id: 'application-1',
                             name: {
-                                _schema: 'v1',
+                                _schema: '1',
                                 _primary: 'en',
                                 locales: { en: { content: 'Existing App' } }
                             },
                             description: null,
-                            settings: savedSettings,
+                            settings: settingsCapture.saved,
                             isPublic: false,
                             workspacesEnabled: true,
                             schemaName: 'app_123',
@@ -4175,7 +4187,7 @@ describe('Applications Routes', () => {
                     {
                         id: 'application-1',
                         name: {
-                            _schema: 'v1',
+                            _schema: '1',
                             _primary: 'en',
                             locales: { en: { content: 'Existing App' } }
                         },
@@ -4211,7 +4223,7 @@ describe('Applications Routes', () => {
                 })
                 .expect(200)
 
-            expect(savedSettings?.workspaceOverrides).toEqual({
+            expect(settingsCapture.saved?.workspaceOverrides).toEqual({
                 allowedKeys: ['sectionLinksEnabled'],
                 lockedKeys: ['dashboardDefaultMode']
             })
@@ -4242,7 +4254,7 @@ describe('Applications Routes', () => {
                         {
                             id: 'application-1',
                             name: {
-                                _schema: 'v1',
+                                _schema: '1',
                                 _primary: 'en',
                                 locales: { en: { content: 'Existing App' } }
                             },
@@ -4526,6 +4538,116 @@ describe('Applications Routes', () => {
                     userId: 'new-user-id',
                     role: 'member'
                 })
+            })
+
+            it('should invite a workspace-enabled app member and enroll them in existing shared workspaces', async () => {
+                const { dataSource, txExecutor, applicationUserRepo } = buildDataSource()
+
+                applicationUserRepo.findOne.mockImplementation(async ({ where }: { where: { userId: string } }) => {
+                    if (where.userId === 'test-user-id') {
+                        return { user_id: 'test-user-id', role: 'admin' }
+                    }
+                    return null
+                })
+                // Workspace provisioning paths (ensurePersonalWorkspaceForUser
+                // → ensureSharedWorkspaceBaselineMembership) run ON the
+                // transaction executor, which mocks also flow through the
+                // parent executor (`dataSource.manager.query` ===
+                // `txExecutor.query`). One branch table serves both executors
+                // so no route SQL can fall through to an empty result.
+                let generatedWorkspaceIds = 0
+                const memberRouteSql = async (sql: string, params?: unknown[]): Promise<unknown[]> => {
+                    // Membership INSERT CTE also references `FROM auth.users`,
+                    // so it must be matched before the generic auth branch.
+                    if (sql.includes('WITH inserted AS')) {
+                        return [
+                            {
+                                id: 'new-member-id',
+                                applicationId: 'application-1',
+                                userId: 'workspace-member-id',
+                                role: 'member',
+                                comment: null,
+                                createdAt: new Date(),
+                                email: 'wsnewuser@example.com',
+                                nickname: null
+                            }
+                        ]
+                    }
+
+                    if (sql.includes('FROM auth.users')) {
+                        return [{ id: 'workspace-member-id', email: 'wsnewuser@example.com' }]
+                    }
+
+                    if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.obj_applications')) {
+                        return [{ id: 'application-1', schemaName: 'app_018f8a787b8f7c1da11122223333448a', workspacesEnabled: true }]
+                    }
+
+                    if (sql.includes('FROM applications.rel_application_users')) {
+                        const membership = normalizeMembershipRow(
+                            await applicationUserRepo.findOne({
+                                where: {
+                                    applicationId: params?.[0],
+                                    userId: params?.[1]
+                                }
+                            })
+                        )
+                        return membership ? [membership] : []
+                    }
+
+                    if (sql.includes('FROM information_schema.tables') || sql.includes('FROM information_schema.columns')) {
+                        return [{ exists: true }]
+                    }
+
+                    if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
+                        generatedWorkspaceIds += 1
+                        return [{ id: `00000000-0000-7000-8000-00000000000${generatedWorkspaceIds}` }]
+                    }
+
+                    if (sql.includes(`FROM "app_018f8a787b8f7c1da11122223333448a"."_app_workspaces"`)) {
+                        return []
+                    }
+
+                    if (sql.includes(`INSERT INTO "app_018f8a787b8f7c1da11122223333448a"."_app_workspaces"`)) {
+                        return [{ id: 'ws-new-personal' }]
+                    }
+
+                    if (sql.includes(`"_app_workspace_roles"`)) {
+                        return [{ id: 'role-owner' }]
+                    }
+
+                    if (sql.includes(`"_app_workspace_user_roles"`)) {
+                        return sql.includes('INSERT INTO') ? [{ id: 'new-baseline-row' }] : []
+                    }
+
+                    return []
+                }
+                ;(dataSource.query as jest.Mock).mockImplementation(memberRouteSql)
+                ;(dataSource.manager.query as jest.Mock).mockImplementation(memberRouteSql)
+
+                const app = buildApp(dataSource)
+
+                const response = await request(app)
+                    .post('/applications/application-1/members')
+                    .send({ email: 'wsnewuser@example.com', role: 'member' })
+                    .expect(201)
+                void response
+
+                expect(response.body).toMatchObject({
+                    userId: 'workspace-member-id',
+                    role: 'member'
+                })
+
+                // The same transaction must enroll the new member in every
+                // active shared workspace (baseline `member` rows) — the
+                // set-based CTE INSERT gates this behavior.
+                const txSql = txExecutor.query.mock.calls.map(([sql]) => String(sql)).join('\n')
+                expect(txSql).toContain('FROM applications.rel_application_users au')
+                expect(txSql).toContain('au.application_id = $1')
+                expect(txSql).toContain(`w.workspace_type <> 'personal'`)
+                expect(txSql).toContain('w.personal_user_id IS NULL')
+                expect(txSql).toContain('ON CONFLICT (workspace_id, user_id)')
+                expect(txSql).toContain('DO NOTHING')
+                expect(txSql).toContain(`r.codename = 'member'`)
             })
 
             it('should reject inviting already existing member', async () => {
@@ -6485,7 +6607,7 @@ describe('Applications Routes', () => {
 
         it('allows an editor to compensate only its own fresh version-one create', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue([])
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -6573,7 +6695,7 @@ describe('Applications Routes', () => {
 
         it('uses physical DELETE when lifecycle contract is hard delete', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue([])
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -6640,7 +6762,7 @@ describe('Applications Routes', () => {
 
         it('applies expected-version predicate to hard-delete runtime mutations', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue([])
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -6699,7 +6821,7 @@ describe('Applications Routes', () => {
             const sourceQueries: Array<{ sql: string; params?: unknown[] }> = []
             const mutationQueries: Array<{ sql: string; params?: unknown[] }> = []
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue([])
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -6844,7 +6966,7 @@ describe('Applications Routes', () => {
 
         it('rejects stale-version runtime delete before mutating the runtime table', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue([])
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -6901,7 +7023,7 @@ describe('Applications Routes', () => {
 
         it('applies expected-version predicate to runtime delete mutations', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue([])
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -6957,7 +7079,7 @@ describe('Applications Routes', () => {
 
         it('rejects runtime delete when version changes between read and mutation', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue([])
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -7022,7 +7144,7 @@ describe('Applications Routes', () => {
 
         it('restores a soft-deleted runtime row with optimistic concurrency', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue([])
             const runtimeRowHandle = issueRuntimeRecordHandle({
                 applicationId: runtimeApplicationId,
                 workspaceId: null,
@@ -7101,7 +7223,7 @@ describe('Applications Routes', () => {
             const runtimeSchemaName = buildRuntimeSchemaName(runtimeApplicationId)
             const runtimeSchemaIdent = `"${runtimeSchemaName}"`
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue([])
             let updateAttempted = false
             let limitLockAttempted = false
 
@@ -7205,7 +7327,7 @@ describe('Applications Routes', () => {
             const sourceQueries: Array<{ sql: string; params?: unknown[] }> = []
             const mutationQueries: Array<{ sql: string; params?: unknown[] }> = []
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue([])
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -7622,7 +7744,7 @@ describe('Applications Routes', () => {
 
         it('rejects stale-version runtime restore before mutating the runtime table', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue([])
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -7679,7 +7801,7 @@ describe('Applications Routes', () => {
 
         it('rejects runtime restore when version changes between read and mutation', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue([])
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -9280,9 +9402,7 @@ describe('Applications Routes', () => {
 
         it('dispatches beforeCopy in the copy savepoint and afterCopy in the request-scoped transaction', async () => {
             const { dataSource, applicationRepo, applicationUserRepo, txExecutor } = buildDataSource()
-            const dispatchLifecycleEventSpy = jest
-                .spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent')
-                .mockResolvedValue(undefined)
+            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue([])
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -10833,7 +10953,7 @@ describe('Applications Routes', () => {
 
         it('posts draft records with atomic numbering and posting metadata', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue([])
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             mockRecordCatalogQueries(dataSource, {
@@ -10890,7 +11010,7 @@ describe('Applications Routes', () => {
             const sourceQueries: Array<{ sql: string; params?: unknown[] }> = []
             const updateQueries: Array<{ sql: string; params?: unknown[] }> = []
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue([])
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'member', false, {
                 rolePolicies: {
@@ -15386,7 +15506,7 @@ describe('Applications Routes', () => {
         })
     })
 
-    it('registers workspace copy and seeded-content reset as authenticated write routes', () => {
+    it('registers workspace copy, conversion, and seeded-content reset as authenticated write routes', () => {
         const { dataSource } = buildDataSource()
         const router = createApplicationsRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
         const stack = (
@@ -15403,6 +15523,7 @@ describe('Applications Routes', () => {
 
         for (const path of [
             '/:applicationId/runtime/workspaces/:workspaceId/copy',
+            '/:applicationId/runtime/workspaces/:workspaceId/convert',
             '/:applicationId/runtime/workspaces/:workspaceId/seed/reset'
         ]) {
             const routeLayer = stack.find((layer) => layer.route?.path === path)

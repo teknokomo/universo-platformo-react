@@ -153,7 +153,7 @@ describe('public application runtime routes', () => {
             getMarketingPage: async (req: Request, res: Response) => {
                 const context = await options.resolveRuntimeContext(req, res)
                 await options.resolveEffectiveLayout(context, applicationId, { applicationId, locale: 'en' })
-                return res.status(200).json(internalMarketingPayload)
+                return res.status(200).json(publicMarketingPayload)
             }
         }))
     })

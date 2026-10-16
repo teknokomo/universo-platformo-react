@@ -342,7 +342,7 @@ export async function syncApplicationWidgets(
                       (() => {
                           throw new Error('[SchemaSync] Snapshot widget parent cannot be remapped')
                       })()
-            const row = { ...item.row, parentWidgetId }
+            const row = { ...item.row, sourceWidgetId: widgetSourceId(item.row), parentWidgetId }
             const templateKey = templateByLayoutId.get(item.physicalLayoutId)
             if (!templateKey) throw new Error(`[SchemaSync] Persisted widget ${row.id} references an invalid layout`)
             const state = resolveSyncedApplicationLayoutWidgetState(templateKey, row, item.current)

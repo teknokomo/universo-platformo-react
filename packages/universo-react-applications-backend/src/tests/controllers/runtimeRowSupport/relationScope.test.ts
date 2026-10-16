@@ -74,13 +74,15 @@ const resolveScope = async (
 ) =>
     resolveRuntimeRelationWriteScope({
         manager: makeExecutor(query),
+        applicationId: '019f2000-0000-7000-8000-000000000001',
+        workspaceId: null,
         schemaIdent: '"app_test"',
         zoneWidgets: overrides.zoneWidgets ?? zoneWidgets,
         childEntity: { id: '0190a9b5-3cde-7abc-8def-0123456789d4', codename: overrides.childCodename ?? 'CourseItems' },
         childAttrs:
             overrides.childAttrs ??
             (overrides.parentFieldServerOwned === false
-                ? childAttrs.map((attr, index) => (index === 0 ? { ...attr, ui_config: null } : attr))
+                ? childAttrs.map((attr, index) => (index === 0 ? { ...attr, ui_config: undefined } : attr))
                 : childAttrs),
         request: {
             fieldCodename: 'CourseId',
@@ -161,7 +163,7 @@ describe('resolveRuntimeRelationWriteScope', () => {
             },
             [noReorderWidget]
         )
-        const attrs = childAttrs.map((attr, index) => (index === 1 ? { ...attr, ui_config: null } : attr))
+        const attrs = childAttrs.map((attr, index) => (index === 1 ? { ...attr, ui_config: undefined } : attr))
 
         await expect(resolveScope(makeMetadataQuery(), { zoneWidgets: noReorderZoneWidgets, childAttrs: attrs })).resolves.toBeNull()
     })
@@ -205,7 +207,7 @@ describe('resolveRuntimeRelationWriteScope', () => {
         await expect(
             resolveScope(makeMetadataQuery(), {
                 zoneWidgets: widgets,
-                childAttrs: [...childAttrs, { ...siblingAttrs[0]!, ui_config: null }, siblingAttrs[1]!]
+                childAttrs: [...childAttrs, { ...siblingAttrs[0]!, ui_config: undefined }, siblingAttrs[1]!]
             })
         ).resolves.toBeNull()
         await expect(
@@ -231,7 +233,7 @@ describe('lockRuntimeRelationParentRecord', () => {
     } as RuntimeSchemaContext
 
     it('locks the authorized active parent row before any scoped child mutation', async () => {
-        const query = jest.fn(async () => [{ id: parentRecordId, _upl_locked: false }])
+        const query = jest.fn(async (sql: string, params?: unknown[]): Promise<unknown[]> => [{ id: parentRecordId, _upl_locked: false }])
         const scope = await resolveScope(
             jest.fn(async (sql: string) => {
                 if (sql.includes('FROM "app_test"._app_objects')) {

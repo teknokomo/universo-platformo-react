@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type MouseEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
@@ -28,6 +28,7 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
+import FolderSharedRoundedIcon from '@mui/icons-material/FolderSharedRounded'
 import GroupAddRoundedIcon from '@mui/icons-material/GroupAddRounded'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
@@ -46,11 +47,13 @@ import {
 } from '../components/runtime-ui'
 import { FormDialog, type FieldConfig } from '../components/dialogs/FormDialog'
 import { ConfirmDeleteDialog } from '../components/dialogs/ConfirmDeleteDialog'
+import { StandardDialog } from '../components/dialogs/StandardDialog'
 import { extractRuntimeErrorMessage } from '../utils/runtimeErrors'
 import {
     createRuntimeWorkspace,
     copyRuntimeWorkspace,
     deleteRuntimeWorkspace,
+    convertRuntimeWorkspaceToShared,
     fetchRuntimeWorkspace,
     fetchRuntimeWorkspaceMembers,
     fetchRuntimeWorkspaceSettings,
@@ -61,6 +64,7 @@ import {
     updateRuntimeWorkspace,
     updateDefaultRuntimeWorkspace,
     updateRuntimeWorkspaceSettings,
+    RuntimeWorkspaceApiError,
     type RuntimeWorkspace,
     type RuntimeWorkspaceMember,
     type RuntimeWorkspaceSetting
@@ -73,6 +77,8 @@ interface RuntimeWorkspacesPageProps {
     locale: string
     routeWorkspaceId?: string | null
     routeSection?: 'dashboard' | 'access' | 'settings'
+    /** Authenticated viewer id; gates the owner-only `Make shared` action against invited co-owners. */
+    currentUserId?: string | null
     onNavigate?: (href: string) => void
 }
 
@@ -128,6 +134,10 @@ const WORKSPACE_ERROR_TRANSLATIONS: Record<string, WorkspaceErrorTranslation> = 
     PERSONAL_WORKSPACE_MUTATION_BLOCKED: {
         key: 'workspace.errors.personalMutationBlocked',
         fallback: 'Personal workspace cannot be changed'
+    },
+    WORKSPACE_CONVERSION_BLOCKED: {
+        key: 'workspace.errors.conversionBlocked',
+        fallback: 'Only the personal workspace owner can convert it to shared'
     }
 }
 
@@ -316,6 +326,7 @@ export function RuntimeWorkspacesPage({
     locale,
     routeWorkspaceId = null,
     routeSection = 'dashboard',
+    currentUserId = null,
     onNavigate
 }: RuntimeWorkspacesPageProps) {
     const { t } = useTranslation('apps')
@@ -331,6 +342,7 @@ export function RuntimeWorkspacesPage({
     const [createOpen, setCreateOpen] = useState(false)
     const [editTarget, setEditTarget] = useState<WorkspaceViewRow | null>(null)
     const [copyTarget, setCopyTarget] = useState<WorkspaceViewRow | null>(null)
+    const [convertTarget, setConvertTarget] = useState<WorkspaceViewRow | null>(null)
     const [deleteTarget, setDeleteTarget] = useState<WorkspaceViewRow | null>(null)
     const [workspaceMenuAnchor, setWorkspaceMenuAnchor] = useState<HTMLElement | null>(null)
     const [workspaceMenuTarget, setWorkspaceMenuTarget] = useState<WorkspaceViewRow | null>(null)
@@ -472,6 +484,26 @@ export function RuntimeWorkspacesPage({
             await invalidateWorkspaceData()
         },
         onError: (error: Error) => setFormError(translateWorkspaceError(error))
+    })
+
+    const convertMutation = useMutation({
+        mutationFn: (workspace: WorkspaceViewRow) =>
+            convertRuntimeWorkspaceToShared({ apiBaseUrl, applicationId, workspaceId: workspace.id }),
+        onSuccess: async () => {
+            setConvertTarget(null)
+            setFormError(null)
+            await invalidateWorkspaceData()
+        },
+        onError: (error: Error) => {
+            // The conversion-specific gate lives behind WORKSPACE_OWNER_REQUIRED; the
+            // generic member-management copy would be misleading here.
+            const code = error instanceof RuntimeWorkspaceApiError ? error.code : (error as { code?: string }).code
+            if (code === 'WORKSPACE_OWNER_REQUIRED') {
+                setFormError(t('workspace.errors.conversionOwnerRequired', 'Only the personal workspace owner can convert it to shared.'))
+                return
+            }
+            setFormError(translateWorkspaceError(error))
+        }
     })
 
     const defaultMutation = useMutation({
@@ -705,6 +737,16 @@ export function RuntimeWorkspacesPage({
 
     const canManageWorkspace = workspaceMenuTarget?.roleCodename === 'owner'
     const canDeleteWorkspace = canManageWorkspace && workspaceMenuTarget?.workspaceType === 'shared'
+    // Conversion is a caller-owned `personal` → `shared` flip (server verifies
+    // `personal_user_id = current_user`). The action stays disabled until the
+    // viewer identity is known — callers that cannot resolve it (standalone
+    // dashboards) never show an enabled conversion affordance — and for an
+    // invited co-owner it stays disabled instead of hitting the typed 403.
+    const canConvertWorkspace =
+        canManageWorkspace &&
+        workspaceMenuTarget?.workspaceType === 'personal' &&
+        currentUserId != null &&
+        (workspaceMenuTarget?.personalUserId == null || workspaceMenuTarget?.personalUserId === currentUserId)
 
     const renderWorkspaceList = () => (
         <>
@@ -1098,6 +1140,19 @@ export function RuntimeWorkspacesPage({
                             <ContentCopyRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
                             {t('workspace.actions.copy', 'Copy')}
                         </MenuItem>
+                        <MenuItem
+                            disabled={!canConvertWorkspace}
+                            onClick={() => {
+                                if (workspaceMenuTarget && canConvertWorkspace) {
+                                    setFormError(null)
+                                    setConvertTarget(workspaceMenuTarget)
+                                }
+                                closeWorkspaceMenu()
+                            }}
+                        >
+                            <FolderSharedRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
+                            {t('workspace.actions.makeShared', 'Make shared')}
+                        </MenuItem>
                         <Divider />
                         <MenuItem
                             disabled={!canDeleteWorkspace}
@@ -1202,6 +1257,17 @@ export function RuntimeWorkspacesPage({
                 isSubmitting={inviteMutation.isPending}
                 onClose={() => setInviteOpen(false)}
                 onSubmit={(data) => inviteMutation.mutateAsync(data)}
+            />
+
+            <ConvertToSharedDialog
+                open={Boolean(convertTarget)}
+                error={convertTarget ? formError ?? undefined : undefined}
+                loading={convertMutation.isPending}
+                onCancel={() => {
+                    setFormError(null)
+                    setConvertTarget(null)
+                }}
+                onConfirm={() => (convertTarget ? convertMutation.mutateAsync(convertTarget) : undefined)}
             />
 
             <ConfirmDeleteDialog
@@ -1459,6 +1525,84 @@ function WorkspaceSettingCard({
                 </Stack>
             </CardContent>
         </Card>
+    )
+}
+
+function ConvertToSharedDialog({
+    open,
+    error,
+    loading,
+    onCancel,
+    onConfirm
+}: {
+    open: boolean
+    error?: string
+    loading: boolean
+    onCancel: () => void
+    onConfirm: () => void
+}) {
+    const { t } = useTranslation('apps')
+    const cancelButtonRef = useRef<HTMLButtonElement | null>(null)
+    const descriptionId = 'runtime-convert-shared-description'
+
+    // MUI Dialog autofocuses the dialog container itself; for an irreversible
+    // destructive confirmation the DOM-first safe action must hold the initial
+    // focus, so the dialog moves it explicitly on open.
+    useEffect(() => {
+        if (!open) return
+        const frame = requestAnimationFrame(() => cancelButtonRef.current?.focus())
+        return () => cancelAnimationFrame(frame)
+    }, [open])
+
+    return (
+        <StandardDialog
+            open={open}
+            onClose={onCancel}
+            title={t('workspace.convertTitle', 'Convert to shared workspace?')}
+            isBusy={loading}
+            ariaDescribedBy={descriptionId}
+            actions={
+                <>
+                    {/* Cancel is rendered DOM-first so the initial (autofocused)
+                        focus lands on the safe action for an irreversible change. */}
+                    <Button ref={cancelButtonRef} onClick={onCancel} disabled={loading}>
+                        {t('app.cancel', 'Cancel')}
+                    </Button>
+                    <Button
+                        variant='contained'
+                        color='error'
+                        onClick={() => {
+                            void Promise.resolve(onConfirm()).catch(() => undefined)
+                        }}
+                        disabled={loading}
+                    >
+                        {loading ? t('workspace.convertBusy', 'Converting…') : t('workspace.convertConfirm', 'Convert to shared')}
+                    </Button>
+                </>
+            }
+        >
+            <Stack id={descriptionId} spacing={1.5} useFlexGap>
+                {error ? <Alert severity='error'>{error}</Alert> : null}
+                <Alert severity='warning'>{t('workspace.convertOneWayLine', 'This change is permanent and cannot be undone.')}</Alert>
+                <Typography variant='body2' component='div'>
+                    <Box component='ul' sx={{ m: 0, pl: 3, display: 'grid', gap: 0.5 }}>
+                        <li>
+                            {t(
+                                'workspace.convertVisibilityLine',
+                                'Every application member sees this workspace with baseline member rights; existing owner roles are kept.'
+                            )}
+                        </li>
+                        <li>
+                            {t(
+                                'workspace.convertGuestLinksLine',
+                                'Existing guest links in this workspace become eligible when configured. Anonymous public access is not enabled automatically.'
+                            )}
+                        </li>
+                        <li>{t('workspace.convertDataLine', 'The workspace, its records and links are preserved.')}</li>
+                    </Box>
+                </Typography>
+            </Stack>
+        </StandardDialog>
     )
 }
 

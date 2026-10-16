@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { getLayoutWidgetDefinition } from '@universo-react/types'
 
 type TemplateManifest = {
     codename?: unknown
@@ -51,6 +52,7 @@ const EXPECTED_WIDGET_COMPOSITION = [
         widgetKey: 'marketing.brand',
         sortOrder: 0,
         instanceKey: 'brand',
+        placement: 'start',
         bindings: [
             {
                 slot: 'site',
@@ -65,6 +67,7 @@ const EXPECTED_WIDGET_COMPOSITION = [
         widgetKey: 'marketing.navigation',
         sortOrder: 1,
         instanceKey: 'navigation',
+        placement: 'start',
         bindings: [{ slot: 'items', entityCodename: 'MarketingPageNavigation', selector: { kind: 'record-set' } }],
         isActive: true
     },
@@ -73,6 +76,7 @@ const EXPECTED_WIDGET_COMPOSITION = [
         widgetKey: 'marketing.auth',
         sortOrder: 2,
         instanceKey: 'auth',
+        placement: 'end',
         showAuthActions: true,
         isActive: true
     },
@@ -80,6 +84,7 @@ const EXPECTED_WIDGET_COMPOSITION = [
         zone: 'marketing-header',
         widgetKey: 'languageSwitcher',
         sortOrder: 3,
+        instanceKey: 'language-switcher',
         placement: 'end',
         isActive: true
     },
@@ -87,6 +92,7 @@ const EXPECTED_WIDGET_COMPOSITION = [
         zone: 'marketing-header',
         widgetKey: 'colorModeSwitcher',
         sortOrder: 4,
+        instanceKey: 'color-mode-switcher',
         placement: 'end',
         isActive: true
     },
@@ -243,6 +249,16 @@ const readRecord = (value: unknown, field: string): Record<string, unknown> => {
     return value as Record<string, unknown>
 }
 
+const readRegistryPlacement = (assignment: Record<string, unknown>): string | undefined => {
+    const widgetKey = readString(assignment.widgetKey, 'marketing widget key')
+    const zone = readString(assignment.zone, 'marketing widget zone')
+    const definition = getLayoutWidgetDefinition(widgetKey, assignment.rendererConfig)
+    if (!definition || !definition.supportedTemplates.includes('marketing-page')) {
+        return undefined
+    }
+    return definition.defaultPlacement
+}
+
 const summarizeBindings = (value: unknown): Array<Record<string, unknown>> | undefined => {
     if (value === undefined) return undefined
     const envelope = readRecord(value, 'widget binding envelope')
@@ -328,12 +344,16 @@ export function assertMarketingPageTemplateBaseline(manifest: TemplateManifest):
     assert.deepEqual(Object.keys(layoutZoneWidgets), ['marketing-main'], 'marketing-page layout widget zones changed')
     assert.deepEqual(
         (layoutZoneWidgets['marketing-main'] ?? []).map((assignment) => {
-            const config = readRecord(assignment.config, 'marketing widget config')
-            const layoutMetadata = config.__layout === undefined ? undefined : readRecord(config.__layout, 'layout widget metadata')
-            const bindings = summarizeBindings(layoutMetadata?.bindings)
+            // Seed placements own the neutral `rendererConfig` and the Entity
+            // binding envelope directly (shared widget registry schema); the
+            // legacy `config.__layout` metadata carrier is gone.
+            const config = readRecord(assignment.rendererConfig, 'marketing widget renderer config')
+            const bindings = summarizeBindings(assignment.bindings)
             const instanceKey =
                 assignment.instanceKey === undefined ? undefined : readString(assignment.instanceKey, 'marketing widget instanceKey')
-            const placement = layoutMetadata?.placement === undefined ? undefined : readString(layoutMetadata.placement, 'widget placement')
+            // Logical placement comes from the shared widget registry default
+            // (language/color switchers register `end`), not from seed data.
+            const placement = readRegistryPlacement(assignment)
 
             assert.equal(config.source, undefined, 'marketing renderer config must not own Entity content sources')
             assert.equal(config.copySource, undefined, 'marketing renderer config must not duplicate Entity content sources')

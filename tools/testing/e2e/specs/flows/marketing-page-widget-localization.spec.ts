@@ -374,7 +374,7 @@ test('@flow @combined @marketing-page @i18n RU authoring localizes content sourc
         await heroBindingDialog.getByRole('button', { name: 'Оформление', exact: true }).click()
         await expect(heroBindingDialog).toBeHidden()
 
-        const heroPresentationDialog = page.getByRole('dialog').filter({ has: page.getByTestId('marketing-widget-config-dialog') })
+        const heroPresentationDialog = page.getByRole('dialog').filter({ has: page.getByTestId('layout-widget-presentation-dialog') })
         await expect(heroPresentationDialog).toBeVisible()
         await expect(heroPresentationDialog).toContainText(
             'Виджет отображает данные из связанных записей Сущностей. Управляйте ими в разделе «Объекты» метахаба.'

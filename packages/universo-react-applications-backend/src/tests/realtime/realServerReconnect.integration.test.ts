@@ -68,12 +68,19 @@ interface ReflectedShipsMap {
 
 interface ReflectedSceneState {
     ships: ReflectedShipsMap
+    /** Fixed-tick scene clock, present once the room simulation has started. */
+    serverTick?: number
 }
 
 type SceneRoom = Room<unknown, ReflectedSceneState>
 
 interface SceneJoinOptions {
     accessMode: 'member'
+    applicationId: string
+    widgetId: string
+}
+
+interface FakeApplicationRegistration {
     applicationId: string
     widgetId: string
 }
@@ -140,10 +147,16 @@ const mockExecutorQuery = jest.fn(async <TRow = unknown>(sql: string, params?: r
     throw new Error(`Unexpected SQL reached realtime integration executor: ${sql.slice(0, 160)}`)
 })
 
-const mockRealtimeDbExecutor = {
+interface RealtimeExecutorFixture {
+    query: typeof mockExecutorQuery
+    transaction: (handler: (tx: RealtimeExecutorFixture) => Promise<unknown>) => Promise<unknown>
+    isReleased: () => boolean
+}
+
+const mockRealtimeDbExecutor: RealtimeExecutorFixture = {
     query: mockExecutorQuery,
     transaction: jest.fn(
-        async <TRow>(handler: (tx: typeof mockRealtimeDbExecutor) => Promise<TRow>): Promise<TRow> => handler(mockRealtimeDbExecutor)
+        async <TRow>(handler: (tx: RealtimeExecutorFixture) => Promise<TRow>): Promise<TRow> => handler(mockRealtimeDbExecutor)
     ),
     isReleased: jest.fn(() => false)
 }
@@ -353,7 +366,7 @@ describe('applications realtime runtime real-server reconnection lifecycle', () 
         await alphaReconnected
 
         // Fresh ticks prove the restored seat receives live patches again.
-        await waitFor('restored seat to receive fresh server ticks', () => alphaRoom.state.serverTick > serverTickAtDrop)
+        await waitFor('restored seat to receive fresh server ticks', () => (alphaRoom.state.serverTick ?? 0) > (serverTickAtDrop ?? 0))
 
         expect(alphaLeaves).toHaveLength(0)
         expect(alphaReconnectEvents).toBe(1)

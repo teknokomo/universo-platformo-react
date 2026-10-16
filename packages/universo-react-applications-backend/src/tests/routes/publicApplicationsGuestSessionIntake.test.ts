@@ -344,7 +344,7 @@ describe('Public Applications Routes: guest session intake', () => {
     })
 
     it('keeps the displayName guest-session contract for non-quiz content links', async () => {
-        let participantInsert: { sql: string; params: unknown[] } | null = null
+        const participantInsertCapture: { sql: string; params: unknown[] } = { sql: '', params: [] }
         const dataSource = buildDataSource(
             withPublicApplication((sql, params) => {
                 if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
@@ -409,7 +409,7 @@ describe('Public Applications Routes: guest session intake', () => {
                     ]
                 }
                 if (sql.includes(`INSERT INTO "${schemaName}"."students_table"`)) {
-                    participantInsert = { sql, params }
+                    Object.assign(participantInsertCapture, { sql, params })
                     return [{ id: params[0] }]
                 }
                 if (sql.includes('FROM "applications"."obj_guest_session_idempotency"')) return []
@@ -424,10 +424,10 @@ describe('Public Applications Routes: guest session intake', () => {
 
         expect(response.body).toMatchObject({ participantId: expect.any(String), studentId: expect.any(String) })
         expect(response.body.sessionToken).toEqual(expect.any(String))
-        expect(participantInsert?.sql).toContain('display_name')
-        expect(participantInsert?.sql).not.toContain('terms_version')
-        expect(participantInsert?.sql).not.toContain('privacy_version')
-        expect(participantInsert?.params).toContain('Guest Learner')
+        expect(participantInsertCapture.sql).toContain('display_name')
+        expect(participantInsertCapture.sql).not.toContain('terms_version')
+        expect(participantInsertCapture.sql).not.toContain('privacy_version')
+        expect(participantInsertCapture.params).toContain('Guest Learner')
     })
 
     it('validates link-configured CAPTCHA after the preflight transaction has ended', async () => {
@@ -753,7 +753,8 @@ describe('Public Applications Routes: guest session intake', () => {
         expect(participantInsertCount).toBe(1)
 
         linkExpired = false
-        if (persistedIntake) persistedIntake.expiresAt = '2000-01-01T00:00:00.000Z'
+        const expiryIntake = persistedIntake as Record<string, unknown> | null
+        if (expiryIntake) expiryIntake['expiresAt'] = '2000-01-01T00:00:00.000Z'
         const afterIdempotencyExpiry = await postIntake(intake).expect(201)
         expect(afterIdempotencyExpiry.body.participantId).not.toBe(response.body.participantId)
         expect(linkUseCount).toBe(2)

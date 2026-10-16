@@ -38,15 +38,23 @@ import {
     updateApplication
 } from '../persistence/applicationsStore'
 import { lockApplicationForPublicGuestWithdrawal } from '../persistence/publicGuestApplicationStore'
+import { acquireAdvisoryXactLock } from '@universo-react/utils/database'
 import { revokeGuestSessionIdempotencyForApplication } from '../persistence/guestSessionIdempotencyStore'
 import { revokeGuestAssessmentAttemptsForApplication } from '../services/guestAssessmentApplicationRevocation'
 import {
     archivePersonalWorkspaceForUser,
     ensurePersonalWorkspaceForUser,
+    ensureSharedWorkspaceBaselineMembership,
     listObjectWorkspaceLimits,
+    removeSharedWorkspaceBaselineMembership,
     runtimeWorkspaceTablesExist,
     upsertObjectWorkspaceLimits
 } from '../services/applicationWorkspaces'
+import {
+    assertUserIsNotLastSharedWorkspaceOwner,
+    RUNTIME_WORKSPACE_ERROR_CODES,
+    RuntimeWorkspaceError
+} from '../services/runtimeWorkspaceService'
 import { escapeLikeWildcards, getRequestDbExecutor } from '../utils'
 import {
     UpdateFailure,
@@ -863,11 +871,25 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
                 IDENTIFIER_REGEX.test(application.schemaName) &&
                 (await runtimeWorkspaceTablesExist(trx, application.schemaName))
             ) {
+                // Canonical lock order across the workspace lifecycle:
+                // `workspace-baseline` (application scope) first, then
+                // `personal-workspace` (user scope). Re-entrant advisory
+                // locks make this safe for the shared helpers below.
+                await acquireAdvisoryXactLock(trx, `workspace-baseline:${application.schemaName}:${applicationId}`)
+
                 await ensurePersonalWorkspaceForUser(trx, {
                     schemaName: application.schemaName,
                     userId,
                     actorUserId: userId,
                     defaultRoleCodename: 'owner'
+                })
+
+                // The new member accesses every shared workspace of the
+                // application with baseline `member` rights.
+                await ensureSharedWorkspaceBaselineMembership(trx, {
+                    schemaName: application.schemaName,
+                    applicationId,
+                    actorUserId: userId
                 })
             }
 
@@ -899,22 +921,62 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             return res.status(404).json({ error: 'Application not found' })
         }
 
-        await ds.transaction(async (trx) => {
-            await deleteApplicationMember(trx, { applicationId, memberId: member.id, userId })
+        try {
+            await ds.transaction(async (trx) => {
+                if (
+                    application.workspacesEnabled &&
+                    application.schemaName &&
+                    IDENTIFIER_REGEX.test(application.schemaName) &&
+                    (await runtimeWorkspaceTablesExist(trx, application.schemaName))
+                ) {
+                    // Canonical lock order (`workspace-baseline` before
+                    // `personal-workspace`). Holding the application-scoped
+                    // baseline lock across the membership delete AND the
+                    // last-owner check serializes concurrent departures: a
+                    // second co-owner transaction replays only after the
+                    // first one commits and then sees the departed active
+                    // membership instead of silently leaving the workspace
+                    // without owners.
+                    await acquireAdvisoryXactLock(trx, `workspace-baseline:${application.schemaName}:${applicationId}`)
+                }
 
-            if (
-                application.workspacesEnabled &&
-                application.schemaName &&
-                IDENTIFIER_REGEX.test(application.schemaName) &&
-                (await runtimeWorkspaceTablesExist(trx, application.schemaName))
-            ) {
-                await archivePersonalWorkspaceForUser(trx, {
-                    schemaName: application.schemaName,
-                    userId,
-                    actorUserId: userId
-                })
+                await deleteApplicationMember(trx, { applicationId, memberId: member.id, userId })
+
+                if (
+                    application.workspacesEnabled &&
+                    application.schemaName &&
+                    IDENTIFIER_REGEX.test(application.schemaName) &&
+                    (await runtimeWorkspaceTablesExist(trx, application.schemaName))
+                ) {
+                    // A shared workspace whose only `owner` row belongs to the
+                    // departing user would become unmanageable (member management
+                    // is owner-gated). Reject the exit instead of stranding it.
+                    await assertUserIsNotLastSharedWorkspaceOwner(trx, {
+                        schemaName: application.schemaName,
+                        applicationId,
+                        userId
+                    })
+
+                    await removeSharedWorkspaceBaselineMembership(trx, {
+                        schemaName: application.schemaName,
+                        applicationId,
+                        userId,
+                        actorUserId: userId
+                    })
+
+                    await archivePersonalWorkspaceForUser(trx, {
+                        schemaName: application.schemaName,
+                        userId,
+                        actorUserId: userId
+                    })
+                }
+            })
+        } catch (error) {
+            if (error instanceof RuntimeWorkspaceError && error.code === RUNTIME_WORKSPACE_ERROR_CODES.memberWorkspaceOwnershipBlocked) {
+                return res.status(409).json({ error: error.message, code: error.code })
             }
-        })
+            throw error
+        }
 
         return res.json({ status: 'left' })
     }
@@ -1181,11 +1243,21 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
                     IDENTIFIER_REGEX.test(application.schemaName) &&
                     (await runtimeWorkspaceTablesExist(trx, application.schemaName))
                 ) {
+                    await acquireAdvisoryXactLock(trx, `workspace-baseline:${application.schemaName}:${applicationId}`)
+
                     await ensurePersonalWorkspaceForUser(trx, {
                         schemaName: application.schemaName,
                         userId: user.id,
                         actorUserId: userId,
                         defaultRoleCodename: 'owner'
+                    })
+
+                    // The added member accesses every shared workspace of the
+                    // application with baseline `member` rights (same as join).
+                    await ensureSharedWorkspaceBaselineMembership(trx, {
+                        schemaName: application.schemaName,
+                        applicationId,
+                        actorUserId: userId
                     })
                 }
 
@@ -1307,22 +1379,53 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             return res.status(404).json({ error: 'Application not found' })
         }
 
-        await ds.transaction(async (trx) => {
-            await deleteApplicationMember(trx, { applicationId, memberId, userId })
+        try {
+            await ds.transaction(async (trx) => {
+                if (
+                    application.workspacesEnabled &&
+                    application.schemaName &&
+                    IDENTIFIER_REGEX.test(application.schemaName) &&
+                    (await runtimeWorkspaceTablesExist(trx, application.schemaName))
+                ) {
+                    // Same canonical lock order and last-owner serialization as
+                    // the leave flow (see comment there).
+                    await acquireAdvisoryXactLock(trx, `workspace-baseline:${application.schemaName}:${applicationId}`)
+                }
 
-            if (
-                application.workspacesEnabled &&
-                application.schemaName &&
-                IDENTIFIER_REGEX.test(application.schemaName) &&
-                (await runtimeWorkspaceTablesExist(trx, application.schemaName))
-            ) {
-                await archivePersonalWorkspaceForUser(trx, {
-                    schemaName: application.schemaName,
-                    userId: member.userId,
-                    actorUserId: userId
-                })
+                await deleteApplicationMember(trx, { applicationId, memberId, userId })
+
+                if (
+                    application.workspacesEnabled &&
+                    application.schemaName &&
+                    IDENTIFIER_REGEX.test(application.schemaName) &&
+                    (await runtimeWorkspaceTablesExist(trx, application.schemaName))
+                ) {
+                    await assertUserIsNotLastSharedWorkspaceOwner(trx, {
+                        schemaName: application.schemaName,
+                        applicationId,
+                        userId: member.userId
+                    })
+
+                    await removeSharedWorkspaceBaselineMembership(trx, {
+                        schemaName: application.schemaName,
+                        applicationId,
+                        userId: member.userId,
+                        actorUserId: userId
+                    })
+
+                    await archivePersonalWorkspaceForUser(trx, {
+                        schemaName: application.schemaName,
+                        userId: member.userId,
+                        actorUserId: userId
+                    })
+                }
+            })
+        } catch (error) {
+            if (error instanceof RuntimeWorkspaceError && error.code === RUNTIME_WORKSPACE_ERROR_CODES.memberWorkspaceOwnershipBlocked) {
+                return res.status(409).json({ error: error.message, code: error.code })
             }
-        })
+            throw error
+        }
         return res.status(204).send()
     }
 

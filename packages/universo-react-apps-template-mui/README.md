@@ -91,7 +91,8 @@ Runtime dashboard template for published applications in the Universo Platformo 
 -   **WorkspaceSwitcher**: Header/mobile quick switch for the user's current workspace.
 -   **RuntimeWorkspacesPage**: Full workspace management section rendered inside the existing dashboard details content slot.
 -   **Workspace route shell**: Workspace management keeps registry-declared Dashboard host controls and filters content widgets from every shell zone; the content footer is hidden on this route.
--   **Workspace APIs**: Typed helpers and query keys for paginated workspace lists, member lists, default switching, shared workspace creation, email-based member invitation, and member removal.
+-   **Workspace APIs**: Typed helpers and query keys for paginated workspace lists, member lists, default switching, shared workspace creation, email-based member invitation, member removal, and owner-only one-way in-place personal-to-shared conversion.
+-   **Personal-to-shared conversion**: A workspace owner converts their personal workspace in place through the workspace card actions menu ("Make shared"). The canonical `StandardDialog` confirmation is destructive-framed (warning alert, four consequence bullets, Cancel autofocus, red confirm), shows a localized error inline without closing on failure, and the workspace id/records/links stay preserved while it becomes visible to all application members with `member` baseline rights.
 -   **Navigation placement**: Published app menus can keep the workspace entry in the primary menu, move it to overflow, or hide it while preserving the standalone switcher.
 -   **Workspace Settings**: Allowed per-workspace overrides are rendered through the existing workspace page cards and use localized labels from the runtime `apps` bundle. Locked keys stay controlled by Application Settings.
 

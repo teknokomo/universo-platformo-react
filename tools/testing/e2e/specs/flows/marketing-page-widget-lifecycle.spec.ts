@@ -111,7 +111,7 @@ test('@flow @combined @marketing-page browser widget lifecycle persists semantic
         await expect(bindingDialog.getByRole('combobox', { name: 'Content source', exact: true })).toBeEnabled()
         await bindingDialog.getByRole('button', { name: 'Appearance', exact: true }).click()
         await expect(bindingDialog).toHaveCount(0)
-        let presentationDialog = page.getByRole('dialog').filter({ has: page.getByTestId('marketing-widget-config-dialog') })
+        let presentationDialog = page.getByRole('dialog').filter({ has: page.getByTestId('layout-widget-presentation-dialog') })
         await expect(presentationDialog).toBeVisible()
         await expect(presentationDialog.getByRole('combobox', { name: 'Content source', exact: true })).toHaveCount(0)
         let maxItemsField = presentationDialog.getByRole('spinbutton', { name: 'Maximum items', exact: true })
@@ -139,7 +139,7 @@ test('@flow @combined @marketing-page browser widget lifecycle persists semantic
 
         const reopenedBindingDialog = await openWidgetBindingDialog(page, faqSurface)
         await reopenedBindingDialog.getByRole('button', { name: 'Appearance', exact: true }).click()
-        presentationDialog = page.getByRole('dialog').filter({ has: page.getByTestId('marketing-widget-config-dialog') })
+        presentationDialog = page.getByRole('dialog').filter({ has: page.getByTestId('layout-widget-presentation-dialog') })
         await expect(presentationDialog).toBeVisible()
         maxItemsField = presentationDialog.getByRole('spinbutton', { name: 'Maximum items', exact: true })
         await expect(maxItemsField).toHaveValue(originalMaxItems)
@@ -266,8 +266,8 @@ test('@flow @combined @marketing-page browser widget lifecycle persists semantic
         expect(newlyCreatedFaqPlacements, 'One Duplicate action must persist exactly one new FAQ placement').toHaveLength(1)
         expect(readString(duplicatedFaq.id)).toBe(readString(newlyCreatedFaqPlacements[0].id))
         expect(readConfig(duplicatedFaq)).toMatchObject({ variant: 'faq', maxItems: 12 })
-        expect(readString(readConfig(duplicatedFaq).instanceKey)).not.toBe(readString(readConfig(faqWidget).instanceKey))
-        expect(readString(readConfig(duplicatedFaq).instanceKey)).not.toBe('')
+        expect(readString(duplicatedFaq.instanceKey)).not.toBe(readString(faqWidget.instanceKey))
+        expect(readString(duplicatedFaq.instanceKey)).not.toBe('')
         const duplicatedFaqBindings = (await getLayoutZoneWidgetBindings(
             api,
             metahub.id,
@@ -310,7 +310,7 @@ test('@flow @combined @marketing-page browser widget lifecycle persists semantic
         )
         await heroSurface.getByRole('button', { name: /^Duplicate widget:/ }).click()
         await expect(page.getByRole('dialog', { name: 'Hero', exact: true })).toHaveCount(0)
-        await expect(page.getByRole('dialog').filter({ has: page.getByTestId('marketing-widget-config-dialog') })).toHaveCount(0)
+        await expect(page.getByRole('dialog').filter({ has: page.getByTestId('layout-widget-presentation-dialog') })).toHaveCount(0)
         const duplicateHeroResponse = await duplicateHeroResponsePromise
         expect(duplicateHeroResponse.ok()).toBe(true)
         const duplicatedHero = await waitForWidgetState(
@@ -318,7 +318,7 @@ test('@flow @combined @marketing-page browser widget lifecycle persists semantic
             metahub.id,
             layoutId,
             (widget) => {
-                const instanceKey = readString(readConfig(widget).instanceKey)
+                const instanceKey = readString(widget.instanceKey)
                 return (
                     widget.widgetKey === 'marketing.hero' &&
                     instanceKey !== '' &&
@@ -328,8 +328,8 @@ test('@flow @combined @marketing-page browser widget lifecycle persists semantic
             },
             'The duplicated marketing hero widget was not persisted with a new instance identity'
         )
-        expect(readString(readConfig(duplicatedHero).instanceKey)).not.toBe(readString(readConfig(heroWidget).instanceKey))
-        const duplicatedHeroInstanceKey = readString(readConfig(duplicatedHero).instanceKey)
+        expect(readString(duplicatedHero.instanceKey)).not.toBe(readString(heroWidget.instanceKey))
+        const duplicatedHeroInstanceKey = readString(duplicatedHero.instanceKey)
         expect(duplicatedHeroInstanceKey).not.toBe('')
         expect(isUuidV7(readString(duplicatedHero.id))).toBe(true)
         expect(readString(duplicatedHero.id)).not.toBe(readString(heroWidget.id))
@@ -414,7 +414,7 @@ test('@flow @combined @marketing-page browser widget lifecycle persists semantic
             metahub.id,
             layoutId,
             (widget) => {
-                const instanceKey = readString(readConfig(widget).instanceKey)
+                const instanceKey = readString(widget.instanceKey)
                 return (
                     widget.widgetKey === 'marketing.hero' &&
                     instanceKey !== '' &&
@@ -616,7 +616,7 @@ test('@flow @combined @marketing-page browser widget lifecycle persists semantic
         const widgetMenu = page.getByRole('menu')
         await expect(widgetMenu).toBeVisible()
         await widgetMenu.getByRole('menuitem', { name: 'Collection', exact: true }).click()
-        const collectionConfigDialog = page.getByRole('dialog').filter({ has: page.getByTestId('marketing-widget-config-dialog') })
+        const collectionConfigDialog = page.getByRole('dialog').filter({ has: page.getByTestId('layout-widget-presentation-dialog') })
         await expect(collectionConfigDialog).toBeVisible()
         await collectionConfigDialog.getByRole('button', { name: 'Save', exact: true }).click()
         await expect(collectionConfigDialog).toHaveCount(0)
@@ -783,7 +783,7 @@ test('@flow @combined @marketing-page browser widget lifecycle persists semantic
         )
         expect(addedWidget.zone).toBe('marketing-main')
         expect(addedWidget.isActive).toBe(true)
-        const addedInstanceKey = readString(readConfig(addedWidget).instanceKey)
+        const addedInstanceKey = readString(addedWidget.instanceKey)
         expect(addedInstanceKey).not.toBe('')
         expect(readConfig(addedWidget)).not.toHaveProperty('source')
         expect(readConfig(addedWidget)).not.toHaveProperty('copySource')

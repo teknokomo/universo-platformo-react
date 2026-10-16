@@ -64,7 +64,7 @@ export async function verifyMarketingImageRecordAuthoring(options: {
         siteSettingsEntityId = siteSettingsEntity.id
 
         const sourceWidgets = (await listLayoutZoneWidgets(api, metahubId, marketingLayoutId)) as LayoutWidgetsResponse
-        const imageWidget = sourceWidgets.items?.find((widget) => readLayoutWidgetConfig(widget).instanceKey === 'hero-image')
+        const imageWidget = sourceWidgets.items?.find((widget) => widget.instanceKey === 'hero-image')
         if (!imageWidget?.id) throw new Error('The marketing template did not expose its Image placement')
         imageWidgetId = imageWidget.id as string
     })

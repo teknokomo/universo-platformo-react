@@ -14,6 +14,7 @@ import {
 const ACTIVE_ROW_SQL = '_upl_deleted = false AND _app_deleted = false'
 export type RuntimeWorkspaceCopyInput = {
     schemaName: string
+    applicationId: string
     sourceWorkspaceId: string
     name: unknown
     description: unknown
@@ -24,6 +25,7 @@ export type RuntimeWorkspaceCopyInput = {
 
 type WorkspaceCreationInput = {
     schemaName: string
+    applicationId: string
     name: unknown
     description: unknown
     userId: string
@@ -331,6 +333,7 @@ export async function copyWorkspaceOperation(
         // workspace or membership row even when the caller retries.
         const created = await dependencies.createWorkspace(tx, {
             schemaName: input.schemaName,
+            applicationId: input.applicationId,
             name: input.name,
             description: input.description,
             userId: input.userId,

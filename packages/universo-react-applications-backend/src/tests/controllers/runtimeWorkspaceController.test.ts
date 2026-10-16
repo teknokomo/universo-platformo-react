@@ -2,17 +2,20 @@ import type { Request, Response } from 'express'
 
 const mockResolveRuntimeSchema = jest.fn()
 const mockRuntimeQuery = jest.fn()
-const mockCreateQueryHelper = jest.fn(() => mockRuntimeQuery)
-const mockEnsureRuntimePermission = jest.fn((res: Response, ctx: { permissions: Record<string, boolean> }, permission: string) => {
-    if (ctx.permissions[permission]) return true
-    res.status(403).json({ error: 'Insufficient permissions for this action' })
-    return false
-})
+const mockCreateQueryHelper: jest.Mock = jest.fn(() => mockRuntimeQuery)
+const mockEnsureRuntimePermission: jest.Mock = jest.fn(
+    (res: Response, ctx: { permissions: Record<string, boolean> }, permission: string) => {
+        if (ctx.permissions[permission]) return true
+        res.status(403).json({ error: 'Insufficient permissions for this action' })
+        return false
+    }
+)
 const mockListUserWorkspaces = jest.fn()
 const mockGetUserWorkspace = jest.fn()
 const mockCreateSharedWorkspace = jest.fn()
 const mockUpdateWorkspace = jest.fn()
 const mockCopyWorkspace = jest.fn()
+const mockConvertPersonalWorkspaceToShared = jest.fn()
 const mockDeleteSharedWorkspace = jest.fn()
 const mockSetDefaultWorkspace = jest.fn()
 const mockAddWorkspaceMember = jest.fn()
@@ -39,6 +42,8 @@ jest.mock('../../services/runtimeWorkspaceService', () => ({
         roleNotFound: 'WORKSPACE_ROLE_NOT_FOUND',
         memberNotFound: 'WORKSPACE_MEMBER_NOT_FOUND',
         personalWorkspaceMutationBlocked: 'PERSONAL_WORKSPACE_MUTATION_BLOCKED',
+        workspaceConversionBlocked: 'WORKSPACE_CONVERSION_BLOCKED',
+        memberWorkspaceOwnershipBlocked: 'APPLICATION_MEMBER_WORKSPACE_OWNERSHIP_REQUIRED',
         lastOwnerRemovalBlocked: 'LAST_WORKSPACE_OWNER_REMOVAL_BLOCKED',
         workspaceCopyReferenceUnresolved: 'WORKSPACE_COPY_REFERENCE_UNRESOLVED',
         workspaceCopyAccessLinkIntakeInvalid: 'WORKSPACE_COPY_ACCESS_LINK_INTAKE_INVALID'
@@ -58,6 +63,7 @@ jest.mock('../../services/runtimeWorkspaceService', () => ({
     updateWorkspace: (...args: unknown[]) => mockUpdateWorkspace(...args),
     copyWorkspace: (...args: unknown[]) => mockCopyWorkspace(...args),
     deleteSharedWorkspace: (...args: unknown[]) => mockDeleteSharedWorkspace(...args),
+    convertPersonalWorkspaceToShared: (...args: unknown[]) => mockConvertPersonalWorkspaceToShared(...args),
     setDefaultWorkspace: (...args: unknown[]) => mockSetDefaultWorkspace(...args),
     addWorkspaceMember: (...args: unknown[]) => mockAddWorkspaceMember(...args),
     removeWorkspaceMember: (...args: unknown[]) => mockRemoveWorkspaceMember(...args),
@@ -106,8 +112,8 @@ function createResponse() {
 }
 
 const vlc = (content: string) => ({
-    _schema: '1',
-    _primary: 'en',
+    _schema: '1' as const,
+    _primary: 'en' as const,
     locales: {
         en: {
             content,
@@ -236,6 +242,7 @@ describe('runtimeWorkspaceController', () => {
 
         expect(mockCreateSharedWorkspace).toHaveBeenCalledWith(manager, {
             schemaName: baseCtx.schemaName,
+            applicationId: 'app-1',
             name: vlc('Class A'),
             description: vlc('Class A description'),
             userId: baseCtx.userId,
@@ -260,6 +267,141 @@ describe('runtimeWorkspaceController', () => {
         expect(res.status).toHaveBeenCalledWith(403)
         expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ error: 'Insufficient permissions for this action' })
         expect(mockCreateSharedWorkspace).not.toHaveBeenCalled()
+    })
+
+    it('converts a caller-owned personal workspace through the service layer', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockConvertPersonalWorkspaceToShared.mockResolvedValue({ id: 'workspace-personal' })
+        mockResolveRuntimeSchema.mockResolvedValue(baseCtx)
+        mockGetWorkspaceMembership.mockResolvedValue({
+            id: 'membership-1',
+            userId: baseCtx.userId,
+            workspaceId: 'workspace-personal',
+            roleCodename: 'owner',
+            isDefault: true,
+            workspaceType: 'personal',
+            personalUserId: baseCtx.userId
+        })
+
+        await controller.convertWorkspaceToShared(
+            {
+                params: { applicationId: 'app-1', workspaceId: '018f8a78-7b8f-7c1d-a111-222233334400' }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockConvertPersonalWorkspaceToShared).toHaveBeenCalledWith(manager, {
+            schemaName: baseCtx.schemaName,
+            applicationId: 'app-1',
+            workspaceId: '018f8a78-7b8f-7c1d-a111-222233334400',
+            userId: baseCtx.userId,
+            actorUserId: baseCtx.userId
+        })
+        expect(res.json).toHaveBeenCalledWith({ id: 'workspace-personal' })
+    })
+
+    it('returns the conversion-specific message when only a non-owner workspace role is held', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockResolveRuntimeSchema.mockResolvedValue(baseCtx)
+        mockGetWorkspaceMembership.mockResolvedValue({
+            id: 'membership-1',
+            userId: baseCtx.userId,
+            workspaceId: 'workspace-shared',
+            roleCodename: 'member',
+            isDefault: false,
+            workspaceType: 'shared',
+            personalUserId: null
+        })
+
+        await controller.convertWorkspaceToShared(
+            {
+                params: { applicationId: 'app-1', workspaceId: '018f8a78-7b8f-7c1d-a111-222233334400' }
+            } as unknown as Request,
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(403)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'Only the personal workspace owner can convert it to shared',
+            code: 'WORKSPACE_OWNER_REQUIRED'
+        })
+        expect(mockConvertPersonalWorkspaceToShared).not.toHaveBeenCalled()
+    })
+
+    it('rejects unexpected conversion request bodies with a typed 400', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockResolveRuntimeSchema.mockResolvedValue(baseCtx)
+
+        await controller.convertWorkspaceToShared(
+            {
+                params: { applicationId: 'app-1', workspaceId: '018f8a78-7b8f-7c1d-a111-222233334400' },
+                body: { targetRole: 'owner' }
+            } as unknown as Request,
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith(expect.objectContaining({ code: 'INVALID_REQUEST_BODY' }))
+        expect(mockConvertPersonalWorkspaceToShared).not.toHaveBeenCalled()
+    })
+
+    it('maps the conversion conflict to a typed 409 response', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockResolveRuntimeSchema.mockResolvedValue(baseCtx)
+        mockGetWorkspaceMembership.mockResolvedValue({
+            id: 'membership-1',
+            userId: baseCtx.userId,
+            workspaceId: 'workspace-personal',
+            roleCodename: 'owner',
+            isDefault: true,
+            workspaceType: 'personal',
+            personalUserId: baseCtx.userId
+        })
+        mockConvertPersonalWorkspaceToShared.mockRejectedValue(
+            new RuntimeWorkspaceError(RUNTIME_WORKSPACE_ERROR_CODES.workspaceConversionBlocked, 'blocked')
+        )
+
+        await controller.convertWorkspaceToShared(
+            {
+                params: { applicationId: 'app-1', workspaceId: '018f8a78-7b8f-7c1d-a111-222233334400' }
+            } as unknown as Request,
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ error: 'blocked', code: 'WORKSPACE_CONVERSION_BLOCKED' })
+    })
+
+    it('maps a lost conversion race to a plain not-found response', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockResolveRuntimeSchema.mockResolvedValue(baseCtx)
+        mockGetWorkspaceMembership.mockResolvedValue({
+            id: 'membership-1',
+            userId: baseCtx.userId,
+            workspaceId: 'workspace-personal',
+            roleCodename: 'owner',
+            isDefault: true,
+            workspaceType: 'personal',
+            personalUserId: baseCtx.userId
+        })
+        mockConvertPersonalWorkspaceToShared.mockRejectedValue(
+            new RuntimeWorkspaceError(RUNTIME_WORKSPACE_ERROR_CODES.workspaceNotFound, 'Workspace not found')
+        )
+
+        await controller.convertWorkspaceToShared(
+            {
+                params: { applicationId: 'app-1', workspaceId: '018f8a78-7b8f-7c1d-a111-222233334400' }
+            } as unknown as Request,
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(404)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ error: 'Workspace not found', code: 'WORKSPACE_NOT_FOUND' })
     })
 
     it('returns a route workspace detail only when it belongs to the current runtime user', async () => {
@@ -577,6 +719,7 @@ describe('runtimeWorkspaceController', () => {
 
         expect(mockAddWorkspaceMember).toHaveBeenCalledWith(manager, {
             schemaName: baseCtx.schemaName,
+            applicationId: 'app-1',
             workspaceId,
             userId: '2a15af4d-54ef-4b65-b5fd-8274d0d1de1b',
             roleCodename: 'member',
@@ -629,6 +772,7 @@ describe('runtimeWorkspaceController', () => {
 
         expect(mockAddWorkspaceMember).toHaveBeenCalledWith(manager, {
             schemaName: baseCtx.schemaName,
+            applicationId: 'app-1',
             workspaceId,
             userId: 'target-user-id',
             roleCodename: 'member',

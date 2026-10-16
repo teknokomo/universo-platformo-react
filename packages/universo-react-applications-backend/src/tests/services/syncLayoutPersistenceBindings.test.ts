@@ -35,6 +35,28 @@ import {
 let currentKnex: MockSyncKnex
 configureSyncLayoutPersistenceKnexAccessor(() => currentKnex)
 
+type LayoutZoneWidgetFixture = {
+    id: string
+    layoutId: string
+    zone: string
+    widgetKey: string
+    instanceKey: string
+    parentWidgetId: string | null
+    slotKey: string | null
+    sourceWidgetId: string | null
+    sourceBaseWidgetId: string | null
+    sortOrder: number
+    config: unknown
+    isActive: boolean
+}
+
+// `PublishedApplicationSnapshot.layoutZoneWidgets` is intentionally opaque to
+// runtime paths; the snapshot contract keeps every widget-associative field
+// loose. The fixtures know the runtime shape, so the helper narrows it once
+// and its readers keep the precise fields.
+const snapshotWidgets = (snapshot: PublishedApplicationSnapshot): LayoutZoneWidgetFixture[] =>
+    (snapshot.layoutZoneWidgets ?? []) as LayoutZoneWidgetFixture[]
+
 describe('syncLayoutPersistence widget bindings', () => {
     beforeEach(() => {
         resetSyncLayoutPersistenceMocks()
@@ -43,7 +65,7 @@ describe('syncLayoutPersistence widget bindings', () => {
 
     it.each([false, true])('inserts child-first snapshots with physical parents before children (application copy=%s)', async (copy) => {
         const snapshot = createSnapshot()
-        const parent = { ...snapshot.layoutZoneWidgets[0]!, sortOrder: 9 }
+        const parent = { ...snapshotWidgets(snapshot)[0]!, sortOrder: 9 }
         const children = [dashboardIds.scopedWidget, dashboardIds.courseWidget].map((id, index) => ({
             ...parent,
             id,
@@ -70,7 +92,7 @@ describe('syncLayoutPersistence widget bindings', () => {
                     expect(currentKnex.widgetRows).toEqual(
                         expect.arrayContaining([expect.objectContaining({ id: parentId, layout_id: params[1] })])
                     )
-                    expect(snapshot.layoutZoneWidgets.map(({ id }) => id)).not.toContain(parentId)
+                    expect(snapshotWidgets(snapshot).map(({ id }) => id)).not.toContain(parentId)
                 }
             }
             return mockSqlQuery(sql, params)
@@ -91,7 +113,7 @@ describe('syncLayoutPersistence widget bindings', () => {
         expect(layouts).toHaveLength(copy ? 2 : 1)
         if (copy)
             expect(layouts).toEqual(expect.arrayContaining([expect.objectContaining({ source_kind: 'application', is_default: false })]))
-        const snapshotIds = snapshot.layoutZoneWidgets.map(({ id }) => id)
+        const snapshotIds = snapshotWidgets(snapshot).map(({ id }) => id)
         for (const layout of layouts) {
             const rows = currentKnex.widgetRows.filter((row) => row.layout_id === layout.id)
             expect(rows).toHaveLength(3)
@@ -118,12 +140,12 @@ describe('syncLayoutPersistence widget bindings', () => {
         await persistPublishedWidgets(options)
         expect(currentKnex.widgetRows.map((row) => row.id)).toEqual(identities)
         expect(query.mock.calls.filter(([sql]) => /^\s*INSERT INTO\b/u.test(String(sql)))).toHaveLength(0)
-        expect(snapshot.layoutZoneWidgets.map(({ id }) => id)).toEqual([...children.map(({ id }) => id), parent.id])
+        expect(snapshotWidgets(snapshot).map(({ id }) => id)).toEqual([...children.map(({ id }) => id), parent.id])
     })
 
     it('keeps a deleted source placement tombstoned on the next sync without reinserting its instance key', async () => {
         const snapshot = createSnapshot()
-        const sourceWidget = snapshot.layoutZoneWidgets[0]
+        const sourceWidget = snapshotWidgets(snapshot)[0]
         if (!sourceWidget) throw new Error('Expected the dashboard source widget fixture')
         const deletedPhysicalWidgetId = '0190a9b5-3cde-7abc-8def-0123456789b0'
         currentKnex = createMockSyncKnex({
@@ -357,7 +379,7 @@ describe('syncLayoutPersistence widget bindings', () => {
 
     it.each(['source', 'copySource'] as const)('rejects legacy marketing %s renderer configuration before sync writes', async (field) => {
         const snapshot = createMarketingSnapshot()
-        const widget = snapshot.layoutZoneWidgets[0]!
+        const widget = snapshotWidgets(snapshot)[0]!
         const decoded = decodeLayoutWidgetConfigEnvelope(widget.config, {
             templateKey: 'marketing-page',
             widgetKey: 'marketing.collection',
@@ -396,8 +418,11 @@ describe('syncLayoutPersistence widget bindings', () => {
             ...dashboardSnapshot,
             entities: { ...dashboardSnapshot.entities, ...marketingSnapshot.entities },
             elements: { ...(dashboardSnapshot.elements ?? {}), ...(marketingSnapshot.elements ?? {}) },
-            layouts: [...dashboardSnapshot.layouts, { ...marketingSnapshot.layouts[0]!, isDefault: false }],
-            layoutZoneWidgets: [...dashboardSnapshot.layoutZoneWidgets, ...marketingSnapshot.layoutZoneWidgets]
+            layouts: [
+                ...(dashboardSnapshot.layouts ?? []),
+                { ...(marketingSnapshot.layouts![0] as Record<string, unknown>), isDefault: false }
+            ],
+            layoutZoneWidgets: [...snapshotWidgets(dashboardSnapshot), ...snapshotWidgets(marketingSnapshot)]
         }
         const priorRows = [
             modifiedSourceLayoutRow(dashboardIds.layout, 'dashboard', true),
@@ -598,7 +623,7 @@ describe('syncLayoutPersistence widget bindings', () => {
             const sourceSnapshot: PublishedApplicationSnapshot = {
                 ...heroSnapshot,
                 entities: { ...heroSnapshot.entities, [scopeEntityId]: createScopedEntity(scopeEntityId, 'Home') },
-                layoutZoneWidgets: [...heroSnapshot.layoutZoneWidgets, authWidget],
+                layoutZoneWidgets: [...snapshotWidgets(heroSnapshot), authWidget],
                 scopedLayouts: [
                     {
                         id: dashboardIds.homeLayout,
@@ -700,7 +725,7 @@ describe('syncLayoutPersistence widget bindings', () => {
 
     it('deactivates a removed required base widget, preserves its source baseline, and restores it on resync', async () => {
         const heroSnapshot = createMarketingHeroSnapshot()
-        const heroWidget = heroSnapshot.layoutZoneWidgets[0]
+        const heroWidget = snapshotWidgets(heroSnapshot)[0]
         if (!heroWidget) throw new Error('Expected the bound source Hero fixture')
         const authWidget = {
             id: marketingIds.sharedWidget,
@@ -718,7 +743,7 @@ describe('syncLayoutPersistence widget bindings', () => {
         }
         const snapshot: PublishedApplicationSnapshot = {
             ...heroSnapshot,
-            layoutZoneWidgets: [...heroSnapshot.layoutZoneWidgets, authWidget]
+            layoutZoneWidgets: [...snapshotWidgets(heroSnapshot), authWidget]
         }
         currentKnex = createMockSyncKnex({
             layoutRows: [modifiedSourceLayoutRow(marketingIds.layout, 'marketing-page', true)]
@@ -774,7 +799,7 @@ describe('syncLayoutPersistence widget bindings', () => {
 
     it('preserves a locally disabled required widget when its source removes and restores it', async () => {
         const sourceSnapshot = createMarketingHeroSnapshot()
-        const heroWidget = sourceSnapshot.layoutZoneWidgets[0]
+        const heroWidget = snapshotWidgets(sourceSnapshot)[0]
         if (!heroWidget) throw new Error('Expected the bound source Hero fixture')
         const authWidget = {
             id: marketingIds.sharedWidget,
@@ -792,7 +817,7 @@ describe('syncLayoutPersistence widget bindings', () => {
         }
         const snapshot: PublishedApplicationSnapshot = {
             ...sourceSnapshot,
-            layoutZoneWidgets: [...sourceSnapshot.layoutZoneWidgets, authWidget]
+            layoutZoneWidgets: [...snapshotWidgets(sourceSnapshot), authWidget]
         }
         currentKnex = createMockSyncKnex({
             layoutRows: [modifiedSourceLayoutRow(marketingIds.layout, 'marketing-page', true)]
@@ -825,7 +850,7 @@ describe('syncLayoutPersistence widget bindings', () => {
 
     it('transfers a removed unbound source widget to application ownership without dropping its local config', async () => {
         const snapshot = createSnapshot()
-        const sourceWidget = snapshot.layoutZoneWidgets[0]
+        const sourceWidget = snapshotWidgets(snapshot)[0]
         if (!sourceWidget) throw new Error('Expected the dashboard source widget fixture')
         const physicalWidgetId = '0190a9b5-3cde-7abc-8def-0123456789b0'
         currentKnex = createMockSyncKnex({
@@ -903,7 +928,7 @@ describe('syncLayoutPersistence widget bindings', () => {
         expect(persistedBefore?.source_state).not.toHaveProperty('bindings')
 
         const nextSnapshot = createMarketingHeroSnapshot()
-        const sourceWidget = nextSnapshot.layoutZoneWidgets[0]!
+        const sourceWidget = snapshotWidgets(nextSnapshot)[0]!
         const heroDefinition = LAYOUT_WIDGET_DEFINITIONS.find(({ key }) => key === 'marketing.hero')
         if (!heroDefinition) throw new Error('Expected marketing.hero to be registered')
         sourceWidget.config = encodeLayoutWidgetConfigEnvelope(
@@ -919,7 +944,7 @@ describe('syncLayoutPersistence widget bindings', () => {
             },
             { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
         )
-        sourceWidget.sourceContentHash = 'hero-widget-binding-updated'
+        ;(sourceWidget as unknown as { sourceContentHash: string }).sourceContentHash = 'hero-widget-binding-updated'
         nextSnapshot.elements![marketingIds.hero] = [
             { codename: 'default', data: marketingHeroRecordData() },
             { codename: 'campaign', data: { ...marketingHeroRecordData(), HeroKey: 'campaign' } }

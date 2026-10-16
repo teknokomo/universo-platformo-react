@@ -1,7 +1,8 @@
 import { RuntimePostingMovementService } from '../../services/runtimePostingMovements'
+import type { ObjectRecordBehavior } from '@universo-react/types'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
-const behavior = {
+const behavior: ObjectRecordBehavior = {
     mode: 'transactional',
     numbering: {
         enabled: false,

@@ -1,9 +1,13 @@
 import { generateChildTableName } from '@universo-react/schema-ddl'
 import {
     ensureApplicationRuntimeWorkspaceSchema,
+    ensurePersonalWorkspaceForUser,
+    ensureSharedWorkspaceBaselineMembership,
+    removeSharedWorkspaceBaselineMembership,
     resetWorkspaceSeededElements,
     resolveRuntimeWorkspaceAccess
 } from '../../services/applicationWorkspaces'
+import { assertUserIsNotLastSharedWorkspaceOwner } from '../../services/runtimeWorkspaceService'
 import { lockActiveRuntimeWorkspaceContext } from '../../services/runtimeWorkspaceContext'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
@@ -159,10 +163,9 @@ describe('applicationWorkspaces access and schema behavior', () => {
         expect(executedSql).not.toContain(`INSERT INTO "${schemaName}"."_app_workspace_user_roles"`)
     })
 
-    it('can include active workspaces for an application administrator without membership', async () => {
+    it('includes only non-personal active workspaces for an application administrator without membership', async () => {
         const { executor } = createMockDbExecutor()
         const schemaName = 'app_018f8a787b8f7c1da111222233334480'
-        const personalWorkspaceId = '018f8a78-7b8f-7c1d-a111-222233334481'
         const sharedWorkspaceId = '018f8a78-7b8f-7c1d-a111-222233334483'
 
         executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
@@ -170,13 +173,10 @@ describe('applicationWorkspaces access and schema behavior', () => {
                 return [{ exists: true }]
             }
             if (sql.includes(`"${schemaName}"."_app_workspace_user_roles"`)) {
-                if (params?.[1] === true) {
-                    return [
-                        { workspaceId: personalWorkspaceId, isDefaultWorkspace: false },
-                        { workspaceId: sharedWorkspaceId, isDefaultWorkspace: false }
-                    ]
-                }
-                return [{ workspaceId: personalWorkspaceId, isDefaultWorkspace: true }]
+                // The isolation-safe lookup only returns workspaces the admin
+                // explicitly holds or unassigned shared ones; another user's
+                // personal workspace must never appear in the allowed list.
+                return [{ workspaceId: sharedWorkspaceId, isDefaultWorkspace: false }]
             }
             return []
         })
@@ -191,13 +191,50 @@ describe('applicationWorkspaces access and schema behavior', () => {
             })
         ).resolves.toEqual({
             membershipState: 'joined',
-            defaultWorkspaceId: personalWorkspaceId,
-            allowedWorkspaceIds: [personalWorkspaceId, sharedWorkspaceId]
+            defaultWorkspaceId: sharedWorkspaceId,
+            allowedWorkspaceIds: [sharedWorkspaceId]
         })
 
         const accessQuery = executor.query.mock.calls.find(([sql]) => String(sql).includes("COALESCE(w.status, 'active')"))
         expect(accessQuery?.[1]).toEqual(['018f8a78-7b8f-7c1d-a111-222233334482', true])
-        expect(String(accessQuery?.[0])).toContain('wur.id IS NOT NULL OR $2::boolean = true')
+        expect(String(accessQuery?.[0])).toContain(`($2::boolean = true AND w.workspace_type <> 'personal' AND w.personal_user_id IS NULL)`)
+    })
+
+    it('still lists explicit membership rows regardless of the allowUnassigned shared-only filter', async () => {
+        const { executor } = createMockDbExecutor()
+        const schemaName = 'app_018f8a787b8f7c1da111222233334480'
+        const invitedPersonalWorkspaceId = '018f8a78-7b8f-7c1d-a111-222233334484'
+        const sharedWorkspaceId = '018f8a78-7b8f-7c1d-a111-222233334483'
+
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('FROM information_schema.tables')) {
+                return [{ exists: true }]
+            }
+            if (sql.includes(`"${schemaName}"."_app_workspace_user_roles"`)) {
+                // Membership-held rows remain visible even without the bypass.
+                // The admin here explicitly holds two rows: an invitation into
+                // a personal workspace and a shared workspace row.
+                return [
+                    { workspaceId: invitedPersonalWorkspaceId, isDefaultWorkspace: false },
+                    { workspaceId: sharedWorkspaceId, isDefaultWorkspace: true }
+                ]
+            }
+            return []
+        })
+
+        await expect(
+            resolveRuntimeWorkspaceAccess(executor, {
+                schemaName,
+                workspacesEnabled: true,
+                userId: '018f8a78-7b8f-7c1d-a111-222233334482',
+                ensurePersonalWorkspace: false,
+                allowUnassigned: true
+            })
+        ).resolves.toEqual({
+            membershipState: 'joined',
+            defaultWorkspaceId: sharedWorkspaceId,
+            allowedWorkspaceIds: [invitedPersonalWorkspaceId, sharedWorkspaceId]
+        })
     })
 
     it('adds workspace foreign keys and scoped policies to runtime object tables', async () => {
@@ -299,7 +336,7 @@ describe('applicationWorkspaces access and schema behavior', () => {
         expect(executedSql).toContain(`CREATE TABLE "${schemaName}"."_app_limits"`)
         expect(executedSql).toContain(`CREATE TABLE "${schemaName}"."_app_workspace_settings"`)
         expect(executedSql).toContain(`CREATE TABLE "${schemaName}"."_app_workspace_operation_audit"`)
-        expect(executedSql).toContain("operation_kind IN ('seed_reset')")
+        expect(executedSql).toContain("operation_kind IN ('seed_reset', 'personal_to_shared_conversion')")
         expect(executedSql).toContain(`CREATE INDEX IF NOT EXISTS "_app_workspace_operation_audit_workspace_created_idx"`)
         expect(executedSql).toContain('_upl_locked BOOLEAN NOT NULL DEFAULT false')
         expect(executedSql).toContain(`CREATE UNIQUE INDEX IF NOT EXISTS "_app_workspace_settings_workspace_key_active_uidx"`)
@@ -317,5 +354,225 @@ describe('applicationWorkspaces access and schema behavior', () => {
         expect(executedSql).toContain(
             `WHERE "cmp_018f8a787b8f7c1da111222233334461" IS NOT NULL AND "cmp_018f8a787b8f7c1da111222233334462" IS NOT NULL`
         )
+
+        // Two-tier reconciliation: the schema bootstrap pass materializes the
+        // baseline `member` rows for every active application member of every
+        // active shared workspace (idempotent, no `is_public` coupling).
+        const baselineStatement = executor.query.mock.calls.map(([sql]) => String(sql)).find((sql) => sql.includes('WITH activeMembers'))
+        expect(baselineStatement).toBeDefined()
+        expect(baselineStatement).toContain('FROM applications.rel_application_users au')
+        expect(baselineStatement).toContain('au.application_id = $1')
+        expect(baselineStatement).toContain(`w.workspace_type <> 'personal'`)
+        expect(baselineStatement).toContain('w.personal_user_id IS NULL')
+        expect(baselineStatement).toContain(`r.codename = 'member'`)
+        expect(baselineStatement).toContain('ON CONFLICT (workspace_id, user_id)')
+        expect(baselineStatement).toContain('WHERE _upl_deleted = false AND _app_deleted = false')
+        expect(baselineStatement).toContain('DO NOTHING')
+        expect(baselineStatement).not.toContain('is_public')
+    })
+
+    describe('ensurePersonalWorkspaceForUser conversion guard', () => {
+        const SCHEMA_NAME = 'app_018f8a787b8f7c1da111222233334400'
+        const USER_ID = '018f8a78-7b8f-7c1d-a111-222233334401'
+        const CONVERTED_WORKSPACE_ID = '018f8a78-7b8f-7c1d-a111-222233334402'
+
+        const markerSelectSql = (sql: string): boolean =>
+            sql.includes('converted_from_user_id') && sql.includes('SELECT id') && sql.includes(`FROM "${SCHEMA_NAME}"."_app_workspaces"`)
+
+        it('returns the converted workspace without INSERT when the marker exists', async () => {
+            const { executor } = createMockDbExecutor()
+
+            executor.query.mockImplementation(async (sql: string, _params?: unknown[]) => {
+                if (sql.includes(`WHERE workspace_type = 'personal'`)) return []
+                if (markerSelectSql(sql)) return [{ id: CONVERTED_WORKSPACE_ID }]
+                return []
+            })
+
+            const { workspaceId } = await ensurePersonalWorkspaceForUser(executor, {
+                schemaName: SCHEMA_NAME,
+                userId: USER_ID,
+                actorUserId: USER_ID
+            })
+
+            expect(workspaceId).toBe(CONVERTED_WORKSPACE_ID)
+
+            const inserts = executor.query.mock.calls.filter(([sql]) => String(sql).includes('INSERT INTO'))
+            expect(inserts).toHaveLength(0)
+        })
+
+        it('creates the personal workspace with the same advisory-lock key family as the conversion', async () => {
+            const { executor } = createMockDbExecutor()
+
+            executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes(`WHERE workspace_type = 'personal'`)) return []
+                if (markerSelectSql(sql)) return []
+                if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
+                    return [{ id: '018f8a78-7b8f-7c1d-a111-222233334403' }]
+                }
+                if (sql.includes(`INSERT INTO "${SCHEMA_NAME}"."_app_workspaces"`)) {
+                    return [{ id: '018f8a78-7b8f-7c1d-a111-222233334403' }]
+                }
+                if (sql.includes(`INSERT INTO "${SCHEMA_NAME}"."_app_workspace_roles"`)) {
+                    return [{ id: params?.[0] }]
+                }
+                return []
+            })
+
+            const { workspaceId } = await ensurePersonalWorkspaceForUser(executor, {
+                schemaName: SCHEMA_NAME,
+                userId: USER_ID,
+                actorUserId: USER_ID
+            })
+
+            expect(workspaceId).toBe('018f8a78-7b8f-7c1d-a111-222233334403')
+
+            // createMockDbExecutor delegates nested-transaction queries to the
+            // parent mock, so every query (including the advisory lock probe)
+            // is visible on the parent's call log.
+            const lockKeyCalls = executor.query.mock.calls.filter(
+                (call) =>
+                    String(call[0]).includes('pg_advisory_xact_lock') && call[1]?.[0] === `personal-workspace:${SCHEMA_NAME}:${USER_ID}`
+            )
+            expect(lockKeyCalls).toHaveLength(1)
+        })
+    })
+
+    describe('ensureSharedWorkspaceBaselineMembership', () => {
+        const SCHEMA_NAME = 'app_018f8a787b8f7c1da111222233334400'
+
+        it('materializes rows with owner-row preservation and reports the inserted count', async () => {
+            const { executor } = createMockDbExecutor()
+            executor.query.mockImplementation(async (sql: string) => {
+                if (sql.includes('WITH activeMembers')) return [{ inserted: 3 }]
+                return []
+            })
+
+            const inserted = await ensureSharedWorkspaceBaselineMembership(executor, {
+                schemaName: SCHEMA_NAME,
+                applicationId: '018f8a78-7b8f-7c1d-a111-222233334401',
+                actorUserId: '018f8a78-7b8f-7c1d-a111-222233334402'
+            })
+
+            expect(inserted).toBe(3)
+            // The set-based enrollment is serialized against the other
+            // membership/workspace writers through the shared advisory key.
+            const lockSql = executor.query.mock.calls[0]?.[0] as string
+            expect(lockSql).toContain('pg_advisory_xact_lock')
+            const sql = executor.query.mock.calls[1]?.[0] as string
+            expect(sql).toContain(`FROM applications.rel_application_users au`)
+            expect(sql).toContain(`w.workspace_type <> 'personal'`)
+            expect(sql).toContain('w.personal_user_id IS NULL')
+            expect(sql).toContain('ON CONFLICT (workspace_id, user_id)')
+            expect(sql).toContain('WHERE _upl_deleted = false AND _app_deleted = false')
+            expect(sql).toContain('DO NOTHING')
+            expect(sql).not.toContain("r.codename = 'owner'")
+        })
+
+        it('materializes through the SQL-first statement with is_public decoupled', async () => {
+            const { executor } = createMockDbExecutor()
+            executor.query.mockImplementation(async (sql: string) => {
+                if (sql.includes('WITH activeMembers')) return [{ inserted: 0 }]
+                return []
+            })
+
+            expect(
+                await ensureSharedWorkspaceBaselineMembership(executor, {
+                    schemaName: SCHEMA_NAME,
+                    applicationId: '018f8a78-7b8f-7c1d-a111-222233334401'
+                })
+            ).toBe(0)
+            expect(String(executor.query.mock.calls[1]?.[0])).not.toContain('is_public')
+        })
+    })
+
+    describe('removeSharedWorkspaceBaselineMembership', () => {
+        const SCHEMA_NAME = 'app_018f8a787b8f7c1da111222233334400'
+
+        it('soft-deletes only baseline member rows of active shared workspaces', async () => {
+            const { executor } = createMockDbExecutor()
+            executor.query.mockImplementation(async (sql: string) => {
+                if (sql.includes('UPDATE') && sql.includes(`_app_workspace_user_roles`)) return [{ id: '1' }, { id: '2' }]
+                return []
+            })
+
+            const removed = await removeSharedWorkspaceBaselineMembership(executor, {
+                schemaName: SCHEMA_NAME,
+                applicationId: '018f8a78-7b8f-7c1d-a111-222233334401',
+                userId: '018f8a78-7b8f-7c1d-a111-222233334401'
+            })
+
+            expect(removed).toBe(2)
+            const lockSql = executor.query.mock.calls[0]?.[0] as string
+            expect(lockSql).toContain('pg_advisory_xact_lock')
+            const sql = executor.query.mock.calls[1]?.[0] as string
+            expect(sql).toContain(`r.codename = 'member'`)
+            expect(sql).not.toContain(`r.codename = 'owner'`)
+            expect(sql).toContain(`w.workspace_type <> 'personal'`)
+            expect(sql).toContain('w.personal_user_id IS NULL')
+            expect(sql).toContain('COALESCE(w.status,')
+            expect(sql).toContain('RETURNING wur.id')
+        })
+    })
+
+    describe('assertUserIsNotLastSharedWorkspaceOwner', () => {
+        const SCHEMA_NAME = 'app_018f8a787b8f7c1da111222233334400'
+        const APPLICATION_ID = '018f8a78-7b8f-7c1d-a111-222233334403'
+        const USER_ID = '018f8a78-7b8f-7c1d-a111-222233334401'
+
+        it('blocks the leave path when the user holds the only owner row of an active shared workspace', async () => {
+            const { executor } = createMockDbExecutor()
+            executor.query.mockImplementation(async (sql: string) => {
+                if (sql.includes('ORDER BY w.id ASC')) return [{ id: '018f8a78-7b8f-7c1d-a111-222233334402' }]
+                return []
+            })
+
+            await expect(
+                assertUserIsNotLastSharedWorkspaceOwner(executor, {
+                    schemaName: SCHEMA_NAME,
+                    applicationId: APPLICATION_ID,
+                    userId: USER_ID
+                })
+            ).rejects.toMatchObject({ code: 'APPLICATION_MEMBER_WORKSPACE_OWNERSHIP_REQUIRED' })
+        })
+
+        it('does not block when a different active owner exists', async () => {
+            const { executor } = createMockDbExecutor()
+            executor.query.mockImplementation(async (sql: string) => {
+                if (sql.includes('ORDER BY w.id ASC')) return []
+                return []
+            })
+
+            await expect(
+                assertUserIsNotLastSharedWorkspaceOwner(executor, {
+                    schemaName: SCHEMA_NAME,
+                    applicationId: APPLICATION_ID,
+                    userId: USER_ID
+                })
+            ).resolves.toBeUndefined()
+        })
+
+        it('never trusts a second owner row whose user already left the application', async () => {
+            const { executor } = createMockDbExecutor()
+            executor.query.mockImplementation(async (sql: string) => {
+                if (sql.includes('ORDER BY w.id ASC')) return []
+                return []
+            })
+
+            await expect(
+                assertUserIsNotLastSharedWorkspaceOwner(executor, {
+                    schemaName: SCHEMA_NAME,
+                    applicationId: APPLICATION_ID,
+                    userId: USER_ID
+                })
+            ).resolves.toBeUndefined()
+
+            // Stale `owner` rows of departed users are invisible to the
+            // guard: the protecting-owner subquery requires an active
+            // application membership row.
+            const sql = executor.query.mock.calls[0]?.[0] as string
+            expect(sql).toContain('applications.rel_application_users au')
+            expect(sql).toContain('au.application_id = $2')
+            expect(String(executor.query.mock.calls[0]?.[1])).toContain(APPLICATION_ID)
+        })
     })
 })

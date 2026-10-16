@@ -58,10 +58,10 @@ describe('resolveEffectiveWidgetRuntimeData learner Enrollment tables', () => {
     ] as const)('projects only the safe title column for the current actor %s assignments', async (targetKind, titleEn, titleRu) => {
         const { executor } = createMockDbExecutor()
         const { candidate, slot } = learnerEnrollmentCandidate(targetKind)
-        runtimeStore.loadRuntimeWidgetBindingMetadata.mockResolvedValueOnce(
+        ;(runtimeStore.loadRuntimeWidgetBindingMetadata as jest.Mock).mockResolvedValueOnce(
             metadataEnvelope([metadataForSlot(objectId, 'Enrollments', slot)])
         )
-        runtimeStore.loadWidgetBindingRuntimeRecords.mockResolvedValueOnce([
+        ;(runtimeStore.loadWidgetBindingRuntimeRecords as jest.Mock).mockResolvedValueOnce([
             {
                 recordId,
                 data: {

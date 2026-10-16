@@ -1,4 +1,5 @@
 import './effectiveWidgetRuntimeDataResolver.testMocks'
+import type { EffectiveWidgetRuntimeData } from '@universo-react/types'
 import {
     createMockDbExecutor,
     resetEffectiveWidgetRuntimeDataResolverMocks,
@@ -562,7 +563,10 @@ describe('resolveEffectiveWidgetRuntimeData learnerPlayer projection', () => {
                 [trackCandidate],
                 'en'
             )
-            const item = resolved.get(trackCandidate.id)?.data
+            type ReadyPlayerPayload = Extract<EffectiveWidgetRuntimeData, { status: 'ready' }>['data'] & { items: unknown[] }
+            const item = (resolved.get(trackCandidate.id) as Extract<EffectiveWidgetRuntimeData, { status: 'ready' }> | undefined)?.data as
+                | ReadyPlayerPayload
+                | undefined
             expect(item).toEqual(
                 expect.objectContaining({
                     kind: 'learner-player',
@@ -595,7 +599,7 @@ describe('resolveEffectiveWidgetRuntimeData learnerPlayer projection', () => {
             'en'
         )
 
-        expect(resolved.get(trackCandidate.id)?.data).toEqual(
+        expect((resolved.get(trackCandidate.id) as Extract<EffectiveWidgetRuntimeData, { status: 'ready' }> | undefined)?.data).toEqual(
             expect.objectContaining({
                 kind: 'learner-player',
                 items: [
