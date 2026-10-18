@@ -68791,7 +68791,19 @@
                                 },
                                 "BlockKey": "01a14a6e-ede2-7cd5-8333-177bae97f367",
                                 "SortOrder": 2,
-                                "Introduction": null
+                                "Introduction": {
+                                    "_schema": "1",
+                                    "locales": {
+                                        "ru": {
+                                            "content": "Ответьте на вопросы о достижениях лицеистов и о том, как сложились их судьбы.",
+                                            "version": 1,
+                                            "isActive": true,
+                                            "createdAt": "2026-10-18T16:31:33.161Z",
+                                            "updatedAt": "2026-10-18T16:31:33.161Z"
+                                        }
+                                    },
+                                    "_primary": "ru"
+                                }
                             },
                             {
                                 "Title": {
@@ -68809,7 +68821,19 @@
                                 },
                                 "BlockKey": "01a14a6e-ede2-7cd5-8333-177c23c98b4a",
                                 "SortOrder": 3,
-                                "Introduction": null
+                                "Introduction": {
+                                    "_schema": "1",
+                                    "locales": {
+                                        "ru": {
+                                            "content": "Ответьте на вопросы о важных датах и числах из истории Царскосельского лицея.",
+                                            "version": 1,
+                                            "isActive": true,
+                                            "createdAt": "2026-10-18T16:31:33.161Z",
+                                            "updatedAt": "2026-10-18T16:31:33.161Z"
+                                        }
+                                    },
+                                    "_primary": "ru"
+                                }
                             }
                         ],
                         "Questions": [
@@ -71918,7 +71942,7 @@
                             },
                             "_primary": "ru"
                         },
-                        "MaxAttempts": 3,
+                        "MaxAttempts": 1,
                         "CompletionText": {
                             "_schema": "1",
                             "locales": {
@@ -71932,7 +71956,7 @@
                             },
                             "_primary": "ru"
                         },
-                        "TimeLimitSeconds": 2700,
+                        "TimeLimitSeconds": 1800,
                         "PassingScorePercent": 50,
                         "BlockRelativeNumbering": false,
                         "PauseTimerOnBlockIntro": false,
@@ -72357,7 +72381,7 @@
                     "objectId": "01a14a6e-dde5-78e3-adbe-d5aa76cd45c7",
                     "data": {
                         "Slug": "sixth-muse",
-                        "MaxUses": 30,
+                        "MaxUses": 500,
                         "IsActive": true,
                         "TargetId": "01a14a6e-ee01-713f-bdd8-626374099582",
                         "UseCount": 0,
@@ -84270,5 +84294,5 @@
             "workspaceMode": "required"
         }
     },
-    "snapshotHash": "048db1e13268904fd8d93c6b1815c47975e924f8a8ffe6dd0f309da55683913a"
+    "snapshotHash": "80b91cfa77ee22e39d5c2a0cade8600be894080e179103d44319e383c6018296"
 }

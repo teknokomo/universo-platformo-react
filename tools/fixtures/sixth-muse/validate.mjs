@@ -350,12 +350,12 @@ export function collectSixthMuseContractErrors(dataset, originalMarkdown) {
     ]) {
         const policy = dataset?.quizPolicies ?? {}
         const expected = {
-            timeLimitSeconds: 2700,
+            timeLimitSeconds: 1800,
             confirmAnswerBeforeNext: false,
             pauseTimerOnBlockIntro: false,
             blockRelativeNumbering: false,
             passingScorePercent: 50,
-            maxAttempts: 3,
+            maxAttempts: 1,
             classKey: null
         }[field]
         if (policy[field] !== expected) errors.push(`quiz policy ${field} must remain ${expected}`)
@@ -371,8 +371,18 @@ export function collectSixthMuseContractErrors(dataset, originalMarkdown) {
     ) {
         errors.push('guest-intake policies must preserve required name and Terms/Privacy consent with CAPTCHA disabled')
     }
+    if (guestAccess.maxUses !== 500) errors.push('guest access link maxUses must be 500')
     if (!guestAccess.shortLinkProvisioning?.startsWith('Create after application publication')) {
         errors.push('application-owned short links must be created after publication, not embedded in this source')
+    }
+
+    const expectedIntroductions = [
+        'Ответьте на вопросы о прозвищах воспитанников Царскосельского лицея.',
+        'Ответьте на вопросы о достижениях лицеистов и о том, как сложились их судьбы.',
+        'Ответьте на вопросы о важных датах и числах из истории Царскосельского лицея.'
+    ]
+    if (JSON.stringify(blocks.map(({ introduction }) => introduction)) !== JSON.stringify(expectedIntroductions)) {
+        errors.push('each reviewed block must have its canonical introduction text')
     }
 
     const expectedPairAnswers = new Map([
