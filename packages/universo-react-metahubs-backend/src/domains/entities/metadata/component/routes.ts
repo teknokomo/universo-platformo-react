@@ -36,7 +36,7 @@ export function createEntityComponentRoutes(
 
         try {
             const [lock] = await requestDbContext.executor.query<{ acquired: boolean }>(
-                'SELECT pg_try_advisory_xact_lock($1::bigint) AS acquired',
+                'SELECT pg_try_advisory_xact_lock(hashtextextended($1::text, 0)) AS acquired',
                 [lockKey]
             )
             if (!lock?.acquired) return res.status(409).json(componentMetadataMutationLockError)

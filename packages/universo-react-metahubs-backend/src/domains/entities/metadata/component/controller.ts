@@ -157,11 +157,12 @@ const jsonUiValueSchemaAtDepth = (depth: number): z.ZodType<JsonUiValue> => {
     const scalarSchema = z.union([z.string().max(100_000), z.number().finite(), z.boolean(), z.null()])
     if (depth >= 16) return scalarSchema
 
+    const nestedValueSchema = jsonUiValueSchemaAtDepth(depth + 1)
     return z.union([
         scalarSchema,
-        z.array(jsonUiValueSchemaAtDepth(depth + 1)).max(1_000),
+        z.array(nestedValueSchema).max(1_000),
         z
-            .record(z.string().max(256), jsonUiValueSchemaAtDepth(depth + 1))
+            .record(z.string().max(256), nestedValueSchema)
             .refine((value) => Object.keys(value).length <= 1_000, 'defaultValue object has too many properties')
     ])
 }

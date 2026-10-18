@@ -798,6 +798,26 @@ describe('Field Definition Routes', () => {
             expect(response.body.error).toBe('Validation failed')
             expect(mockComponentsService.create).not.toHaveBeenCalled()
         })
+
+        it('accepts JSON defaults up to the configured nesting boundary', async () => {
+            let defaultValue: unknown = 'leaf'
+            for (let depth = 0; depth < 15; depth += 1) {
+                defaultValue = { child: defaultValue }
+            }
+
+            const app = buildApp()
+            await request(app)
+                .post('/metahub/metahub-1/entities/object/instance/object-1/components')
+                .send({
+                    codename: testCodenameVlc('NestedDefaultAtBoundary'),
+                    dataType: 'JSON',
+                    name: { en: 'Nested default at boundary' },
+                    uiConfig: { defaultValue }
+                })
+                .expect(201)
+
+            expect(mockComponentsService.create).toHaveBeenCalledTimes(1)
+        })
     })
 
     describe('PATCH /metahub/:metahubId/object/:objectCollectionId/components/reorder', () => {
@@ -882,7 +902,7 @@ describe('Field Definition Routes', () => {
                 .expect(409)
 
             expect(response.body.code).toBe('COMPONENT_METADATA_LOCKED')
-            expect(mockExecutor.query).toHaveBeenCalledWith('SELECT pg_try_advisory_xact_lock($1::bigint) AS acquired', [
+            expect(mockExecutor.query).toHaveBeenCalledWith('SELECT pg_try_advisory_xact_lock(hashtextextended($1::text, 0)) AS acquired', [
                 'component-metadata-sibling-reference:metahub-1:object-1'
             ])
             expect(mockAcquireAdvisoryLock).not.toHaveBeenCalled()

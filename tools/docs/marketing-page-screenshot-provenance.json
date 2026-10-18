@@ -1,8 +1,8 @@
 {
     "version": 3,
-    "generatedAt": "2026-10-14T21:22:35.189Z",
+    "generatedAt": "2026-10-18T09:06:53.394Z",
     "generator": "tools/testing/e2e/specs/generators/docs-marketing-page-screenshots.spec.ts",
-    "generatorSha256": "161a2e517e169abffc98ff4f67c29d506a92f53e4a9bfa7ba5aaae1b926a9cad",
+    "generatorSha256": "9e019cf5e8cf08007cc44891fd5fcb29bef3f8de03999ea9546ca83060fb87ab",
     "manifest": "tools/docs/marketing-page-screenshot-manifest.json",
     "manifestSha256": "9fa4f74e7a653423a124ad2dcf6eec1ec731b02c6e8a83d33270e66ce19ced75",
     "sourceTemplate": "packages/universo-react-metahubs-backend/src/domains/templates/data/marketing-page.template.ts",
