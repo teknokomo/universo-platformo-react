@@ -168,7 +168,7 @@ async function enablePausedIntroAndBlockNumbering(options: {
         {
             objectCollectionId: quizzesObject.id,
             expectedVersion: version,
-            data: { PauseTimerOnBlockIntro: true, BlockRelativeNumbering: true }
+            data: { MaxAttempts: 2, PauseTimerOnBlockIntro: true, BlockRelativeNumbering: true }
         }
     )
     if (!response.ok) throw new Error(`Updating the isolated paused-intro browser scenario failed with ${response.status}`)
@@ -352,7 +352,11 @@ test('@flow LMS Sixth Muse runs anonymously through all block introductions, que
         const guestSession: GuestSessionState = { participantId, sessionToken }
         const attemptStartResponse = await attemptStartPromise
         expect(attemptStartResponse.ok()).toBe(true)
-        await assertGuestSessionHeaders(attemptStartResponse.request(), guestSession, 'Attempt start request')
+        const initialAttemptStartRequest = attemptStartResponse.request()
+        await assertGuestSessionHeaders(initialAttemptStartRequest, guestSession, 'Attempt start request')
+        const initialAttemptStartHeaders = await initialAttemptStartRequest.allHeaders()
+        const initialAttemptStartBody = initialAttemptStartRequest.postDataJSON() as JsonRecord
+        expect(initialAttemptStartHeaders['x-csrf-token']).toBeTruthy()
         let attempt = asRecord(await attemptStartResponse.json(), 'Sixth Muse attempt start')
         assertPublicAssessmentAttemptState(attempt, 'Sixth Muse attempt start')
 
@@ -364,7 +368,9 @@ test('@flow LMS Sixth Muse runs anonymously through all block introductions, que
         await expect(guestPage.getByRole('heading', { name: LMS_SIXTH_MUSE_SOURCE.blocks[0]!.title, exact: true })).toBeVisible()
         const timer = guestPage.getByRole('timer')
         await expect(timer).toBeVisible()
-        await expect(timer).toHaveText(/^(45:00|44:[0-5]\d)$/u)
+        const initialTimerSeconds = await readTimerRemainingSeconds(timer)
+        expect(initialTimerSeconds).toBeLessThanOrEqual(LMS_SIXTH_MUSE_SOURCE.quizPolicies.timeLimitSeconds)
+        expect(initialTimerSeconds).toBeGreaterThan(LMS_SIXTH_MUSE_SOURCE.quizPolicies.timeLimitSeconds - 10)
         await expectTimerAdvances(guestPage, timer, 'Initial block introduction')
         await expectNoPageHorizontalOverflow(guestPage, 'Sixth Muse first block introduction at 390px')
         await expectNoTechnicalLeakage(guestPage.getByRole('main'), {
@@ -593,6 +599,33 @@ test('@flow LMS Sixth Muse runs anonymously through all block introductions, que
             animations: 'disabled'
         })
 
+        const retryButton = guestPage.getByRole('button', { name: 'Попробовать ещё раз', exact: true })
+        await expect(retryButton, 'MaxAttempts=1 must prevent another attempt for the same participant').toHaveCount(0)
+        const rejectedRetry = await guestPage.evaluate(
+            async ({ path, body, csrfToken, participantId, sessionToken }) => {
+                const response = await fetch(path, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken,
+                        'X-Guest-Participant-Id': participantId,
+                        'X-Guest-Session-Token': sessionToken
+                    },
+                    body: JSON.stringify(body)
+                })
+                return { status: response.status }
+            },
+            {
+                path: `/api/v1/public/a/${application.applicationId}/runtime/attempts/start?locale=ru`,
+                body: initialAttemptStartBody,
+                csrfToken: initialAttemptStartHeaders['x-csrf-token'],
+                participantId,
+                sessionToken
+            }
+        )
+        expect(rejectedRetry.status, 'The server must enforce MaxAttempts=1 for the same participant').toBe(409)
+
         await enablePausedIntroAndBlockNumbering({
             applicationId: application.applicationId,
             workspaceId: application.publicWorkspaceId,
@@ -600,8 +633,7 @@ test('@flow LMS Sixth Muse runs anonymously through all block introductions, que
             quizId: persistedLink.targetId
         })
         await guestPage.reload()
-        const retryButton = guestPage.getByRole('button', { name: 'Попробовать ещё раз', exact: true })
-        await expect(retryButton, 'The finished attempt must offer the remaining authored retry').toBeVisible({ timeout: 30_000 })
+        await expect(retryButton, 'The isolated runtime configuration must enable the authored retry').toBeVisible({ timeout: 30_000 })
         const pausedStartPromise = guestPage.waitForResponse((response) => {
             const url = new URL(response.url())
             return response.request().method() === 'POST' && url.pathname.endsWith('/runtime/attempts/start')
@@ -617,7 +649,7 @@ test('@flow LMS Sixth Muse runs anonymously through all block introductions, que
         expect(getRuntimeField(attempt, 'Phase')).toBe('block_intro')
         expect(getRuntimeField(attempt, 'TimerState')).toBe('paused')
         expect(getRuntimeField(attempt, 'NumberingMode')).toBe('block')
-        expect(getRuntimeField(attempt, 'RemainingMs')).toBe(45 * 60 * 1000)
+        expect(getRuntimeField(attempt, 'RemainingMs')).toBe(LMS_SIXTH_MUSE_SOURCE.quizPolicies.timeLimitSeconds * 1000)
         expect(getRuntimeField(attempt, 'DeadlineAt')).toBeNull()
         const pausedAttemptId = getRuntimeField(attempt, 'AttemptId')
         if (typeof pausedAttemptId !== 'string' || !isUuidV7(pausedAttemptId)) {
@@ -630,7 +662,8 @@ test('@flow LMS Sixth Muse runs anonymously through all block introductions, que
             participantId
         })
         const pausedTimer = guestPage.getByRole('timer')
-        await expect(pausedTimer).toHaveText('45:00')
+        const pausedTimerLabel = `${String(Math.floor(LMS_SIXTH_MUSE_SOURCE.quizPolicies.timeLimitSeconds / 60)).padStart(2, '0')}:00`
+        await expect(pausedTimer).toHaveText(pausedTimerLabel)
         await expect(guestPage.getByRole('status').filter({ hasText: 'Таймер приостановлен' })).toBeVisible()
         await expectNoPageHorizontalOverflow(guestPage, 'Paused Sixth Muse introduction at 390px')
         await expectNoAccessibilityViolations(guestPage, 'Paused Sixth Muse introduction at 390px')
@@ -642,7 +675,7 @@ test('@flow LMS Sixth Muse runs anonymously through all block introductions, que
         await captureResponsiveState(guestPage, 'paused-intro', testInfo)
         // Advance only browser presentation; reload below independently verifies the server-owned frozen budget.
         await guestPage.clock.runFor(2200)
-        await expect(pausedTimer, 'A paused intro must not consume its frozen timer budget').toHaveText('45:00')
+        await expect(pausedTimer, 'A paused intro must not consume its frozen timer budget').toHaveText(pausedTimerLabel)
 
         const resumedReadPromise = guestPage.waitForResponse((response) => {
             const url = new URL(response.url())
@@ -656,12 +689,12 @@ test('@flow LMS Sixth Muse runs anonymously through all block introductions, que
         assertPublicAssessmentAttemptState(attempt, 'Paused-intro reload')
         expect(getRuntimeField(attempt, 'AttemptId')).toBe(pausedAttemptId)
         expect(getRuntimeField(attempt, 'TimerState')).toBe('paused')
-        expect(getRuntimeField(attempt, 'RemainingMs')).toBe(45 * 60 * 1000)
+        expect(getRuntimeField(attempt, 'RemainingMs')).toBe(LMS_SIXTH_MUSE_SOURCE.quizPolicies.timeLimitSeconds * 1000)
         expect(currentBlockTitle(attempt)).toBe(LMS_SIXTH_MUSE_SOURCE.blocks[0]?.title)
         await expect(guestPage.getByRole('heading', { name: LMS_SIXTH_MUSE_SOURCE.blocks[0]!.title, exact: true })).toBeVisible()
         await expect(guestPage.getByRole('button', { name: 'Продолжить', exact: true })).toBeVisible()
         await expect(guestPage.getByRole('radiogroup')).toHaveCount(0)
-        await expect(pausedTimer).toHaveText('45:00')
+        await expect(pausedTimer).toHaveText(pausedTimerLabel)
         await expect(guestPage.getByRole('status').filter({ hasText: 'Таймер приостановлен' })).toBeVisible()
 
         const continueUrl = `${pausedAttemptPath}/continue?locale=ru`

@@ -35,6 +35,7 @@ type SixthMuseSource = {
             anonymousAccess: boolean
             firstNameRequired: boolean
             lastNameRequired: boolean
+            maxUses: number
             captchaEnabled: boolean
             accessLinkSlugProposal: string
         }
@@ -64,7 +65,7 @@ export const LMS_SIXTH_MUSE_ACCESS_LINK = {
 
 export const LMS_SIXTH_MUSE_ACCESS_POLICY = {
     isActive: true,
-    maxUses: 30,
+    maxUses: LMS_SIXTH_MUSE_SOURCE.quizPolicies.guestAccess.maxUses,
     showFirstName: true,
     requireFirstName: LMS_SIXTH_MUSE_SOURCE.quizPolicies.guestAccess.firstNameRequired,
     showLastName: true,

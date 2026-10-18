@@ -22,12 +22,12 @@
         "integrity": "Raw Markdown SHA-256 and the JSON-serialized source transcription digest pin the original author content. Original prompts and sourceAnswer values are retained unchanged; runtime prompt/key edits are documented per row in editorialMapping and provenanceReviewRegister."
     },
     "quizPolicies": {
-        "timeLimitSeconds": 2700,
+        "timeLimitSeconds": 1800,
         "confirmAnswerBeforeNext": false,
         "pauseTimerOnBlockIntro": false,
         "blockRelativeNumbering": false,
         "passingScorePercent": 50,
-        "maxAttempts": 3,
+        "maxAttempts": 1,
         "classKey": null,
         "guestAccess": {
             "anonymousAccess": true,
@@ -37,7 +37,8 @@
             "privacyConsentRequired": true,
             "captchaEnabled": false,
             "accessLinkSlugProposal": "sixth-muse",
-            "shortLinkProvisioning": "Create after application publication through the existing application UI; this source does not pre-seed an application-owned alias."
+            "shortLinkProvisioning": "Create after application publication through the existing application UI; this source does not pre-seed an application-owned alias.",
+            "maxUses": 500
         }
     },
     "blocks": [
@@ -706,7 +707,7 @@
             "semanticKey": "sixth-muse-block-2",
             "order": 2,
             "title": "Достижения и судьбы",
-            "introduction": null,
+            "introduction": "Ответьте на вопросы о достижениях лицеистов и о том, как сложились их судьбы.",
             "questions": [
                 {
                     "id": "sixth-muse-q11",
@@ -1387,7 +1388,7 @@
             "semanticKey": "sixth-muse-block-3",
             "order": 3,
             "title": "Даты и цифры",
-            "introduction": null,
+            "introduction": "Ответьте на вопросы о важных датах и числах из истории Царскосельского лицея.",
             "questions": [
                 {
                     "id": "sixth-muse-q21",
