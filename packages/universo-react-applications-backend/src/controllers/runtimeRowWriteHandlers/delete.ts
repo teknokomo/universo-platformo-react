@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express'
+import { generateUuidV7 } from '@universo-react/utils'
 import type { DbExecutor } from '@universo-react/utils'
 import { withTransactionSavepoint } from '@universo-react/utils/database'
 import { generateChildTableName } from '@universo-react/schema-ddl'
@@ -141,6 +142,7 @@ export const createDeleteRowHandler = ({ getDbExecutor, query }: RuntimeRowWrite
             : null
 
         const tableAttrsForDelete = attrs.filter((a) => a.data_type === 'TABLE')
+        const deleteCascadeId = runtimeDeleteSetClause && tableAttrsForDelete.length > 0 ? generateUuidV7() : null
 
         let afterDeleteLifecycleRequest: RuntimeLifecycleDispatchRequest | null = null
 
@@ -239,6 +241,15 @@ export const createDeleteRowHandler = ({ getDbExecutor, query }: RuntimeRowWrite
             })
 
             const deleteParams: unknown[] = runtimeDeleteSetClause ? [ctx.userId, rowId] : [rowId]
+            let deleteCascadeIdParameter: string | null = null
+            if (deleteCascadeId) {
+                deleteParams.push(deleteCascadeId)
+                deleteCascadeIdParameter = `$${deleteParams.length}`
+            }
+            const parentDeleteSetClause =
+                runtimeDeleteSetClause && deleteCascadeIdParameter
+                    ? `${runtimeDeleteSetClause}, _upl_delete_cascade_id = ${deleteCascadeIdParameter}`
+                    : runtimeDeleteSetClause
             const deleteRowIdPlaceholder = runtimeDeleteSetClause ? '$2' : '$1'
             const deleteAccessClause = await buildRuntimeRecordAccessClause({
                 manager: mgr,
@@ -282,7 +293,7 @@ export const createDeleteRowHandler = ({ getDbExecutor, query }: RuntimeRowWrite
                 ? ((await mgr.query(
                       `
               UPDATE ${dataTableIdent}
-              SET ${runtimeDeleteSetClause},
+              SET ${parentDeleteSetClause},
                   ${ctx.workspacesEnabled ? '_seed_source_owned = false,' : ''}
                   _upl_version = COALESCE(_upl_version, 1) + 1
               WHERE ${deleteWhereSql}
@@ -334,16 +345,22 @@ export const createDeleteRowHandler = ({ getDbExecutor, query }: RuntimeRowWrite
                             : fallbackTabTableName
                     if (!IDENTIFIER_REGEX.test(tabTableName)) continue
                     const tabTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(tabTableName)}`
+                    const cascadeDeleteParams: unknown[] = [ctx.userId, rowId]
+                    let childDeleteSetClause = runtimeDeleteSetClause
+                    if (deleteCascadeId) {
+                        cascadeDeleteParams.push(deleteCascadeId)
+                        childDeleteSetClause = `${runtimeDeleteSetClause}, _upl_delete_cascade_id = $${cascadeDeleteParams.length}`
+                    }
                     await mgr.query(
                         `
               UPDATE ${tabTableIdent}
-              SET ${runtimeDeleteSetClause},
+              SET ${childDeleteSetClause},
                   ${ctx.workspacesEnabled ? '_seed_source_owned = false,' : ''}
                   _upl_version = COALESCE(_upl_version, 1) + 1
               WHERE _tp_parent_id = $2
                 AND ${runtimeRowCondition}
             `,
-                        [ctx.userId, rowId]
+                        cascadeDeleteParams
                     )
                 }
             }

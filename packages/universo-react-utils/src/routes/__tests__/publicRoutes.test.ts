@@ -50,6 +50,7 @@ describe('public API route matching', () => {
             'runtime',
             'runtime/attempts/start',
             `runtime/attempts/${attemptId}`,
+            `runtime/attempts/${attemptId}/continue`,
             `runtime/attempts/${attemptId}/answers`,
             `runtime/attempts/${attemptId}/finalize`,
             'runtime/guest-progress',

@@ -8,6 +8,12 @@ import { resolveFixtureOutputPath } from '../../support/fixtureOutputPath'
 import { buildSnapshotEnvelope, buildVLC, validateSnapshotEnvelope } from '@universo-react/utils'
 import { waitForMetahubObjectId, waitForMetahubEnumerationId, waitForOptionValueId } from '../../support/lmsRuntime'
 import {
+    buildLmsSixthMuseQuizRecord,
+    LMS_SIXTH_MUSE_ACCESS_LINK,
+    LMS_SIXTH_MUSE_ACCESS_POLICY,
+    LMS_SIXTH_MUSE_QUIZ_KEY
+} from '../../support/lmsSixthMuseFixtureContract'
+import {
     assertLmsFixtureEnvelopeContract,
     buildLmsLiveMetahubCodename,
     buildLmsLiveMetahubName,
@@ -369,6 +375,9 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
                 PassingScorePercent: seededQuiz.passingScorePercent,
                 MaxAttempts: seededQuiz.maxAttempts,
                 TimeLimitSeconds: LMS_LYCEUM_MARATHON_TIME_LIMIT_SECONDS,
+                PauseTimerOnBlockIntro: false,
+                BlockRelativeNumbering: false,
+                Blocks: [],
                 Questions: seededQuiz.questions.map((question) => ({
                     Id: question.id,
                     Prompt: question.prompt,
@@ -380,12 +389,18 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
                         label: option.label,
                         isCorrect: option.isCorrect
                     })),
+                    BlockKey: null,
                     SortOrder: question.sortOrder
                 }))
             }
         })
         quizRowsByKey.set(seededQuiz.key, quizRow)
     }
+
+    const sixthMuseQuizRow = await createRecord(api, metahubId, quizzesObjectId, {
+        data: buildLmsSixthMuseQuizRecord(singleChoiceValueId)
+    })
+    quizRowsByKey.set(LMS_SIXTH_MUSE_QUIZ_KEY, sixthMuseQuizRow)
 
     const guestContentRowsByKey = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
     for (const [contentIndex, seededContent] of LMS_DEMO_CONTENT_NODES.entries()) {
@@ -633,6 +648,31 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
             }
         })
     }
+
+    await createRecord(api, metahubId, accessLinksObjectId, {
+        data: {
+            SortOrder: LMS_DEMO_ACCESS_LINKS.length + LMS_LYCEUM_MARATHON_ACCESS_LINKS.length + 1,
+            Slug: LMS_SIXTH_MUSE_ACCESS_LINK.slug,
+            TargetType: 'quiz',
+            TargetId: sixthMuseQuizRow.id,
+            ContentNodeIdRef: null,
+            LinkClassId: null,
+            IsActive: LMS_SIXTH_MUSE_ACCESS_POLICY.isActive,
+            ExpiresAt: null,
+            MaxUses: LMS_SIXTH_MUSE_ACCESS_POLICY.maxUses,
+            UseCount: 0,
+            LinkTitle: buildVLC(LMS_SIXTH_MUSE_ACCESS_LINK.title.en, LMS_SIXTH_MUSE_ACCESS_LINK.title.ru),
+            ShowFirstName: LMS_SIXTH_MUSE_ACCESS_POLICY.showFirstName,
+            RequireFirstName: LMS_SIXTH_MUSE_ACCESS_POLICY.requireFirstName,
+            ShowLastName: LMS_SIXTH_MUSE_ACCESS_POLICY.showLastName,
+            RequireLastName: LMS_SIXTH_MUSE_ACCESS_POLICY.requireLastName,
+            ShowEmail: LMS_SIXTH_MUSE_ACCESS_POLICY.showEmail,
+            RequireEmail: LMS_SIXTH_MUSE_ACCESS_POLICY.requireEmail,
+            ShowPhone: LMS_SIXTH_MUSE_ACCESS_POLICY.showPhone,
+            RequirePhone: LMS_SIXTH_MUSE_ACCESS_POLICY.requirePhone,
+            CaptchaEnabled: LMS_SIXTH_MUSE_ACCESS_POLICY.captchaEnabled
+        }
+    })
 
     for (const seededEnrollment of LMS_DEMO_ENROLLMENTS) {
         const seededContent = LMS_DEMO_CONTENT_NODES.find((content) => content.key === seededEnrollment.contentKey)

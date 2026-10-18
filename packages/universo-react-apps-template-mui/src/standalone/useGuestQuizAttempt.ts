@@ -14,7 +14,16 @@ import {
 } from './guestRuntimeUtils'
 import type { GuestFetchWithPublicCsrf, GuestQuizAttempt, GuestQuizQuestion, GuestSession, GuestTranslate } from './guestRuntimeTypes'
 
-type SaveGuestAnswerInput = { attemptId: string; questionId: string; optionId: string }
+type GuestAttemptActionInput =
+    | { kind: 'answer'; attemptId: string; questionId: string; optionId: string }
+    | { kind: 'continue'; attemptId: string; phaseRevision: number }
+
+const isUnavailableGuestSessionStatus = (status: number): boolean => status === 403 || status === 404
+
+const createUnavailableGuestSessionError = (translate: GuestTranslate): GuestSessionUnavailableError =>
+    new GuestSessionUnavailableError(
+        translate('guest.errors.sessionUnavailable', 'Your access to this quiz has ended. No further answers can be saved.')
+    )
 
 export type GuestQuizAttemptController = {
     quizAttempt: GuestQuizAttempt | null
@@ -24,11 +33,11 @@ export type GuestQuizAttemptController = {
     currentQuestionIndex: number
     currentQuestion: GuestQuizQuestion | null
     initializeQuizAttemptMutation: UseMutationResult<GuestQuizAttempt, Error, string>
-    saveAnswerMutation: UseMutationResult<GuestQuizAttempt, Error, SaveGuestAnswerInput>
+    saveAnswerMutation: UseMutationResult<GuestQuizAttempt, Error, GuestAttemptActionInput>
     finalizeQuizMutation: UseMutationResult<GuestQuizAttempt, Error, string>
     handleRetryQuiz: () => void
     handleBackToContent: () => void
-    handleSelectOption: (optionId: string) => Promise<void>
+    handleSelectOption: (optionId?: string) => Promise<void>
     handleRetryAnswer: (optionId?: string) => Promise<void>
 }
 
@@ -61,7 +70,7 @@ export function useGuestQuizAttempt({
     const [selectedOptionId, setSelectedOptionId] = useState('')
     const [timeRemaining, setTimeRemaining] = useState<number | null>(null)
     const [isRefreshingAttempt, setIsRefreshingAttempt] = useState(false)
-    const answerSaveContinuationRef = useRef(false)
+    const attemptActionInProgressRef = useRef(false)
     const attemptRefreshInProgressRef = useRef(false)
     const currentAttemptRef = useRef<GuestQuizAttempt | null>(null)
     const initializedAttemptScopeRef = useRef('')
@@ -69,6 +78,7 @@ export function useGuestQuizAttempt({
     const failedFinalizationAttemptRef = useRef('')
     const attemptScope =
         runtimeId && session?.participantId && session.sessionToken ? `${applicationId}:${slug}:${session.participantId}:${runtimeId}` : ''
+    const mutationScopeId = `guest-quiz-attempt:${quizAttempt?.attemptId ?? `${applicationId}:${runtimeId ?? ''}`}`
     const attemptScopeRef = useRef(attemptScope)
 
     useLayoutEffect(() => {
@@ -80,6 +90,7 @@ export function useGuestQuizAttempt({
     }, [quizAttempt])
 
     const finalizeQuizMutation = useMutation<GuestQuizAttempt, Error, string>({
+        scope: { id: mutationScopeId },
         mutationFn: async (attemptId) => {
             if (!session) {
                 throw new Error(translate('guest.errors.sessionMissing', 'Guest session is required before continuing the quiz.'))
@@ -101,6 +112,9 @@ export function useGuestQuizAttempt({
                     })
                 }
             )
+            if (!response.ok && isUnavailableGuestSessionStatus(response.status)) {
+                throw createUnavailableGuestSessionError(translate)
+            }
             if (!response.ok) {
                 throw new Error(translate('guest.errors.quizFinalize', 'Failed to finish the quiz.'))
             }
@@ -192,10 +206,49 @@ export function useGuestQuizAttempt({
         }
     })
 
-    const saveAnswerMutation = useMutation<GuestQuizAttempt, Error, SaveGuestAnswerInput>({
+    const saveAnswerMutation = useMutation<GuestQuizAttempt, Error, GuestAttemptActionInput>({
+        scope: { id: mutationScopeId },
         mutationFn: async (input) => {
             if (!session) {
                 throw new Error(translate('guest.errors.sessionMissing', 'Guest session is required before continuing the quiz.'))
+            }
+
+            if (input.kind === 'continue') {
+                const response = await fetchWithPublicCsrf(
+                    `${apiBaseUrl}/public/a/${applicationId}/runtime/attempts/${encodeURIComponent(
+                        input.attemptId
+                    )}/continue?${new URLSearchParams({ locale }).toString()}`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            [GUEST_PARTICIPANT_ID_HEADER]: session.participantId,
+                            [GUEST_SESSION_TOKEN_HEADER]: session.sessionToken
+                        },
+                        body: JSON.stringify({
+                            participantId: session.participantId,
+                            sessionToken: session.sessionToken,
+                            phaseRevision: input.phaseRevision
+                        })
+                    }
+                )
+                if (!response.ok && isUnavailableGuestSessionStatus(response.status)) {
+                    throw createUnavailableGuestSessionError(translate)
+                }
+                const responseBody: unknown = await response.json().catch(() => null)
+                const attempt = normalizeGuestQuizAttempt(responseBody, input.attemptId)
+                if (!attempt || (!response.ok && attempt.status !== 'completed')) {
+                    const nestedAttempt = normalizeGuestQuizAttempt(isRecord(responseBody) ? responseBody.attempt : null, input.attemptId)
+                    const isNewerConflictState =
+                        response.status === 409 &&
+                        nestedAttempt &&
+                        (nestedAttempt.status === 'completed' || nestedAttempt.phaseRevision > input.phaseRevision)
+                    if (!isNewerConflictState) {
+                        throw new Error(translate('guest.errors.quizContinue', 'Failed to continue to the next quiz question.'))
+                    }
+                    return nestedAttempt
+                }
+                return attempt
             }
 
             const response = await fetchWithPublicCsrf(
@@ -217,13 +270,11 @@ export function useGuestQuizAttempt({
                     })
                 }
             )
+            if (!response.ok && isUnavailableGuestSessionStatus(response.status)) {
+                throw createUnavailableGuestSessionError(translate)
+            }
             const responseBody: unknown = await response.json().catch(() => null)
             const attempt = normalizeGuestQuizAttempt(isRecord(responseBody) ? responseBody.attempt : null, input.attemptId)
-            if (!response.ok && response.status === 403) {
-                throw new GuestSessionUnavailableError(
-                    translate('guest.errors.sessionUnavailable', 'Your access to this quiz has ended. No further answers can be saved.')
-                )
-            }
             if (!attempt || (!response.ok && attempt.status !== 'completed')) {
                 throw new Error(translate('guest.errors.quizAnswerSave', 'Failed to save your answer.'))
             }
@@ -233,13 +284,16 @@ export function useGuestQuizAttempt({
 
     const quizRuntimeId = runtimeId
     const currentQuestionIndex =
-        quizAttempt?.status === 'in_progress' && quizAttempt.currentQuestionIndex < quizAttempt.totalQuestions
+        quizAttempt?.status === 'in_progress' &&
+        quizAttempt.phase === 'question' &&
+        quizAttempt.currentQuestionIndex < quizAttempt.totalQuestions
             ? quizAttempt.currentQuestionIndex
             : -1
     const currentQuestion = currentQuestionIndex >= 0 ? quizAttempt?.questions[0] ?? null : null
     const quizAttemptId = quizAttempt?.attemptId
     const quizAttemptStatus = quizAttempt?.status
-    const secondsRemainingAtServerSync = quizAttempt ? getInitialRemainingSeconds(quizAttempt) : null
+    const quizAttemptTimerState = quizAttempt?.timerState
+    const remainingMillisecondsAtServerSync = quizAttempt?.remainingMs ?? null
     const initializeAttempt = initializeQuizAttemptMutation.mutate
     const resetAttemptInitialization = initializeQuizAttemptMutation.reset
     const resetAnswerMutation = saveAnswerMutation.reset
@@ -251,7 +305,7 @@ export function useGuestQuizAttempt({
     const refreshAttemptFromServer = useCallback(
         async (attemptId: string) => {
             const requestScope = attemptScope
-            if (!session || !requestScope || attemptRefreshInProgressRef.current || answerSaveContinuationRef.current) return
+            if (!session || !requestScope || attemptRefreshInProgressRef.current || attemptActionInProgressRef.current) return
             attemptRefreshInProgressRef.current = true
             setIsRefreshingAttempt(true)
             try {
@@ -278,7 +332,8 @@ export function useGuestQuizAttempt({
                 setTimeRemaining(remainingSeconds)
                 if (
                     serverAttempt.status === 'in_progress' &&
-                    (serverAttempt.currentQuestionIndex >= serverAttempt.totalQuestions || remainingSeconds === 0) &&
+                    (serverAttempt.currentQuestionIndex >= serverAttempt.totalQuestions ||
+                        (serverAttempt.timerState === 'running' && remainingSeconds === 0)) &&
                     finalizedDeadlineAttemptRef.current !== attemptId
                 ) {
                     finalizedDeadlineAttemptRef.current = attemptId
@@ -309,7 +364,7 @@ export function useGuestQuizAttempt({
 
         initializedAttemptScopeRef.current = attemptScope
         currentAttemptRef.current = null
-        answerSaveContinuationRef.current = false
+        attemptActionInProgressRef.current = false
         finalizedDeadlineAttemptRef.current = ''
         failedFinalizationAttemptRef.current = ''
         setQuizAttempt(null)
@@ -338,16 +393,19 @@ export function useGuestQuizAttempt({
     }, [quizAttemptStatus, quizAttemptId, session, refreshAttemptFromServer])
 
     useEffect(() => {
-        if (quizAttemptStatus !== 'in_progress' || secondsRemainingAtServerSync === null) {
+        if (quizAttemptStatus !== 'in_progress' || remainingMillisecondsAtServerSync === null) {
+            setTimeRemaining(null)
             return
         }
 
-        const initialSeconds = secondsRemainingAtServerSync
-        setTimeRemaining(initialSeconds)
+        const initialMilliseconds = remainingMillisecondsAtServerSync
+        setTimeRemaining(Math.max(0, Math.ceil(initialMilliseconds / 1000)))
+        if (quizAttemptTimerState !== 'running') return
+
         const startedAt = typeof performance !== 'undefined' ? performance.now() : Date.now()
         const getElapsedMilliseconds = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()) - startedAt
         const timer = window.setInterval(() => {
-            const remaining = Math.max(0, Math.ceil(initialSeconds - getElapsedMilliseconds() / 1000))
+            const remaining = Math.max(0, Math.ceil((initialMilliseconds - getElapsedMilliseconds()) / 1000))
             setTimeRemaining(remaining)
             if (remaining === 0) {
                 window.clearInterval(timer)
@@ -355,15 +413,16 @@ export function useGuestQuizAttempt({
         }, 1000)
 
         return () => window.clearInterval(timer)
-    }, [quizAttemptId, quizAttemptStatus, secondsRemainingAtServerSync])
+    }, [quizAttemptId, quizAttemptStatus, quizAttemptTimerState, remainingMillisecondsAtServerSync])
 
     useEffect(() => {
         if (
             timeRemaining !== 0 ||
             !quizAttemptId ||
             quizAttemptStatus !== 'in_progress' ||
+            quizAttemptTimerState !== 'running' ||
             isSavingAnswer ||
-            answerSaveContinuationRef.current ||
+            attemptActionInProgressRef.current ||
             isFinalizing ||
             failedFinalizationAttemptRef.current === quizAttemptId ||
             finalizedDeadlineAttemptRef.current === quizAttemptId
@@ -373,7 +432,7 @@ export function useGuestQuizAttempt({
 
         finalizedDeadlineAttemptRef.current = quizAttemptId
         finalizeAttempt(quizAttemptId)
-    }, [timeRemaining, quizAttemptId, quizAttemptStatus, isSavingAnswer, isFinalizing, finalizeAttempt])
+    }, [timeRemaining, quizAttemptId, quizAttemptStatus, quizAttemptTimerState, isSavingAnswer, isFinalizing, finalizeAttempt])
 
     const saveSelectedAnswer = useCallback(
         async (optionId: string) => {
@@ -384,22 +443,23 @@ export function useGuestQuizAttempt({
                 !optionId ||
                 timeRemaining === 0 ||
                 attemptRefreshInProgressRef.current ||
-                answerSaveContinuationRef.current
+                attemptActionInProgressRef.current
             )
                 return
 
-            answerSaveContinuationRef.current = true
+            attemptActionInProgressRef.current = true
             setSelectedOptionId(optionId)
             saveAnswerMutation.reset()
             let serverAttempt: GuestQuizAttempt
             try {
                 serverAttempt = await saveAnswerMutation.mutateAsync({
+                    kind: 'answer',
                     attemptId: quizAttempt.attemptId,
                     questionId: currentQuestion.id,
                     optionId
                 })
             } catch {
-                answerSaveContinuationRef.current = false
+                attemptActionInProgressRef.current = false
                 return
             }
 
@@ -407,22 +467,64 @@ export function useGuestQuizAttempt({
             setSelectedOptionId('')
             if (serverAttempt.status === 'completed') {
                 setTimeRemaining(0)
-                answerSaveContinuationRef.current = false
+                attemptActionInProgressRef.current = false
                 return
             }
 
             if (serverAttempt.currentQuestionIndex >= serverAttempt.totalQuestions) {
-                answerSaveContinuationRef.current = false
+                attemptActionInProgressRef.current = false
                 finalizedDeadlineAttemptRef.current = quizAttempt.attemptId
                 finalizeQuizMutation.mutate(quizAttempt.attemptId)
                 return
             }
-            answerSaveContinuationRef.current = false
+            attemptActionInProgressRef.current = false
         },
         [quizAttempt, currentQuestion, timeRemaining, saveAnswerMutation, finalizeQuizMutation]
     )
 
-    const handleSelectOption = useCallback(async (optionId: string) => saveSelectedAnswer(optionId), [saveSelectedAnswer])
+    const continueBlockIntro = useCallback(async () => {
+        if (
+            !quizAttempt ||
+            quizAttempt.status !== 'in_progress' ||
+            quizAttempt.phase !== 'block_intro' ||
+            timeRemaining === 0 ||
+            isRefreshingAttempt ||
+            attemptRefreshInProgressRef.current ||
+            attemptActionInProgressRef.current ||
+            finalizeQuizMutation.isPending
+        ) {
+            return
+        }
+
+        attemptActionInProgressRef.current = true
+        setSelectedOptionId('')
+        saveAnswerMutation.reset()
+        try {
+            const serverAttempt = await saveAnswerMutation.mutateAsync({
+                kind: 'continue',
+                attemptId: quizAttempt.attemptId,
+                phaseRevision: quizAttempt.phaseRevision
+            })
+            if (attemptScopeRef.current !== attemptScope || currentAttemptRef.current?.attemptId !== quizAttempt.attemptId) return
+            setQuizAttempt(serverAttempt)
+            setTimeRemaining(serverAttempt.status === 'in_progress' ? getInitialRemainingSeconds(serverAttempt) : 0)
+        } catch {
+            // Keep the current phase visible so the learner can retry.
+        } finally {
+            attemptActionInProgressRef.current = false
+        }
+    }, [attemptScope, finalizeQuizMutation.isPending, isRefreshingAttempt, quizAttempt, saveAnswerMutation, timeRemaining])
+
+    const handleSelectOption = useCallback(
+        async (optionId?: string) => {
+            if (quizAttempt?.phase === 'block_intro') {
+                await continueBlockIntro()
+                return
+            }
+            if (optionId) await saveSelectedAnswer(optionId)
+        },
+        [continueBlockIntro, quizAttempt?.phase, saveSelectedAnswer]
+    )
     const handleRetryAnswer = useCallback(
         async (optionId = selectedOptionId) => {
             if (optionId) await saveSelectedAnswer(optionId)
@@ -437,7 +539,7 @@ export function useGuestQuizAttempt({
         }
 
         removeGuestSessionStorage(getGuestAttemptStorageKey(applicationId, slug, session.participantId, retryQuizId))
-        answerSaveContinuationRef.current = false
+        attemptActionInProgressRef.current = false
         finalizedDeadlineAttemptRef.current = ''
         failedFinalizationAttemptRef.current = ''
         currentAttemptRef.current = null
@@ -453,7 +555,7 @@ export function useGuestQuizAttempt({
     const handleBackToContent = useCallback(() => {
         initializedAttemptScopeRef.current = ''
         currentAttemptRef.current = null
-        answerSaveContinuationRef.current = false
+        attemptActionInProgressRef.current = false
         finalizedDeadlineAttemptRef.current = ''
         failedFinalizationAttemptRef.current = ''
         setQuizAttempt(null)

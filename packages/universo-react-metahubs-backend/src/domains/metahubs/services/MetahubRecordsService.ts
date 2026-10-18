@@ -38,9 +38,9 @@ import { isEntityRecordBoundBySemanticKey } from '../../layouts/widgetBindingPol
 import { prepareEntityRecordCreationData, readEntityRecordPolicy, validateEntityRecordPolicyData } from '../../shared/entityRecordPolicy'
 import { assertMarketingHeroUpdateActionsRemainValid } from './marketingHeroUpdatePolicy'
 import { lockEntityRecordPolicyForWrite } from './entityRecordPolicyWriteStore'
+import { assertSiblingRowTargetsExist } from './siblingRowSelectRecordValidation'
 
 const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
-
 type RecordComponent = {
     id: string
     codename: string
@@ -52,6 +52,7 @@ type RecordComponent = {
     targetEntityId?: string | null
     targetEntityKind?: string | null
     validationRules?: Record<string, unknown>
+    uiConfig?: Record<string, unknown>
 }
 
 /** A REF component of any object in the metahub that points at the deleted object. */
@@ -503,22 +504,26 @@ export class MetahubRecordsService {
 
         const createWithRunner = async (tx: SqlQueryable) => {
             let authoritativePolicy = recordPolicy
-            let writeComponents = components
-            let writeData = normalizedData
+            let writeComponents: RecordComponent[] = components
+            let writeData: Record<string, unknown> = normalizedData
             if (recordPolicy) {
                 const locked = await lockEntityRecordPolicyForWrite(tx, schemaName, objectCollectionId)
                 if (locked.object.kind !== 'object') throw new MetahubNotFoundError('Object')
                 authoritativePolicy = locked.policy
                 if (!authoritativePolicy) throw new MetahubValidationError('Entity record policy changed during the write')
-                const authoritativeInputData = prepareEntityRecordCreationData(authoritativePolicy, input.data)
-                writeComponents = await this.componentsService.findAllFlat(metahubId, objectCollectionId, userId, 'business', tx)
-                const authoritativeValidation = this.validateRecordData(authoritativeInputData, writeComponents)
-                if (!authoritativeValidation.valid) {
-                    throw new MetahubValidationError(`Validation failed: ${authoritativeValidation.errors.join(', ')}`)
-                }
-                assertEntityRecordPolicyData(authoritativePolicy, authoritativeInputData, writeComponents)
-                writeData = this.normalizeHexColorFields(authoritativeInputData, writeComponents)
             }
+            // Read component metadata on the same transaction runner as the
+            // write, then validate sibling-table references against that
+            // authoritative shape before persisting the JSON payload.
+            writeComponents = await this.componentsService.findAllFlat(metahubId, objectCollectionId, userId, 'business', tx)
+            const authoritativeInputData = prepareEntityRecordCreationData(authoritativePolicy, input.data)
+            const authoritativeValidation = this.validateRecordData(authoritativeInputData, writeComponents)
+            if (!authoritativeValidation.valid) {
+                throw new MetahubValidationError(`Validation failed: ${authoritativeValidation.errors.join(', ')}`)
+            }
+            assertEntityRecordPolicyData(authoritativePolicy, authoritativeInputData, writeComponents)
+            writeData = this.normalizeHexColorFields(authoritativeInputData, writeComponents)
+            assertSiblingRowTargetsExist(writeComponents, writeData)
             await this.acquireSortOrderLockInTransaction(tx, schemaName, objectCollectionId)
 
             await this.assertUniqueComponentValues(tx, schemaName, objectCollectionId, writeComponents, writeData)
@@ -644,7 +649,7 @@ export class MetahubRecordsService {
                 expectedVersion: effectiveExpectedVersion
             })
 
-            if (updateData.data && authoritativePolicy) {
+            if (updateData.data) {
                 const mergedData = {
                     ...readRecordData(existing.data),
                     ...(input.data ?? {})
@@ -654,40 +659,45 @@ export class MetahubRecordsService {
                 if (!validation.valid) {
                     throw new MetahubValidationError(`Validation failed: ${validation.errors.join(', ')}`)
                 }
-                const semanticKeyComponent = authoritativePolicy.semanticKey?.componentCodename
-                const existingRecordData = readRecordData(existing.data)
-                if (semanticKeyComponent && mergedData[semanticKeyComponent] !== existingRecordData[semanticKeyComponent]) {
-                    const previousSemanticKey = existingRecordData[semanticKeyComponent]
-                    const nextSemanticKey = mergedData[semanticKeyComponent]
-                    const protectedValues = authoritativePolicy.semanticKey?.protectedValues ?? []
-                    if (
-                        typeof previousSemanticKey !== 'string' ||
-                        typeof nextSemanticKey !== 'string' ||
-                        protectedValues.includes(previousSemanticKey) ||
-                        protectedValues.includes(nextSemanticKey)
-                    ) {
-                        throw new MetahubRecordProtectedError()
-                    }
+                if (authoritativePolicy) {
+                    const semanticKeyComponent = authoritativePolicy.semanticKey?.componentCodename
+                    const existingRecordData = readRecordData(existing.data)
+                    if (semanticKeyComponent && mergedData[semanticKeyComponent] !== existingRecordData[semanticKeyComponent]) {
+                        const previousSemanticKey = existingRecordData[semanticKeyComponent]
+                        const nextSemanticKey = mergedData[semanticKeyComponent]
+                        const protectedValues = authoritativePolicy.semanticKey?.protectedValues ?? []
+                        if (
+                            typeof previousSemanticKey !== 'string' ||
+                            typeof nextSemanticKey !== 'string' ||
+                            protectedValues.includes(previousSemanticKey) ||
+                            protectedValues.includes(nextSemanticKey)
+                        ) {
+                            throw new MetahubRecordProtectedError()
+                        }
 
-                    if (
-                        authoritativePolicy.immutableSemanticKeyWhenBound &&
-                        lockedObject &&
-                        (await isEntityRecordBoundBySemanticKey(tx, schemaName, lockedObject.codename, previousSemanticKey))
-                    ) {
-                        throw new MetahubRecordProtectedError()
+                        if (
+                            authoritativePolicy.immutableSemanticKeyWhenBound &&
+                            lockedObject &&
+                            (await isEntityRecordBoundBySemanticKey(tx, schemaName, lockedObject.codename, previousSemanticKey))
+                        ) {
+                            throw new MetahubRecordProtectedError()
+                        }
                     }
                 }
                 assertEntityRecordPolicyData(authoritativePolicy, mergedData, ruleComponents)
                 const normalizedRecordData = this.normalizeHexColorFields(mergedData, ruleComponents)
                 updateData.data = normalizedRecordData
-                await assertMarketingHeroUpdateActionsRemainValid({
-                    db: tx,
-                    schemaName,
-                    objectCodename: lockedObject?.codename,
-                    semanticKey: authoritativePolicy.semanticKey,
-                    recordData: mergedData,
-                    normalizedRecordData
-                })
+                assertSiblingRowTargetsExist(ruleComponents, normalizedRecordData, readRecordData(existing.data))
+                if (authoritativePolicy) {
+                    await assertMarketingHeroUpdateActionsRemainValid({
+                        db: tx,
+                        schemaName,
+                        objectCodename: lockedObject?.codename,
+                        semanticKey: authoritativePolicy.semanticKey,
+                        recordData: mergedData,
+                        normalizedRecordData
+                    })
+                }
             }
 
             if (updateData.data) {
@@ -1026,6 +1036,10 @@ export class MetahubRecordsService {
             }
 
             await this.assertElementNotReferenced(tx, schemaName, id, referencingComponents)
+
+            // Sibling TABLE rows belong to this same record. Deleting the
+            // entire record atomically removes both selector sources and
+            // targets; deleting an individual row is covered by update().
 
             const deleted = await tx.query<{ id: string }>(
                 `UPDATE ${qt}

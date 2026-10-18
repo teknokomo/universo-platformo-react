@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
+import { useCommonTranslations } from '@universo-react/i18n'
 import {
     applyOptimisticCreate,
     applyOptimisticDelete,
@@ -56,6 +57,7 @@ export function useCreateRecord() {
     const queryClient = useQueryClient()
     const { enqueueSnackbar } = useSnackbar()
     const { t } = useTranslation('metahubs')
+    const { t: tc } = useCommonTranslations()
 
     return useMutation({
         mutationKey: ['records', 'create'],
@@ -101,6 +103,12 @@ export function useCreateRecord() {
                 ? t('records.keyDuplicate', 'A record with the same key already exists. Change the key and try again.')
                 : isApiError(error, 'RECORD_REF_TARGET_MISSING')
                 ? t('records.refTargetMissing', 'The selected related record no longer exists. Refresh the form and choose it again.')
+                : isApiError(error, 'RECORD_SIBLING_TARGET_UNREFERENCED')
+                ? tc('tableGrouping.emptyGroup', { defaultValue: 'Each group must contain at least one related row before saving.' })
+                : isApiError(error, 'RECORD_SIBLING_TARGET_KEY_DUPLICATE')
+                ? tc('tableGrouping.duplicateGroup', {
+                      defaultValue: 'Each group must have a unique key. Remove or recreate the duplicate group before saving.'
+                  })
                 : resolveApiErrorMessage(error, t('records.createError', 'Failed to create element'))
             enqueueSnackbar(message, { variant: 'error' })
         },
@@ -116,6 +124,7 @@ export function useUpdateRecord() {
     const queryClient = useQueryClient()
     const { enqueueSnackbar } = useSnackbar()
     const { t } = useTranslation('metahubs')
+    const { t: tc } = useCommonTranslations()
 
     return useMutation({
         mutationKey: ['records', 'update'],
@@ -153,6 +162,12 @@ export function useUpdateRecord() {
                 ? t('records.keyDuplicate', 'A record with the same key already exists. Change the key and try again.')
                 : isApiError(error, 'RECORD_REF_TARGET_MISSING')
                 ? t('records.refTargetMissing', 'The selected related record no longer exists. Refresh the form and choose it again.')
+                : isApiError(error, 'RECORD_SIBLING_TARGET_UNREFERENCED')
+                ? tc('tableGrouping.emptyGroup', { defaultValue: 'Each group must contain at least one related row before saving.' })
+                : isApiError(error, 'RECORD_SIBLING_TARGET_KEY_DUPLICATE')
+                ? tc('tableGrouping.duplicateGroup', {
+                      defaultValue: 'Each group must have a unique key. Remove or recreate the duplicate group before saving.'
+                  })
                 : resolveApiErrorMessage(error, t('records.updateError', 'Failed to update element'))
             enqueueSnackbar(message, { variant: 'error' })
         },

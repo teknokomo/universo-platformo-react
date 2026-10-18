@@ -9,6 +9,7 @@ import {
     type GuestAssessmentResponseTable
 } from '../persistence/guestAssessmentAttemptStore'
 import { assessmentAttemptQuestionsSchema, scoreAssessmentAttempt } from './assessmentAttemptLifecycle'
+import { assessmentAttemptFlowSnapshotSchema, parseAssessmentAttemptRuntimeState } from './assessmentAttemptFlow'
 
 type AssessmentAttemptFinishReason = 'submitted' | 'timed_out' | 'revoked'
 type StoredAttempt = Record<string, unknown> & { id: string }
@@ -55,13 +56,26 @@ export const finalizeGuestAssessmentAttempt = async (
     if (String(attempt.status ?? '').toLowerCase() !== 'started') return attempt
 
     const deadlineAt = normalizeDate(attempt.deadlineAt)
-    const deadlineExpired = deadlineAt !== null && Date.parse(deadlineAt) <= now.getTime()
+    const timerState = String(attempt.timerState ?? '')
+    const deadlineExpired = timerState === 'running' && deadlineAt !== null && Date.parse(deadlineAt) <= now.getTime()
     if (finishedReason === 'timed_out' && !deadlineExpired) return attempt
 
     const effectiveReason = finishedReason === 'submitted' && deadlineExpired ? 'timed_out' : finishedReason
-    const questions = assessmentAttemptQuestionsSchema.parse(
-        typeof attempt.questionsSnapshot === 'string' ? JSON.parse(attempt.questionsSnapshot) : attempt.questionsSnapshot
-    )
+    const questionsValue = typeof attempt.questionsSnapshot === 'string' ? JSON.parse(attempt.questionsSnapshot) : attempt.questionsSnapshot
+    const questions = assessmentAttemptQuestionsSchema.parse(questionsValue)
+    const flowValue = typeof attempt.flowSnapshot === 'string' ? JSON.parse(attempt.flowSnapshot) : attempt.flowSnapshot
+    const flow = assessmentAttemptFlowSnapshotSchema.parse(flowValue)
+    parseAssessmentAttemptRuntimeState({
+        phase: String(attempt.phase ?? ''),
+        phaseRevision: normalizeNumber(attempt.phaseRevision) ?? Number.NaN,
+        timerState,
+        deadlineAt,
+        frozenRemainingMs: normalizeNumber(attempt.frozenRemainingMs),
+        effectiveTimeLimitSeconds: Math.floor(normalizeNumber(attempt.effectiveTimeLimitSeconds) ?? 0),
+        status: String(attempt.status),
+        flow,
+        questionBlockKeys: questions.map((question) => question.blockKey)
+    })
     const responses = await listGuestAssessmentResponses(executor, responseTable, attemptId)
     const responseMap = new Map<string, string>()
     for (const response of responses) {
@@ -74,7 +88,7 @@ export const finalizeGuestAssessmentAttempt = async (
     const passingScorePercent = normalizeNumber(attempt.passingScorePercentSnapshot)
     const passed = passingScorePercent === null || (score.score / Math.max(score.total, 1)) * 100 >= passingScorePercent
     const status = effectiveReason === 'timed_out' ? 'TimedOut' : effectiveReason === 'revoked' ? 'Revoked' : passed ? 'Passed' : 'Failed'
-    const submittedAt = now.toISOString()
+    const submittedAt = effectiveReason === 'timed_out' && deadlineAt ? deadlineAt : now.toISOString()
     const columns = attemptTable.columns
 
     await updateGuestAssessmentAttempt(

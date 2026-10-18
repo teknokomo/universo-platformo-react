@@ -1170,14 +1170,14 @@
                 },
                 "guest-access-step-2": {
                     "requiredVisibleText": {
-                        "en": ["Question 1 of 30", "45 minutes"],
-                        "ru": ["Вопрос 1 из 30", "45 мин."]
+                        "en": ["Прозвища лицеистов", "You have 45 minutes", "Continue"],
+                        "ru": ["Прозвища лицеистов", "45 мин.", "Продолжить"]
                     }
                 },
                 "guest-access-step-3": {
                     "requiredVisibleText": {
-                        "en": ["Question 2 of 30", "Choose an answer to continue."],
-                        "ru": ["Вопрос 2 из 30", "Выберите ответ, чтобы продолжить."]
+                        "en": ["Question 1", "0 of 30 questions answered"],
+                        "ru": ["Вопрос 1", "Дано ответов: 0 из 30"]
                     }
                 },
                 "guest-access-step-4": {

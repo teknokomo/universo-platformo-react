@@ -21,7 +21,7 @@ All primary LMS concepts are represented as ordinary metahub entities.
 | `LearningTracks`     | Multi-course learning paths                                                        |
 | `TrackStages`        | Learning-track stages with persisted ordering                                      |
 | `TrackSteps`         | Parent-scoped track steps linked to courses or resources                           |
-| `Quizzes`            | Quiz definitions with question tables                                              |
+| `Quizzes`            | Quiz definitions with ordered block and question tables                            |
 | `QuizResponses`      | Per-question response persistence                                                  |
 | `ContentProgress`    | Per-student progress for Learning Resources and public guest-flow progress         |
 | `AccessLinks`        | Guest-access routing records                                                       |
@@ -50,7 +50,9 @@ All primary LMS concepts are represented as ordinary metahub entities.
 ## Important Modeling Decisions
 
 -   Quiz options are stored in a JSON field inside each question row.
--   `TABLE` fields are used for structured Learning Resource content items and quiz questions.
+-   `Quizzes.Blocks` holds ordered block titles and optional introductions; `Questions.Block` selects a sibling block by its hidden semantic key. Server-side record validation rejects dangling or ambiguous block references and prevents removing a referenced block.
+-   Quiz timer and question-numbering policies are per quiz. Timers run across introductions by default, and the optional pause policy stores the remaining time in the attempt; numbering is global by default and may be block-relative.
+-   `TABLE` fields are used for structured Learning Resource content items, quiz blocks, and quiz questions.
 -   `LearnerHome` is a Page, not a physical runtime table. Its content is carried by metadata blocks and rendered by the shared dashboard details surface.
 -   `ProgressLedger` and `ScoreLedger` are standard Ledger entities, not LMS-specific services. They use the shared Ledger configuration block for dimensions, resources, measures, period fields, and projections.
 -   Transactional LMS objects use the shared Object `behavior` tab for numbering, effective dates, lifecycle states, posting targets, and posting modules. The LMS fixture stores these settings in `config.recordBehavior`.

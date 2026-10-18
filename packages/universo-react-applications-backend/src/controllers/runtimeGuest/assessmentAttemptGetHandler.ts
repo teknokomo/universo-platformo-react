@@ -15,6 +15,7 @@ export const createGetGuestAssessmentAttemptHandler = (
         resolveGuestRuntimeLocale,
         resolveGuestAssessmentRuntimeTables,
         lockPublicApplicationForGuestAssessment,
+        lockPublicGuestRuntimeKey,
         loadCurrentAccessLinkRecordForUpdate,
         normalizeAccessLinkDate,
         guestParticipantIdHeader: GUEST_PARTICIPANT_ID_HEADER,
@@ -22,7 +23,7 @@ export const createGetGuestAssessmentAttemptHandler = (
         guestSessionTokenHeader: GUEST_SESSION_TOKEN_HEADER,
         maxGuestSessionTokenLength: MAX_GUEST_SESSION_TOKEN_LENGTH
     } = dependencies
-    const { getAttemptCompletionText, resolveGuestAttemptAccess, revalidateGuestAttemptAccess, toGuestAttemptState } = support
+    const { resolveGuestAttemptAccess, revalidateGuestAttemptAccess, toGuestAttemptState } = support
     const getGuestAssessmentAttempt = async (req: Request, res: Response) => {
         res.setHeader('Cache-Control', 'no-store')
         const { applicationId, attemptId } = req.params
@@ -81,6 +82,8 @@ export const createGetGuestAssessmentAttemptHandler = (
                 res.status(404).json({ error: 'Quiz attempt not found' })
                 return
             }
+            // Serialize the attempt row and its response projection with every attempt mutation.
+            await lockPublicGuestRuntimeKey(ctx.manager, `${ctx.schemaName}:guest-attempt:${currentLink.workspaceId ?? ''}:${attemptId}`)
             let attempt: (Record<string, unknown> & { id: string }) | null
             if (currentLink.isActive) {
                 attempt = await findGuestAssessmentAttempt(ctx.manager, persistence.attemptTable, attemptId, participantId, false)
@@ -115,6 +118,7 @@ export const createGetGuestAssessmentAttemptHandler = (
             }
             if (
                 String(attempt.status).toLowerCase() === 'started' &&
+                String(attempt.timerState ?? '') === 'running' &&
                 normalizeAccessLinkDate(attempt.deadlineAt) &&
                 Date.parse(normalizeAccessLinkDate(attempt.deadlineAt) as string) <= Date.now()
             ) {
@@ -128,17 +132,7 @@ export const createGetGuestAssessmentAttemptHandler = (
                         'timed_out'
                     )) ?? attempt
             }
-            const completionText = await getAttemptCompletionText(
-                ctx.manager,
-                ctx.schemaName,
-                config,
-                currentLink,
-                String(attempt.quizId),
-                locale
-            )
-            res.json(
-                await toGuestAttemptState(ctx.manager, persistence.attemptTable, persistence.responseTable, attempt, locale, completionText)
-            )
+            res.json(await toGuestAttemptState(ctx.manager, persistence.attemptTable, persistence.responseTable, attempt, locale))
         })
     }
 

@@ -14,6 +14,7 @@ import {
     guestTranslations,
     guestTestState,
     i18nState,
+    makeGuestAttemptDto,
     render,
     ruApps,
     screen,
@@ -399,6 +400,28 @@ describe('GuestApp intake and errors', () => {
         await waitFor(() => expect(screen.getByText('Content title')).toBeInTheDocument())
     })
 
+    it('shows localized Russian errors for missing names and legal consents before creating a guest session', async () => {
+        i18nState.locale = 'ru'
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <GuestApp applicationId='app-1' slug='demo-content' locale='ru' apiBaseUrl='/api/v1' />
+            </QueryClientProvider>
+        )
+
+        expect(await screen.findByText('Demo content')).toBeInTheDocument()
+        const startButton = screen.getByRole('button', { name: guestTranslations.ru['guest.start'] })
+        fireEvent.submit(startButton.closest('form')!)
+
+        expect(screen.getByLabelText(/^Имя/u)).toHaveFocus()
+        expect(screen.getByText(guestTranslations.ru['guest.errors.firstNameRequired'])).toBeInTheDocument()
+        expect(screen.getByText(guestTranslations.ru['guest.errors.lastNameRequired'])).toBeInTheDocument()
+        expect(screen.getByText(guestTranslations.ru['guest.errors.termsRequired'])).toBeInTheDocument()
+        expect(screen.getByText(guestTranslations.ru['guest.errors.privacyRequired'])).toBeInTheDocument()
+        expect(vi.mocked(globalThis.fetch).mock.calls.some(([input]) => String(input).endsWith('/public/a/app-1/guest-session'))).toBe(
+            false
+        )
+    })
+
     it('loads the published guest copy from both supported locale resources', () => {
         expect(enApps.guest.termsLink).toBe('Terms of Service')
         expect(enApps.guest.privacyLink).toBe('Privacy Policy')
@@ -491,11 +514,12 @@ describe('GuestApp intake and errors', () => {
                 expect(headers.get('X-Guest-Session-Token')).toBe('token-1')
                 return {
                     ok: true,
-                    json: async () => ({
-                        attemptId: 'attempt-revoked',
-                        status: 'completed',
-                        result: { result: { passed: null, finishedReason: 'revoked' } }
-                    })
+                    json: async () =>
+                        makeGuestAttemptDto({
+                            attemptId: 'attempt-revoked',
+                            status: 'completed',
+                            result: { result: { passed: null, finishedReason: 'revoked' } }
+                        })
                 } as Response
             }
             throw new Error(`Unexpected fetch request: ${url}`)

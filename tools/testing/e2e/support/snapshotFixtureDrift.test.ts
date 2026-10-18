@@ -119,6 +119,19 @@ test('normalizes Dashboard placement instance keys while preserving generic inst
     )
 })
 
+test('normalizes generated LMS block keys while preserving question-to-block relationships', () => {
+    const tracked = {
+        blocks: [{ BlockKey: '019a1111-1111-7111-8111-111111111111' }, { BlockKey: '019a2222-2222-7222-8222-222222222222' }],
+        questions: [{ BlockKey: '019a1111-1111-7111-8111-111111111111' }, { BlockKey: '019a2222-2222-7222-8222-222222222222' }]
+    }
+    const regenerated = {
+        blocks: [{ BlockKey: '019b3333-3333-7333-8333-333333333333' }, { BlockKey: '019b4444-4444-7444-8444-444444444444' }],
+        questions: [{ BlockKey: '019b3333-3333-7333-8333-333333333333' }, { BlockKey: '019b4444-4444-7444-8444-444444444444' }]
+    }
+
+    assert.deepEqual(normalizeSnapshotFixtureVolatileValues(tracked), normalizeSnapshotFixtureVolatileValues(regenerated))
+})
+
 test('normalizes Editor.js block timestamps while preserving generic time values', () => {
     const tracked = {
         config: { blockContent: { data: { time: 1_791_249_607_245 } } },

@@ -23,6 +23,7 @@
 -   🧾 **Record Behavior Types** - Shared Object numbering, lifecycle, and posting contracts
 -   📊 **Ledger Types** - Shared append-only Ledger configuration, field roles, source policies, and projections
 -   🎓 **LMS Platform Primitives** - Generic resource, Learning Content project/reference, sequence, workflow action, role policy, report definition, union datasource, and acceptance-matrix contracts
+-   🧩 **Guest Assessment Flow** - Shared block-introduction phases, timer state, and global or block-relative question numbering contracts
 -   🧭 **Interpretation Network Layout Contract** - Shared peer Matrix views, allowed/default settings, coherence validation, and boundary normalization for the metahub, Application control panel, and published runtime
 -   🧩 **Neutral Layout Envelope** - Shared placement metadata, sparse zone settings, source baselines, and deterministic effective-layout contracts for template-owned runtime behavior
 
@@ -39,6 +40,7 @@ Base protocol types and ECS domain types for Universo Platformo.
 -   Metahub entity component manifests
 -   Object `recordBehavior` and Ledger configuration contracts
 -   Generic LMS-like platform primitives that remain reusable outside LMS configurations, including workspace-authored Learning Content references, projects, sharing, recents, stars, trash, course/track policies, player presets, and column presets
+-   Guest assessment phases and timer/numbering modes shared by guest API DTOs and the published application runtime
 -   Strict `interpretationNetworkWorkspace` layout configuration, including `matrixMode`, `allowedMatrixViews`, and `defaultMatrixView`
 -   Neutral layout envelopes for widget placement, registry-backed zone settings, application-local sparse overrides, and source-baseline comparison
 
@@ -61,6 +63,10 @@ It covers identity fields, atomic numbering, effective dates, lifecycle states, 
 `common/ledgers` defines the standard Ledger configuration.
 The code-facing kind is `ledger`; the Russian UI label is "Регистры".
 Ledgers classify ordinary field definitions through `fieldRoles` and use source policies to distinguish manual writes from registrar-owned posting writes.
+
+## Guest Assessment Flow
+
+`common/guestAssessmentFlow` defines the shared phases (`question` and `block_intro`), timer states (`untimed`, `running`, and `paused`), and numbering modes (`global` and `block`). Public attempt DTOs expose only the current block or current question and a server-derived timer state; they do not carry answer keys or future questions.
 
 ## Interpretation Network Matrix View Contract
 

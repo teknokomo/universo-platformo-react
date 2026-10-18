@@ -23,7 +23,7 @@ jest.mock('../../services/interpretationNetwork/runtimeInterpretationNetworkSurf
 import { createRuntimeChildRowsController } from '../../controllers/runtimeChildRowsController'
 import { buildChildRowUpdate, getSafeRuntimeChildAttrs } from '../../controllers/runtimeChildRowsValidation'
 import { issueRuntimeRecordHandle } from '../../services/runtimeRecordHandle'
-import { resolveApplicationLifecycleContractFromConfig } from '@universo-react/utils'
+import { isUuidV7, resolveApplicationLifecycleContractFromConfig } from '@universo-react/utils'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
 const applicationId = '019f2000-0000-7000-8000-000000000001'
@@ -165,6 +165,258 @@ describe('runtimeChildRowsController server-owned field enforcement', () => {
             structureMode: 'multiple',
             resolvedObjects: { Interpretation: objectCollectionId }
         })
+    })
+
+    it('regenerates configured UUID v7 keys and resets row ordering when copying a child row', async () => {
+        const newChildRowId = '019f2000-0000-7000-8000-000000000008'
+        mockResolveTabularContext.mockResolvedValue({
+            ...tabularContext,
+            childAttrs: [
+                {
+                    id: 'block-key',
+                    codename: 'BlockKey',
+                    column_name: 'block_key',
+                    data_type: 'STRING',
+                    is_required: true,
+                    validation_rules: {},
+                    ui_config: { hidden: true, resetOnCopy: true, generateUuidV7: true }
+                },
+                {
+                    id: 'block-title',
+                    codename: 'Title',
+                    column_name: 'block_title',
+                    data_type: 'STRING',
+                    is_required: true,
+                    validation_rules: {},
+                    ui_config: {}
+                },
+                {
+                    id: 'block-order',
+                    codename: 'SortOrder',
+                    column_name: 'sort_order',
+                    data_type: 'NUMBER',
+                    is_required: false,
+                    validation_rules: {},
+                    ui_config: { hidden: true, resetOnCopy: true, defaultValue: 0 }
+                }
+            ]
+        })
+        executor.transaction.mockImplementation(async (fn: (manager: typeof executor) => Promise<unknown>) => fn(executor))
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema."interpretation" AS parentRecord')) return [{ id: recordId, _upl_locked: false }]
+            if (sql.includes('SELECT *') && sql.includes('FROM runtime_schema."interpretation_matrix_rows"')) {
+                return [
+                    {
+                        id: childRowId,
+                        _tp_parent_id: recordId,
+                        _tp_sort_order: 2,
+                        block_key: '019f2000-0000-7000-8000-000000000009',
+                        block_title: 'Opening',
+                        sort_order: 2
+                    }
+                ]
+            }
+            if (sql.includes('COUNT(*)::int AS cnt')) return [{ cnt: 1 }]
+            if (sql.includes('INSERT INTO runtime_schema."interpretation_matrix_rows"')) return [{ id: newChildRowId }]
+            return []
+        })
+
+        const response = createResponse()
+        await createRuntimeChildRowsController(() => executor).copyChildRow(createRequest({}), response)
+
+        expect(response.status).toHaveBeenCalledWith(201)
+        const insertCall = executor.query.mock.calls.find(([sql]) =>
+            String(sql).includes('INSERT INTO runtime_schema."interpretation_matrix_rows"')
+        )
+        const insertValues = insertCall?.[1] as unknown[] | undefined
+        expect(insertValues?.[1]).toBe(3)
+        expect(insertValues?.[3]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
+        expect(insertValues?.[3]).not.toBe('019f2000-0000-7000-8000-000000000009')
+        expect(insertValues?.[5]).toBe(0)
+    })
+
+    it('rolls back a copied generated-key row when existing required sibling selections would become invalid', async () => {
+        const newChildRowId = '019f2000-0000-7000-8000-00000000000a'
+        const blockKey = '019f2000-0000-7000-8000-00000000000b'
+        let copiedRowPersisted = false
+        let transactionRolledBack = false
+        mockResolveTabularContext.mockResolvedValue({
+            ...tabularContext,
+            object: { ...tabularContext.object, codename: 'Quiz' },
+            tableAttr: { ...tabularContext.tableAttr, id: 'blocks-table', codename: 'Blocks', column_name: 'blocks_rows' },
+            tabTableName: 'blocks_rows',
+            tabTableIdent: 'runtime_schema."blocks_rows"',
+            parentTableIdent: 'runtime_schema."quiz"',
+            childAttrs: [
+                {
+                    id: 'block-key',
+                    codename: 'BlockKey',
+                    column_name: 'block_key',
+                    data_type: 'STRING',
+                    is_required: true,
+                    validation_rules: {},
+                    ui_config: { serverOwned: true, siblingRowSelectKey: true, generateUuidV7: true }
+                }
+            ]
+        })
+        executor.transaction.mockImplementation(async (fn: (manager: typeof executor) => Promise<unknown>) => {
+            try {
+                return await fn(executor)
+            } catch (error) {
+                copiedRowPersisted = false
+                transactionRolledBack = true
+                throw error
+            }
+        })
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema."quiz" AS parentRecord')) return [{ id: recordId, _upl_locked: false }]
+            if (sql.includes('SELECT *') && sql.includes('FROM runtime_schema."blocks_rows"')) {
+                return [{ id: childRowId, _tp_parent_id: recordId, _tp_sort_order: 1, block_key: blockKey }]
+            }
+            if (sql.includes('COUNT(*)::int AS cnt')) return [{ cnt: 1 }]
+            if (sql.includes('INSERT INTO runtime_schema."blocks_rows"')) {
+                copiedRowPersisted = true
+                return [{ id: newChildRowId }]
+            }
+            if (sql.includes('FROM runtime_schema._app_components') && sql.includes('WHERE object_id = $1')) {
+                return [{ id: 'blocks-table', column_name: 'blocks_rows' }]
+            }
+            if (sql.includes('FROM runtime_schema._app_components') && sql.includes('WHERE parent_component_id = $1')) {
+                return [
+                    {
+                        column_name: 'block_key',
+                        data_type: 'STRING',
+                        ui_config: { siblingRowSelectKey: true, generateUuidV7: true }
+                    }
+                ]
+            }
+            if (sql.includes('AS required_with_rows')) {
+                return [{ table_name: 'questions_rows', value_column: 'block_key', required_with_rows: 'true' }]
+            }
+            if (sql.includes('SELECT "block_key" FROM runtime_schema."blocks_rows"')) return [{ block_key: blockKey }]
+            if (sql.includes('SELECT "block_key" FROM runtime_schema."questions_rows"')) return [{ block_key: null }]
+            return []
+        })
+
+        const response = createResponse()
+        await createRuntimeChildRowsController(() => executor).copyChildRow(createRequest({}), response)
+
+        expect(response.status).toHaveBeenCalledWith(400)
+        expect(response.json).toHaveBeenCalledWith({ error: 'A sibling row selection is required while target rows exist' })
+        expect(transactionRolledBack).toBe(true)
+        expect(copiedRowPersisted).toBe(false)
+        const insertIndex = executor.query.mock.calls.findIndex(([sql]) => String(sql).includes('INSERT INTO runtime_schema."blocks_rows"'))
+        const dependentRowsCheckIndex = executor.query.mock.calls.findIndex(([sql]) =>
+            String(sql).includes('SELECT "block_key" FROM runtime_schema."questions_rows"')
+        )
+        expect(insertIndex).toBeGreaterThanOrEqual(0)
+        expect(dependentRowsCheckIndex).toBeGreaterThan(insertIndex)
+    })
+
+    it('rejects direct creation of a sibling block with no related questions and rolls back the row', async () => {
+        const newChildRowId = '019f2000-0000-7000-8000-00000000000c'
+        let generatedBlockKey = ''
+        let blockPersisted = false
+        let transactionRolledBack = false
+        mockResolveTabularContext.mockResolvedValue({
+            ...tabularContext,
+            object: { ...tabularContext.object, codename: 'Quiz' },
+            tableAttr: { ...tabularContext.tableAttr, id: 'blocks-table', codename: 'Blocks', column_name: 'blocks_rows' },
+            tabTableName: 'blocks_rows',
+            tabTableIdent: 'runtime_schema."blocks_rows"',
+            parentTableIdent: 'runtime_schema."quiz"',
+            childAttrs: [
+                {
+                    id: 'block-key',
+                    codename: 'BlockKey',
+                    column_name: 'block_key',
+                    data_type: 'STRING',
+                    is_required: true,
+                    validation_rules: {},
+                    ui_config: { serverOwned: true, siblingRowSelectKey: true, generateUuidV7: true }
+                },
+                {
+                    id: 'block-title',
+                    codename: 'Title',
+                    column_name: 'title',
+                    data_type: 'STRING',
+                    is_required: true,
+                    validation_rules: {},
+                    ui_config: {}
+                }
+            ]
+        })
+        executor.transaction.mockImplementation(async (fn: (manager: typeof executor) => Promise<unknown>) => {
+            try {
+                return await fn(executor)
+            } catch (error) {
+                blockPersisted = false
+                transactionRolledBack = true
+                throw error
+            }
+        })
+        executor.query.mockImplementation(async (sql: string, values: unknown[] = []) => {
+            if (sql.includes('FROM runtime_schema."quiz" AS parentRecord')) return [{ id: recordId, _upl_locked: false }]
+            if (sql.includes('AS require_each_target_referenced')) {
+                return [
+                    {
+                        table_name: 'questions_rows',
+                        value_column: 'block_key',
+                        required_with_rows: 'true',
+                        require_each_target_referenced: 'true'
+                    }
+                ]
+            }
+            if (sql.includes('FROM runtime_schema._app_components') && sql.includes('WHERE object_id = $1')) {
+                return [{ id: 'blocks-table', column_name: 'blocks_rows' }]
+            }
+            if (sql.includes('FROM runtime_schema._app_components') && sql.includes('WHERE parent_component_id = $1')) {
+                return [
+                    {
+                        column_name: 'block_key',
+                        data_type: 'STRING',
+                        ui_config: { siblingRowSelectKey: true, generateUuidV7: true }
+                    }
+                ]
+            }
+            if (sql.includes('COUNT(*)::int AS cnt')) return [{ cnt: 0 }]
+            if (sql.includes('INSERT INTO runtime_schema."blocks_rows"')) {
+                generatedBlockKey = String(values[3])
+                blockPersisted = true
+                return [
+                    {
+                        id: newChildRowId,
+                        _tp_sort_order: 0,
+                        _upl_version: 1,
+                        block_key: generatedBlockKey,
+                        title: 'Opening'
+                    }
+                ]
+            }
+            if (sql.includes('SELECT "block_key" FROM runtime_schema."blocks_rows"')) {
+                return [{ block_key: generatedBlockKey }]
+            }
+            if (sql.includes('SELECT "block_key" FROM runtime_schema."questions_rows"')) return []
+            return []
+        })
+
+        const response = createResponse()
+        await createRuntimeChildRowsController(() => executor).createChildRow(createRequest({ data: { Title: 'Opening' } }), response)
+
+        expect(isUuidV7(generatedBlockKey)).toBe(true)
+        expect(response.status).toHaveBeenCalledWith(400)
+        expect(response.json).toHaveBeenCalledWith({
+            code: 'RUNTIME_SIBLING_TARGET_UNREFERENCED',
+            error: 'Every sibling target row must be referenced by at least one source row'
+        })
+        expect(transactionRolledBack).toBe(true)
+        expect(blockPersisted).toBe(false)
+        const insertIndex = executor.query.mock.calls.findIndex(([sql]) => String(sql).includes('INSERT INTO runtime_schema."blocks_rows"'))
+        const dependentRowsCheckIndex = executor.query.mock.calls.findIndex(([sql]) =>
+            String(sql).includes('SELECT "block_key" FROM runtime_schema."questions_rows"')
+        )
+        expect(insertIndex).toBeGreaterThanOrEqual(0)
+        expect(dependentRowsCheckIndex).toBeGreaterThan(insertIndex)
     })
 
     it.each([
@@ -764,6 +1016,51 @@ describe('runtimeChildRowsController safe child field projection', () => {
         expect(String(editorSelect?.[0])).toContain('"assessment_options"')
         expect(String(editorSelect?.[0])).not.toContain('"private_payload"')
         expect(String(editorSelect?.[0])).not.toContain('"sensitive_options"')
+    })
+
+    it('returns hidden generated sibling keys only to editors who need to resolve human-readable labels', async () => {
+        const blockKey = '019f2000-0000-7000-8000-000000000011'
+        const siblingKeyAttr = {
+            id: 'block-key',
+            codename: 'BlockKey',
+            column_name: 'block_key',
+            data_type: 'STRING',
+            is_required: true,
+            validation_rules: {},
+            ui_config: { hidden: true, generateUuidV7: true, siblingRowSelectKey: true }
+        }
+        const titleAttr = {
+            id: 'block-title',
+            codename: 'Title',
+            column_name: 'block_title',
+            data_type: 'STRING',
+            is_required: true,
+            validation_rules: {},
+            ui_config: {}
+        }
+        const context = { ...tabularContext, childAttrs: [siblingKeyAttr, titleAttr] }
+
+        expect(getSafeRuntimeChildAttrs(context)).toEqual([titleAttr])
+        expect(getSafeRuntimeChildAttrs(context, { allowSiblingRowSelectKeys: true })).toEqual([siblingKeyAttr, titleAttr])
+        mockResolveTabularContext.mockResolvedValue(context)
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema."interpretation" AS parentRecord')) return [{ id: recordId, _upl_locked: false }]
+            if (sql.includes('COUNT(*)::int AS total')) return [{ total: 1 }]
+            if (sql.includes('FROM runtime_schema."interpretation_matrix_rows"') && sql.includes('ORDER BY')) {
+                return [{ id: childRowId, _tp_sort_order: 1, _upl_version: 1, block_key: blockKey, block_title: 'Opening' }]
+            }
+            return []
+        })
+
+        const response = createResponse()
+        await createRuntimeChildRowsController(() => executor).listChildRows(createRequest(undefined), response)
+
+        expect(response.json).toHaveBeenCalledWith({
+            items: [{ id: childRowId, _tp_sort_order: 1, _upl_version: 1, block_key: blockKey, block_title: 'Opening' }],
+            total: 1
+        })
+        const selectCall = executor.query.mock.calls.find(([sql]) => String(sql).includes('ORDER BY _tp_sort_order'))
+        expect(String(selectCall?.[0])).toContain('"block_key"')
     })
 
     it('projects hidden server-owned hierarchy identities only as matrix structure metadata', async () => {

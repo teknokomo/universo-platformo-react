@@ -14,7 +14,7 @@ import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import { DataGrid, type GridRowsProp, useGridApiRef } from '@mui/x-data-grid'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { validateNumber, toNumberRules, type NumberValidationResult } from '@universo-react/utils'
+import { generateUuidV7, validateNumber, toNumberRules, type NumberValidationResult } from '@universo-react/utils'
 import type { FieldConfig } from './dialogs/FormDialog'
 import { ConfirmDeleteDialog } from './dialogs/ConfirmDeleteDialog'
 import { getDataGridLocaleText } from '../utils/getDataGridLocale'
@@ -27,8 +27,16 @@ import {
     type TabularRowsResponse
 } from '../api/api'
 import { buildTabularColumns, isHiddenTabularField } from '../utils/tabularColumns'
-import { buildInitialTabularRowValues, normalizeTabularCellValue, normalizeTabularRowValues } from '../utils/tabularCellValues'
+import {
+    buildInitialTabularRowValues,
+    getTabularRowOrderingLabel,
+    normalizeTabularCellValue,
+    normalizeTabularRowOrdering,
+    normalizeTabularRowValues,
+    type TabularSiblingTableValues
+} from '../utils/tabularCellValues'
 import { extractRuntimeErrorMessage } from '../utils/runtimeErrors'
+import { useDeferredTabularRows } from '../hooks/useDeferredTabularRows'
 
 export interface RuntimeInlineTabularEditorProps {
     /** Base API URL (e.g. `/api/v1`). */
@@ -45,6 +53,12 @@ export interface RuntimeInlineTabularEditorProps {
     componentId: string
     /** Child components from the parent form's FieldConfig. */
     childFields: FieldConfig[]
+    /** Current rows from sibling TABLE fields, keyed by their metadata codenames. */
+    siblingTableValues?: TabularSiblingTableValues
+    /** Optional row order metadata from the parent TABLE component. */
+    rowOrdering?: unknown
+    /** Supplies fetched rows to the parent form without marking the field edited. */
+    onRowsLoaded?: (rows: Record<string, unknown>[]) => void
     /** Whether to show the component label above the table. */
     showTitle?: boolean
     /** Label text for the table header. */
@@ -58,6 +72,10 @@ export interface RuntimeInlineTabularEditorProps {
      * Persistence happens only when parent form submits.
      */
     deferPersistence?: boolean
+    /** Deferred parent rows. Echo the emitted array unchanged; a new array reconciles external edits or rolls back a rejected candidate. */
+    value?: Record<string, unknown>[]
+    /** Temporarily prevents edits while a related TABLE value is loading. */
+    disabled?: boolean
     /** Emits local table rows (child-field payload) when deferPersistence is enabled. */
     onChange?: (rows: Record<string, unknown>[]) => void
     /** Minimum number of rows (disables delete when at limit). */
@@ -84,11 +102,16 @@ export function RuntimeInlineTabularEditor({
     parentRecordId,
     componentId,
     childFields,
+    siblingTableValues,
+    rowOrdering,
+    onRowsLoaded,
     showTitle = true,
     label,
     locale,
     onError,
     deferPersistence = false,
+    value,
+    disabled = false,
     onChange,
     minRows,
     maxRows,
@@ -140,7 +163,9 @@ export function RuntimeInlineTabularEditor({
     const {
         data: rowsData,
         isLoading,
-        error: fetchError
+        isFetching,
+        error: fetchError,
+        refetch
     } = useQuery({
         queryKey,
         queryFn: () =>
@@ -159,13 +184,28 @@ export function RuntimeInlineTabularEditor({
     const rows = useMemo(() => rowsData?.items ?? [], [rowsData])
     const nextLocalIdRef = useRef(1)
     const pendingCellEditRef = useRef<{ rowId: string; fieldId: string } | null>(null)
+    const clearPendingCellEdit = useCallback(() => {
+        pendingCellEditRef.current = null
+    }, [])
+    const { draftRows, setDraftRows, setHasLocalChanges, effectiveRows, emitRowsChange, canReorderRows } = useDeferredTabularRows({
+        rowsData,
+        rows,
+        deferPersistence,
+        parentRecordId,
+        componentId,
+        childFields,
+        rowOrdering,
+        resolvedLocale,
+        onRowsLoaded,
+        value,
+        onChange,
+        onValueReconciled: clearPendingCellEdit
+    })
 
     // Delete confirmation state
     const [deleteRowId, setDeleteRowId] = useState<string | null>(null)
     const [deleteError, setDeleteError] = useState<string | null>(null)
     const [mutationError, setMutationError] = useState<string | null>(null)
-    const [draftRows, setDraftRows] = useState<Array<Record<string, unknown>>>([])
-    const [hasLocalChanges, setHasLocalChanges] = useState(false)
     const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null)
     const [menuRowId, setMenuRowId] = useState<string | null>(null)
 
@@ -187,50 +227,11 @@ export function RuntimeInlineTabularEditor({
         [apiRef, firstEditableFieldId]
     )
 
-    const toGridRows = useCallback(
-        (inputRows: Array<Record<string, unknown>>) =>
-            inputRows.map((row, index) => ({
-                ...row,
-                id: row.id ?? `__row_${index}`,
-                _tp_sort_order: row._tp_sort_order ?? index
-            })),
-        []
-    )
-
-    const emitRowsChange = useCallback(
-        (nextGridRows: Array<Record<string, unknown>>) => {
-            if (!deferPersistence || !onChange) return
-            const payload = nextGridRows.map((row) => {
-                const mapped: Record<string, unknown> = {}
-                for (const field of childFields) {
-                    const cellValue = row[field.id] === undefined ? null : row[field.id]
-                    mapped[field.id] = normalizeTabularCellValue(field, cellValue, resolvedLocale)
-                }
-                return mapped
-            })
-            onChange(payload)
-        },
-        [deferPersistence, onChange, childFields, resolvedLocale]
-    )
-
     useEffect(() => {
         if (!deferPersistence) return
-        setDraftRows([])
-        setHasLocalChanges(false)
         nextLocalIdRef.current = 1
+        pendingCellEditRef.current = null
     }, [deferPersistence, parentRecordId, componentId])
-
-    useEffect(() => {
-        if (!deferPersistence) return
-        if (!rowsData) return
-        if (hasLocalChanges) return
-        setDraftRows(toGridRows(rowsData.items ?? []))
-    }, [deferPersistence, rowsData, hasLocalChanges, toGridRows])
-
-    const effectiveRows = useMemo(() => {
-        if (deferPersistence) return draftRows
-        return toGridRows(rows)
-    }, [deferPersistence, draftRows, rows, toGridRows])
 
     useEffect(() => {
         if (!deferPersistence) return
@@ -245,6 +246,7 @@ export function RuntimeInlineTabularEditor({
 
     // CREATE a new row via API and refetch
     const handleAddRow = useCallback(async () => {
+        if (disabled || isLoading) return
         // Row limit guard
         const currentCount = deferPersistence ? draftRows.length : rows.length
         if (typeof maxRows === 'number' && currentCount >= maxRows) return
@@ -259,7 +261,7 @@ export function RuntimeInlineTabularEditor({
                 ...buildInitialTabularRowValues(childFields),
                 _tp_sort_order: maxSortOrder + 1
             }
-            const nextRows = [...draftRows, newRow]
+            const nextRows = normalizeTabularRowOrdering([...draftRows, newRow], rowOrdering, childFields)
             setDraftRows(nextRows)
             setHasLocalChanges(true)
             if (firstEditableFieldId) {
@@ -291,8 +293,13 @@ export function RuntimeInlineTabularEditor({
         }
     }, [
         deferPersistence,
+        disabled,
+        isLoading,
         draftRows,
+        setDraftRows,
+        setHasLocalChanges,
         childFields,
+        rowOrdering,
         firstEditableFieldId,
         emitRowsChange,
         rows,
@@ -310,20 +317,28 @@ export function RuntimeInlineTabularEditor({
     ])
 
     // DELETE confirmation handlers
-    const handleRequestDelete = useCallback((rowId: string) => {
-        setDeleteRowId(rowId)
-        setDeleteError(null)
-    }, [])
+    const handleRequestDelete = useCallback(
+        (rowId: string) => {
+            if (disabled) return
+            setDeleteRowId(rowId)
+            setDeleteError(null)
+        },
+        [disabled]
+    )
 
     const handleConfirmDelete = useCallback(async () => {
-        if (!deleteRowId) return
+        if (disabled || !deleteRowId) return
 
         // Row minimum guard
         const currentCount = deferPersistence ? draftRows.length : rows.length
         if (typeof minRows === 'number' && currentCount <= minRows) return
 
         if (deferPersistence) {
-            const nextRows = draftRows.filter((row) => String(row.id) !== deleteRowId)
+            const nextRows = normalizeTabularRowOrdering(
+                draftRows.filter((row) => String(row.id) !== deleteRowId),
+                rowOrdering,
+                childFields
+            )
             setDraftRows(nextRows)
             setHasLocalChanges(true)
             emitRowsChange(nextRows)
@@ -351,9 +366,14 @@ export function RuntimeInlineTabularEditor({
         }
     }, [
         deleteRowId,
+        disabled,
         deferPersistence,
         draftRows,
+        setDraftRows,
+        setHasLocalChanges,
         rows,
+        rowOrdering,
+        childFields,
         minRows,
         emitRowsChange,
         apiBaseUrl,
@@ -373,10 +393,14 @@ export function RuntimeInlineTabularEditor({
         setDeleteError(null)
     }, [])
 
-    const handleOpenRowMenu = useCallback((event: MouseEvent<HTMLElement>, rowId: string) => {
-        setMenuAnchorEl(event.currentTarget)
-        setMenuRowId(rowId)
-    }, [])
+    const handleOpenRowMenu = useCallback(
+        (event: MouseEvent<HTMLElement>, rowId: string) => {
+            if (disabled) return
+            setMenuAnchorEl(event.currentTarget)
+            setMenuRowId(rowId)
+        },
+        [disabled]
+    )
 
     const handleCloseRowMenu = useCallback(() => {
         setMenuAnchorEl(null)
@@ -384,20 +408,26 @@ export function RuntimeInlineTabularEditor({
     }, [])
 
     const handleEditRowFromMenu = useCallback(() => {
+        if (disabled) return
         if (menuRowId) {
             startRowPrimaryEdit(menuRowId)
         }
         handleCloseRowMenu()
-    }, [menuRowId, startRowPrimaryEdit, handleCloseRowMenu])
+    }, [disabled, menuRowId, startRowPrimaryEdit, handleCloseRowMenu])
 
     const handleDeleteRowFromMenu = useCallback(() => {
+        if (disabled) return
         if (menuRowId) {
             handleRequestDelete(menuRowId)
         }
         handleCloseRowMenu()
-    }, [menuRowId, handleRequestDelete, handleCloseRowMenu])
+    }, [disabled, menuRowId, handleRequestDelete, handleCloseRowMenu])
 
     const handleCopyRowFromMenu = useCallback(async () => {
+        if (disabled) {
+            handleCloseRowMenu()
+            return
+        }
         if (!menuRowId) {
             handleCloseRowMenu()
             return
@@ -417,12 +447,19 @@ export function RuntimeInlineTabularEditor({
             const sourceIndex = effectiveRows.findIndex((row) => String(row.id ?? '') === menuRowId)
             if (sourceIndex >= 0) {
                 const source = effectiveRows[sourceIndex]
-                const copied = { ...source, id: `__local_copy_${Date.now()}_${Math.random().toString(36).slice(2, 8)}` }
+                const copied: Record<string, unknown> = {
+                    ...source,
+                    id: `__local_copy_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+                }
+                for (const field of childFields) {
+                    if (field.type === 'STRING' && field.uiConfig?.generateUuidV7 === true) copied[field.id] = generateUuidV7()
+                }
                 const nextRows = [...effectiveRows]
                 nextRows.splice(sourceIndex + 1, 0, copied)
-                setDraftRows(nextRows)
+                const orderedRows = normalizeTabularRowOrdering(nextRows, rowOrdering, childFields)
+                setDraftRows(orderedRows)
                 setHasLocalChanges(true)
-                emitRowsChange(nextRows)
+                emitRowsChange(orderedRows)
             }
             handleCloseRowMenu()
             return
@@ -448,8 +485,13 @@ export function RuntimeInlineTabularEditor({
         }
     }, [
         menuRowId,
+        disabled,
         maxRows,
         effectiveRows,
+        setDraftRows,
+        setHasLocalChanges,
+        childFields,
+        rowOrdering,
         deferPersistence,
         emitRowsChange,
         apiBaseUrl,
@@ -470,6 +512,7 @@ export function RuntimeInlineTabularEditor({
     // Throws on failure so DataGrid reverts the cell and calls onProcessRowUpdateError.
     const processRowUpdate = useCallback(
         async (newRow: Record<string, unknown>, oldRow: Record<string, unknown>) => {
+            if (disabled) return oldRow
             setMutationError(null)
 
             if (deferPersistence) {
@@ -490,7 +533,11 @@ export function RuntimeInlineTabularEditor({
                         }
                     }
                 }
-                const nextRows = draftRows.map((row) => (String(row.id) === rowId ? { ...row, ...validatedRow } : row))
+                const nextRows = normalizeTabularRowOrdering(
+                    draftRows.map((row) => (String(row.id) === rowId ? { ...row, ...validatedRow } : row)),
+                    rowOrdering,
+                    childFields
+                )
                 setDraftRows(nextRows)
                 setHasLocalChanges(true)
                 emitRowsChange(nextRows)
@@ -549,8 +596,12 @@ export function RuntimeInlineTabularEditor({
         },
         [
             deferPersistence,
+            disabled,
             draftRows,
+            setDraftRows,
+            setHasLocalChanges,
             emitRowsChange,
+            rowOrdering,
             childFields,
             resolvedLocale,
             apiBaseUrl,
@@ -578,8 +629,13 @@ export function RuntimeInlineTabularEditor({
     // Applies optimistic cache update for instant UI feedback, then persists via API.
     const handleSelectChange = useCallback(
         async (rowId: string, fieldId: string, newValue: unknown) => {
+            if (disabled) return
             if (deferPersistence) {
-                const nextRows = draftRows.map((row) => (String(row.id) === rowId ? { ...row, [fieldId]: newValue } : row))
+                const nextRows = normalizeTabularRowOrdering(
+                    draftRows.map((row) => (String(row.id) === rowId ? { ...row, [fieldId]: newValue } : row)),
+                    rowOrdering,
+                    childFields
+                )
                 setDraftRows(nextRows)
                 setHasLocalChanges(true)
                 emitRowsChange(nextRows)
@@ -618,7 +674,12 @@ export function RuntimeInlineTabularEditor({
         },
         [
             deferPersistence,
+            disabled,
             draftRows,
+            setDraftRows,
+            setHasLocalChanges,
+            rowOrdering,
+            childFields,
             emitRowsChange,
             apiBaseUrl,
             applicationId,
@@ -655,7 +716,25 @@ export function RuntimeInlineTabularEditor({
                 numberIncrementAriaLabel: t('number.increment', 'Increment'),
                 numberDecrementAriaLabel: t('number.decrement', 'Decrement'),
                 numberInvalidMessage: t('validation.invalidNumber', 'Invalid number'),
-                getNumberValidationMessage
+                getNumberValidationMessage,
+                disabled,
+                siblingTableValues,
+                siblingSelectPlaceholderLabel: t(
+                    'tabular.siblingSelectPlaceholder',
+                    resolvedLocale === 'ru' ? 'Выберите вариант' : 'Select an option'
+                ),
+                siblingNoOptionsLabel: t(
+                    'tabular.siblingNoOptions',
+                    resolvedLocale === 'ru' ? 'Нет доступных вариантов' : 'No options available'
+                ),
+                siblingNoSelectableOptionsLabel: t(
+                    'tabular.siblingNoSelectableOptions',
+                    resolvedLocale === 'ru' ? 'Нет записей с доступными названиями' : 'No items have usable labels'
+                ),
+                siblingUnavailableLabel: t(
+                    'tabular.siblingUnavailable',
+                    resolvedLocale === 'ru' ? 'Вариант недоступен' : 'Unavailable option'
+                )
             }),
         [
             childFields,
@@ -663,13 +742,55 @@ export function RuntimeInlineTabularEditor({
             handleRequestDelete,
             handleOpenRowMenu,
             handleSelectChange,
+            siblingTableValues,
             t,
             resolvedLocale,
-            getNumberValidationMessage
+            getNumberValidationMessage,
+            disabled
         ]
     )
 
-    const addDisabled = typeof maxRows === 'number' && effectiveRows.length >= maxRows
+    const handleMoveRow = useCallback(
+        (direction: -1 | 1) => {
+            if (disabled || !canReorderRows || !menuRowId) return
+            const currentIndex = effectiveRows.findIndex((row) => String(row.id ?? '') === menuRowId)
+            const nextIndex = currentIndex + direction
+            if (currentIndex < 0 || nextIndex < 0 || nextIndex >= effectiveRows.length) {
+                handleCloseRowMenu()
+                return
+            }
+            const nextRows = [...effectiveRows]
+            ;[nextRows[currentIndex], nextRows[nextIndex]] = [nextRows[nextIndex], nextRows[currentIndex]]
+            const orderedRows = normalizeTabularRowOrdering(nextRows, rowOrdering, childFields)
+            setDraftRows(orderedRows)
+            setHasLocalChanges(true)
+            emitRowsChange(orderedRows)
+            handleCloseRowMenu()
+        },
+        [
+            disabled,
+            canReorderRows,
+            menuRowId,
+            effectiveRows,
+            rowOrdering,
+            childFields,
+            setDraftRows,
+            setHasLocalChanges,
+            emitRowsChange,
+            handleCloseRowMenu
+        ]
+    )
+
+    const menuRowIndex = effectiveRows.findIndex((row) => String(row.id ?? '') === menuRowId)
+    const menuRowLabel =
+        menuRowIndex >= 0
+            ? getTabularRowOrderingLabel(effectiveRows[menuRowIndex], rowOrdering, childFields, resolvedLocale) ||
+              (resolvedLocale === 'ru' ? `Строка ${menuRowIndex + 1}` : `Row ${menuRowIndex + 1}`)
+            : ''
+    const moveUpLabel = t('runtime.table.moveUp', resolvedLocale === 'ru' ? 'Переместить вверх' : 'Move up')
+    const moveDownLabel = t('runtime.table.moveDown', resolvedLocale === 'ru' ? 'Переместить вниз' : 'Move down')
+
+    const addDisabled = disabled || isLoading || (typeof maxRows === 'number' && effectiveRows.length >= maxRows)
 
     const gridRows: GridRowsProp = useMemo(() => effectiveRows, [effectiveRows])
 
@@ -694,7 +815,15 @@ export function RuntimeInlineTabularEditor({
             </Box>
 
             {fetchErrorMessage && (
-                <Alert severity='error' sx={{ mb: 1 }}>
+                <Alert
+                    severity='error'
+                    sx={{ mb: 1 }}
+                    action={
+                        <Button size='small' color='inherit' onClick={() => void refetch()} disabled={isFetching}>
+                            {t('tabular.retry', 'Retry')}
+                        </Button>
+                    }
+                >
                     {fetchErrorMessage}
                 </Alert>
             )}
@@ -717,6 +846,7 @@ export function RuntimeInlineTabularEditor({
                         columns={columns}
                         density='compact'
                         hideFooter
+                        isCellEditable={() => !disabled}
                         disableRowSelectionOnClick
                         disableColumnResize
                         getRowHeight={() => 'auto'}
@@ -784,21 +914,39 @@ export function RuntimeInlineTabularEditor({
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
-                <MenuItem onClick={handleEditRowFromMenu} disabled={!firstEditableFieldId}>
+                <MenuItem onClick={handleEditRowFromMenu} disabled={disabled || !firstEditableFieldId}>
                     <EditIcon fontSize='small' sx={{ mr: 1 }} />
                     {t('app.edit', 'Edit')}
                 </MenuItem>
+                {canReorderRows ? (
+                    <>
+                        <MenuItem
+                            onClick={() => handleMoveRow(-1)}
+                            disabled={disabled || menuRowIndex <= 0}
+                            aria-label={`${moveUpLabel}: ${menuRowLabel}`}
+                        >
+                            {moveUpLabel}
+                        </MenuItem>
+                        <MenuItem
+                            onClick={() => handleMoveRow(1)}
+                            disabled={disabled || menuRowIndex < 0 || menuRowIndex >= effectiveRows.length - 1}
+                            aria-label={`${moveDownLabel}: ${menuRowLabel}`}
+                        >
+                            {moveDownLabel}
+                        </MenuItem>
+                    </>
+                ) : null}
                 {copyRowsEnabled ? (
                     <MenuItem
                         onClick={() => void handleCopyRowFromMenu()}
-                        disabled={typeof maxRows === 'number' && effectiveRows.length >= maxRows}
+                        disabled={disabled || (typeof maxRows === 'number' && effectiveRows.length >= maxRows)}
                     >
                         <ContentCopyRoundedIcon fontSize='small' sx={{ mr: 1 }} />
                         {t('app.copy', 'Copy')}
                     </MenuItem>
                 ) : null}
                 <Divider />
-                <MenuItem onClick={handleDeleteRowFromMenu} sx={{ color: 'error.main' }}>
+                <MenuItem onClick={handleDeleteRowFromMenu} disabled={disabled} sx={{ color: 'error.main' }}>
                     <DeleteIcon fontSize='small' sx={{ mr: 1 }} />
                     {t('tabular.delete', 'Delete')}
                 </MenuItem>

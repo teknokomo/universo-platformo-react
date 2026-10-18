@@ -25,12 +25,30 @@ import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import Divider from '@mui/material/Divider'
 import Menu from '@mui/material/Menu'
 import { useTranslation } from 'react-i18next'
-import { buildTableConstraintText, createLocalizedContent, validateNumber, toNumberRules } from '@universo-react/utils'
+import {
+    buildTableConstraintText,
+    generateUuidV7,
+    readTabularSiblingSelectConfig,
+    type TabularSiblingSelectConfig
+} from '@universo-react/utils'
 import { ConfirmDeleteDialog } from '@universo-react/template-mui/components/dialogs'
 import type { DynamicFieldConfig } from '@universo-react/template-mui'
 import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 import AssessmentOptionsEditorDialog from './AssessmentOptionsEditorDialog'
+import { InlineSiblingRowSelectCell } from './InlineSiblingRowSelectCell'
 import NumberTableCell from './InlineTableNumberCell'
+import {
+    extractInlineTableDisplayString,
+    getInlineTableRowId,
+    isInlineTableLocalizedField,
+    resolveInlineTableEnumMode,
+    resolveInlineTableOptionCount,
+    resolveInlineTableSelectedEnumValue,
+    toInlineTableLocalizedValue,
+    validateInlineTableNumber,
+    type InlineTableEnumOption as EnumOption
+} from './inlineTableEditorValueUtils'
+import { normalizeInlineTableRowOrdering, useInlineTableRowOrdering } from './useInlineTableRowOrdering'
 
 export interface InlineTableEditorProps {
     /** Display label for the table section */
@@ -41,6 +59,10 @@ export interface InlineTableEditorProps {
     onChange: (rows: Record<string, unknown>[]) => void
     /** Child components from DynamicFieldConfig.childFields */
     childFields: DynamicFieldConfig[]
+    /** Current rows from sibling TABLE fields, keyed by their metadata codenames. */
+    siblingTableValues?: Record<string, { rows: Record<string, unknown>[]; childFields: DynamicFieldConfig[]; rowOrdering?: unknown }>
+    /** Optional row order metadata from the parent TABLE component. */
+    rowOrdering?: unknown
     /** Whether editing is disabled */
     disabled?: boolean
     /** Current locale */
@@ -55,100 +77,17 @@ export interface InlineTableEditorProps {
     required?: boolean
 }
 
-type EnumOption = {
-    id: string
-    label: string
-}
+type SiblingRowSelectConfig = TabularSiblingSelectConfig
 
-type EnumMode = 'select' | 'radio' | 'label'
+const readSiblingRowSelectConfig = (field: DynamicFieldConfig): SiblingRowSelectConfig | null => readTabularSiblingSelectConfig(field)
 
-/** Retrieve a stable identifier for a row */
-function getRowId(row: Record<string, unknown>, index: number): string {
-    return String(row._localId ?? row.id ?? `__local_${index}`)
-}
-
-/**
- * Extract a plain string from a value that might be VLC or plain string.
- */
-function extractDisplayString(value: unknown, locale: string): string {
-    if (value == null) return ''
-    if (typeof value === 'string') return value
-    if (typeof value === 'number' || typeof value === 'boolean') return String(value)
-    // VLC object
-    if (typeof value === 'object' && 'locales' in (value as Record<string, unknown>)) {
-        const vlc = value as { locales: Record<string, { content?: string }>; _primary?: string }
-        const normalizedLocale = locale.split(/[-_]/)[0].toLowerCase()
-        const entry = vlc.locales?.[normalizedLocale]
-        if (typeof entry?.content === 'string') return entry.content
-        const primary = vlc._primary
-        if (primary && vlc.locales?.[primary]?.content) return vlc.locales[primary].content as string
-        for (const localeEntry of Object.values(vlc.locales ?? {})) {
-            if (typeof localeEntry?.content === 'string' && localeEntry.content) return localeEntry.content
-        }
-        return ''
-    }
-    // Structured values are edited through the form dialog and should never
-    // appear as `[object Object]` in the compact inline table surface.
-    return ''
-}
-
-/**
- * Build a VLC object from a plain string value for STRING fields.
- */
-function toVlcString(value: string, locale: string): Record<string, unknown> {
-    const normalizedLocale = locale.split(/[-_]/)[0].toLowerCase()
-    return createLocalizedContent(normalizedLocale, value)
-}
-
-/**
- * Determine whether a child field stores values as VLC (versioned/localized).
- */
-function isVlcField(field: DynamicFieldConfig): boolean {
-    const rules = field.validationRules
-    return field.type === 'STRING' && Boolean(rules?.versioned || rules?.localized)
-}
-
-/** Validate a NUMBER value against its validationRules using shared validator. Returns null if valid, error key otherwise. */
-function validateNumberField(value: number, rules?: Record<string, unknown>): string | null {
-    if (!rules) return null
-    const result = validateNumber(value, toNumberRules(rules))
-    return result.valid ? null : result.errorKey ?? 'invalid'
-}
-
-function resolveEnumMode(mode: DynamicFieldConfig['enumPresentationMode']): EnumMode {
-    if (mode === 'radio' || mode === 'label') return mode
-    return 'select'
-}
-
-function resolveOptionCount(value: unknown, fallback: number): number {
-    return typeof value === 'number' && Number.isInteger(value) && value >= 1 ? value : fallback
-}
-
-function resolveSelectedEnumValue(
-    rawValue: unknown,
-    defaultValueId: string | null,
-    options: EnumOption[],
-    allowEmpty: boolean,
-    required: boolean,
-    mode: EnumMode
-): string | null {
-    const explicitValue = typeof rawValue === 'string' && rawValue.length > 0 ? rawValue : null
-    if (explicitValue) return explicitValue
-
-    if (defaultValueId && options.some((option) => option.id === defaultValueId)) {
-        return defaultValueId
-    }
-
-    if (mode === 'select' && allowEmpty && !required) {
-        return ''
-    }
-
-    if (mode === 'radio') {
-        return ''
-    }
-
-    return null
-}
+const isHiddenChildField = (field: DynamicFieldConfig): boolean =>
+    field.hidden === true ||
+    field.uiConfig?.hidden === true ||
+    field.uiConfig?.gridHidden === true ||
+    field.uiConfig?.formHidden === true ||
+    field.uiConfig?.serverOwned === true ||
+    field.uiConfig?.generateUuidV7 === true
 
 /**
  * Inline table editor for TABLE component child rows.
@@ -159,6 +98,8 @@ export function InlineTableEditor({
     value,
     onChange,
     childFields,
+    siblingTableValues,
+    rowOrdering,
     disabled = false,
     locale,
     showTitle,
@@ -182,16 +123,41 @@ export function InlineTableEditor({
         maxOptions: number
     } | null>(null)
 
-    const rows = useMemo(() => value.map((row, index) => ({ ...row, __rowId: getRowId(row, index) })), [value])
+    const handleCloseRowMenu = useCallback(() => {
+        setMenuAnchorEl(null)
+        setMenuRowId(null)
+    }, [])
+    const moveUpLabel = t('records.table.moveUp', 'Move up')
+    const moveDownLabel = t('records.table.moveDown', 'Move down')
+    const {
+        orderedRows: orderedValue,
+        rowsWithIds: rows,
+        canReorderRows,
+        handleMoveRow,
+        menuRowIndex,
+        menuRowLabel
+    } = useInlineTableRowOrdering({
+        value,
+        rowOrdering,
+        childFields,
+        menuRowId,
+        onChange,
+        onCloseRowMenu: handleCloseRowMenu,
+        locale,
+        fallbackRowLabel: (rowNumber) => t('records.table.rowLabel', { row: rowNumber }),
+        moveUpLabel,
+        moveDownLabel
+    })
+    const visibleChildFields = useMemo(() => childFields.filter((field) => !isHiddenChildField(field)), [childFields])
 
     // Memoize first editable field for Edit menu item disabled state
     const firstEditableFieldId = useMemo(
-        () => childFields.find((f) => f.type === 'STRING' || f.type === 'NUMBER')?.id ?? null,
-        [childFields]
+        () => visibleChildFields.find((f) => (f.type === 'STRING' || f.type === 'NUMBER') && !readSiblingRowSelectConfig(f))?.id ?? null,
+        [visibleChildFields]
     )
 
     const handleAddRow = useCallback(() => {
-        if (typeof maxRows === 'number' && value.length >= maxRows) return
+        if (typeof maxRows === 'number' && orderedValue.length >= maxRows) return
         const localId = nextLocalIdRef.current++
         const rowId = `__local_new_${localId}`
         const newRow: Record<string, unknown> = {
@@ -200,21 +166,31 @@ export function InlineTableEditor({
         for (const field of childFields) {
             if (field.type === 'BOOLEAN') {
                 newRow[field.id] = false
+            } else if (field.type === 'STRING' && field.uiConfig?.generateUuidV7 === true) {
+                newRow[field.id] = generateUuidV7()
             } else {
                 newRow[field.id] = null
             }
         }
-        onChange([...value, newRow])
+        onChange(normalizeInlineTableRowOrdering([...orderedValue, newRow], rowOrdering, childFields))
         // Auto-focus first editable STRING/NUMBER cell in the new row
-        const firstEditable = childFields.find((f) => f.type === 'STRING' || f.type === 'NUMBER')
+        const firstEditable = visibleChildFields.find(
+            (field) => (field.type === 'STRING' || field.type === 'NUMBER') && !readSiblingRowSelectConfig(field)
+        )
         if (firstEditable) {
             setEditingCell({ rowId, fieldId: firstEditable.id })
         }
-    }, [value, onChange, childFields, maxRows])
+    }, [orderedValue, onChange, childFields, visibleChildFields, maxRows, rowOrdering])
 
     const handleDeleteRow = useCallback(
         (rowId: string) => {
-            onChange(value.filter((row, idx) => getRowId(row, idx) !== rowId))
+            onChange(
+                normalizeInlineTableRowOrdering(
+                    orderedValue.filter((row, idx) => getInlineTableRowId(row, idx) !== rowId),
+                    rowOrdering,
+                    childFields
+                )
+            )
             // Clean up cellErrors for the deleted row
             setCellErrors((prev) => {
                 const prefix = `${rowId}:`
@@ -227,17 +203,12 @@ export function InlineTableEditor({
                 return next
             })
         },
-        [value, onChange]
+        [orderedValue, onChange, rowOrdering, childFields]
     )
 
     const handleOpenRowMenu = useCallback((event: MouseEvent<HTMLElement>, rowId: string) => {
         setMenuAnchorEl(event.currentTarget)
         setMenuRowId(rowId)
-    }, [])
-
-    const handleCloseRowMenu = useCallback(() => {
-        setMenuAnchorEl(null)
-        setMenuRowId(null)
     }, [])
 
     const handleEditRowFromMenu = useCallback(() => {
@@ -263,18 +234,22 @@ export function InlineTableEditor({
             handleCloseRowMenu()
             return
         }
-        const sourceIndex = rows.findIndex((row, index) => getRowId(row, index) === menuRowId)
+        const sourceIndex = rows.findIndex((row, index) => getInlineTableRowId(row, index) === menuRowId)
         if (sourceIndex < 0) {
             handleCloseRowMenu()
             return
         }
         const sourceRow = rows[sourceIndex]
-        const copiedRow = { ...sourceRow, _localId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` }
-        const nextRows = [...rows]
+        const { __rowId: _rowId, ...sourceData } = sourceRow
+        const copiedRow = { ...sourceData, _localId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` }
+        for (const field of childFields) {
+            if (field.type === 'STRING' && field.uiConfig?.generateUuidV7 === true) copiedRow[field.id] = generateUuidV7()
+        }
+        const nextRows = [...orderedValue]
         nextRows.splice(sourceIndex + 1, 0, copiedRow)
-        onChange(nextRows)
+        onChange(normalizeInlineTableRowOrdering(nextRows, rowOrdering, childFields))
         handleCloseRowMenu()
-    }, [menuRowId, maxRows, rows, onChange, handleCloseRowMenu])
+    }, [menuRowId, maxRows, rows, orderedValue, childFields, rowOrdering, onChange, handleCloseRowMenu])
 
     const handleConfirmDelete = useCallback(() => {
         if (deleteRowId) {
@@ -289,17 +264,19 @@ export function InlineTableEditor({
 
     const handleCellChange = useCallback(
         (rowId: string, fieldId: string, newValue: unknown, field: DynamicFieldConfig) => {
-            const updated = value.map((row, idx) => {
-                if (getRowId(row, idx) !== rowId) return row
+            const updated = orderedValue.map((row, idx) => {
+                if (getInlineTableRowId(row, idx) !== rowId) return row
                 const patched = { ...row }
-                if (isVlcField(field)) {
+                if (readSiblingRowSelectConfig(field)) {
+                    patched[fieldId] = typeof newValue === 'string' && newValue.trim() ? newValue.trim() : null
+                } else if (isInlineTableLocalizedField(field)) {
                     const strValue = String(newValue ?? '')
-                    patched[fieldId] = strValue ? toVlcString(strValue, locale) : null
+                    patched[fieldId] = strValue ? toInlineTableLocalizedValue(strValue, locale) : null
                 } else if (field.type === 'NUMBER') {
                     const numVal = newValue === '' || newValue === null ? null : Number(newValue)
                     const cellKey = `${rowId}:${fieldId}`
                     if (numVal !== null && !Number.isNaN(numVal)) {
-                        const error = validateNumberField(numVal, field.validationRules)
+                        const error = validateInlineTableNumber(numVal, field.validationRules)
                         setCellErrors((prev) => (prev[cellKey] !== error ? { ...prev, [cellKey]: error } : prev))
                         if (error) {
                             // Invalid value — do not persist the change
@@ -316,9 +293,9 @@ export function InlineTableEditor({
                 }
                 return patched
             })
-            onChange(updated)
+            onChange(normalizeInlineTableRowOrdering(updated, rowOrdering, childFields))
         },
-        [value, onChange, locale]
+        [orderedValue, onChange, locale, rowOrdering, childFields]
     )
 
     const renderCell = (row: Record<string, unknown>, rowId: string, field: DynamicFieldConfig) => {
@@ -332,10 +309,23 @@ export function InlineTableEditor({
                 ? configuredRows
                 : 4
 
+        if (readSiblingRowSelectConfig(field)) {
+            return (
+                <InlineSiblingRowSelectCell
+                    field={field}
+                    value={rawValue}
+                    siblingTableValues={siblingTableValues}
+                    locale={locale}
+                    disabled={disabled}
+                    onChange={(nextValue) => handleCellChange(rowId, field.id, nextValue, field)}
+                />
+            )
+        }
+
         if (field.type === 'JSON' && field.uiConfig?.widget === 'assessmentOptions') {
             const optionCount = Array.isArray(rawValue) ? rawValue.length : 0
-            const minOptions = resolveOptionCount(field.uiConfig?.minOptions, 2)
-            const maxOptions = Math.max(minOptions, resolveOptionCount(field.uiConfig?.maxOptions, 20))
+            const minOptions = resolveInlineTableOptionCount(field.uiConfig?.minOptions, 2)
+            const maxOptions = Math.max(minOptions, resolveInlineTableOptionCount(field.uiConfig?.maxOptions, 20))
             return (
                 <Button
                     size='small'
@@ -376,9 +366,9 @@ export function InlineTableEditor({
         // REF fields with options → Select dropdown
         const refOptions = (field.enumOptions ?? []) as EnumOption[]
         if (field.type === 'REF' && refOptions.length > 0) {
-            const mode = resolveEnumMode(field.enumPresentationMode)
+            const mode = resolveInlineTableEnumMode(field.enumPresentationMode)
             const allowEmpty = field.enumAllowEmpty !== false
-            const selectedValue = resolveSelectedEnumValue(
+            const selectedValue = resolveInlineTableSelectedEnumValue(
                 rawValue,
                 field.defaultEnumValueId ?? null,
                 refOptions,
@@ -487,9 +477,20 @@ export function InlineTableEditor({
             )
         }
 
+        if (field.type === 'REF') {
+            const hasReference = rawValue !== null && rawValue !== undefined && rawValue !== ''
+            return (
+                <Typography sx={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis' }} noWrap>
+                    {hasReference
+                        ? t('ref.unavailableSelection', 'Selected reference is unavailable.')
+                        : t('ref.selectionUnavailable', 'Reference selection is not configured.')}
+                </Typography>
+            )
+        }
+
         const displayValue =
-            isVlcField(field) || (rawValue !== null && typeof rawValue === 'object')
-                ? extractDisplayString(rawValue, locale)
+            isInlineTableLocalizedField(field) || (rawValue !== null && typeof rawValue === 'object')
+                ? extractInlineTableDisplayString(rawValue, locale)
                 : rawValue ?? ''
         const displayText =
             displayValue == null || displayValue === '' ? (rawValue && typeof rawValue === 'object' ? '—' : '') : String(displayValue)
@@ -569,7 +570,7 @@ export function InlineTableEditor({
         )
     }
 
-    const addDisabled = typeof maxRows === 'number' && value.length >= maxRows
+    const addDisabled = typeof maxRows === 'number' && orderedValue.length >= maxRows
 
     const { helperText: tableHelperText, isMissing: checkMissing } = buildTableConstraintText({
         required,
@@ -577,7 +578,7 @@ export function InlineTableEditor({
         maxRows,
         t
     })
-    const tableMissing = checkMissing(value.length)
+    const tableMissing = checkMissing(orderedValue.length)
 
     return (
         <Box>
@@ -630,7 +631,7 @@ export function InlineTableEditor({
                             >
                                 #
                             </TableCell>
-                            {childFields.map((field) => (
+                            {visibleChildFields.map((field) => (
                                 <TableCell
                                     key={field.id}
                                     sx={{
@@ -689,8 +690,9 @@ export function InlineTableEditor({
                                         <TableCell align='center' sx={{ p: '4px 8px', fontSize: 12, color: 'text.secondary' }}>
                                             {index + 1}
                                         </TableCell>
-                                        {childFields.map((field) => {
-                                            const isTextLike = field.type === 'STRING' || field.type === 'NUMBER'
+                                        {visibleChildFields.map((field) => {
+                                            const isTextLike =
+                                                (field.type === 'STRING' || field.type === 'NUMBER') && !readSiblingRowSelectConfig(field)
                                             const isCellEditing = editingCell?.rowId === rowId && editingCell?.fieldId === field.id
                                             const canActivate = !disabled && isTextLike && !isCellEditing
                                             const anotherCellEditing = editingCell !== null && !isCellEditing
@@ -798,7 +800,7 @@ export function InlineTableEditor({
                         ) : (
                             <TableRow>
                                 <TableCell
-                                    colSpan={childFields.length + (disabled ? 1 : 2)}
+                                    colSpan={visibleChildFields.length + (disabled ? 1 : 2)}
                                     sx={{ textAlign: 'center', py: 2, color: 'text.secondary', border: 0 }}
                                 >
                                     <Typography
@@ -848,6 +850,24 @@ export function InlineTableEditor({
                     <EditIcon fontSize='small' sx={{ mr: 1 }} />
                     {t('records.table.edit', 'Edit')}
                 </MenuItem>
+                {canReorderRows ? (
+                    <>
+                        <MenuItem
+                            onClick={() => handleMoveRow(-1)}
+                            disabled={menuRowIndex <= 0}
+                            aria-label={`${moveUpLabel}: ${menuRowLabel}`}
+                        >
+                            {moveUpLabel}
+                        </MenuItem>
+                        <MenuItem
+                            onClick={() => handleMoveRow(1)}
+                            disabled={menuRowIndex < 0 || menuRowIndex >= orderedValue.length - 1}
+                            aria-label={`${moveDownLabel}: ${menuRowLabel}`}
+                        >
+                            {moveDownLabel}
+                        </MenuItem>
+                    </>
+                ) : null}
                 <MenuItem onClick={handleCopyRowFromMenu}>
                     <ContentCopyRoundedIcon fontSize='small' sx={{ mr: 1 }} />
                     {t('records.table.copy', 'Copy')}

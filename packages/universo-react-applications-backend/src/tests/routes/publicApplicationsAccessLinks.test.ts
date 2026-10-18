@@ -19,8 +19,152 @@ import {
 describe('Public Applications Routes: access links', () => {
     installPublicApplicationsTestHooks()
 
+    it('requires a UUID v7 attempt path and a strict revision-bound Continue body', async () => {
+        const race = buildRevokedAttemptRaceDataSource({ revokeDuringMutation: false })
+        const app = buildApp(race.dataSource)
+        const body = { participantId: race.participantId, sessionToken: race.sessionToken, phaseRevision: 0 }
+
+        await request(app)
+            .post(`/public/a/${applicationId}/runtime/attempts/018f8a78-7b8f-4c1d-a111-222233334422/continue`)
+            .send(body)
+            .expect(404)
+        await request(app)
+            .post(`/public/a/${applicationId}/runtime/attempts/${race.attemptId}/continue`)
+            .send({ ...body, unexpected: true })
+            .expect(400)
+
+        expect(race.attemptQueries).toEqual([])
+        expect(race.responseQueries).toEqual([])
+    })
+
+    it('continues the current block intro and treats a committed duplicate Continue as an idempotent read', async () => {
+        const race = buildRevokedAttemptRaceDataSource({ revokeDuringMutation: false, existingAttempt: true, blockedAttempt: true })
+        const app = buildApp(race.dataSource)
+        const path = `/public/a/${applicationId}/runtime/attempts/${race.attemptId}/continue`
+        const body = { participantId: race.participantId, sessionToken: race.sessionToken, phaseRevision: 0 }
+
+        const first = await request(app).post(path).send(body).expect(200)
+        expect(first.body).toMatchObject({
+            status: 'in_progress',
+            phase: 'question',
+            phaseRevision: 1,
+            numberingMode: 'block',
+            currentQuestionIndex: 0,
+            answeredCount: 0,
+            questions: [{ id: race.questionId, displayNumber: '1.1' }]
+        })
+        expect(first.body).not.toHaveProperty('flowSnapshot')
+        expect(first.body).not.toHaveProperty('blockKey')
+        expect(first.body.currentBlock).toBeNull()
+
+        const duplicate = await request(app).post(path).send(body).expect(200)
+        expect(duplicate.body).toMatchObject({
+            status: first.body.status,
+            phase: first.body.phase,
+            phaseRevision: first.body.phaseRevision,
+            currentQuestionIndex: first.body.currentQuestionIndex,
+            answeredCount: first.body.answeredCount,
+            questions: first.body.questions
+        })
+        expect(race.attemptQueries.filter((sql) => /^\s*UPDATE\s/i.test(sql))).toHaveLength(1)
+    })
+
+    it('serializes concurrent Continue requests for the same block intro', async () => {
+        const race = buildRevokedAttemptRaceDataSource({
+            revokeDuringMutation: false,
+            existingAttempt: true,
+            blockedAttempt: true,
+            serializeAdvisoryLocks: true
+        })
+        const app = buildApp(race.dataSource)
+        const path = `/public/a/${applicationId}/runtime/attempts/${race.attemptId}/continue`
+        const body = { participantId: race.participantId, sessionToken: race.sessionToken, phaseRevision: 0 }
+
+        const responses = await Promise.all([request(app).post(path).send(body), request(app).post(path).send(body)])
+
+        for (const response of responses) {
+            expect(response.status).toBe(200)
+            expect(response.body).toMatchObject({
+                status: 'in_progress',
+                phase: 'question',
+                phaseRevision: 1,
+                currentQuestionIndex: 0,
+                answeredCount: 0,
+                questions: [{ id: race.questionId, displayNumber: '1.1' }]
+            })
+        }
+        expect(race.attemptQueries.filter((sql) => /^\s*UPDATE\s/i.test(sql))).toHaveLength(1)
+    })
+
+    it('returns the committed next-block state when the final answer write is retried after a lost response', async () => {
+        const race = buildRevokedAttemptRaceDataSource({
+            revokeDuringMutation: false,
+            existingAttempt: true,
+            blockedAttempt: true,
+            blockTransitionAttempt: true
+        })
+        const app = buildApp(race.dataSource)
+
+        const response = await request(app)
+            .put(`/public/a/${applicationId}/runtime/attempts/${race.attemptId}/answers`)
+            .send({
+                participantId: race.participantId,
+                sessionToken: race.sessionToken,
+                questionId: race.questionId,
+                optionId: '018f8a78-7b8f-7c1d-a111-222233334424'
+            })
+            .expect(200)
+
+        expect(response.body).toMatchObject({
+            ok: true,
+            attempt: {
+                status: 'in_progress',
+                phase: 'block_intro',
+                phaseRevision: 1,
+                currentQuestionIndex: 1,
+                answeredCount: 1,
+                currentBlock: { title: 'Orbits' },
+                questions: []
+            }
+        })
+        expect(race.dataSource.transactionSql.some((sql) => /^\s*INSERT\s/i.test(sql))).toBe(false)
+        expect(race.attemptQueries.filter((sql) => /^\s*UPDATE\s/i.test(sql))).toHaveLength(0)
+    })
+
+    it('returns a committed final answer after completion and rejects a different retry', async () => {
+        const race = buildRevokedAttemptRaceDataSource({ revokeDuringMutation: false, existingAttempt: true, completedAttempt: true })
+        const app = buildApp(race.dataSource)
+        const path = `/public/a/${applicationId}/runtime/attempts/${race.attemptId}/answers`
+        const body = { participantId: race.participantId, sessionToken: race.sessionToken, questionId: race.questionId }
+
+        const retry = await request(app)
+            .put(path)
+            .send({ ...body, optionId: '018f8a78-7b8f-7c1d-a111-222233334424' })
+            .expect(200)
+
+        expect(retry.body).toMatchObject({
+            ok: true,
+            attempt: {
+                status: 'completed',
+                currentQuestionIndex: 1,
+                answeredCount: 1,
+                result: { total: 1, finishedReason: 'submitted' }
+            }
+        })
+
+        const conflictingRetry = await request(app)
+            .put(path)
+            .send({ ...body, optionId: '018f8a78-7b8f-7c1d-a111-222233334425' })
+            .expect(409)
+
+        expect(conflictingRetry.body).toMatchObject({ error: 'Answer could not be saved' })
+        expect(race.dataSource.transactionSql.some((sql) => /^\s*INSERT\s/i.test(sql))).toBe(false)
+        expect(race.attemptQueries.some((sql) => /^\s*UPDATE\s/i.test(sql))).toBe(false)
+    })
+
     it.each([
         ['answer writes', 'put' as const, 'answers'],
+        ['continue writes', 'post' as const, 'continue'],
         ['finalize writes', 'post' as const, 'finalize']
     ])('rechecks and locks the access link before %s reads or writes attempt data', async (_name, method, action) => {
         const race = buildRevokedAttemptRaceDataSource()
@@ -30,6 +174,8 @@ describe('Public Applications Routes: access links', () => {
         const req = request(app)[method](path)
         if (action === 'answers') {
             req.send({ ...payload, questionId: race.attemptId, optionId: 'option-1' })
+        } else if (action === 'continue') {
+            req.send({ ...payload, phaseRevision: 0 })
         } else {
             req.send(payload)
         }
@@ -221,6 +367,20 @@ describe('Public Applications Routes: access links', () => {
         expect(race.attemptQueries.some((sql) => /^\s*INSERT\s/i.test(sql))).toBe(false)
     })
 
+    it('resumes the stored question snapshot without rebuilding an unavailable quiz', async () => {
+        const race = buildRevokedAttemptRaceDataSource({ revokeDuringMutation: false, existingAttempt: true, quizUnavailable: true })
+        const app = buildApp(race.dataSource)
+
+        const response = await request(app)
+            .post(`/public/a/${applicationId}/runtime/attempts/start`)
+            .send({ participantId: race.participantId, sessionToken: race.sessionToken, assessmentId: quizId })
+            .expect(200)
+
+        expect(response.body).toMatchObject({ attemptId: race.attemptId, status: 'in_progress', totalQuestions: 1 })
+        expect(race.quizQueries).toEqual([])
+        expect(race.attemptQueries.some((sql) => /^\s*INSERT\s/i.test(sql))).toBe(false)
+    })
+
     it('blocks a new attempt allocation after its active access link expires', async () => {
         const race = buildRevokedAttemptRaceDataSource({ revokeDuringMutation: false, expiresAt: '2000-01-01T00:00:00.000Z' })
         const app = buildApp(race.dataSource)
@@ -279,7 +439,7 @@ describe('Public Applications Routes: access links', () => {
         expect(race.responseQueries).toEqual([])
     })
 
-    it('locks application then workspace before the content link and quiz record', async () => {
+    it('locks application then workspace before the content link without re-reading the quiz', async () => {
         const race = buildRevokedAttemptRaceDataSource({
             revokeDuringMutation: false,
             contentTarget: true,
@@ -306,9 +466,7 @@ describe('Public Applications Routes: access links', () => {
                 (sql) => sql.includes(`FROM "${schemaName}"."learning_resources_table"`) && /FOR UPDATE/i.test(sql)
             )
         ).toBe(true)
-        expect(
-            race.dataSource.transactionSql.some((sql) => sql.includes(`FROM "${schemaName}"."quiz_table"`) && /FOR UPDATE/i.test(sql))
-        ).toBe(true)
+        expect(race.quizQueries).toEqual([])
     })
 
     it('rejects a guest attempt when its session is revoked and the link is re-enabled while start waits for its lock', async () => {
@@ -440,6 +598,10 @@ describe('Public Applications Routes: access links', () => {
         await request(app)
             .post(`/public/a/${applicationId}/runtime/attempts/${race.attemptId}/finalize${localeQuery}`)
             .send(session)
+            .expect(400)
+        await request(app)
+            .post(`/public/a/${applicationId}/runtime/attempts/${race.attemptId}/continue${localeQuery}`)
+            .send({ ...session, phaseRevision: 0 })
             .expect(400)
 
         expect(race.attemptQueries).toEqual([])

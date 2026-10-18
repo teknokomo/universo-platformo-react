@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express'
+import { isUuidV7 } from '@universo-react/utils'
 import { withTransactionSavepoint } from '@universo-react/utils/database'
 import { generateChildTableName } from '@universo-react/schema-ddl'
 import { enforceObjectWorkspaceLimit } from '../../services/applicationWorkspaces'
@@ -127,10 +128,12 @@ export const createRestoreRowHandler = ({ getDbExecutor, query }: RuntimeRowWrit
                     .join(' AND ')
                 const sourceRows = (await txManager.query(
                     `
+              -- Preserve PostgreSQL microseconds; JavaScript Date only retains milliseconds.
               SELECT *
               FROM ${dataTableIdent}
               WHERE ${sourceWhereSql}
               LIMIT 1
+              FOR UPDATE
             `,
                     sourceValues
                 )) as Array<Record<string, unknown>>
@@ -139,6 +142,16 @@ export const createRestoreRowHandler = ({ getDbExecutor, query }: RuntimeRowWrit
                     throw new UpdateFailure(404, {
                         error: 'Deleted row not found',
                         code: 'RUNTIME_RECORD_RESTORE_NOT_FOUND'
+                    })
+                }
+                if (
+                    tableAttrsForRestore.length > 0 &&
+                    (typeof sourceRow._upl_delete_cascade_id !== 'string' ||
+                        !isUuidV7(sourceRow._upl_delete_cascade_id) ||
+                        typeof sourceRow._upl_updated_by !== 'string')
+                ) {
+                    throw new UpdateFailure(409, {
+                        error: 'TABLE child rows cannot be restored without the parent cascade marker'
                     })
                 }
                 if (sourceRow._upl_locked) {
@@ -303,6 +316,12 @@ export const createRestoreRowHandler = ({ getDbExecutor, query }: RuntimeRowWrit
                     }
                 }
 
+                let cascadeMarkerPredicate: string | null = null
+                if (tableAttrsForRestore.length > 0) {
+                    restoreParams.push(sourceRow._upl_delete_cascade_id)
+                    cascadeMarkerPredicate = `_upl_delete_cascade_id = $${restoreParams.length}`
+                }
+
                 if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
                     const limitState = await enforceObjectWorkspaceLimit(txManager, {
                         schemaName: ctx.schemaName,
@@ -343,7 +362,13 @@ export const createRestoreRowHandler = ({ getDbExecutor, query }: RuntimeRowWrit
                     values: restoreParams,
                     minimumAccessLevel: 'edit'
                 })
-                const restoreWhereSql = ['id = $2', deletedRowCondition, 'COALESCE(_upl_locked, false) = false', restoreAccessClause]
+                const restoreWhereSql = [
+                    'id = $2',
+                    deletedRowCondition,
+                    'COALESCE(_upl_locked, false) = false',
+                    cascadeMarkerPredicate,
+                    restoreAccessClause
+                ]
                     .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
                     .join(' AND ')
 
@@ -403,12 +428,19 @@ export const createRestoreRowHandler = ({ getDbExecutor, query }: RuntimeRowWrit
                     if (parsedBody.data.expectedVersion !== undefined) {
                         throw createRuntimeVersionConflictFailure(parsedBody.data.expectedVersion)
                     }
+                    if (cascadeMarkerPredicate) {
+                        throw new UpdateFailure(409, {
+                            error: 'Record changed while it was being restored',
+                            code: 'RUNTIME_RECORD_RESTORE_CONFLICT'
+                        })
+                    }
                     throw new UpdateFailure(404, {
                         error: 'Deleted row not found',
                         code: 'RUNTIME_RECORD_RESTORE_NOT_FOUND'
                     })
                 }
 
+                // The UUIDv7 marker separates this cascade from older tombstones by the same actor.
                 for (const tAttr of tableAttrsForRestore) {
                     const fallbackTabTableName = generateChildTableName(tAttr.id)
                     const tabTableName =
@@ -424,8 +456,10 @@ export const createRestoreRowHandler = ({ getDbExecutor, query }: RuntimeRowWrit
                   _upl_version = COALESCE(_upl_version, 1) + 1
               WHERE _tp_parent_id = $2
                 AND ${deletedRowCondition}
+                AND _upl_delete_cascade_id = $3
+                AND _upl_updated_by = $4
             `,
-                        [ctx.userId, rowId]
+                        [ctx.userId, rowId, sourceRow._upl_delete_cascade_id, sourceRow._upl_updated_by]
                     )
                 }
 

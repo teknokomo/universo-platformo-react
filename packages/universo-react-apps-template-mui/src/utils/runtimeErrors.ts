@@ -36,9 +36,9 @@ export const isUnsafeRuntimeErrorMessage = (message: string, locale = 'en'): boo
 }
 
 /**
- * Rule codes map to the shared `apps` i18n bundle so every locale resolves
- * through the normal translation pipeline. The inline defaults keep the
- * contract testable before the app bundle is initialized.
+ * Rule codes map to registered i18n bundles so every locale resolves through
+ * the normal translation pipeline. The inline defaults keep the contract
+ * testable before the app bundle is initialized.
  */
 export const RUNTIME_RULE_ERROR_KEYS: Record<string, string> = {
     RECORD_KEY_DUPLICATE: 'errors.recordKeyDuplicate',
@@ -46,7 +46,10 @@ export const RUNTIME_RULE_ERROR_KEYS: Record<string, string> = {
     RUNTIME_RELATION_SCOPE_REQUIRED: 'errors.relationScopeRequired',
     RUNTIME_RECORD_VERSION_CONFLICT: 'errors.recordVersionConflict',
     GUEST_QUIZ_INTAKE_REQUIRED: 'guest.errors.quizIntakeRequired',
-    RUNTIME_ACCESS_LINK_INTAKE_POLICY_INVALID: 'errors.accessLinkIntakePolicyInvalid'
+    RUNTIME_ACCESS_LINK_INTAKE_POLICY_INVALID: 'errors.accessLinkIntakePolicyInvalid',
+    RUNTIME_SIBLING_TARGET_UNREFERENCED: 'common:tableGrouping.emptyGroup',
+    RUNTIME_SIBLING_TARGET_MISSING: 'common:tableGrouping.targetMissing',
+    RUNTIME_SIBLING_TARGET_IN_USE: 'common:tableGrouping.targetInUse'
 }
 
 export type RuntimeRuleTranslator = (key: string, locale: string) => string | null
@@ -86,6 +89,18 @@ export const RUNTIME_RULE_ERROR_MESSAGES: Record<string, { en: string; ru: strin
     RUNTIME_ACCESS_LINK_INTAKE_POLICY_INVALID: {
         en: 'Show at least one guest identity field and make every required field visible.',
         ru: 'Покажите хотя бы одно поле с данными гостя и сделайте видимыми все обязательные поля.'
+    },
+    RUNTIME_SIBLING_TARGET_UNREFERENCED: {
+        en: 'Each group must contain at least one related row before saving.',
+        ru: 'Перед сохранением добавьте хотя бы одну связанную строку в каждую группу.'
+    },
+    RUNTIME_SIBLING_TARGET_MISSING: {
+        en: 'Reassign this row to an existing group and try again.',
+        ru: 'Назначьте строку существующей группе и повторите попытку.'
+    },
+    RUNTIME_SIBLING_TARGET_IN_USE: {
+        en: 'Reassign or remove related rows before deleting this group.',
+        ru: 'Перед удалением группы переназначьте или удалите связанные строки.'
     }
 }
 

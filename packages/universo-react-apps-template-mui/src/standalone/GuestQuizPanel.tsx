@@ -33,7 +33,7 @@ type GuestQuizPanelProps = {
     finalizeQuizMutation: FinalizeMutationStatus
     handleRetryQuiz: () => void
     handleBackToContent: () => void
-    handleSelectOption: (optionId: string) => void | Promise<void>
+    handleSelectOption: (optionId?: string) => void | Promise<void>
     handleRetryAnswer: (optionId?: string) => void | Promise<void>
     formatGuestError: (error: unknown, key: string, fallback: string) => string
     normalizeAttemptLimit: (value: unknown) => number | null
@@ -43,7 +43,6 @@ export default function GuestQuizPanel({
     activeQuizId,
     runtime,
     quizAttempt,
-    currentQuestionIndex,
     currentQuestion,
     selectedOptionId,
     timeRemaining,
@@ -65,13 +64,15 @@ export default function GuestQuizPanel({
     const pendingAnswerId = pendingAnswer?.questionId === currentQuestionId ? pendingAnswer.optionId : null
     const confirmationRequired = runtime?.type === 'quiz' && runtime.confirmAnswerBeforeNext === true
     const quizAttemptStatus = quizAttempt?.status
+    const quizPhase = quizAttempt?.phase
+    const phaseRevision = quizAttempt?.phaseRevision
 
     useEffect(() => {
         setPendingAnswer(null)
-        if (currentQuestionId || quizAttemptStatus === 'completed') {
+        if (currentQuestionId || quizPhase === 'block_intro' || quizAttemptStatus === 'completed') {
             questionHeadingRef.current?.focus()
         }
-    }, [currentQuestionId, quizAttemptStatus])
+    }, [currentQuestionId, phaseRevision, quizPhase, quizAttemptStatus])
 
     const submitAnswer = (optionId: string) => {
         setPendingAnswer(null)
@@ -110,7 +111,11 @@ export default function GuestQuizPanel({
         const remaining = Math.max(0, timeRemaining ?? 0)
         const countdown = `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`
         const result = quizAttempt?.status === 'completed' ? quizAttempt.result : null
-        const sessionUnavailableError = isGuestSessionUnavailableError(saveAnswerMutation.error) ? saveAnswerMutation.error : null
+        const sessionUnavailableError = isGuestSessionUnavailableError(saveAnswerMutation.error)
+            ? saveAnswerMutation.error
+            : isGuestSessionUnavailableError(finalizeQuizMutation.error)
+            ? finalizeQuizMutation.error
+            : null
         const sessionUnavailable = sessionUnavailableError !== null
         const quizRuntime = runtime?.type === 'quiz' ? runtime : null
         const maxAttempts = quizRuntime ? normalizeAttemptLimit(quizRuntime.maxAttempts) : 0
@@ -126,7 +131,19 @@ export default function GuestQuizPanel({
             typeof timeLimitSeconds === 'number' && Number.isFinite(timeLimitSeconds) && timeLimitSeconds > 0
                 ? Math.ceil(timeLimitSeconds / 60)
                 : null
-        const allQuestionsAnswered = quizAttempt?.status === 'in_progress' && !currentQuestion && !sessionUnavailable
+        const allQuestionsAnswered =
+            quizAttempt?.status === 'in_progress' && quizAttempt.phase === 'question' && !currentQuestion && !sessionUnavailable
+        const hasBlockIntro = Boolean(
+            quizAttempt?.status === 'in_progress' && quizAttempt.phase === 'block_intro' && quizAttempt.currentBlock
+        )
+        const continuing = Boolean(hasBlockIntro && saveAnswerMutation.isPending)
+        const progressLabel = quizAttempt
+            ? t('guest.quizAnsweredProgress', {
+                  defaultValue: '{{answered}} of {{total}} questions answered',
+                  answered: quizAttempt.answeredCount,
+                  total: quizAttempt.totalQuestions
+              })
+            : ''
 
         return (
             <Stack spacing={2}>
@@ -153,16 +170,24 @@ export default function GuestQuizPanel({
 
                 {quizAttempt?.status === 'in_progress' && !sessionUnavailable ? (
                     <Stack spacing={1}>
-                        {timeLimitMinutes === null ? (
+                        {quizAttempt.timerState === 'untimed' ? (
                             <Typography>{t('guest.quizNoTimeLimit', 'There is no time limit for this quiz.')}</Typography>
-                        ) : (
+                        ) : timeLimitMinutes !== null ? (
                             <Typography>
                                 {t('guest.quizTimeLimit', {
                                     defaultValue: 'You have {{minutes}} minutes to complete this quiz.',
                                     minutes: timeLimitMinutes
                                 })}
                             </Typography>
-                        )}
+                        ) : null}
+                        {quizAttempt.timerState === 'paused' ? (
+                            <Alert severity='info' role='status' aria-live='polite'>
+                                {t(
+                                    'guest.quizTimerPaused',
+                                    'The timer is paused. Your remaining time will stay frozen until you continue.'
+                                )}
+                            </Alert>
+                        ) : null}
                         {timeRemaining !== null ? (
                             <Stack direction='row' spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Typography>{t('guest.quizTimeRemaining', 'Time remaining')}</Typography>
@@ -234,27 +259,79 @@ export default function GuestQuizPanel({
                     </Card>
                 ) : null}
 
-                {quizAttempt?.status === 'in_progress' && currentQuestion && !sessionUnavailable ? (
+                {quizAttempt?.status === 'in_progress' && !sessionUnavailable ? (
                     <>
                         <LinearProgress
                             variant='determinate'
                             value={quizAttempt.totalQuestions > 0 ? (quizAttempt.answeredCount / quizAttempt.totalQuestions) * 100 : 0}
-                            aria-label={t('guest.quizProgress', {
-                                defaultValue: 'Question {{current}} of {{total}}',
-                                current: currentQuestionIndex + 1,
-                                total: quizAttempt.totalQuestions
-                            })}
+                            aria-label={progressLabel}
                         />
                         <Typography role='status' aria-live='polite' aria-atomic='true'>
-                            {t('guest.quizProgress', {
-                                defaultValue: 'Question {{current}} of {{total}}',
-                                current: currentQuestionIndex + 1,
-                                total: quizAttempt.totalQuestions
-                            })}
+                            {progressLabel}
                         </Typography>
+                    </>
+                ) : null}
+
+                {quizAttempt?.status === 'in_progress' &&
+                quizAttempt.phase === 'block_intro' &&
+                quizAttempt.currentBlock !== null &&
+                !sessionUnavailable ? (
+                    <Card variant='outlined'>
+                        <CardContent>
+                            <Stack spacing={1.5}>
+                                <Typography ref={questionHeadingRef} tabIndex={-1} variant='h5' component='h2'>
+                                    {quizAttempt.currentBlock.title}
+                                </Typography>
+                                <Typography sx={{ whiteSpace: 'pre-wrap' }}>{quizAttempt.currentBlock.introduction}</Typography>
+                                {saveAnswerMutation.error ? (
+                                    <Alert severity='error' role='alert'>
+                                        {formatGuestError(
+                                            saveAnswerMutation.error,
+                                            'guest.errors.quizContinue',
+                                            'Failed to continue to the next quiz question.'
+                                        )}
+                                    </Alert>
+                                ) : null}
+                                {continuing ? (
+                                    <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }} role='status' aria-live='polite'>
+                                        <CircularProgress size={18} />
+                                        <Typography>{t('guest.continuingQuiz', 'Loading the next question...')}</Typography>
+                                    </Stack>
+                                ) : null}
+                                <Stack direction='row' spacing={1} sx={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                    <Button
+                                        variant='contained'
+                                        onClick={() => void handleSelectOption()}
+                                        disabled={
+                                            saveAnswerMutation.isPending ||
+                                            finalizeQuizMutation.isPending ||
+                                            isRefreshingAttempt ||
+                                            timeRemaining === 0
+                                        }
+                                    >
+                                        {continuing
+                                            ? t('guest.continuingQuiz', 'Loading the next question...')
+                                            : saveAnswerMutation.error
+                                            ? t('guest.retryQuizContinue', 'Retry continue')
+                                            : t('guest.continueQuiz', 'Continue')}
+                                    </Button>
+                                </Stack>
+                            </Stack>
+                        </CardContent>
+                    </Card>
+                ) : null}
+
+                {quizAttempt?.status === 'in_progress' && quizAttempt.phase === 'question' && currentQuestion && !sessionUnavailable ? (
+                    <>
                         <Card variant='outlined'>
                             <CardContent>
                                 <Stack spacing={1.5}>
+                                    <Typography variant='overline'>
+                                        {t('guest.quizQuestionDisplayNumber', {
+                                            defaultValue: 'Question {{number}}',
+                                            number: currentQuestion.displayNumber
+                                        })}
+                                    </Typography>
                                     <Typography
                                         id='guest-quiz-current-question'
                                         ref={questionHeadingRef}
@@ -327,7 +404,7 @@ export default function GuestQuizPanel({
                                 <Alert severity='warning' role='status' aria-live='polite'>
                                     {t('guest.quizTimeExpired', 'Time is up. Your saved answers are being finalized.')}
                                 </Alert>
-                                {finalizeQuizMutation.error && !finalizeQuizMutation.isPending ? (
+                                {finalizeQuizMutation.error && !sessionUnavailable && !finalizeQuizMutation.isPending ? (
                                     <Button variant='contained' onClick={() => finalizeQuizMutation.mutate(quizAttempt.attemptId)}>
                                         {t('guest.retryQuizFinish', 'Retry finishing the quiz')}
                                     </Button>
@@ -354,7 +431,7 @@ export default function GuestQuizPanel({
                                 ? t('guest.finishingQuiz', 'Finishing quiz...')
                                 : t('guest.quizAllAnswersSaved', 'All answers are saved. Your result is being prepared.')}
                         </Typography>
-                        {finalizeQuizMutation.error ? (
+                        {finalizeQuizMutation.error && !sessionUnavailable ? (
                             <Button variant='contained' onClick={() => finalizeQuizMutation.mutate(quizAttempt.attemptId)}>
                                 {t('guest.retryQuizFinish', 'Retry finishing the quiz')}
                             </Button>
@@ -367,7 +444,7 @@ export default function GuestQuizPanel({
                         <Alert severity='info' role='status' aria-live='polite'>
                             {sessionUnavailableError.message}
                         </Alert>
-                    ) : saveAnswerMutation.error ? (
+                    ) : saveAnswerMutation.error && quizAttempt?.phase !== 'block_intro' ? (
                         <Stack spacing={1}>
                             <Alert severity='error' role='alert'>
                                 {formatGuestError(saveAnswerMutation.error, 'guest.errors.quizAnswerSave', 'Failed to save your answer.')}
@@ -383,7 +460,7 @@ export default function GuestQuizPanel({
                             ) : null}
                         </Stack>
                     ) : null)}
-                {finalizeQuizMutation.error ? (
+                {finalizeQuizMutation.error && !sessionUnavailable ? (
                     <Alert severity='error' role='alert'>
                         {formatGuestError(finalizeQuizMutation.error, 'guest.errors.quizFinalize', 'Failed to finish the quiz.')}
                     </Alert>

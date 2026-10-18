@@ -1,5 +1,6 @@
 import { ModuleEngine } from '@universo-react/modules-engine'
 import { qSchemaTable } from '@universo-react/database'
+import { generateChildTableName } from '@universo-react/schema-ddl'
 import {
     canCallModuleMethodOverPublicRpc,
     hasModuleCapability,
@@ -19,7 +20,12 @@ import {
     type ModuleCapability,
     type ModuleLifecyclePayload
 } from '@universo-react/types'
-import { createLocalizedContent, resolveApplicationLifecycleContractFromConfig, type DbExecutor } from '@universo-react/utils'
+import {
+    createLocalizedContent,
+    generateUuidV7,
+    resolveApplicationLifecycleContractFromConfig,
+    type DbExecutor
+} from '@universo-react/utils'
 import type { RolePermission } from '../routes/guards'
 import { RuntimeLedgersService } from './runtimeLedgersService'
 import {
@@ -1713,22 +1719,48 @@ export class RuntimeModulesService {
 
             if (isSoftDeleteLifecycle(binding.object.lifecycleContract)) {
                 const softDeleteSetClause = buildRuntimeSoftDeleteSetClause('$1', binding.object.lifecycleContract, binding.object.config)
+                const tableAttrs = binding.attrs.filter((attr) => attr.data_type === 'TABLE')
+                const deleteCascadeId = tableAttrs.length > 0 ? generateUuidV7() : null
+                const parentDeleteSetClause = deleteCascadeId ? `${softDeleteSetClause}, _upl_delete_cascade_id = $3` : softDeleteSetClause
+                const deleteParams = deleteCascadeId ? [currentUserId, params.recordId, deleteCascadeId] : [currentUserId, params.recordId]
 
                 const rows = (await txExecutor.query(
                     `
             UPDATE ${binding.tableIdent}
-            SET ${softDeleteSetClause},
+            SET ${parentDeleteSetClause},
                 _upl_version = COALESCE(_upl_version, 1) + 1
             WHERE id = $2
               AND ${binding.activeRowCondition}
               AND COALESCE(_upl_locked, false) = false
             RETURNING id
           `,
-                    [currentUserId, params.recordId]
+                    deleteParams
                 )) as Array<{ id: string }>
 
                 if (rows.length === 0) {
                     throw new Error('Runtime record was not found')
+                }
+
+                if (deleteCascadeId) {
+                    const childActiveRowCondition = buildRuntimeActiveRowCondition(binding.object.lifecycleContract, binding.object.config)
+                    const schemaIdent = quoteIdentifier(params.schemaName)
+                    for (const attr of tableAttrs) {
+                        const tabularTableName = IDENTIFIER_REGEX.test(attr.column_name)
+                            ? attr.column_name
+                            : generateChildTableName(attr.id)
+                        const tabularTableIdent = `${schemaIdent}.${quoteIdentifier(tabularTableName)}`
+                        await txExecutor.query(
+                            `
+                UPDATE ${tabularTableIdent}
+                SET ${softDeleteSetClause},
+                    _upl_delete_cascade_id = $3,
+                    _upl_version = COALESCE(_upl_version, 1) + 1
+                WHERE _tp_parent_id = $2
+                  AND ${childActiveRowCondition}
+              `,
+                            [currentUserId, params.recordId, deleteCascadeId]
+                        )
+                    }
                 }
             } else {
                 const rows = (await txExecutor.query(

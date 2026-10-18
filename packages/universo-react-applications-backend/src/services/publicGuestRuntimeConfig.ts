@@ -12,8 +12,17 @@ export type PublicGuestAssessmentRuntimeConfig = {
             maxAttempts: string
             timeLimitSeconds: string
             confirmAnswerBeforeNext: string
+            pauseTimerOnBlockIntro: string
+            blockRelativeNumbering: string
             completionText: string
+            blocks: string
             questions: string
+        }
+        assessmentBlock: {
+            blockKey: string
+            title: string
+            introduction: string
+            sortOrder: string
         }
         assessmentQuestion: {
             prompt: string
@@ -21,6 +30,7 @@ export type PublicGuestAssessmentRuntimeConfig = {
             questionType: string
             explanation: string
             sortOrder: string
+            blockKey: string
             options: string
         }
         assessmentResponse: {
@@ -45,6 +55,11 @@ export type PublicGuestAssessmentRuntimeConfig = {
             finishedReason: string
             questionsSnapshot: string
             questionSetDigest: string
+            flowSnapshot: string
+            phase: string
+            phaseRevision: string
+            timerState: string
+            frozenRemainingMs: string
             accessLinkId: string
             classIdSnapshot: string
             score: string
@@ -177,10 +192,14 @@ const PUBLIC_GUEST_RUNTIME_FIELD_KEYS = {
         'maxAttempts',
         'timeLimitSeconds',
         'confirmAnswerBeforeNext',
+        'pauseTimerOnBlockIntro',
+        'blockRelativeNumbering',
         'completionText',
+        'blocks',
         'questions'
     ],
-    assessmentQuestion: ['prompt', 'description', 'questionType', 'explanation', 'sortOrder', 'options'],
+    assessmentBlock: ['blockKey', 'title', 'introduction', 'sortOrder'],
+    assessmentQuestion: ['prompt', 'description', 'questionType', 'explanation', 'sortOrder', 'blockKey', 'options'],
     assessmentResponse: [
         'studentId',
         'quizId',
@@ -203,6 +222,11 @@ const PUBLIC_GUEST_RUNTIME_FIELD_KEYS = {
         'finishedReason',
         'questionsSnapshot',
         'questionSetDigest',
+        'flowSnapshot',
+        'phase',
+        'phaseRevision',
+        'timerState',
+        'frozenRemainingMs',
         'accessLinkId',
         'classIdSnapshot',
         'score',
@@ -219,6 +243,7 @@ const PUBLIC_GUEST_RUNTIME_FIELD_ALIASES = {
     contentNode: ['contentNode'],
     contentPart: ['contentPart'],
     assessment: ['assessment', 'quiz'],
+    assessmentBlock: ['assessmentBlock', 'quizBlock'],
     assessmentQuestion: ['assessmentQuestion', 'quizQuestion'],
     assessmentResponse: ['assessmentResponse', 'quizResponse'],
     assessmentAttempt: ['assessmentAttempt', 'quizAttempt'],
@@ -309,6 +334,7 @@ export const resolvePublicGuestRuntimeConfig = (settings: Record<string, unknown
     const contentNodeFields = readFieldMapByAliases(rawFields, 'contentNode')
     const contentPartFields = readFieldMapByAliases(rawFields, 'contentPart')
     const assessmentFields = readFieldMapByAliases(rawFields, 'assessment')
+    const assessmentBlockFields = readFieldMapByAliases(rawFields, 'assessmentBlock')
     const assessmentQuestionFields = readFieldMapByAliases(rawFields, 'assessmentQuestion')
     const assessmentResponseFields = readFieldMapByAliases(rawFields, 'assessmentResponse')
     const assessmentAttemptFields = readFieldMapByAliases(rawFields, 'assessmentAttempt')
@@ -321,11 +347,17 @@ export const resolvePublicGuestRuntimeConfig = (settings: Record<string, unknown
     const contentNodeIdRef = readOptionalFieldByAliases(rawFields, 'accessLink', 'contentNodeIdRef')
 
     const assessment: PublicGuestAssessmentRuntimeConfig | undefined =
-        assessmentObjects && assessmentFields && assessmentQuestionFields && assessmentResponseFields && assessmentAttemptFields
+        assessmentObjects &&
+        assessmentFields &&
+        assessmentBlockFields &&
+        assessmentQuestionFields &&
+        assessmentResponseFields &&
+        assessmentAttemptFields
             ? {
                   objects: assessmentObjects,
                   fields: {
                       assessment: assessmentFields,
+                      assessmentBlock: assessmentBlockFields,
                       assessmentQuestion: assessmentQuestionFields,
                       assessmentResponse: assessmentResponseFields,
                       assessmentAttempt: assessmentAttemptFields

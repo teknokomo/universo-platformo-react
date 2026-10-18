@@ -18,6 +18,15 @@ import {
     LMS_LYCEUM_MARATHON_SOURCE_LANGUAGE,
     LMS_LYCEUM_MARATHON_TIME_LIMIT_SECONDS
 } from './lmsMarathonFixtureContract.ts'
+import {
+    assertLmsSixthMuseSeedRowsContract,
+    buildLmsSixthMuseQuizRecord,
+    LMS_SIXTH_MUSE_ACCESS_LINK,
+    LMS_SIXTH_MUSE_ACCESS_POLICY,
+    LMS_SIXTH_MUSE_OPTION_COUNT,
+    LMS_SIXTH_MUSE_QUESTION_COUNT,
+    LMS_SIXTH_MUSE_SOURCE
+} from './lmsSixthMuseFixtureContract.ts'
 
 type MarathonSource = {
     datasetId: string
@@ -58,6 +67,64 @@ const localizedValue = (en: string, ru: string) => ({
     _schema: '1',
     _primary: 'en',
     locales: { en: { content: en }, ru: { content: ru } }
+})
+
+test('builds the reviewed Sixth Muse quiz with ordered blocks, UUID v7 keys, and balanced answer positions', () => {
+    let generatedId = 1
+    const quizId = '019f2000-0000-7000-8000-000000000100'
+    const linkId = '019f2000-0000-7000-8000-000000000101'
+    const quizData = buildLmsSixthMuseQuizRecord('single-choice-enum-id', () => {
+        const id = `019f2000-0000-7000-8000-${String(generatedId).padStart(12, '0')}`
+        generatedId += 1
+        return id
+    })
+    const quizRows = [{ id: quizId, data: quizData }]
+    const accessLinkRows = [
+        {
+            id: linkId,
+            data: {
+                Slug: LMS_SIXTH_MUSE_ACCESS_LINK.slug,
+                TargetType: 'quiz',
+                TargetId: quizId,
+                LinkClassId: null,
+                ContentNodeIdRef: null,
+                IsActive: LMS_SIXTH_MUSE_ACCESS_POLICY.isActive,
+                MaxUses: LMS_SIXTH_MUSE_ACCESS_POLICY.maxUses,
+                ShowFirstName: LMS_SIXTH_MUSE_ACCESS_POLICY.showFirstName,
+                RequireFirstName: LMS_SIXTH_MUSE_ACCESS_POLICY.requireFirstName,
+                ShowLastName: LMS_SIXTH_MUSE_ACCESS_POLICY.showLastName,
+                RequireLastName: LMS_SIXTH_MUSE_ACCESS_POLICY.requireLastName,
+                ShowEmail: LMS_SIXTH_MUSE_ACCESS_POLICY.showEmail,
+                RequireEmail: LMS_SIXTH_MUSE_ACCESS_POLICY.requireEmail,
+                ShowPhone: LMS_SIXTH_MUSE_ACCESS_POLICY.showPhone,
+                RequirePhone: LMS_SIXTH_MUSE_ACCESS_POLICY.requirePhone,
+                CaptchaEnabled: LMS_SIXTH_MUSE_ACCESS_POLICY.captchaEnabled,
+                LinkTitle: localizedValue(LMS_SIXTH_MUSE_ACCESS_LINK.title.en, LMS_SIXTH_MUSE_ACCESS_LINK.title.ru)
+            }
+        }
+    ]
+    const errors: string[] = []
+
+    assert.equal(quizData.Questions.length, LMS_SIXTH_MUSE_QUESTION_COUNT)
+    assert.equal(
+        quizData.Questions.reduce((count, question) => count + question.Options.length, 0),
+        LMS_SIXTH_MUSE_OPTION_COUNT
+    )
+    assertLmsSixthMuseSeedRowsContract({
+        quizRows,
+        accessLinkRows,
+        errors,
+        readLocalizedText,
+        assertLocalizedFixtureValue: (targetErrors, value, expected, label) => {
+            for (const locale of ['en', 'ru'] as const) {
+                if (readLocalizedText(value, locale) !== expected[locale]) targetErrors.push(`${label} is missing ${locale}`)
+            }
+        }
+    })
+
+    assert.deepEqual(errors, [])
+    assert.equal(quizData.Blocks.length, LMS_SIXTH_MUSE_SOURCE.blocks.length)
+    assert.equal(new Set(quizData.Blocks.map(({ BlockKey }) => BlockKey)).size, quizData.Blocks.length)
 })
 
 test('uses unique UUID v7 option identifiers for LMS demo quizzes', () => {

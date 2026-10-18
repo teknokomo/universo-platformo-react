@@ -1,5 +1,7 @@
 # @universo-react/apps-template-mui
 
+The existing TABLE editors support metadata-driven sibling selectors, hidden UUID v7 keys and row-menu ordering. First-group and last-group changes use the canonical confirmation shell and update both TABLE drafts before one parent Save. Deferred runtime editors reconcile accepted external drafts and rejected candidates without losing the visible question assignments. Each configured group must contain a related row before persistence.
+
 > 🎨 **Modern Package** — TypeScript-first dashboard and marketing-page templates with Material UI v9
 
 Runtime dashboard template for published applications in the Universo Platformo ecosystem. Provides a zone-based widget system, data-driven grid rendering, app-side content authoring, and reusable CRUD UI components without depending on the legacy `@universo-react/template-mui` package.
@@ -63,7 +65,7 @@ Runtime dashboard template for published applications in the Universo Platformo 
 
 ### Guest LMS assessments
 
-`GuestApp` renders public LMS access-link intake and quiz attempts. It requires Terms and Privacy consent, follows the access link's name-field policy (first and last name are required by the built-in defaults), and renders CAPTCHA only when the link enables it. Quiz questions progress one at a time; the server persists the deadline and each answer, then calculates and stores the result. See the [Guest Access guide](../../docs/en/lms/guest-access.md).
+`GuestApp` renders public LMS access-link intake and quiz attempts. It requires Terms and Privacy consent, follows the access link's name-field policy (first and last name are required by the built-in defaults), and renders CAPTCHA only when the link enables it. A quiz may group questions into ordered blocks with an introduction page; each block continues into its questions, and the server persists the attempt phase, deadline, and answers. Timers continue on block introductions by default, with a per-quiz option to pause them; question numbering is global by default, with an option for block-relative numbering. The server scores and stores the result. See the [Guest Access guide](../../docs/en/guides/lms-guest-access.md).
 
 ### 📝 CRUD Components
 

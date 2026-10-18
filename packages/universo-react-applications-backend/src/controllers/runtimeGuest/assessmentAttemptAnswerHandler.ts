@@ -5,10 +5,12 @@ import {
     findGuestAssessmentAttempt,
     findGuestAssessmentResponse,
     insertGuestAssessmentRecord,
-    listGuestAssessmentResponses
+    listGuestAssessmentResponses,
+    updateGuestAssessmentAttempt
 } from '../../persistence/guestAssessmentAttemptStore'
 import { validateRuntimeEntityRecordPolicy } from '../../shared/entityMutationPolicy'
 import { UUID_REGEX } from '../../shared/runtimeHelpers'
+import { freezeAssessmentAttemptTimer } from '../../services/assessmentAttemptTiming'
 import { lockGuestAccessLinkWorkspace } from '../../services/guestAccessLinkRevocation'
 import type { GuestAssessmentAttemptHandlerDependencies, GuestAssessmentAttemptSupport } from './assessmentAttemptSupport'
 
@@ -29,8 +31,7 @@ export const createSaveGuestAssessmentAnswerHandler = (
     } = dependencies
     const {
         answerGuestAssessmentQuestionSchema,
-        getAttemptCompletionText,
-        parseAssessmentAttemptSnapshot,
+        parseAttemptRuntime,
         parseSelectedOptionIds,
         resolveGuestAttemptAccess,
         revalidateGuestAttemptAccess,
@@ -99,14 +100,6 @@ export const createSaveGuestAssessmentAnswerHandler = (
                     return { responseStatus: 404, attemptState: null }
                 }
                 const buildOutcome = async (responseStatus: number, currentAttempt: Record<string, unknown> & { id: string }) => {
-                    const completionText = await getAttemptCompletionText(
-                        tx,
-                        ctx.schemaName,
-                        config,
-                        currentLink,
-                        String(currentAttempt.quizId),
-                        locale
-                    )
                     return {
                         responseStatus,
                         attemptState: await toGuestAttemptState(
@@ -114,31 +107,17 @@ export const createSaveGuestAssessmentAnswerHandler = (
                             persistence.attemptTable,
                             persistence.responseTable,
                             currentAttempt,
-                            locale,
-                            completionText
+                            locale
                         )
                     }
                 }
-                if (String(attempt.status).toLowerCase() !== 'started') {
-                    return buildOutcome(409, attempt)
-                }
-                const deadline = normalizeAccessLinkDate(attempt.deadlineAt)
-                if (deadline && Date.parse(deadline) <= Date.now()) {
-                    const timedOutAttempt = await finalizeGuestAssessmentAttemptRecord(
-                        tx,
-                        persistence.attemptTable,
-                        persistence.responseTable,
-                        attemptId,
-                        parsed.data.participantId,
-                        'timed_out'
-                    )
-                    return buildOutcome(409, timedOutAttempt ?? attempt)
-                }
-
-                const questions = parseAssessmentAttemptSnapshot(attempt.questionsSnapshot)
+                const isAttemptStarted = String(attempt.status).toLowerCase() === 'started'
+                const { questions, flow, runtimeState } = parseAttemptRuntime(attempt)
+                const responseSubmittedAt = new Date()
                 const question = questions.find((item) => item.id === parsed.data.questionId)
-                if (!question || !question.options.some((option) => option.id === parsed.data.optionId)) {
-                    return buildOutcome(400, attempt)
+                if (!question) return buildOutcome(isAttemptStarted ? 400 : 409, attempt)
+                if (!question.options.some((option) => option.id === parsed.data.optionId)) {
+                    return buildOutcome(isAttemptStarted ? 400 : 409, attempt)
                 }
                 await lockPublicGuestRuntimeKey(
                     tx,
@@ -150,6 +129,25 @@ export const createSaveGuestAssessmentAnswerHandler = (
                     if (selectedIds.length === 1 && selectedIds[0] === parsed.data.optionId) return buildOutcome(200, attempt)
                     return buildOutcome(409, attempt)
                 }
+
+                if (!isAttemptStarted) return buildOutcome(409, attempt)
+
+                // A retry after a committed final answer in a block must return the committed state,
+                // even though that write has already moved the attempt to the next block introduction.
+                if (runtimeState.phase !== 'question') return buildOutcome(409, attempt)
+                const deadline = normalizeAccessLinkDate(attempt.deadlineAt)
+                if (runtimeState.timerState === 'running' && deadline && Date.parse(deadline) <= responseSubmittedAt.getTime()) {
+                    const timedOutAttempt = await finalizeGuestAssessmentAttemptRecord(
+                        tx,
+                        persistence.attemptTable,
+                        persistence.responseTable,
+                        attemptId,
+                        parsed.data.participantId,
+                        'timed_out'
+                    )
+                    return buildOutcome(409, timedOutAttempt ?? attempt)
+                }
+
                 const responses = await listGuestAssessmentResponses(tx, persistence.responseTable, attemptId)
                 const answered = new Set(responses.map((item) => String(item.questionId)))
                 const currentQuestion = questions.find((item) => !answered.has(item.id))
@@ -171,12 +169,79 @@ export const createSaveGuestAssessmentAnswerHandler = (
                         [responseColumns.isCorrect]:
                             question.options.find((option) => option.id === parsed.data.optionId)?.isCorrect === true,
                         [responseColumns.attemptNumber]: attempt.attemptNumber,
-                        [responseColumns.submittedAt]: new Date().toISOString()
+                        [responseColumns.submittedAt]: responseSubmittedAt.toISOString()
                     },
                     id,
                     parsed.data.participantId
                 )
-                return buildOutcome(200, attempt)
+                const nextAnswered = new Set([...answered, question.id])
+                const nextQuestion = questions.find((item) => !nextAnswered.has(item.id))
+                if (!nextQuestion) {
+                    const completedAttempt = await finalizeGuestAssessmentAttemptRecord(
+                        tx,
+                        persistence.attemptTable,
+                        persistence.responseTable,
+                        attemptId,
+                        parsed.data.participantId,
+                        'submitted',
+                        responseSubmittedAt
+                    )
+                    return buildOutcome(200, completedAttempt ?? attempt)
+                }
+                const entersNextBlock = Boolean(
+                    nextQuestion &&
+                        question.blockKey !== null &&
+                        nextQuestion.blockKey !== null &&
+                        question.blockKey !== nextQuestion.blockKey
+                )
+                if (!entersNextBlock) return buildOutcome(200, attempt)
+
+                let timing = {
+                    timerState: runtimeState.timerState,
+                    deadlineAt: runtimeState.deadlineAt,
+                    frozenRemainingMs: runtimeState.frozenRemainingMs
+                }
+                if (flow.pauseTimerOnBlockIntro && runtimeState.timerState === 'running') {
+                    const frozen = freezeAssessmentAttemptTimer(timing, responseSubmittedAt)
+                    if ('expiredAt' in frozen) {
+                        const timedOutAttempt = await finalizeGuestAssessmentAttemptRecord(
+                            tx,
+                            persistence.attemptTable,
+                            persistence.responseTable,
+                            attemptId,
+                            parsed.data.participantId,
+                            'timed_out',
+                            new Date(Date.parse(frozen.expiredAt))
+                        )
+                        return buildOutcome(200, timedOutAttempt ?? attempt)
+                    }
+                    timing = frozen.timing
+                }
+                const phaseRevision = runtimeState.phaseRevision + 1
+                const attemptColumns = persistence.attemptTable.columns
+                const phaseUpdates = {
+                    [attemptColumns.phase]: 'block_intro',
+                    [attemptColumns.phaseRevision]: phaseRevision,
+                    [attemptColumns.timerState]: timing.timerState,
+                    [attemptColumns.deadlineAt]: timing.deadlineAt,
+                    [attemptColumns.frozenRemainingMs]: timing.frozenRemainingMs
+                }
+                await updateGuestAssessmentAttempt(
+                    tx,
+                    persistence.attemptTable,
+                    attemptId,
+                    parsed.data.participantId,
+                    phaseUpdates,
+                    parsed.data.participantId
+                )
+                return buildOutcome(200, {
+                    ...attempt,
+                    phase: 'block_intro',
+                    phaseRevision,
+                    timerState: timing.timerState,
+                    deadlineAt: timing.deadlineAt,
+                    frozenRemainingMs: timing.frozenRemainingMs
+                })
             })
 
             if (outcome.responseStatus !== 200) {

@@ -188,8 +188,17 @@ const publicGuestRuntimeSettings = {
                     maxAttempts: 'MaxAttempts',
                     timeLimitSeconds: 'TimeLimitSeconds',
                     confirmAnswerBeforeNext: 'ConfirmAnswerBeforeNext',
+                    pauseTimerOnBlockIntro: 'PauseTimerOnBlockIntro',
+                    blockRelativeNumbering: 'BlockRelativeNumbering',
                     completionText: 'CompletionText',
+                    blocks: 'Blocks',
                     questions: 'Questions'
+                },
+                assessmentBlock: {
+                    blockKey: 'BlockKey',
+                    title: 'Title',
+                    introduction: 'Introduction',
+                    sortOrder: 'SortOrder'
                 },
                 assessmentQuestion: {
                     prompt: 'Prompt',
@@ -197,6 +206,7 @@ const publicGuestRuntimeSettings = {
                     questionType: 'QuestionType',
                     explanation: 'Explanation',
                     sortOrder: 'SortOrder',
+                    blockKey: 'BlockKey',
                     options: 'Options'
                 },
                 assessmentResponse: {
@@ -221,6 +231,11 @@ const publicGuestRuntimeSettings = {
                     finishedReason: 'FinishedReason',
                     questionsSnapshot: 'QuestionsSnapshot',
                     questionSetDigest: 'QuestionSetDigest',
+                    flowSnapshot: 'FlowSnapshot',
+                    phase: 'Phase',
+                    phaseRevision: 'PhaseRevision',
+                    timerState: 'TimerState',
+                    frozenRemainingMs: 'FrozenRemainingMs',
                     accessLinkId: 'AccessLinkId',
                     classIdSnapshot: 'ClassIdSnapshot',
                     score: 'Score',
@@ -466,6 +481,10 @@ export const buildRevokedAttemptRaceDataSource = (
         revokeDuringMutation?: boolean
         expiresAt?: string | null
         existingAttempt?: boolean
+        completedAttempt?: boolean
+        blockedAttempt?: boolean
+        blockTransitionAttempt?: boolean
+        quizUnavailable?: boolean
         invalidQuestionOptionId?: boolean
         revokeGuestSessionOnTransactionalRevalidation?: boolean
         retargetDuringMutation?: boolean
@@ -473,6 +492,7 @@ export const buildRevokedAttemptRaceDataSource = (
         unlinkContentQuizDuringMutation?: boolean
         workspaceId?: string | null
         beforeTransactionalAccessLinkLock?: () => Promise<void>
+        serializeAdvisoryLocks?: boolean
     } = {}
 ) => {
     const guestConfig = publicGuestRuntimeSettings.publicRuntime.guest
@@ -498,33 +518,36 @@ export const buildRevokedAttemptRaceDataSource = (
         Object.entries(fieldGroups).map(([objectName, groupName]) => [
             objectIds[objectName],
             (() => {
-                const childFieldGroup =
-                    objectName === 'Quizzes' ? 'assessmentQuestion' : objectName === 'LearningResources' ? 'contentPart' : null
-                const childTableField = objectName === 'Quizzes' ? 'questions' : objectName === 'LearningResources' ? 'contentItems' : null
+                const childTables =
+                    objectName === 'Quizzes'
+                        ? [
+                              { field: 'blocks', group: 'assessmentBlock', table: 'quiz_blocks' },
+                              { field: 'questions', group: 'assessmentQuestion', table: 'quiz_questions' }
+                          ]
+                        : objectName === 'LearningResources'
+                        ? [{ field: 'contentItems', group: 'contentPart', table: 'content_items' }]
+                        : []
                 const components = Object.entries(objectFields[groupName]).map(([fieldName, codename], index) => {
-                    const isChildTable = fieldName === childTableField
+                    const childTable = childTables.find((table) => table.field === fieldName)
                     return {
                         id: `${objectName}-component-${index}`,
                         codename: codenameVlc(codename),
-                        column_name: isChildTable
-                            ? objectName === 'Quizzes'
-                                ? 'quiz_questions'
-                                : 'content_items'
-                            : codename.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase(),
-                        data_type: isChildTable ? 'TABLE' : 'STRING',
+                        column_name: childTable?.table ?? codename.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase(),
+                        data_type: childTable ? 'TABLE' : 'STRING',
                         parent_component_id: null as string | null
                     }
                 })
-                if (childFieldGroup) {
-                    const questionsComponent = components.find((component) => component.data_type === 'TABLE')
-                    if (questionsComponent) {
-                        Object.entries(objectFields[childFieldGroup]).forEach(([, codename], index) => {
+                for (const table of childTables) {
+                    const fieldCodename = objectFields[groupName][table.field]
+                    const childComponent = components.find((component) => component.codename.locales.en.content === fieldCodename)
+                    if (childComponent) {
+                        Object.entries(objectFields[table.group]).forEach(([, codename], index) => {
                             components.push({
-                                id: `${objectName}-question-component-${index}`,
+                                id: `${objectName}-${table.field}-component-${index}`,
                                 codename: codenameVlc(codename),
                                 column_name: codename.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase(),
                                 data_type: 'STRING',
-                                parent_component_id: questionsComponent.id
+                                parent_component_id: childComponent.id
                             })
                         })
                     }
@@ -540,37 +563,84 @@ export const buildRevokedAttemptRaceDataSource = (
     const workspaceId = options.workspaceId ?? null
     const sessionToken = Buffer.from(JSON.stringify({ participantId, linkId, secret, workspaceId }), 'utf8').toString('base64url')
     const questionId = '018f8a78-7b8f-7c1d-a111-222233334423'
-    const attemptSnapshot = [
-        {
-            id: questionId,
-            prompt: 'Which planet has rings?',
-            description: null,
-            explanation: null,
-            sortOrder: 0,
-            options: [
-                { id: '018f8a78-7b8f-7c1d-a111-222233334424', label: 'Saturn', isCorrect: true },
-                { id: '018f8a78-7b8f-7c1d-a111-222233334425', label: 'Mars', isCorrect: false }
-            ]
-        }
-    ]
-    const existingAttemptRow = {
+    const firstBlockKey = '018f8a78-7b8f-7c1d-a111-222233334428'
+    const secondBlockKey = '018f8a78-7b8f-7c1d-a111-222233334429'
+    const secondQuestionId = '018f8a78-7b8f-7c1d-a111-222233334430'
+    const attemptSnapshot = options.blockedAttempt
+        ? [
+              {
+                  id: questionId,
+                  prompt: 'Which planet has rings?',
+                  description: null,
+                  explanation: null,
+                  sortOrder: 0,
+                  blockKey: firstBlockKey,
+                  options: [
+                      { id: '018f8a78-7b8f-7c1d-a111-222233334424', label: 'Saturn', isCorrect: true },
+                      { id: '018f8a78-7b8f-7c1d-a111-222233334425', label: 'Mars', isCorrect: false }
+                  ]
+              },
+              {
+                  id: secondQuestionId,
+                  prompt: 'Which planet is red?',
+                  description: null,
+                  explanation: null,
+                  sortOrder: 1,
+                  blockKey: secondBlockKey,
+                  options: [
+                      { id: '018f8a78-7b8f-7c1d-a111-222233334431', label: 'Mars', isCorrect: true },
+                      { id: '018f8a78-7b8f-7c1d-a111-222233334432', label: 'Neptune', isCorrect: false }
+                  ]
+              }
+          ]
+        : [
+              {
+                  id: questionId,
+                  prompt: 'Which planet has rings?',
+                  description: null,
+                  explanation: null,
+                  sortOrder: 0,
+                  blockKey: null,
+                  options: [
+                      { id: '018f8a78-7b8f-7c1d-a111-222233334424', label: 'Saturn', isCorrect: true },
+                      { id: '018f8a78-7b8f-7c1d-a111-222233334425', label: 'Mars', isCorrect: false }
+                  ]
+              }
+          ]
+    const existingAttemptRow: Record<string, unknown> & { id: string } = {
         id: attemptId,
         studentId: participantId,
         quizId,
         attemptNumber: 1,
         startedAt: '2026-10-10T12:00:00.000Z',
-        submittedAt: null,
+        submittedAt: options.completedAttempt ? '2026-10-10T12:05:00.000Z' : null,
         deadlineAt: null,
         effectiveTimeLimitSeconds: 0,
         passingScorePercentSnapshot: 70,
-        finishedReason: null,
+        finishedReason: options.completedAttempt ? 'submitted' : null,
         questionsSnapshot: attemptSnapshot,
         questionSetDigest: 'a'.repeat(64),
+        flowSnapshot: options.blockedAttempt
+            ? {
+                  contractVersion: 1,
+                  blocks: [
+                      { key: firstBlockKey, title: 'Planets', introduction: 'First block', sortOrder: 0 },
+                      { key: secondBlockKey, title: 'Orbits', introduction: 'Second block', sortOrder: 1 }
+                  ],
+                  pauseTimerOnBlockIntro: false,
+                  numberingMode: 'block',
+                  completionText: ''
+              }
+            : { contractVersion: 1, blocks: [], pauseTimerOnBlockIntro: false, numberingMode: 'global', completionText: '' },
+        phase: options.blockedAttempt ? 'block_intro' : 'question',
+        phaseRevision: options.blockTransitionAttempt ? 1 : 0,
+        timerState: 'untimed',
+        frozenRemainingMs: null,
         accessLinkId: linkId,
         score: 0,
-        totalQuestions: 1,
+        totalQuestions: options.blockedAttempt ? 2 : 1,
         passed: false,
-        status: 'Started'
+        status: options.completedAttempt ? 'Submitted' : 'Started'
     }
     const attemptQueries: string[] = []
     const responseQueries: string[] = []
@@ -662,6 +732,7 @@ export const buildRevokedAttemptRaceDataSource = (
                 }
                 if (sql.includes(`FROM "${schemaName}"."quiz_table"`)) {
                     quizQueries.push(sql)
+                    if (options.quizUnavailable) return []
                     return [
                         {
                             id: quizId,
@@ -676,6 +747,7 @@ export const buildRevokedAttemptRaceDataSource = (
                 }
                 if (sql.includes(`FROM "${schemaName}"."quiz_questions"`)) {
                     quizQueries.push(sql)
+                    if (options.quizUnavailable) return []
                     return [
                         {
                             id: questionId,
@@ -720,18 +792,43 @@ export const buildRevokedAttemptRaceDataSource = (
                 }
                 if (sql.includes(`"${schemaName}"."quiz_attempts_table"`)) {
                     attemptQueries.push(sql)
-                    if (/^\s*UPDATE\s/i.test(sql)) return [{ id: attemptId }]
+                    if (/^\s*UPDATE\s/i.test(sql)) {
+                        if (options.blockedAttempt) {
+                            const fieldsByColumn = Object.fromEntries(
+                                Object.entries(objectFields.assessmentAttempt).map(([field, codename]) => [
+                                    codename.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase(),
+                                    field
+                                ])
+                            )
+                            const setClause = sql.match(/\bSET\s+([\s\S]*?)\s+WHERE\b/i)?.[1] ?? ''
+                            for (const [, column, parameter] of setClause.matchAll(/"([a-zA-Z_][a-zA-Z0-9_]*)"\s*=\s*\$(\d+)/g)) {
+                                const field = fieldsByColumn[column]
+                                if (field) existingAttemptRow[field] = params[Number(parameter) - 1]
+                            }
+                        }
+                        return [{ id: attemptId }]
+                    }
                     if (options.existingAttempt && sql.includes('SELECT')) return [existingAttemptRow]
                     return []
                 }
                 if (sql.includes(`"${schemaName}"."quiz_responses_table"`)) {
                     responseQueries.push(sql)
+                    if (options.blockTransitionAttempt || options.completedAttempt) {
+                        return [
+                            {
+                                questionId,
+                                selectedOptionIds: JSON.stringify([attemptSnapshot[0]?.options[0]?.id]),
+                                isCorrect: true
+                            }
+                        ]
+                    }
                     return []
                 }
                 return undefined
             },
             { workspacesEnabled: Boolean(workspaceId) }
-        )
+        ),
+        { serializeAdvisoryLocks: options.serializeAdvisoryLocks }
     )
 
     return {

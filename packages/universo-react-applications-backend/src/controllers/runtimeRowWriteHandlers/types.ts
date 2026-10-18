@@ -25,14 +25,14 @@ export type RuntimeTableChildAttrRow = {
 }
 
 export type RuntimeWriteTableDataEntry = {
+    cmp: RuntimeObjectCollectionAttr
+    childAttrs: RuntimeTableChildAttrRow[]
     tabTableName: string
     rows: Array<Record<string, unknown>>
     childAttrsByColumn: Map<string, RuntimeTableChildComponentMeta>
 }
 
-export type RuntimeWriteTableDataEntryWithAttr = RuntimeWriteTableDataEntry & {
-    cmp: RuntimeObjectCollectionAttr
-}
+export type RuntimeWriteTableDataEntryWithAttr = RuntimeWriteTableDataEntry
 
 export type RuntimeWriteCopyRelationsConfig = Exclude<ReturnType<typeof readRuntimeCopyRelations>, { invalid: true }>
 

@@ -4,13 +4,35 @@ import {
     normalizeLocale,
     resolveLocalizedContent,
     generateUuidV7,
-    updateLocalizedContentLocale
+    updateLocalizedContentLocale,
+    buildTabularSiblingRowOptions as buildSharedTabularSiblingRowOptions,
+    normalizeTabularSiblingRowOrder,
+    readTabularRowOrderingConfig as readSharedTabularRowOrderingConfig,
+    readTabularSiblingSelectConfig,
+    resolveTabularSiblingFieldValue,
+    sortTabularSiblingRows,
+    type TabularRowOrderingConfig as SharedTabularRowOrderingConfig,
+    type TabularSiblingSelectConfig
 } from '@universo-react/utils'
 import type { VersionedLocalizedContent } from '@universo-react/types'
-import type { FieldConfig } from '../components/dialogs/FormDialog'
+import type { FieldConfig } from '../components/dialogs/fieldConfig'
 import { formatRuntimeSafeValue } from './displayValue'
 
 type TabularFieldLike = Pick<FieldConfig, 'id' | 'codename' | 'type' | 'localized' | 'validationRules' | 'uiConfig'>
+
+export type TabularSiblingTableSource = {
+    rows: Record<string, unknown>[]
+    childFields: Array<Pick<FieldConfig, 'id' | 'codename'>>
+    rowOrdering?: unknown
+}
+
+export type TabularSiblingTableValues = Record<string, TabularSiblingTableSource>
+
+export type TabularSiblingRowSelectConfig = TabularSiblingSelectConfig
+
+export type TabularRowOrderingConfig = SharedTabularRowOrderingConfig
+
+export type TabularRowSelectOption = { id: string; label: string }
 
 export const isLocalizedStringField = (field: TabularFieldLike): boolean =>
     field.type === 'STRING' &&
@@ -75,10 +97,62 @@ export const normalizeTabularRowValues = (
     return normalizedRow
 }
 
-const getTabularFieldCodename = (field: TabularFieldLike): string => field.codename ?? field.id
+export const readTabularSiblingRowSelectConfig = (field: TabularFieldLike): TabularSiblingRowSelectConfig | null => {
+    return readTabularSiblingSelectConfig(field) as TabularSiblingRowSelectConfig | null
+}
+
+export const readTabularRowOrderingConfig = (value: unknown): TabularRowOrderingConfig | null => readSharedTabularRowOrderingConfig(value)
+
+export const resolveTabularRowFieldValue = (
+    row: Record<string, unknown>,
+    childFields: Array<Pick<FieldConfig, 'id' | 'codename'>>,
+    codename: string
+): unknown => {
+    return resolveTabularSiblingFieldValue(row, childFields, codename)
+}
+
+export const buildTabularSiblingRowOptions = (
+    field: TabularFieldLike,
+    siblingTables: TabularSiblingTableValues | undefined,
+    locale: string
+): TabularRowSelectOption[] => {
+    return buildSharedTabularSiblingRowOptions({
+        field,
+        siblingTables,
+        formatLabel: (value) => getTabularStringDisplayValue(value, locale)
+    })
+}
+
+export const sortTabularRowsByOrder = <TRow extends Record<string, unknown>>(
+    rows: TRow[],
+    rawConfig: unknown,
+    childFields: Array<Pick<FieldConfig, 'id' | 'codename'>>
+): TRow[] => {
+    return sortTabularSiblingRows(rows, rawConfig, childFields)
+}
+
+export const normalizeTabularRowOrdering = <TRow extends Record<string, unknown>>(
+    rows: TRow[],
+    rawConfig: unknown,
+    childFields: Array<Pick<FieldConfig, 'id' | 'codename'>>
+): TRow[] => {
+    return normalizeTabularSiblingRowOrder(rows, rawConfig, childFields)
+}
+
+export const getTabularRowOrderingLabel = (
+    row: Record<string, unknown>,
+    rawConfig: unknown,
+    childFields: Array<Pick<FieldConfig, 'id' | 'codename'>>,
+    locale: string
+): string => {
+    const config = readTabularRowOrderingConfig(rawConfig)
+    return config
+        ? getTabularStringDisplayValue(resolveTabularSiblingFieldValue(row, childFields, config.labelFieldCodename), locale).trim()
+        : ''
+}
 
 const shouldGenerateStableTabularCellId = (field: TabularFieldLike): boolean =>
-    field.type === 'STRING' && getTabularFieldCodename(field) === 'CellId' && field.uiConfig?.serverOwned === true
+    field.type === 'STRING' && field.uiConfig?.generateUuidV7 === true
 
 export const buildInitialTabularRowValues = (childFields: TabularFieldLike[]): Record<string, unknown> => {
     const row: Record<string, unknown> = {}

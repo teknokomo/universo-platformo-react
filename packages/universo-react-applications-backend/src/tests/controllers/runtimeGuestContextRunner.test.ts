@@ -97,7 +97,12 @@ describe('public guest runtime context errors', () => {
     it('commits the public application read lock before sending the response', async () => {
         const events: string[] = []
         const transaction = jest.fn(async (work: (tx: DbExecutor) => Promise<void>) => {
-            const tx = { query: jest.fn().mockResolvedValue([{ id: applicationId }]) } as unknown as DbExecutor
+            const tx = {
+                query: jest.fn(async () => {
+                    events.push('application-lock')
+                    return [{ id: applicationId }]
+                })
+            } as unknown as DbExecutor
             await work(tx)
             events.push('commit')
         })
@@ -120,12 +125,13 @@ describe('public guest runtime context errors', () => {
         const runner = createPublicRuntimeContextRunner(() => executor)
 
         await runner.withPublicRuntimeContext(applicationId, response, async () => {
+            events.push('guest-work')
             response.setHeader('X-Guest-Test', 'committed')
             response.status(201).json({ ok: true })
             expect(jsonSpy).not.toHaveBeenCalled()
         })
 
-        expect(events).toEqual(['commit', 'header', 'json'])
+        expect(events).toEqual(['application-lock', 'guest-work', 'commit', 'header', 'json'])
         expect(jsonSpy).toHaveBeenCalledWith({ ok: true })
         expect(headerSpy).toHaveBeenCalledWith('X-Guest-Test', 'committed')
         expect(response.statusCode).toBe(201)

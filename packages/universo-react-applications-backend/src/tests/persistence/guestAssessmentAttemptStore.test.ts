@@ -34,6 +34,11 @@ const attemptTable: GuestAssessmentAttemptTable = {
         finishedReason: 'finished_reason',
         questionsSnapshot: 'questions_snapshot',
         questionSetDigest: 'question_set_digest',
+        flowSnapshot: 'flow_snapshot',
+        phase: 'phase',
+        phaseRevision: 'phase_revision',
+        timerState: 'timer_state',
+        frozenRemainingMs: 'frozen_remaining_ms',
         accessLinkId: 'access_link_id',
         classIdSnapshot: 'class_id_snapshot',
         score: 'score',
@@ -71,6 +76,7 @@ describe('guest assessment attempt store', () => {
         const [sql, params] = executor.query.mock.calls[0]
         expect(sql).toContain(`"${attemptTable.schemaName}"."${attemptTable.tableName}"`)
         expect(sql).toContain('"status" = \'Started\'')
+        expect(sql).toContain('"timer_state" = \'running\'')
         expect(sql).toContain('"deadline_at" <= $1')
         expect(sql).toContain('ORDER BY "deadline_at" ASC, "id" ASC')
         expect(sql).toContain('"workspace_id" = $3')

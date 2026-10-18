@@ -2,7 +2,7 @@ import { ComponentDefinitionDataType } from '@universo-react/types'
 import type { Knex } from 'knex'
 import knexFactory from 'knex'
 import { SchemaGenerator } from '../SchemaGenerator'
-import { generateSchemaName, generateTableName, generateColumnName } from '../naming'
+import { generateChildTableName, generateSchemaName, generateTableName, generateColumnName } from '../naming'
 
 // Create mock Knex instance
 const mockTableBuilder = {
@@ -854,8 +854,8 @@ describe('SchemaGenerator', () => {
                         }
                     },
                     fields: []
-                }
-            ] as unknown as import('../types').EntityDefinition[])
+                } as unknown as import('../types').EntityDefinition
+            ])
 
             const businessCalls = createTableCalls.get('orders') ?? []
             const businessColumns = businessCalls.map((entry) => String(entry.args[0]))
@@ -869,6 +869,7 @@ describe('SchemaGenerator', () => {
             expect(businessColumns).not.toContain('_upl_deleted')
             expect(businessColumns).not.toContain('_upl_deleted_at')
             expect(businessColumns).not.toContain('_upl_deleted_by')
+            expect(businessColumns).not.toContain('_upl_delete_cascade_id')
             expect(businessColumns).toContain('_upl_created_at')
             expect(businessColumns).toContain('_upl_updated_at')
             expect(businessColumns).toContain('_app_owner_id')
@@ -945,34 +946,39 @@ describe('SchemaGenerator', () => {
             jest.spyOn(localGenerator, 'ensureSystemTables').mockResolvedValue()
             jest.spyOn(localGenerator, 'syncSystemMetadata').mockResolvedValue()
 
-            await localGenerator.generateFullSchema('app_test123', [
-                {
-                    id: 'object-orders',
-                    codename: 'orders',
-                    kind: 'object',
-                    physicalTableName: 'orders',
-                    config: {
-                        systemFields: {
-                            fields: [
-                                { key: 'upl.archived', enabled: false },
-                                { key: 'upl.archived_at', enabled: false },
-                                { key: 'upl.archived_by', enabled: false },
-                                { key: 'upl.deleted', enabled: true },
-                                { key: 'upl.deleted_at', enabled: false },
-                                { key: 'upl.deleted_by', enabled: true }
-                            ],
-                            lifecycleContract: {
-                                publish: { enabled: true, trackAt: false, trackBy: false },
-                                archive: { enabled: false },
-                                delete: { mode: 'soft', trackAt: false, trackBy: true }
-                            }
+            const lifecycleEntity = {
+                id: 'object-orders',
+                codename: 'orders',
+                kind: 'object',
+                physicalTableName: 'orders',
+                config: {
+                    systemFields: {
+                        fields: [
+                            { key: 'upl.archived', enabled: false },
+                            { key: 'upl.archived_at', enabled: false },
+                            { key: 'upl.archived_by', enabled: false },
+                            { key: 'upl.deleted', enabled: true },
+                            { key: 'upl.deleted_at', enabled: false },
+                            { key: 'upl.deleted_by', enabled: true }
+                        ],
+                        lifecycleContract: {
+                            publish: { enabled: true, trackAt: false, trackBy: false },
+                            archive: { enabled: false },
+                            delete: { mode: 'soft', trackAt: false, trackBy: true }
                         }
-                    },
-                    fields: []
-                }
-            ] as unknown as import('../types').EntityDefinition[])
+                    }
+                },
+                fields: []
+            } as unknown as import('../types').EntityDefinition
+
+            await localGenerator.generateFullSchema('app_test123', [lifecycleEntity])
+            const tableComponentId = '019f2000-0000-7000-8000-000000000099'
+            await localGenerator.createTabularTable('app_test123', lifecycleEntity, 'orders', { id: tableComponentId } as never, [])
 
             const businessColumns = (createTableCalls.get('orders') ?? []).map((entry) => String(entry.args[0]))
+            const childTableColumns = (createTableCalls.get(generateChildTableName(tableComponentId)) ?? []).map((entry) =>
+                String(entry.args[0])
+            )
 
             expect(businessColumns).toContain('_app_published')
             expect(businessColumns).not.toContain('_app_published_at')
@@ -985,6 +991,8 @@ describe('SchemaGenerator', () => {
             expect(businessColumns).toContain('_upl_deleted')
             expect(businessColumns).not.toContain('_upl_deleted_at')
             expect(businessColumns).toContain('_upl_deleted_by')
+            expect(businessColumns).toContain('_upl_delete_cascade_id')
+            expect(childTableColumns).toContain('_upl_delete_cascade_id')
         })
 
         it('adds system reversal idempotency columns to ledger runtime tables', async () => {
@@ -1112,6 +1120,51 @@ describe('SchemaGenerator', () => {
 
             const ledgerColumns = (createTableCalls.get('obj_hybrid_object') ?? []).map((entry) => String(entry.args[0]))
             expect(ledgerColumns).toContain('_app_reversal_of_fact_id')
+        })
+
+        it('idempotently ensures cascade marker columns on existing soft-delete parent and TABLE tables', async () => {
+            const localKnex = {
+                raw: jest.fn().mockResolvedValue(undefined)
+            } as unknown as import('knex').Knex
+            const localGenerator = new SchemaGenerator(localKnex)
+
+            await localGenerator.ensureApplicationCascadeDeleteColumns('app_abcdef123456', [
+                {
+                    id: 'orders-id',
+                    codename: 'orders',
+                    kind: 'object',
+                    physicalTableName: 'orders',
+                    fields: [
+                        {
+                            id: '019f2000-0000-7000-8000-000000000006',
+                            codename: 'Blocks',
+                            dataType: ComponentDefinitionDataType.TABLE,
+                            isRequired: false
+                        }
+                    ],
+                    config: {
+                        systemFields: {
+                            lifecycleContract: {
+                                publish: { enabled: false },
+                                archive: { enabled: false },
+                                delete: { mode: 'soft' }
+                            }
+                        }
+                    }
+                }
+            ] as unknown as import('../types').EntityDefinition[])
+
+            expect(localKnex.raw).toHaveBeenCalledTimes(2)
+            expect(localKnex.raw).toHaveBeenNthCalledWith(1, 'ALTER TABLE IF EXISTS ??.?? ADD COLUMN IF NOT EXISTS ?? uuid NULL', [
+                'app_abcdef123456',
+                'orders',
+                '_upl_delete_cascade_id'
+            ])
+            expect(localKnex.raw).toHaveBeenNthCalledWith(2, 'ALTER TABLE IF EXISTS ??.?? ADD COLUMN IF NOT EXISTS ?? uuid NULL', [
+                'app_abcdef123456',
+                generateChildTableName('019f2000-0000-7000-8000-000000000006'),
+                '_upl_delete_cascade_id'
+            ])
         })
     })
 })

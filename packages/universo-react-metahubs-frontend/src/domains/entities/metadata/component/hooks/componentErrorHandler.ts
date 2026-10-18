@@ -12,6 +12,17 @@ export const getComponentMutationErrorMessage = (
         return t('components.bindingSchemaProtected', 'This field is part of a widget binding and its data contract cannot be changed.')
     }
 
+    if (error.response?.data?.code === 'INVALID_SIBLING_ROW_SELECT_REFERENCE') {
+        return t(
+            'components.siblingRowSelectReferenceProtected',
+            'This change would invalidate a sibling-row selection. Update the linked table fields first.'
+        )
+    }
+
+    if (error.response?.data?.code === 'COMPONENT_METADATA_LOCKED') {
+        return t('components.metadataMutationInProgress', 'Component metadata is changing. Retry this change shortly.')
+    }
+
     return error.response?.data?.message || error.response?.data?.error || error.message || t(fallbackKey)
 }
 

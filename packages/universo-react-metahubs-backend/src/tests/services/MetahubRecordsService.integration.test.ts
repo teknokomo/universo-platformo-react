@@ -64,6 +64,63 @@ describeIntegration('Metahub records integrity integration (requires PostgreSQL)
         targetEntityId: pricingObjectId,
         validationRules: {}
     }
+    const siblingTableComponents = [
+        {
+            id: 'blocks-table',
+            codename: 'Blocks',
+            dataType: 'TABLE',
+            isRequired: false,
+            parentComponentId: null,
+            validationRules: {}
+        },
+        {
+            id: 'block-key',
+            codename: 'BlockKey',
+            dataType: 'STRING',
+            isRequired: true,
+            parentComponentId: 'blocks-table',
+            validationRules: {}
+        },
+        {
+            id: 'block-title',
+            codename: 'Title',
+            dataType: 'STRING',
+            isRequired: true,
+            parentComponentId: 'blocks-table',
+            validationRules: {}
+        },
+        {
+            id: 'questions-table',
+            codename: 'Questions',
+            dataType: 'TABLE',
+            isRequired: false,
+            parentComponentId: null,
+            validationRules: {}
+        },
+        {
+            id: 'question-prompt',
+            codename: 'Prompt',
+            dataType: 'STRING',
+            isRequired: true,
+            parentComponentId: 'questions-table',
+            validationRules: {}
+        },
+        {
+            id: 'question-block-key',
+            codename: 'BlockKey',
+            dataType: 'STRING',
+            isRequired: false,
+            parentComponentId: 'questions-table',
+            uiConfig: {
+                siblingRowSelect: {
+                    tableCodename: 'Blocks',
+                    valueFieldCodename: 'BlockKey',
+                    labelFieldCodename: 'Title'
+                }
+            },
+            validationRules: {}
+        }
+    ]
 
     const createService = (components: unknown[] = [tierKeyComponent], allComponents: unknown[] = [rootTierRefComponent]) => {
         const schemaService = { ensureSchema: jest.fn().mockResolvedValue(schemaName) }
@@ -414,6 +471,30 @@ describeIntegration('Metahub records integrity integration (requires PostgreSQL)
             refService.update(metahubId, pricingObjectId, tierId, { data: { TierRef: uuid('99') } }, userId)
         ).rejects.toBeInstanceOf(MetahubRecordReferenceMissingError)
         await expect(readTier()).resolves.toMatchObject({ data: { TierKey: 'pre-seed' }, _upl_version: 1 })
+    })
+
+    it('rolls back a TABLE update that would remove a sibling row still referenced by questions', async () => {
+        const data = {
+            TierKey: 'pre-seed',
+            Blocks: [{ BlockKey: 'block-one', Title: 'Block One' }],
+            Questions: [{ Prompt: 'Question?', BlockKey: 'block-one' }]
+        }
+        await knex.raw(`UPDATE ${qSchemaTable(schemaName, '_mhb_elements')} SET data = ?::jsonb WHERE id = ?`, [
+            JSON.stringify(data),
+            tierId
+        ])
+        const service = createService(siblingTableComponents, [])
+
+        await expect(
+            service.update(metahubId, pricingObjectId, tierId, { data: { Blocks: [] }, expectedVersion: 1 }, userId)
+        ).rejects.toBeInstanceOf(MetahubRecordReferencedError)
+
+        const rows = (await knex.raw(`SELECT data, _upl_version FROM ${qSchemaTable(schemaName, '_mhb_elements')} WHERE id = ?`, [
+            tierId
+        ])) as {
+            rows: Array<{ data: Record<string, unknown>; _upl_version: number }>
+        }
+        expect(rows.rows[0]).toMatchObject({ data, _upl_version: 1 })
     })
 
     it('checks only patched REF fields so legacy dangling references do not block unrelated edits', async () => {

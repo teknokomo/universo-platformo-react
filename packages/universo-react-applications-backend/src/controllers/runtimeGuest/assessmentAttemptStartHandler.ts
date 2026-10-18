@@ -1,11 +1,13 @@
 import type { Request, Response } from 'express'
-import { ZodError } from 'zod'
+import { ZodError, z } from 'zod'
 import type { DbExecutor } from '@universo-react/utils'
 import {
     buildAssessmentAttemptSnapshot,
     createAssessmentQuestionSetDigest,
     type SourceAssessmentQuestion
 } from '../../services/assessmentAttemptLifecycle'
+import { createAssessmentAttemptFlowSnapshot, assessmentAttemptBlockSchema } from '../../services/assessmentAttemptFlow'
+import { createAssessmentAttemptTiming } from '../../services/assessmentAttemptTiming'
 import { finalizeGuestAssessmentAttempt as finalizeGuestAssessmentAttemptRecord } from '../../services/guestAssessmentAttemptLifecycleService'
 import { insertGuestAssessmentRecord, listGuestAssessmentAttempts } from '../../persistence/guestAssessmentAttemptStore'
 import { validateRuntimeEntityRecordPolicy } from '../../shared/entityMutationPolicy'
@@ -67,20 +69,6 @@ export const createStartGuestAssessmentAttemptHandler = (
                 res.status(403).json({ error: 'Quiz is not available for this guest session' })
                 return
             }
-
-            const quiz = await buildQuizPayload(
-                ctx.manager,
-                ctx.schemaName,
-                config,
-                parsed.data.assessmentId,
-                true,
-                locale,
-                link.workspaceId
-            )
-            if (!quiz || quiz.type !== 'quiz' || quiz.questions.length === 0) {
-                res.status(404).json({ error: 'Quiz is not available' })
-                return
-            }
             const persistence = await resolveGuestAssessmentRuntimeTables(ctx.manager, ctx.schemaName, config, link.workspaceId)
             if (!persistence) {
                 res.status(400).json({ error: 'Assessment attempt storage is not available' })
@@ -92,8 +80,6 @@ export const createStartGuestAssessmentAttemptHandler = (
             )
                 return
 
-            let activeQuiz = quiz
-            let completionText = typeof activeQuiz.completionText === 'string' ? activeQuiz.completionText : ''
             let attemptState: Record<string, unknown> | null = null
             let conflict: 'unavailable' | 'attempt_limit' | null = null
             try {
@@ -142,23 +128,6 @@ export const createStartGuestAssessmentAttemptHandler = (
                         conflict = 'unavailable'
                         return
                     }
-                    const currentQuiz = await buildQuizPayload(
-                        tx,
-                        ctx.schemaName,
-                        config,
-                        parsed.data.assessmentId,
-                        true,
-                        locale,
-                        currentLink.workspaceId,
-                        true,
-                        { lockParentRecord: true }
-                    )
-                    if (!currentQuiz || currentQuiz.type !== 'quiz' || currentQuiz.questions.length === 0) {
-                        conflict = 'unavailable'
-                        return
-                    }
-                    activeQuiz = currentQuiz
-                    completionText = typeof activeQuiz.completionText === 'string' ? activeQuiz.completionText : ''
                     await lockPublicGuestRuntimeKey(
                         tx,
                         `${ctx.schemaName}:guest-attempt-allocation:${link.workspaceId ?? ''}:${parsed.data.participantId}:${
@@ -178,7 +147,7 @@ export const createStartGuestAssessmentAttemptHandler = (
                     if (startedAttempt) {
                         const deadline = normalizeAccessLinkDate(startedAttempt.deadlineAt)
                         let currentAttempt: (Record<string, unknown> & { id: string }) | null
-                        if (deadline && Date.parse(deadline) <= Date.now()) {
+                        if (String(startedAttempt.timerState ?? '') === 'running' && deadline && Date.parse(deadline) <= Date.now()) {
                             currentAttempt = await finalizeGuestAssessmentAttemptRecord(
                                 tx,
                                 persistence.attemptTable,
@@ -196,10 +165,25 @@ export const createStartGuestAssessmentAttemptHandler = (
                                 persistence.attemptTable,
                                 persistence.responseTable,
                                 currentAttempt,
-                                locale,
-                                completionText
+                                locale
                             )
                         }
+                        return
+                    }
+
+                    const activeQuiz = await buildQuizPayload(
+                        tx,
+                        ctx.schemaName,
+                        config,
+                        parsed.data.assessmentId,
+                        true,
+                        locale,
+                        currentLink.workspaceId,
+                        true,
+                        { lockParentRecord: true, includeCompletionTextSource: true }
+                    )
+                    if (!activeQuiz || activeQuiz.type !== 'quiz' || activeQuiz.questions.length === 0) {
+                        conflict = 'unavailable'
                         return
                     }
 
@@ -215,11 +199,27 @@ export const createStartGuestAssessmentAttemptHandler = (
                     }
 
                     const sourceQuestions = activeQuiz.questions as SourceAssessmentQuestion[]
-                    const questionSnapshot = buildAssessmentAttemptSnapshot(sourceQuestions)
+                    const blocks = Array.isArray(activeQuiz.blocks)
+                        ? activeQuiz.blocks.map((block) => assessmentAttemptBlockSchema.parse(block))
+                        : []
+                    const pauseTimerOnBlockIntro = z.boolean().parse(activeQuiz.pauseTimerOnBlockIntro)
+                    const blockRelativeNumbering = z.boolean().parse(activeQuiz.blockRelativeNumbering)
+                    const flowSnapshot = createAssessmentAttemptFlowSnapshot({
+                        blocks,
+                        pauseTimerOnBlockIntro,
+                        numberingMode: blockRelativeNumbering ? 'block' : 'global',
+                        completionText: activeQuiz.completionTextSource ?? activeQuiz.completionText
+                    })
+                    const questionSnapshot = buildAssessmentAttemptSnapshot(sourceQuestions, flowSnapshot)
                     const now = new Date()
                     const timeLimitSeconds = normalizeAccessLinkNumber(activeQuiz.timeLimitSeconds)
                     const effectiveSeconds = timeLimitSeconds !== null && timeLimitSeconds > 0 ? Math.floor(timeLimitSeconds) : 0
-                    const deadlineAt = effectiveSeconds > 0 ? new Date(now.getTime() + effectiveSeconds * 1000).toISOString() : null
+                    const phase = flowSnapshot.blocks.length > 0 ? 'block_intro' : 'question'
+                    const timing = createAssessmentAttemptTiming({
+                        effectiveTimeLimitSeconds: effectiveSeconds,
+                        startsOnPausedIntro: phase === 'block_intro' && pauseTimerOnBlockIntro,
+                        now
+                    })
                     const id = await createUuidV7(tx)
                     const fields = persistence.attemptTable.columns
                     await insertGuestAssessmentRecord(
@@ -231,12 +231,17 @@ export const createStartGuestAssessmentAttemptHandler = (
                             [fields.attemptNumber]: previousAttempts.length + 1,
                             [fields.startedAt]: now.toISOString(),
                             [fields.submittedAt]: null,
-                            [fields.deadlineAt]: deadlineAt,
+                            [fields.deadlineAt]: timing.deadlineAt,
                             [fields.effectiveTimeLimitSeconds]: effectiveSeconds,
                             [fields.passingScorePercentSnapshot]: activeQuiz.passingScorePercent,
                             [fields.finishedReason]: null,
                             [fields.questionsSnapshot]: JSON.stringify(questionSnapshot),
                             [fields.questionSetDigest]: createAssessmentQuestionSetDigest(questionSnapshot),
+                            [fields.flowSnapshot]: JSON.stringify(flowSnapshot),
+                            [fields.phase]: phase,
+                            [fields.phaseRevision]: 0,
+                            [fields.timerState]: timing.timerState,
+                            [fields.frozenRemainingMs]: timing.frozenRemainingMs,
                             [fields.accessLinkId]: currentLink.id,
                             [fields.classIdSnapshot]: currentLink.classId,
                             [fields.score]: 0,
@@ -255,11 +260,16 @@ export const createStartGuestAssessmentAttemptHandler = (
                         attemptNumber: previousAttempts.length + 1,
                         startedAt: now.toISOString(),
                         submittedAt: null,
-                        deadlineAt,
+                        deadlineAt: timing.deadlineAt,
                         effectiveTimeLimitSeconds: effectiveSeconds,
                         passingScorePercentSnapshot: activeQuiz.passingScorePercent,
                         finishedReason: null,
                         questionsSnapshot: questionSnapshot,
+                        flowSnapshot,
+                        phase,
+                        phaseRevision: 0,
+                        timerState: timing.timerState,
+                        frozenRemainingMs: timing.frozenRemainingMs,
                         questionSetDigest: createAssessmentQuestionSetDigest(questionSnapshot),
                         accessLinkId: currentLink.id,
                         score: 0,
@@ -267,14 +277,7 @@ export const createStartGuestAssessmentAttemptHandler = (
                         passed: false,
                         status: 'Started'
                     }
-                    attemptState = await toGuestAttemptState(
-                        tx,
-                        persistence.attemptTable,
-                        persistence.responseTable,
-                        attempt,
-                        locale,
-                        completionText
-                    )
+                    attemptState = await toGuestAttemptState(tx, persistence.attemptTable, persistence.responseTable, attempt, locale)
                 })
             } catch (error) {
                 if (error instanceof ZodError) {

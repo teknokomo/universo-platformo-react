@@ -148,6 +148,29 @@ test('accepts the canonical fixture dashboard with scoped layouts, entity bindin
     assert.deepEqual(assertDashboardFixture(cloneSourceFixture()), [])
 })
 
+test('requires every published LMS quiz block to be referenced by at least one question', () => {
+    const quizzes = findEntityByCodename(cloneSourceFixture(), 'Quizzes')
+    assert.ok(quizzes)
+    const rootFields = Array.isArray(quizzes.fields)
+        ? quizzes.fields.map(readRecord).filter((field): field is FixtureRecord => Boolean(field))
+        : []
+    const findChildField = (parentCodename: string, childCodename: string): FixtureRecord | undefined => {
+        const parent = rootFields.find((field) => readLocalizedText(field.codename) === parentCodename)
+        const childFields = Array.isArray(parent?.childFields)
+            ? parent.childFields.map(readRecord).filter((field): field is FixtureRecord => Boolean(field))
+            : []
+        return childFields.find((field) => readLocalizedText(field.codename) === childCodename)
+    }
+    const blockKey = findChildField('Blocks', 'BlockKey')
+    const questionBlock = findChildField('Questions', 'BlockKey')
+    const siblingRowSelect = readRecord(readRecord(questionBlock?.uiConfig)?.siblingRowSelect)
+
+    assert.equal(readRecord(blockKey?.uiConfig)?.siblingRowSelectKey, true)
+    assert.equal(readRecord(blockKey?.uiConfig)?.generateUuidV7, true)
+    assert.equal(siblingRowSelect?.requiredWithRows, true)
+    assert.equal(siblingRowSelect?.requireEachTargetReferenced, true)
+})
+
 test('requires AccessLinks relation fields to stay server-owned in the published LMS fixture', () => {
     const fixture = cloneSourceFixture()
     const targetType = findAccessLinksField(fixture, 'TargetType')

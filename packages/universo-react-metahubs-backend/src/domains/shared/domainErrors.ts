@@ -17,6 +17,8 @@ export type MetahubErrorCode =
     | 'RECORD_PROTECTED'
     | 'RECORD_KEY_DUPLICATE'
     | 'RECORD_REF_TARGET_MISSING'
+    | 'RECORD_SIBLING_TARGET_UNREFERENCED'
+    | 'RECORD_SIBLING_TARGET_KEY_DUPLICATE'
     | 'TRANSFER_NOT_ALLOWED'
     | 'CODENAME_CONFLICT'
     | 'TABLE_CHILD_LIMIT_REACHED'
@@ -226,8 +228,8 @@ export class MetahubRecordReferenceMissingError extends MetahubDomainError {
 }
 
 export class MetahubValidationError extends MetahubDomainError {
-    constructor(message: string, details?: Record<string, unknown>) {
-        super({ message, statusCode: 400, code: 'VALIDATION_ERROR', details })
+    constructor(message: string, details?: Record<string, unknown>, code: MetahubErrorCode = 'VALIDATION_ERROR') {
+        super({ message, statusCode: 400, code, details })
         this.name = 'MetahubValidationError'
     }
 }

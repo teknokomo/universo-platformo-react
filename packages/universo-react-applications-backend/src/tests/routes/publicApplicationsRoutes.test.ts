@@ -42,6 +42,10 @@ describe('Public Applications Routes', () => {
                 send: async () => request(app).get(`/public/a/${applicationId}/runtime/attempts/not-a-uuid`)
             },
             {
+                name: 'continue assessment block',
+                send: async () => request(app).post(`/public/a/${applicationId}/runtime/attempts/not-a-uuid/continue`).send({})
+            },
+            {
                 name: 'save assessment answer',
                 send: async () => request(app).put(`/public/a/${applicationId}/runtime/attempts/not-a-uuid/answers`).send({})
             },

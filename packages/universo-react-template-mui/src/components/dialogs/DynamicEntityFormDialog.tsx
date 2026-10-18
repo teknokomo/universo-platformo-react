@@ -37,8 +37,12 @@ import {
 import {
     buildTableConstraintText,
     createLocalizedContent,
+    getDuplicateTabularGroupingTargetIds,
+    getInvalidTabularSiblingSourceIds,
+    getUnreferencedTabularGroupingTargetIds,
     isSemanticLongTextRuntimeField,
     NUMBER_DEFAULTS,
+    planTabularGroupingTransition,
     toNumberRules,
     validateNumber
 } from '@universo-react/utils'
@@ -170,6 +174,7 @@ export interface DynamicEntityFormDialogProps {
     renderField?: (params: {
         field: DynamicFieldConfig
         value: unknown
+        values: Record<string, unknown>
         onChange: (value: unknown) => void
         disabled: boolean
         error: string | null
@@ -607,6 +612,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
     const [isReady, setReady] = useState(false)
     const formFieldsRef = useRef<HTMLDivElement>(null)
     const tableLocalIdRef = useRef(1)
+    const formSessionRef = useRef(0)
     // Track NUMBER input refs and last cursor zone for zone-aware steppers
     const numberInputRefsRef = useRef<Map<string, HTMLInputElement>>(new Map())
     const numberCursorZoneRef = useRef<Map<string, 'integer' | 'decimal'>>(new Map())
@@ -654,6 +660,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
     )
 
     useEffect(() => {
+        formSessionRef.current += 1
         if (open) {
             setReady(false)
             const initialFormData = applyFieldDefaults(initialData ?? {})
@@ -662,6 +669,9 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
             setReady(true)
         } else {
             setReady(false)
+        }
+        return () => {
+            formSessionRef.current += 1
         }
     }, [open, initialData, applyFieldDefaults])
 
@@ -677,15 +687,41 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
 
     const handleFieldChange = useCallback(
         (id: string, value: unknown) => {
-            setFormData((prev) => ({ ...prev, [id]: value }))
-            if (
-                fieldValidationError?.fieldId === id &&
-                (!fieldValidationError.locale || hasLocalizedLocaleValue(value, fieldValidationError.locale))
-            ) {
-                onFieldErrorClear?.(id)
+            const clearFieldError = () => {
+                if (
+                    fieldValidationError?.fieldId === id &&
+                    (!fieldValidationError.locale || hasLocalizedLocaleValue(value, fieldValidationError.locale))
+                ) {
+                    onFieldErrorClear?.(id)
+                }
             }
+            const transition = Array.isArray(value) ? planTabularGroupingTransition(fields, formData, id, value) : null
+            if (transition) {
+                if (transition.requiresConfirmation === false) {
+                    setFormData((previous) => ({ ...previous, ...transition.updates }))
+                    clearFieldError()
+                    return
+                }
+                const session = formSessionRef.current
+                const snapshot = formData
+                void confirm({
+                    title: tCommon('tableGrouping.title'),
+                    description: tCommon(`tableGrouping.${transition.kind === 'group' ? 'groupDescription' : 'ungroupDescription'}`, {
+                        table: transition.tableLabel
+                    }),
+                    confirmButtonName: tCommon('tableGrouping.confirm'),
+                    cancelButtonName: tCommon('tableGrouping.cancel')
+                }).then((accepted) => {
+                    if (!accepted || session !== formSessionRef.current) return
+                    setFormData((prev) => (prev === snapshot ? { ...prev, ...transition.updates } : prev))
+                    clearFieldError()
+                })
+                return
+            }
+            setFormData((prev) => ({ ...prev, [id]: value }))
+            clearFieldError()
         },
-        [fieldValidationError?.fieldId, fieldValidationError?.locale, onFieldErrorClear]
+        [fields, formData, confirm, tCommon, fieldValidationError?.fieldId, fieldValidationError?.locale, onFieldErrorClear]
     )
 
     const resolveValuePresent = useCallback(
@@ -887,6 +923,10 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
         [validationFields, formData, getFieldError]
     )
 
+    const unreferencedGroupingTargetIds = useMemo(() => getUnreferencedTabularGroupingTargetIds(fields, formData), [fields, formData])
+    const duplicateGroupingTargetIds = useMemo(() => getDuplicateTabularGroupingTargetIds(fields, formData), [fields, formData])
+    const invalidSiblingSourceIds = useMemo(() => getInvalidTabularSiblingSourceIds(fields, formData), [fields, formData])
+
     const buildPayload = useCallback(() => {
         const payload: Record<string, unknown> = {}
         fields.forEach((field) => {
@@ -919,6 +959,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
 
     const handleSubmit = async () => {
         if (hasMissingRequired) return
+        if (unreferencedGroupingTargetIds.length > 0 || duplicateGroupingTargetIds.length > 0 || invalidSiblingSourceIds.length > 0) return
         if (requireAnyValue && !hasAnyValue) return
         await onSubmit(buildPayload())
     }
@@ -937,6 +978,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
         const customField = renderFieldOverride?.({
             field,
             value,
+            values: formData,
             onChange: (next) => handleFieldChange(field.id, next),
             disabled,
             error: fieldError,
@@ -1853,7 +1895,15 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
     }
 
     const isSubmitDisabled =
-        isSubmitting || !isReady || fields.length === 0 || hasMissingRequired || hasValidationErrors || (requireAnyValue && !hasAnyValue)
+        isSubmitting ||
+        !isReady ||
+        fields.length === 0 ||
+        hasMissingRequired ||
+        hasValidationErrors ||
+        unreferencedGroupingTargetIds.length > 0 ||
+        duplicateGroupingTargetIds.length > 0 ||
+        invalidSiblingSourceIds.length > 0 ||
+        (requireAnyValue && !hasAnyValue)
     const isFormDirty = open && buildFormDataSignature(formData) !== buildFormDataSignature(initialFormSnapshotRef.current)
 
     const hasTableFields = fields.some((f) => f.type === 'TABLE')
@@ -1928,6 +1978,27 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
         >
             <Stack ref={formFieldsRef} spacing={2} sx={{ mt: 1 }}>
                 {error && <Alert severity='error'>{error}</Alert>}
+                {unreferencedGroupingTargetIds.length > 0 ? (
+                    <Alert severity='error'>
+                        {tCommon('tableGrouping.emptyGroup', {
+                            defaultValue: 'Each group must contain at least one related row before saving.'
+                        })}
+                    </Alert>
+                ) : null}
+                {duplicateGroupingTargetIds.length > 0 ? (
+                    <Alert severity='error'>
+                        {tCommon('tableGrouping.duplicateGroup', {
+                            defaultValue: 'Each group must have a unique key. Remove or recreate the duplicate group before saving.'
+                        })}
+                    </Alert>
+                ) : null}
+                {invalidSiblingSourceIds.length > 0 ? (
+                    <Alert severity='error'>
+                        {tCommon('tableGrouping.targetMissing', {
+                            defaultValue: 'Reassign this row to an existing group and try again.'
+                        })}
+                    </Alert>
+                ) : null}
                 {!isReady ? (
                     <Stack sx={{ py: 3, alignItems: 'center', justifyContent: 'center' }}>
                         <CircularProgress size={20} />

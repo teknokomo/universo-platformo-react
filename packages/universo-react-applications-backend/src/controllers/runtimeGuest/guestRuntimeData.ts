@@ -139,6 +139,8 @@ export const normalizeQuestionRows = (
         ),
         explanation: resolveLocalizedContent(row[columns.explanation], options?.locale ?? 'en', ''),
         sortOrder: normalizeAccessLinkNumber(row[columns.sortOrder]) ?? 0,
+        blockKey:
+            typeof row[columns.blockKey] === 'string' && String(row[columns.blockKey]).trim() ? String(row[columns.blockKey]).trim() : null,
         options: normalizeOptions(row[columns.options], options?.locale ?? 'en')
     }))
 

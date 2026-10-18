@@ -38,12 +38,26 @@ import type {
     VersionedLocalizedContent
 } from '@universo-react/types'
 import { normalizePageBlockContentForStorage, parseSafeExternalUrl, RESOURCE_TYPES, resourceSourceSchema } from '@universo-react/types'
-import { buildTableConstraintText, createLocalizedContent, NUMBER_DEFAULTS, toNumberRules, validateNumber } from '@universo-react/utils'
+import {
+    buildTableConstraintText,
+    createLocalizedContent,
+    getDuplicateTabularGroupingTargetIds,
+    NUMBER_DEFAULTS,
+    toNumberRules,
+    validateNumber,
+    planTabularGroupingTransition,
+    getInvalidTabularSiblingSourceIds,
+    getUnreferencedTabularGroupingTargetIds,
+    getTabularGroupingFieldIds,
+    type TabularGroupingTransition
+} from '@universo-react/utils'
 import { useTranslation } from 'react-i18next'
+import { useCommonTranslations } from '@universo-react/i18n'
+import { StandardDialog } from './StandardDialog'
 import { LocalizedInlineField } from '../forms/LocalizedInlineField'
 import { TabularPartEditor } from '../TabularPartEditor'
 import { RuntimeInlineTabularEditor } from '../RuntimeInlineTabularEditor'
-import { normalizeTabularRowValues } from '../../utils/tabularCellValues'
+import { normalizeTabularRowValues, type TabularSiblingTableValues } from '../../utils/tabularCellValues'
 import { isSemanticLongTextRuntimeField } from '../../utils/fieldSemantics'
 import { buildDefaultResourceSourceForType } from '../../utils/resourceSourceDefaults'
 import { getDefaultResourceTypeLabel } from '../../utils/resourceSourceLabels'
@@ -58,92 +72,8 @@ import PageContainer from '../../crud-dashboard/components/PageContainer'
 import { EditorJsBlockEditor } from '@universo-react/block-editor'
 import { ResourcePreview } from '../resource-preview'
 import { fetchAppData } from '../../api'
-
-export type FieldType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'REF' | 'JSON' | 'TABLE'
-
-/**
- * Validation rules for form fields.
- * Matches component validation rules from @universo-react/types.
- */
-export interface FieldValidationRules extends Record<string, unknown> {
-    // STRING settings
-    minLength?: number | null
-    maxLength?: number | null
-    versioned?: boolean
-    localized?: boolean
-
-    // NUMBER settings
-    precision?: number
-    scale?: number
-    min?: number | null
-    max?: number | null
-    nonNegative?: boolean
-
-    // DATE settings
-    dateComposition?: 'date' | 'time' | 'datetime'
-
-    // TABLE settings
-    minRows?: number | null
-    maxRows?: number | null
-    matrixUniqueCoordinates?: boolean
-}
-
-export interface FieldConfig {
-    id: string
-    codename?: string
-    label: string
-    type: FieldType
-    widget?: 'text' | 'textarea' | 'number' | 'select' | 'checkbox' | 'date' | 'datetime' | 'reference'
-    multilineRows?: number
-    required?: boolean
-    /** @deprecated Use validationRules.localized instead */
-    localized?: boolean
-    placeholder?: string
-    helperText?: string
-    validationRules?: FieldValidationRules
-    /** Optional target entity ID for REF fields */
-    refTargetEntityId?: string | null
-    /** Optional target entity kind for REF fields */
-    refTargetEntityKind?: string | null
-    /** Optional target constant ID for REF fields pointing to sets. */
-    refTargetConstantId?: string | null
-    /** Precomputed display label for REF fields pointing to sets. */
-    refSetConstantLabel?: string | null
-    /** Data type of selected set constant (for diagnostics/UI hints). */
-    refSetConstantDataType?: string | null
-    /** Runtime options for REF fields (object/enumeration). */
-    refOptions?: Array<{
-        id: string
-        label: string
-        codename?: string
-        isDefault?: boolean
-        sortOrder?: number
-    }>
-    /** Runtime options for REF->enumeration fields. */
-    enumOptions?: Array<{
-        id: string
-        label: string
-        codename?: string
-        isDefault?: boolean
-        sortOrder?: number
-    }>
-    /** REF->enumeration presentation mode. */
-    enumPresentationMode?: 'select' | 'radio' | 'label'
-    /** Optional default enumeration value id. */
-    defaultEnumValueId?: string | null
-    /** Controls whether empty value can be selected for enumeration references. */
-    enumAllowEmpty?: boolean
-    /** Defines how empty label-mode value should be rendered. */
-    enumLabelEmptyDisplay?: 'empty' | 'dash'
-    /** Child components for TABLE-type components. */
-    childFields?: FieldConfig[]
-    /** UI configuration for TABLE-type components. */
-    tableUiConfig?: Record<string, unknown>
-    /** Generic UI configuration copied from the metadata component definition. */
-    uiConfig?: Record<string, unknown>
-    /** Original component UUID — used for TABLE-type API calls (tabular part endpoint). */
-    componentId?: string
-}
+import type { FieldConfig } from './fieldConfig'
+export type { FieldConfig, FieldType, FieldValidationRules } from './fieldConfig'
 
 export interface RuntimeObjectCollectionOption {
     id: string
@@ -947,7 +877,26 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     const dialogTitleId = `runtime-form-dialog-title-${dialogInstanceId}`
     const dialogDescriptionId = `runtime-form-dialog-description-${dialogInstanceId}`
     const dialogDescriptionTargetId = contentHeaderId || (contentHeader ? dialogDescriptionId : undefined)
+    const { t: tCommon } = useCommonTranslations()
+    const [pendingGrouping, setPendingGrouping] = useState<TabularGroupingTransition | null>(null)
+    const groupingCancelButtonRef = useRef<HTMLButtonElement>(null)
     const [formData, setFormData] = useState<Record<string, unknown>>({})
+    const [siblingTableRowsByFieldId, setSiblingTableRowsByFieldId] = useState<Record<string, Record<string, unknown>[]>>({})
+    const groupingTableFieldIds = useMemo(() => getTabularGroupingFieldIds(fields), [fields])
+    const groupingTableFieldIdSet = useMemo(() => new Set(groupingTableFieldIds), [groupingTableFieldIds])
+    const [loadedGroupingTableFieldIds, setLoadedGroupingTableFieldIds] = useState<Set<string>>(() => new Set())
+    const duplicateGroupingTargetIds = useMemo(
+        () => getDuplicateTabularGroupingTargetIds(fields, { ...formData, ...siblingTableRowsByFieldId }),
+        [fields, formData, siblingTableRowsByFieldId]
+    )
+    const unreferencedGroupingTargetIds = useMemo(
+        () => getUnreferencedTabularGroupingTargetIds(fields, { ...formData, ...siblingTableRowsByFieldId }),
+        [fields, formData, siblingTableRowsByFieldId]
+    )
+    const invalidSiblingSourceIds = useMemo(
+        () => getInvalidTabularSiblingSourceIds(fields, { ...formData, ...siblingTableRowsByFieldId }),
+        [fields, formData, siblingTableRowsByFieldId]
+    )
     const [blockEditorErrors, setBlockEditorErrors] = useState<Record<string, string | null>>({})
     const [inlineFieldErrors, setInlineFieldErrors] = useState<Record<string, string | null>>({})
     const [isReady, setReady] = useState(false)
@@ -958,7 +907,28 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     const numberInputRefsRef = useRef<Map<string, HTMLInputElement>>(new Map())
     const numberCursorZoneRef = useRef<Map<string, 'integer' | 'decimal'>>(new Map())
     const fieldById = useMemo(() => new Map(fields.map((field) => [field.id, field])), [fields])
+    const siblingTableValues = useMemo(() => {
+        const sources: TabularSiblingTableValues = {}
+        for (const field of fields) {
+            if (field.type !== 'TABLE' || !field.codename) continue
+            const rows = Object.prototype.hasOwnProperty.call(siblingTableRowsByFieldId, field.id)
+                ? siblingTableRowsByFieldId[field.id]
+                : Array.isArray(formData[field.id])
+                ? (formData[field.id] as Record<string, unknown>[])
+                : []
+            sources[field.codename] = { rows, childFields: field.childFields ?? [], rowOrdering: field.uiConfig?.rowOrdering }
+        }
+        return sources
+    }, [fields, formData, siblingTableRowsByFieldId])
     const hiddenFieldIdSet = useMemo(() => new Set(hiddenFieldIds ?? []), [hiddenFieldIds])
+    const hiddenGroupingTableFieldIds = useMemo(
+        () =>
+            groupingTableFieldIds.filter((fieldId) => {
+                const field = fields.find((candidate) => candidate.id === fieldId)
+                return !field || hiddenFieldIdSet.has(fieldId) || isHiddenField(field, formData)
+            }),
+        [fields, formData, groupingTableFieldIds, hiddenFieldIdSet]
+    )
     const fieldByLookupKey = useMemo(() => {
         const result = new Map<string, FieldConfig>()
         for (const field of fields) {
@@ -1035,23 +1005,38 @@ export const FormDialog: React.FC<FormDialogProps> = ({
 
     useEffect(() => {
         const wasOpen = wasOpenRef.current
+        if (!open) setPendingGrouping(null)
 
         if (open && !wasOpen) {
             setReady(false)
+            const requiresServerRows = Boolean(editRowId && apiBaseUrl && applicationId && objectCollectionId)
+            setLoadedGroupingTableFieldIds(new Set(requiresServerRows ? [] : groupingTableFieldIds))
             manuallyChangedFieldIdsRef.current = new Set()
             setBlockEditorErrors({})
-            setFormData(applyFieldDefaults(initialData ?? {}))
+            const initialFormData = applyFieldDefaults(initialData ?? {})
+            const initialSiblingRows = Object.fromEntries(
+                fields
+                    .filter((field) => field.type === 'TABLE' && Array.isArray(initialFormData[field.id]))
+                    .map((field) => [field.id, initialFormData[field.id] as Record<string, unknown>[]])
+            )
+            setSiblingTableRowsByFieldId(initialSiblingRows)
+            setFormData(initialFormData)
             setActiveWizardStep(0)
             setReady(true)
         } else if (!open && wasOpen) {
             setReady(false)
+            setLoadedGroupingTableFieldIds(new Set())
             manuallyChangedFieldIdsRef.current = new Set()
             setBlockEditorErrors({})
+            setSiblingTableRowsByFieldId({})
             setActiveWizardStep(0)
         }
 
         wasOpenRef.current = open
-    }, [open, initialData, applyFieldDefaults])
+    }, [open, initialData, fields, applyFieldDefaults, editRowId, apiBaseUrl, applicationId, objectCollectionId, groupingTableFieldIds])
+
+    const groupingTablesReady =
+        hiddenGroupingTableFieldIds.length === 0 && groupingTableFieldIds.every((fieldId) => loadedGroupingTableFieldIds.has(fieldId))
 
     const normalizedLocale = useMemo(() => normalizeLocale(locale), [locale])
 
@@ -1328,6 +1313,45 @@ export const FormDialog: React.FC<FormDialogProps> = ({
             syncTargetsBySourceId,
             syncTargetsByTargetId
         ]
+    )
+
+    const handleTabularRowsChange = useCallback(
+        (id: string, rows: Record<string, unknown>[]) => {
+            if (groupingTableFieldIdSet.has(id) && !groupingTablesReady) return
+            const transition = planTabularGroupingTransition(fields, { ...formData, ...siblingTableRowsByFieldId }, id, rows)
+            if (transition) {
+                if (transition.requiresConfirmation === false) {
+                    setSiblingTableRowsByFieldId((previous) => ({ ...previous, ...transition.updates }))
+                    for (const [fieldId, updatedRows] of Object.entries(transition.updates)) {
+                        handleFieldChange(fieldId, updatedRows)
+                    }
+                    return
+                }
+                const previousRows =
+                    siblingTableRowsByFieldId[id] ?? (Array.isArray(formData[id]) ? (formData[id] as Record<string, unknown>[]) : [])
+                setSiblingTableRowsByFieldId((previous) => ({ ...previous, [id]: [...previousRows] }))
+                setPendingGrouping(transition)
+                return
+            }
+            setSiblingTableRowsByFieldId((prev) => (prev[id] === rows ? prev : { ...prev, [id]: rows }))
+            handleFieldChange(id, rows)
+        },
+        [fields, formData, siblingTableRowsByFieldId, handleFieldChange, groupingTableFieldIdSet, groupingTablesReady]
+    )
+
+    const handleTabularRowsLoaded = useCallback(
+        (id: string, rows: Record<string, unknown>[]) => {
+            setSiblingTableRowsByFieldId((prev) => (prev[id] === rows ? prev : { ...prev, [id]: rows }))
+            if (groupingTableFieldIdSet.has(id)) {
+                setLoadedGroupingTableFieldIds((previous) => {
+                    if (previous.has(id)) return previous
+                    const next = new Set(previous)
+                    next.add(id)
+                    return next
+                })
+            }
+        },
+        [groupingTableFieldIdSet]
     )
 
     const handleBlockEditorValidationError = useCallback((id: string, message: string | null) => {
@@ -2657,7 +2681,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                 // EDIT mode: inline editor with deferred persistence (commit on form Save)
                 if (editRowId && apiBaseUrl && applicationId && objectCollectionId) {
                     return (
-                        <Box>
+                        <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0 }}>
                             <RuntimeInlineTabularEditor
                                 apiBaseUrl={apiBaseUrl}
                                 applicationId={applicationId}
@@ -2666,11 +2690,16 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                                 parentRecordId={editRowId}
                                 componentId={field.componentId ?? field.id}
                                 childFields={childFieldDefs}
+                                siblingTableValues={siblingTableValues}
+                                rowOrdering={field.uiConfig?.rowOrdering}
+                                onRowsLoaded={(rows) => handleTabularRowsLoaded(field.id, rows)}
+                                disabled={groupingTableFieldIdSet.has(field.id) && !groupingTablesReady}
                                 showTitle={tableShowTitle}
                                 label={field.label}
                                 locale={locale}
                                 deferPersistence
-                                onChange={(rows) => handleFieldChange(field.id, rows)}
+                                value={siblingTableRowsByFieldId[field.id]}
+                                onChange={(rows) => handleTabularRowsChange(field.id, rows)}
                                 minRows={tableMinRows}
                                 maxRows={tableMaxRows}
                                 copyRowsEnabled={tableCopyRowsEnabled}
@@ -2687,12 +2716,14 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                 // CREATE mode: inline local editor
                 if (childFieldDefs.length > 0) {
                     return (
-                        <Box>
+                        <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0 }}>
                             <TabularPartEditor
                                 label={field.label}
                                 value={tableValue}
-                                onChange={(rows) => handleFieldChange(field.id, rows)}
+                                onChange={(rows) => handleTabularRowsChange(field.id, rows)}
                                 childFields={childFieldDefs}
+                                siblingTableValues={siblingTableValues}
+                                rowOrdering={field.uiConfig?.rowOrdering}
                                 showTitle={tableShowTitle}
                                 locale={locale}
                                 minRows={tableMinRows}
@@ -2774,13 +2805,42 @@ export const FormDialog: React.FC<FormDialogProps> = ({
         : false
     const isLastWizardStep = !hasWizard || activeWizardStep >= normalizedWizardSteps.length - 1
     const isSubmitDisabled =
-        isSubmitting || !isReady || fields.length === 0 || hasMissingRequired || hasValidationErrors || (requireAnyValue && !hasAnyValue)
+        isSubmitting ||
+        !isReady ||
+        !groupingTablesReady ||
+        duplicateGroupingTargetIds.length > 0 ||
+        unreferencedGroupingTargetIds.length > 0 ||
+        invalidSiblingSourceIds.length > 0 ||
+        fields.length === 0 ||
+        hasMissingRequired ||
+        hasValidationErrors ||
+        (requireAnyValue && !hasAnyValue)
     const hasTableFields = visibleFields.some((f) => f.type === 'TABLE')
     const dialogMaxWidth = hasTableFields ? 'md' : 'sm'
 
     const formBody = (
-        <Stack spacing={2} sx={surface === 'page' ? undefined : { mt: 1 }}>
+        <Stack
+            spacing={2}
+            sx={{
+                width: '100%',
+                maxWidth: '100%',
+                minWidth: 0,
+                ...(surface === 'page' ? {} : { mt: 1 })
+            }}
+        >
             {error && <Alert severity='error'>{error}</Alert>}
+            {hiddenGroupingTableFieldIds.length > 0 ? (
+                <Alert severity='error'>{t('tabular.groupingTablesHidden', 'Related tables required for grouping are hidden.')}</Alert>
+            ) : null}
+            {groupingTablesReady && duplicateGroupingTargetIds.length > 0 ? (
+                <Alert severity='error'>{tCommon('tableGrouping.duplicateGroup')}</Alert>
+            ) : null}
+            {groupingTablesReady && unreferencedGroupingTargetIds.length > 0 ? (
+                <Alert severity='error'>{tCommon('tableGrouping.emptyGroup')}</Alert>
+            ) : null}
+            {groupingTablesReady && invalidSiblingSourceIds.length > 0 ? (
+                <Alert severity='error'>{tCommon('tableGrouping.targetMissing')}</Alert>
+            ) : null}
             {contentHeader ? <Box id={dialogDescriptionTargetId}>{contentHeader}</Box> : null}
             {hasWizard ? (
                 <Stack spacing={1}>
@@ -2878,31 +2938,71 @@ export const FormDialog: React.FC<FormDialogProps> = ({
 
     if (!open) return null
 
+    const groupingConfirmation = (
+        <StandardDialog
+            open={pendingGrouping !== null}
+            onClose={() => setPendingGrouping(null)}
+            title={tCommon('tableGrouping.title')}
+            onTransitionEntered={() => groupingCancelButtonRef.current?.focus()}
+            ariaDescribedBy={`${dialogDescriptionId}-grouping`}
+            actions={
+                <>
+                    <Button ref={groupingCancelButtonRef} onClick={() => setPendingGrouping(null)}>
+                        {tCommon('tableGrouping.cancel')}
+                    </Button>
+                    <Button
+                        variant='contained'
+                        onClick={() => {
+                            if (!pendingGrouping) return
+                            setSiblingTableRowsByFieldId((previous) => ({ ...previous, ...pendingGrouping.updates }))
+                            for (const [id, rows] of Object.entries(pendingGrouping.updates)) handleFieldChange(id, rows)
+                            setPendingGrouping(null)
+                        }}
+                    >
+                        {tCommon('tableGrouping.confirm')}
+                    </Button>
+                </>
+            }
+        >
+            <Typography id={`${dialogDescriptionId}-grouping`}>
+                {pendingGrouping?.kind === 'group'
+                    ? tCommon('tableGrouping.groupDescription', { table: pendingGrouping.tableLabel })
+                    : tCommon('tableGrouping.ungroupDescription')}
+            </Typography>
+        </StandardDialog>
+    )
+
     if (surface === 'page') {
         return (
-            <PageContainer title={title} actions={actionButtons}>
-                <Box sx={{ maxWidth: hasTableFields ? 1100 : 820 }}>{formBody}</Box>
-            </PageContainer>
+            <>
+                <PageContainer title={title} actions={actionButtons}>
+                    <Box sx={{ maxWidth: hasTableFields ? 1100 : 820 }}>{formBody}</Box>
+                </PageContainer>
+                {groupingConfirmation}
+            </>
         )
     }
 
     return (
-        <Dialog
-            open={open}
-            onClose={onClose}
-            scroll='paper'
-            maxWidth={dialogMaxWidth}
-            fullWidth
-            aria-labelledby={dialogTitleId}
-            aria-describedby={dialogDescriptionTargetId}
-            slotProps={{ paper: { sx: { borderRadius: 1 } } }}
-        >
-            <DialogTitle id={dialogTitleId}>{title}</DialogTitle>
-            <DialogContent sx={{ minHeight: 0 }}>{formBody}</DialogContent>
-            <DialogActions sx={{ p: 3, pt: 2, justifyContent: showDeleteButton ? 'space-between' : 'flex-end' }}>
-                {actionButtons}
-            </DialogActions>
-        </Dialog>
+        <>
+            <Dialog
+                open={open}
+                onClose={isSubmitting ? undefined : onClose}
+                scroll='paper'
+                maxWidth={dialogMaxWidth}
+                fullWidth
+                aria-labelledby={dialogTitleId}
+                aria-describedby={dialogDescriptionTargetId}
+                slotProps={{ paper: { sx: { borderRadius: 1, minWidth: 0 } } }}
+            >
+                <DialogTitle id={dialogTitleId}>{title}</DialogTitle>
+                <DialogContent sx={{ minHeight: 0, maxWidth: '100%', minWidth: 0 }}>{formBody}</DialogContent>
+                <DialogActions sx={{ p: 3, pt: 2, justifyContent: showDeleteButton ? 'space-between' : 'flex-end' }}>
+                    {actionButtons}
+                </DialogActions>
+            </Dialog>
+            {groupingConfirmation}
+        </>
     )
 }
 

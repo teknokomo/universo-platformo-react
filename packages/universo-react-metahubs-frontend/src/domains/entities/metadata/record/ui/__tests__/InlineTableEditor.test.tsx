@@ -289,4 +289,150 @@ describe('InlineTableEditor', () => {
         expect(screen.getByRole('button', { name: 'Add option' })).toBeDisabled()
         expect(screen.getByRole('button', { name: 'Remove option 20' })).toBeEnabled()
     })
+
+    it('uses sibling TABLE titles as selector labels and stores the semantic key', async () => {
+        const user = userEvent.setup()
+        const firstKey = '0199a9b5-3cde-7abc-8def-0123456789ab'
+        const secondKey = '0199a9b5-3cde-7abc-8def-0123456789ac'
+        const onChange = vi.fn()
+
+        renderWithI18n(
+            <InlineTableEditor
+                label='Questions'
+                value={[{ _localId: 'question-1', BlockKey: firstKey }]}
+                onChange={onChange}
+                locale='en'
+                childFields={[
+                    {
+                        id: 'BlockKey',
+                        codename: 'BlockKey',
+                        label: 'Block',
+                        type: 'STRING',
+                        uiConfig: {
+                            siblingRowSelect: {
+                                tableCodename: 'Blocks',
+                                valueFieldCodename: 'BlockKey',
+                                labelFieldCodename: 'Title'
+                            }
+                        }
+                    }
+                ]}
+                siblingTableValues={{
+                    Blocks: {
+                        rows: [
+                            { BlockKey: firstKey, Title: 'Opening' },
+                            { BlockKey: secondKey, Title: 'Practice' }
+                        ],
+                        childFields: [
+                            { id: 'BlockKey', codename: 'BlockKey', label: 'Block key', type: 'STRING' },
+                            { id: 'Title', codename: 'Title', label: 'Title', type: 'STRING' }
+                        ]
+                    }
+                }}
+            />
+        )
+
+        expect(screen.getByRole('combobox', { name: 'Block' })).toHaveTextContent('Opening')
+        expect(screen.queryByText(firstKey)).not.toBeInTheDocument()
+        await user.click(screen.getByRole('combobox', { name: 'Block' }))
+        await user.click(await screen.findByRole('option', { name: 'Practice' }))
+
+        expect(onChange).toHaveBeenCalledWith([{ _localId: 'question-1', BlockKey: secondKey }])
+    })
+
+    it('does not expose a raw REF identity when selectable options are missing', () => {
+        const rawReferenceId = '0199a9b5-3cde-7abc-8def-0123456789ab'
+
+        renderWithI18n(
+            <InlineTableEditor
+                label='Resources'
+                value={[{ _localId: 'row-1', RelatedRecord: rawReferenceId }]}
+                onChange={() => undefined}
+                locale='en'
+                childFields={[{ id: 'RelatedRecord', label: 'Related record', type: 'REF' }]}
+            />
+        )
+
+        expect(screen.getByText('Selected reference is unavailable.')).toBeInTheDocument()
+        expect(screen.queryByText(rawReferenceId)).not.toBeInTheDocument()
+        expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    })
+
+    it('focuses the first visible field when a row starts with a generated UUID key', async () => {
+        const user = userEvent.setup()
+        const Wrapper = () => {
+            const [rows, setRows] = useState<Record<string, unknown>[]>([])
+            return (
+                <InlineTableEditor
+                    label='Blocks'
+                    value={rows}
+                    onChange={setRows}
+                    locale='en'
+                    childFields={[
+                        {
+                            id: 'BlockKey',
+                            label: 'Block key',
+                            type: 'STRING',
+                            uiConfig: { hidden: true, generateUuidV7: true }
+                        },
+                        { id: 'Title', label: 'Title', type: 'STRING', required: true }
+                    ]}
+                />
+            )
+        }
+
+        renderWithI18n(<Wrapper />)
+
+        await user.click(screen.getByRole('button', { name: 'Add Row' }))
+
+        expect(screen.getByRole('textbox', { name: 'Title' })).toBeInTheDocument()
+    })
+
+    it('keeps generated keys hidden and normalizes SortOrder when rows move', async () => {
+        const user = userEvent.setup()
+        const firstKey = '0199a9b5-3cde-7abc-8def-0123456789ab'
+        const secondKey = '0199a9b5-3cde-7abc-8def-0123456789ac'
+        const onChange = vi.fn()
+
+        renderWithI18n(
+            <InlineTableEditor
+                label='Blocks'
+                value={[
+                    { _localId: 'block-1', BlockKey: firstKey, Title: 'Opening', SortOrder: 1 },
+                    { _localId: 'block-2', BlockKey: secondKey, Title: 'Practice', SortOrder: 2 }
+                ]}
+                onChange={onChange}
+                locale='en'
+                rowOrdering={{ orderFieldCodename: 'SortOrder', labelFieldCodename: 'Title' }}
+                childFields={[
+                    {
+                        id: 'BlockKey',
+                        codename: 'BlockKey',
+                        label: 'Block key',
+                        type: 'STRING',
+                        uiConfig: { hidden: true, serverOwned: true, generateUuidV7: true }
+                    },
+                    { id: 'Title', codename: 'Title', label: 'Title', type: 'STRING' },
+                    {
+                        id: 'SortOrder',
+                        codename: 'SortOrder',
+                        label: 'Sort order',
+                        type: 'NUMBER',
+                        uiConfig: { hidden: true, serverOwned: true }
+                    }
+                ]}
+            />
+        )
+
+        expect(screen.queryByText('Block key')).not.toBeInTheDocument()
+        expect(screen.queryByText('Sort order')).not.toBeInTheDocument()
+        expect(screen.queryByText(firstKey)).not.toBeInTheDocument()
+        await user.click(screen.getAllByRole('button', { name: 'Actions' })[0])
+        await user.click(screen.getByRole('menuitem', { name: 'Move down: Opening' }))
+
+        expect(onChange).toHaveBeenCalledWith([
+            { _localId: 'block-2', BlockKey: secondKey, Title: 'Practice', SortOrder: 1 },
+            { _localId: 'block-1', BlockKey: firstKey, Title: 'Opening', SortOrder: 2 }
+        ])
+    })
 })

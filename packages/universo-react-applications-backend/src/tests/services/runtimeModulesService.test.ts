@@ -1,5 +1,7 @@
 import type { ModulePresentation } from '@universo-react/types'
 import type { ApplicationLifecycleContract, ApplicationModuleDefinition } from '@universo-react/types'
+import { generateChildTableName } from '@universo-react/schema-ddl'
+import { isUuidV7 } from '@universo-react/utils'
 import { RuntimeModulesService } from '../../services/runtimeModulesService'
 import { createMockDbExecutor } from '../utils/dbMocks'
 import { createMarketingCollectionConfig } from '../utils/marketingWidgetBindings'
@@ -1031,5 +1033,58 @@ describe('RuntimeModulesService', () => {
             })
         )
         expect(txExecutor.query.mock.calls.find((call) => String(call[0]).includes('DELETE FROM'))).toBeDefined()
+    })
+
+    it('shares one UUID v7 cascade marker when Record API soft-deletes TABLE children', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+        const service = new RuntimeModulesService(engine as never)
+        const blocksTableName = generateChildTableName('019f2000-0000-7000-8000-000000000006')
+        const binding = createRecordBinding({
+            attrs: [
+                {
+                    id: 'blocks-component-id',
+                    codename: 'Blocks',
+                    column_name: blocksTableName,
+                    data_type: 'TABLE',
+                    is_required: false
+                }
+            ]
+        })
+
+        jest.spyOn(service as never as { resolveRecordBinding: () => Promise<unknown> }, 'resolveRecordBinding').mockResolvedValue(binding)
+        jest.spyOn(service as never as { getRecordById: () => Promise<unknown> }, 'getRecordById').mockResolvedValue({
+            id: 'row-1',
+            blocks: []
+        })
+        jest.spyOn(service, 'dispatchLifecycleEvent').mockResolvedValue([])
+        txExecutor.query
+            .mockResolvedValueOnce([{ id: 'row-1', _upl_locked: false }])
+            .mockResolvedValueOnce([{ id: 'row-1' }])
+            .mockResolvedValueOnce([])
+
+        await (
+            service as never as {
+                deleteRecord: (params: Record<string, unknown>) => Promise<void>
+            }
+        ).deleteRecord({
+            executor,
+            applicationId: 'application-1',
+            schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
+            currentWorkspaceId: null,
+            currentUserId: 'user-1',
+            permissions: { deleteContent: true },
+            entityCodename: 'orders',
+            recordId: 'row-1'
+        })
+
+        const updateCalls = txExecutor.query.mock.calls.filter((call) => String(call[0]).includes('UPDATE'))
+        const parentDeleteCall = updateCalls.find((call) => String(call[0]).includes('"orders"'))
+        const childDeleteCall = updateCalls.find((call) => String(call[0]).includes(`"${blocksTableName}"`))
+        const cascadeId = parentDeleteCall?.[1]?.[2]
+
+        expect(isUuidV7(cascadeId)).toBe(true)
+        expect(String(parentDeleteCall?.[0])).toContain('_upl_delete_cascade_id = $3')
+        expect(String(childDeleteCall?.[0])).toContain('_upl_delete_cascade_id = $3')
+        expect(childDeleteCall?.[1]).toEqual(['user-1', 'row-1', cascadeId])
     })
 })

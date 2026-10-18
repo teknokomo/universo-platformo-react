@@ -1,7 +1,6 @@
 import type { Request, Response } from 'express'
 import type { DbExecutor } from '@universo-react/utils'
 import { withTransactionSavepoint } from '@universo-react/utils/database'
-import { generateChildTableName } from '@universo-react/schema-ddl'
 import { enforceObjectWorkspaceLimit } from '../../services/applicationWorkspaces'
 import { normalizeRuntimeRecordBehavior, RuntimeRecordCommandService } from '../../services/runtimeRecordBehavior'
 import {
@@ -18,15 +17,11 @@ import {
     ensureEnumerationValueBelongsToTarget,
     ensureRuntimePermission,
     formatRuntimeFieldLabel,
-    formatRuntimeFieldPath,
     getDefaultEnumValueId,
     getEnumPresentationMode,
     getRuntimeInputValue,
     getSetConstantConfig,
-    getTableRowCountError,
-    getTableRowLimits,
     normalizeConfiguredRuntimeJsonValue,
-    normalizeRuntimeTableChildInsertValue,
     quoteIdentifier,
     resolveRefId,
     resolveRuntimeCodenameText,
@@ -76,10 +71,14 @@ import {
 import { getRuntimeRelationAuthorityProjection } from '../../services/runtimeRowSupport/runtimeRelationAuthority'
 import { collectTouchedComponentIds, loadRuntimeRowById } from '../runtimeRowSupport/rows'
 
+import { buildCreateTableEntries } from './createTableChildren'
+export { buildCreateTableEntries, prepareCreateTableChildRows } from './createTableChildren'
+
 import { insertRuntimeChildRowsBatch } from './tableChildren'
+import { validateExistingSiblingRowSelectsForTarget, validateSiblingRowSelectTargets } from '../runtimeChildRowsSiblingValidation'
+
 import type {
     RuntimeRowWriteDeps,
-    RuntimeTableChildAttrRow,
     RuntimeWriteColumnValue,
     RuntimeWriteResolvedObjectCollection,
     RuntimeWriteTableDataEntryWithAttr
@@ -336,194 +335,6 @@ export const applyCreateReorderField = async (params: {
     return params.columnValues
 }
 
-export const prepareCreateTableChildRows = async (params: {
-    manager: DbExecutor
-    schemaIdent: string
-    tableFieldPath: string
-    tableAttr: RuntimeObjectCollectionAttr
-    childRows: Array<Record<string, unknown>>
-    childAttrs: RuntimeTableChildAttrRow[]
-}): Promise<
-    { kind: 'ok'; rows: Array<Record<string, unknown>> } | { kind: 'failure'; statusCode: number; body: Record<string, unknown> }
-> => {
-    const preparedRows: Array<Record<string, unknown>> = []
-
-    for (let rowIdx = 0; rowIdx < params.childRows.length; rowIdx++) {
-        const rowData = params.childRows[rowIdx]
-        if (!rowData || typeof rowData !== 'object' || Array.isArray(rowData)) {
-            return {
-                kind: 'failure',
-                statusCode: 400,
-                body: { error: `Invalid row ${rowIdx + 1} for ${params.tableFieldPath}: row must be an object` }
-            }
-        }
-
-        const preparedRow: Record<string, unknown> = {}
-        for (const cAttr of params.childAttrs) {
-            if (!IDENTIFIER_REGEX.test(cAttr.column_name)) continue
-            const childFieldPath = formatRuntimeFieldPath(params.tableAttr.codename, cAttr.codename)
-            if (hasRuntimeServerOwnedInput(rowData, cAttr)) {
-                return { kind: 'failure', statusCode: 400, body: { error: `Field is server-owned: ${childFieldPath}` } }
-            }
-            const isEnumRef = cAttr.data_type === 'REF' && isRuntimeEnumerationKind(cAttr.target_object_kind)
-            const { hasUserValue, value: childInputValue } = getRuntimeInputValue(rowData, cAttr.column_name, cAttr.codename)
-            let cRaw = childInputValue
-
-            if (isEnumRef && getEnumPresentationMode(cAttr.ui_config) === 'label' && hasUserValue) {
-                return { kind: 'failure', statusCode: 400, body: { error: `Field is read-only: ${childFieldPath}` } }
-            }
-
-            if (cRaw === undefined && isEnumRef && typeof cAttr.target_object_id === 'string') {
-                const defaultEnumValueId = getDefaultEnumValueId(cAttr.ui_config)
-                if (defaultEnumValueId) {
-                    try {
-                        await ensureEnumerationValueBelongsToTarget(
-                            params.manager,
-                            params.schemaIdent,
-                            defaultEnumValueId,
-                            cAttr.target_object_id
-                        )
-                        cRaw = defaultEnumValueId
-                    } catch (error) {
-                        if (error instanceof Error && error.message === 'Enumeration value does not belong to target enumeration') {
-                            cRaw = undefined
-                        } else {
-                            throw error
-                        }
-                    }
-                }
-            }
-
-            const childSetConstantConfig =
-                cAttr.data_type === 'REF' && isRuntimeSetKind(cAttr.target_object_kind) ? getSetConstantConfig(cAttr.ui_config) : null
-            if (childSetConstantConfig) {
-                const providedRefId = resolveRefId(cRaw)
-                if (!providedRefId) {
-                    cRaw = childSetConstantConfig.id
-                } else if (providedRefId !== childSetConstantConfig.id) {
-                    return { kind: 'failure', statusCode: 400, body: { error: `Field is read-only: ${childFieldPath}` } }
-                } else {
-                    cRaw = childSetConstantConfig.id
-                }
-            }
-
-            if (cRaw === undefined || cRaw === null) {
-                if (cAttr.is_required && cAttr.data_type !== 'BOOLEAN') {
-                    return { kind: 'failure', statusCode: 400, body: { error: `Required field missing: ${childFieldPath}` } }
-                }
-                continue
-            }
-
-            try {
-                const cCoerced = normalizeConfiguredRuntimeJsonValue(
-                    coerceRuntimeValue(cRaw, cAttr.data_type, cAttr.validation_rules),
-                    cAttr
-                )
-                if (isEnumRef && typeof cAttr.target_object_id === 'string' && cCoerced) {
-                    await ensureEnumerationValueBelongsToTarget(
-                        params.manager,
-                        params.schemaIdent,
-                        String(cCoerced),
-                        cAttr.target_object_id
-                    )
-                }
-                preparedRow[cAttr.column_name] = normalizeRuntimeTableChildInsertValue(cCoerced, cAttr.data_type, cAttr.validation_rules)
-            } catch (err) {
-                const formatError = toRuntimeInputFormatErrorBody(err)
-                if (formatError) return { kind: 'failure', statusCode: 400, body: formatError }
-                return {
-                    kind: 'failure',
-                    statusCode: 400,
-                    body: { error: `Invalid value for ${childFieldPath}: ${err instanceof Error ? err.message : String(err)}` }
-                }
-            }
-        }
-
-        preparedRows.push(preparedRow)
-    }
-
-    return { kind: 'ok', rows: preparedRows }
-}
-
-export const buildCreateTableEntries = async (params: {
-    manager: DbExecutor
-    schemaIdent: string
-    data: Record<string, unknown>
-    tableAttrs: RuntimeObjectCollectionAttr[]
-}): Promise<
-    { kind: 'ok'; entries: RuntimeWriteTableDataEntryWithAttr[] } | { kind: 'failure'; statusCode: number; body: Record<string, unknown> }
-> => {
-    const tableDataEntries: RuntimeWriteTableDataEntryWithAttr[] = []
-
-    for (const tAttr of params.tableAttrs) {
-        const tableFieldPath = formatRuntimeFieldPath(tAttr.codename)
-        const { value: raw } = getRuntimeInputValue(params.data, tAttr.column_name, tAttr.codename)
-        if (raw !== undefined && raw !== null && !Array.isArray(raw)) {
-            return {
-                kind: 'failure',
-                statusCode: 400,
-                body: { error: `Invalid value for ${tableFieldPath}: TABLE value must be an array` }
-            }
-        }
-
-        const childRows = Array.isArray(raw) ? (raw as Array<Record<string, unknown>>) : []
-        const rowCountError = getTableRowCountError(childRows.length, tableFieldPath, getTableRowLimits(tAttr.validation_rules))
-        if (rowCountError) {
-            return { kind: 'failure', statusCode: 400, body: { error: rowCountError } }
-        }
-
-        if (childRows.length > 0) {
-            const fallbackTabTableName = generateChildTableName(tAttr.id)
-            const tabTableName =
-                typeof tAttr.column_name === 'string' && IDENTIFIER_REGEX.test(tAttr.column_name) ? tAttr.column_name : fallbackTabTableName
-            if (!IDENTIFIER_REGEX.test(tabTableName)) {
-                return { kind: 'failure', statusCode: 400, body: { error: `Invalid tabular table name for ${tableFieldPath}` } }
-            }
-
-            const childAttrsResult = (await params.manager.query(
-                `
-        SELECT id, codename, column_name, data_type, is_required, validation_rules,
-               target_object_id, target_object_kind, ui_config
-        FROM ${params.schemaIdent}._app_components
-        WHERE parent_component_id = $1
-          AND _upl_deleted = false
-          AND _app_deleted = false
-        ORDER BY sort_order ASC
-      `,
-                [tAttr.id]
-            )) as RuntimeTableChildAttrRow[]
-
-            const preparedResult = await prepareCreateTableChildRows({
-                manager: params.manager,
-                schemaIdent: params.schemaIdent,
-                tableFieldPath,
-                tableAttr: tAttr,
-                childRows,
-                childAttrs: childAttrsResult
-            })
-            if (preparedResult.kind !== 'ok') return preparedResult
-
-            tableDataEntries.push({
-                cmp: tAttr,
-                rows: preparedResult.rows,
-                tabTableName,
-                childAttrsByColumn: new Map(
-                    childAttrsResult.map((childAttr) => [
-                        childAttr.column_name,
-                        {
-                            column_name: childAttr.column_name,
-                            data_type: childAttr.data_type,
-                            validation_rules: childAttr.validation_rules
-                        }
-                    ])
-                )
-            })
-        }
-    }
-
-    return { kind: 'ok', entries: tableDataEntries }
-}
-
 export const executeCreateRowTransaction = async (params: {
     executor: DbExecutor
     ctx: RuntimeSchemaContext
@@ -727,6 +538,38 @@ export const executeCreateRowTransaction = async (params: {
             currentWorkspaceId: params.ctx.currentWorkspaceId,
             userId: params.ctx.userId
         })
+    }
+
+    for (const entry of params.tableDataEntries) {
+        await validateSiblingRowSelectTargets(
+            mgr,
+            params.ctx.schemaIdent,
+            {
+                object: { id: params.objectCollection.id },
+                tableAttr: { codename: resolveRuntimeCodenameText(entry.cmp.codename) },
+                childAttrs: entry.childAttrs,
+                tabTableIdent: `${params.ctx.schemaIdent}.${quoteIdentifier(entry.tabTableName)}`
+            },
+            parentId,
+            params.runtimeRowCondition,
+            entry.rows.map((data) => ({ data })),
+            { validateRequiredWithRows: true, checkGeneratedKeyUniqueness: false }
+        )
+    }
+
+    for (const entry of params.tableDataEntries) {
+        await validateExistingSiblingRowSelectsForTarget(
+            mgr,
+            params.ctx.schemaIdent,
+            {
+                object: { id: params.objectCollection.id },
+                tableAttr: { codename: resolveRuntimeCodenameText(entry.cmp.codename) },
+                childAttrs: entry.childAttrs,
+                tabTableIdent: `${params.ctx.schemaIdent}.${quoteIdentifier(entry.tabTableName)}`
+            },
+            parentId,
+            params.runtimeRowCondition
+        )
     }
 
     const nextRow = await loadRuntimeRowById(mgr, params.dataTableIdent, parentId)

@@ -1,5 +1,7 @@
 # @universo-react/template-mui
 
+`DynamicEntityFormDialog` coordinates metadata-driven sibling TABLE grouping through `planTabularGroupingTransition` from `@universo-react/utils`. Adding the first group or removing the last group asks through the shared confirmation service and updates both tables in one parent draft. Cancellation and late confirmation after closing/reopening cannot overwrite the form. Custom field renderers receive current parent `values` so dependent selectors stay synchronized.
+
 Shared Material UI package for the current Universo Platformo React shell.
 
 ## Overview

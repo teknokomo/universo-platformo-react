@@ -39,6 +39,12 @@
 -   Владелец может конвертировать своё личное рабочее пространство на месте в общее через `POST /api/v1/applications/:applicationId/runtime/workspaces/:workspaceId/convert` (только владелец). Конвертация необратима: `workspace_type` становится `shared`, `personal_user_id` обнуляется, маркер `converted_from_user_id` предотвращает повторное дублирование личного пространства, записи/связи/настройки/идентификатор и строки участия остаются без изменений (без создания второго пространства), а запись аудита (`personal_to_shared_conversion`) обязательна — сбой зачисления участников или аудита откатывает всю транзакцию.
 -   Уходящие участники теряют только базовые строки `member` общих пространств; приглашения внутри чужих личных пространств остаются неактивными. Участник, держащий единственную строку `owner` любого активного общего пространства, не может покинуть приложение (`APPLICATION_MEMBER_WORKSPACE_OWNERSHIP_REQUIRED`, HTTP 409) до передачи владения или удаления пространства.
 
+### Гостевые попытки тестов
+
+`createPublicApplicationsRoutes()` предоставляет анонимную анкету и серверный lifecycle попытки теста. Для старта нужны настроенные поля анкеты, оба согласия и ключ идемпотентности клиента; анонимный участник получает только текущий вопрос без правильных ответов и ключей оценки.
+
+Маршруты `POST /public/a/:applicationId/runtime/attempts/start`, `GET /public/a/:applicationId/runtime/attempts/:attemptId`, `POST /public/a/:applicationId/runtime/attempts/:attemptId/continue`, `PUT /public/a/:applicationId/runtime/attempts/:attemptId/answers` и `POST /public/a/:applicationId/runtime/attempts/:attemptId/finalize` хранят фазу, текущий блок, дедлайн таймера, ответы и результат. Таймер идёт на страницах блоков по умолчанию, а конфигурация теста может его останавливать; нумерация вопросов бывает сквозной или внутри блока. Одношаговый маршрут отправки старого формата удалён: связанное приложение нужно опубликовать с актуальным runtime-шаблоном.
+
 ## Database Access Rules
 
 -   Чтения в application-домене используют `_upl_deleted = false AND _app_deleted = false`.

@@ -11,14 +11,35 @@ import {
     fillGuestIntake,
     fireEvent,
     getRequestPathname,
+    i18nState,
     guestTestState,
+    makeGuestAttemptDto,
     render,
     screen,
+    ruApps,
     waitFor
 } from './GuestApp.testHarness'
 
 describe('GuestApp quiz attempts', () => {
     beforeEach(resetGuestAppTestHarness)
+
+    const openBlockIntro = async () => {
+        guestTestState.guestBlockIntro = true
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <GuestApp applicationId='app-1' slug='demo-content' locale='en' apiBaseUrl='/api/v1' />
+            </QueryClientProvider>
+        )
+
+        expect(await screen.findByText('Demo content')).toBeInTheDocument()
+        fillGuestIntake('Guest learner')
+        clickStartLearning()
+        expect(await screen.findByText('Content title')).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+        expect(await screen.findByText('Knowledge check')).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Open quiz' }))
+        expect(await screen.findByRole('heading', { name: 'Unit one' })).toBeInTheDocument()
+    }
 
     it('submits the selected answer and advances automatically in the default mode', async () => {
         const user = userEvent.setup()
@@ -52,6 +73,251 @@ describe('GuestApp quiz attempts', () => {
 
         expect(await screen.findByText('Second question')).toBeInTheDocument()
         expect(guestTestState.guestSavedAnswerIds).toEqual(['question-1'])
+    })
+
+    it('continues a block introduction through the attempt endpoint and renders the authoritative question phase', async () => {
+        const user = userEvent.setup()
+        guestTestState.guestBlockIntro = true
+        guestTestState.deferGuestContinueResponse = true
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <GuestApp applicationId='app-1' slug='demo-content' locale='en' apiBaseUrl='/api/v1' />
+            </QueryClientProvider>
+        )
+
+        expect(await screen.findByText('Demo content')).toBeInTheDocument()
+        fillGuestIntake('Guest learner')
+        clickStartLearning()
+        expect(await screen.findByText('Content title')).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+        expect(await screen.findByText('Knowledge check')).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Open quiz' }))
+
+        const introHeading = await screen.findByRole('heading', { name: 'Unit one' })
+        expect(introHeading).toHaveFocus()
+        expect(screen.getByText('Read these instructions before continuing.')).toBeVisible()
+        expect(screen.queryByText('internal-block-key-should-not-render')).not.toBeInTheDocument()
+        expect(screen.getByText(enApps.guest.quizAnsweredProgress.replace('{{answered}}', '0').replace('{{total}}', '2'))).toBeVisible()
+        const timer = await screen.findByRole('timer')
+        expect(timer).toHaveTextContent('45:00')
+        await new Promise((resolve) => window.setTimeout(resolve, 1_100))
+        expect(timer).not.toHaveTextContent('45:00')
+
+        await user.tab()
+        const continueButton = screen.getByRole('button', { name: enApps.guest.continueQuiz })
+        expect(continueButton).toHaveFocus()
+        await user.keyboard('{Enter}')
+
+        expect(screen.getAllByText(enApps.guest.continuingQuiz)).toHaveLength(2)
+        expect(continueButton).toBeDisabled()
+        await waitFor(() => expect(guestTestState.guestContinueCalls).toBe(1))
+        expect(guestTestState.guestContinueRequestBodies).toEqual([
+            { participantId: 'student-1', sessionToken: 'token-1', phaseRevision: 0 }
+        ])
+        const continueRequest = (
+            globalThis.fetch as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit?]> } }
+        ).mock.calls.find(([input]) => getRequestPathname(input) === '/public/a/app-1/runtime/attempts/attempt-1/continue')
+        expect(continueRequest?.[1]?.method).toBe('POST')
+        expect(JSON.parse(String(continueRequest?.[1]?.body))).toEqual({
+            participantId: 'student-1',
+            sessionToken: 'token-1',
+            phaseRevision: 0
+        })
+
+        act(() => guestTestState.releaseGuestContinueResponse?.())
+        const questionHeading = await screen.findByRole('heading', { name: 'Question prompt' })
+        expect(questionHeading).toHaveFocus()
+        expect(screen.getByText('Question 1.1')).toBeVisible()
+        expect(screen.getByText('0 of 2 questions answered')).toHaveAttribute('role', 'status')
+        expect(screen.queryByText('internal-block-key-should-not-render')).not.toBeInTheDocument()
+    })
+
+    it('keeps the paused timer frozen during a block introduction', async () => {
+        guestTestState.guestBlockIntro = true
+        guestTestState.guestBlockIntroPaused = true
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <GuestApp applicationId='app-1' slug='demo-content' locale='en' apiBaseUrl='/api/v1' />
+            </QueryClientProvider>
+        )
+
+        expect(await screen.findByText('Demo content')).toBeInTheDocument()
+        fillGuestIntake('Guest learner')
+        clickStartLearning()
+        expect(await screen.findByText('Content title')).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+        expect(await screen.findByText('Knowledge check')).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Open quiz' }))
+
+        expect(await screen.findByText(enApps.guest.quizTimerPaused)).toBeVisible()
+        const timer = await screen.findByRole('timer')
+        expect(timer).toHaveTextContent('02:05')
+        await new Promise((resolve) => window.setTimeout(resolve, 1_100))
+        expect(timer).toHaveTextContent('02:05')
+    })
+
+    it('localizes a Continue failure and lets the learner retry it in Russian', async () => {
+        i18nState.locale = 'ru'
+        guestTestState.guestBlockIntro = true
+        guestTestState.guestContinueResponseOverride = { ok: false, payload: { error: 'internal server detail' } }
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <GuestApp applicationId='app-1' slug='demo-content' locale='ru' apiBaseUrl='/api/v1' />
+            </QueryClientProvider>
+        )
+
+        expect(await screen.findByText('Demo content')).toBeInTheDocument()
+        fillGuestIntake('Ученик')
+        clickStartLearning()
+        expect(await screen.findByText('Content title')).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Далее' }))
+        expect(await screen.findByText('Knowledge check')).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Открыть тест' }))
+        expect(await screen.findByRole('heading', { name: 'Unit one' })).toBeInTheDocument()
+
+        fireEvent.click(screen.getByRole('button', { name: ruApps.guest.continueQuiz }))
+        expect(await screen.findByRole('alert')).toHaveTextContent(ruApps.guest.errors.quizContinue)
+        expect(screen.queryByText('internal server detail')).not.toBeInTheDocument()
+        guestTestState.guestContinueResponseOverride = null
+        fireEvent.click(screen.getByRole('button', { name: ruApps.guest.retryQuizContinue }))
+        expect(await screen.findByRole('heading', { name: 'Question prompt' })).toBeInTheDocument()
+        expect(screen.getByText(ruApps.guest.quizQuestionDisplayNumber.replace('{{number}}', '1.1'))).toBeVisible()
+    })
+
+    it('ends the block introduction when Continue reports a revoked guest session', async () => {
+        guestTestState.guestBlockIntro = true
+        guestTestState.guestContinueResponseOverride = {
+            ok: false,
+            status: 403,
+            payload: { error: 'private revocation detail' }
+        }
+        await openBlockIntro()
+
+        fireEvent.click(screen.getByRole('button', { name: enApps.guest.continueQuiz }))
+
+        expect(await screen.findByText('Your access to this quiz has ended. No further answers can be saved.')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: enApps.guest.continueQuiz })).not.toBeInTheDocument()
+        expect(screen.queryByText('private revocation detail')).not.toBeInTheDocument()
+    })
+
+    it('applies a newer intro DTO from a stale 409 without exposing internal block fields', async () => {
+        guestTestState.guestContinueResponseOverride = {
+            ok: false,
+            status: 409,
+            payload: {
+                error: 'Block introduction is no longer current',
+                attempt: makeGuestAttemptDto({
+                    attemptId: 'attempt-1',
+                    deadlineAt: '2030-01-01T00:45:00.000Z',
+                    serverNow: '2030-01-01T00:00:00.000Z',
+                    status: 'in_progress',
+                    phase: 'block_intro',
+                    phaseRevision: 1,
+                    timerState: 'running',
+                    remainingMs: 2_600_000,
+                    numberingMode: 'block',
+                    currentBlock: {
+                        key: 'private-next-block-key',
+                        title: 'Unit two',
+                        introduction: 'Updated instructions from the server.'
+                    },
+                    currentQuestionIndex: 0,
+                    totalQuestions: 2,
+                    answeredCount: 0,
+                    questions: []
+                })
+            }
+        }
+        await openBlockIntro()
+
+        fireEvent.click(screen.getByRole('button', { name: enApps.guest.continueQuiz }))
+
+        expect(await screen.findByRole('heading', { name: 'Unit two' })).toBeVisible()
+        expect(screen.getByText('Updated instructions from the server.')).toBeVisible()
+        expect(screen.queryByText('Unit one')).not.toBeInTheDocument()
+        expect(screen.queryByText('private-next-block-key')).not.toBeInTheDocument()
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+
+    it('applies a newer question DTO from a stale 409 without exposing internal fields', async () => {
+        guestTestState.guestContinueResponseOverride = {
+            ok: false,
+            status: 409,
+            payload: {
+                error: 'Block introduction is no longer current',
+                attempt: makeGuestAttemptDto({
+                    attemptId: 'attempt-1',
+                    deadlineAt: '2030-01-01T00:45:00.000Z',
+                    serverNow: '2030-01-01T00:00:00.000Z',
+                    status: 'in_progress',
+                    phase: 'question',
+                    phaseRevision: 1,
+                    timerState: 'running',
+                    remainingMs: 2_600_000,
+                    numberingMode: 'block',
+                    currentBlock: null,
+                    currentQuestionIndex: 0,
+                    totalQuestions: 2,
+                    answeredCount: 0,
+                    questions: [
+                        {
+                            id: 'question-1',
+                            prompt: 'Current question from the server.',
+                            displayNumber: '1.1',
+                            internalBlockKey: 'private-question-block-key',
+                            options: [{ id: 'option-1', label: 'Current answer' }]
+                        }
+                    ]
+                })
+            }
+        }
+        await openBlockIntro()
+
+        fireEvent.click(screen.getByRole('button', { name: enApps.guest.continueQuiz }))
+
+        expect(await screen.findByRole('heading', { name: 'Current question from the server.' })).toBeVisible()
+        expect(screen.getByText('Question 1.1')).toBeVisible()
+        expect(screen.queryByText('internal-block-key-should-not-render')).not.toBeInTheDocument()
+        expect(screen.queryByText('private-question-block-key')).not.toBeInTheDocument()
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+
+    it('keeps a same-revision 409 as a localized retry error', async () => {
+        guestTestState.guestContinueResponseOverride = {
+            ok: false,
+            status: 409,
+            payload: {
+                error: 'Block introduction is no longer current',
+                attempt: makeGuestAttemptDto({
+                    attemptId: 'attempt-1',
+                    deadlineAt: '2030-01-01T00:45:00.000Z',
+                    serverNow: '2030-01-01T00:00:00.000Z',
+                    status: 'in_progress',
+                    phase: 'block_intro',
+                    phaseRevision: 0,
+                    timerState: 'running',
+                    remainingMs: 2_600_000,
+                    numberingMode: 'block',
+                    currentBlock: {
+                        key: 'private-same-revision-key',
+                        title: 'Unexpected same-revision state',
+                        introduction: 'This state must not replace the current intro.'
+                    },
+                    currentQuestionIndex: 0,
+                    totalQuestions: 2,
+                    answeredCount: 0,
+                    questions: []
+                })
+            }
+        }
+        await openBlockIntro()
+
+        fireEvent.click(screen.getByRole('button', { name: enApps.guest.continueQuiz }))
+
+        expect(await screen.findByRole('alert')).toHaveTextContent(enApps.guest.errors.quizContinue)
+        expect(screen.getByRole('heading', { name: 'Unit one' })).toBeVisible()
+        expect(screen.queryByText('Unexpected same-revision state')).not.toBeInTheDocument()
+        expect(screen.queryByText('private-same-revision-key')).not.toBeInTheDocument()
     })
 
     it('lets learners change a staged answer until they confirm it', async () => {
@@ -170,22 +436,23 @@ describe('GuestApp quiz attempts', () => {
                 if (getRequestPathname(url) === '/public/a/app-1/runtime/attempts/start') {
                     return {
                         ok: true,
-                        json: async () => ({
-                            attemptId: 'attempt-1',
-                            deadlineAt: '2030-01-01T00:45:00.000Z',
-                            serverNow: '2030-01-01T00:00:00.000Z',
-                            status: 'in_progress',
-                            currentQuestionIndex: 0,
-                            totalQuestions: 1,
-                            answeredCount: 0,
-                            questions: [
-                                {
-                                    id: 'question-1',
-                                    prompt: 'Question prompt',
-                                    options: [{ id: 'option-1', label: 'Correct option' }]
-                                }
-                            ]
-                        })
+                        json: async () =>
+                            makeGuestAttemptDto({
+                                attemptId: 'attempt-1',
+                                deadlineAt: '2030-01-01T00:45:00.000Z',
+                                serverNow: '2030-01-01T00:00:00.000Z',
+                                status: 'in_progress',
+                                currentQuestionIndex: 0,
+                                totalQuestions: 1,
+                                answeredCount: 0,
+                                questions: [
+                                    {
+                                        id: 'question-1',
+                                        prompt: 'Question prompt',
+                                        options: [{ id: 'option-1', label: 'Correct option' }]
+                                    }
+                                ]
+                            })
                     } as Response
                 }
                 if (getRequestPathname(url) === '/public/a/app-1/runtime/attempts/attempt-1/answers') {
@@ -349,17 +616,18 @@ describe('GuestApp quiz attempts', () => {
                 expect(new URL(url, 'http://localhost').searchParams.has('participantId')).toBe(false)
                 return {
                     ok: true,
-                    json: async () => ({
-                        attemptId: 'attempt-resume',
-                        attemptNumber: 1,
-                        deadlineAt: null,
-                        serverNow: '2030-01-01T00:00:00.000Z',
-                        status: 'in_progress',
-                        currentQuestionIndex: 1,
-                        totalQuestions: 2,
-                        answeredCount: 1,
-                        questions: [{ id: 'question-2', prompt: 'Question two', options: [{ id: 'option-2', label: 'Second option' }] }]
-                    })
+                    json: async () =>
+                        makeGuestAttemptDto({
+                            attemptId: 'attempt-resume',
+                            attemptNumber: 1,
+                            deadlineAt: null,
+                            serverNow: '2030-01-01T00:00:00.000Z',
+                            status: 'in_progress',
+                            currentQuestionIndex: 1,
+                            totalQuestions: 2,
+                            answeredCount: 1,
+                            questions: [{ id: 'question-2', prompt: 'Question two', options: [{ id: 'option-2', label: 'Second option' }] }]
+                        })
                 } as Response
             }
             throw new Error(`Unexpected fetch request: ${url}`)
@@ -378,7 +646,8 @@ describe('GuestApp quiz attempts', () => {
             screen.getByText('Your saved quiz attempt has been restored. Continue with the next unanswered question.')
         ).toBeInTheDocument()
         expect(screen.queryByRole('heading', { name: 'Question one' })).not.toBeInTheDocument()
-        expect(screen.getByText('Question 2 of 2')).toHaveAttribute('role', 'status')
+        expect(screen.getByText('1 of 2 questions answered')).toHaveAttribute('role', 'status')
+        expect(screen.getByText('Question 2')).toBeInTheDocument()
         expect(screen.queryByRole('timer')).not.toBeInTheDocument()
         const attemptResumeCall = fetchMock.mock.calls.find(
             ([input]) => getRequestPathname(input) === '/public/a/app-1/runtime/attempts/attempt-resume'
@@ -434,19 +703,20 @@ describe('GuestApp quiz attempts', () => {
                 const currentQuestionIndex = answerPersisted ? 2 : 1
                 return {
                     ok: true,
-                    json: async () => ({
-                        attemptId: 'attempt-resume',
-                        attemptNumber: 1,
-                        deadlineAt: '2030-01-01T00:45:00.000Z',
-                        serverNow: answerPersisted ? '2030-01-01T00:45:00.000Z' : '2030-01-01T00:00:00.000Z',
-                        status: 'in_progress',
-                        currentQuestionIndex,
-                        totalQuestions: 2,
-                        answeredCount: currentQuestionIndex,
-                        questions: answerPersisted
-                            ? []
-                            : [{ id: 'question-2', prompt: 'Question two', options: [{ id: 'option-2', label: 'Second option' }] }]
-                    })
+                    json: async () =>
+                        makeGuestAttemptDto({
+                            attemptId: 'attempt-resume',
+                            attemptNumber: 1,
+                            deadlineAt: '2030-01-01T00:45:00.000Z',
+                            serverNow: answerPersisted ? '2030-01-01T00:45:00.000Z' : '2030-01-01T00:00:00.000Z',
+                            status: 'in_progress',
+                            currentQuestionIndex,
+                            totalQuestions: 2,
+                            answeredCount: currentQuestionIndex,
+                            questions: answerPersisted
+                                ? []
+                                : [{ id: 'question-2', prompt: 'Question two', options: [{ id: 'option-2', label: 'Second option' }] }]
+                        })
                 } as Response
             }
             if (pathname === '/public/a/app-1/runtime/attempts/attempt-resume/answers') {
@@ -461,16 +731,17 @@ describe('GuestApp quiz attempts', () => {
                 }
                 return {
                     ok: true,
-                    json: async () => ({
-                        attemptId: 'attempt-resume',
-                        attemptNumber: 1,
-                        status: 'completed',
-                        currentQuestionIndex: 2,
-                        totalQuestions: 2,
-                        answeredCount: 2,
-                        questions: [],
-                        result: { score: 1, total: 2, passed: false, finishedReason: 'submitted' }
-                    })
+                    json: async () =>
+                        makeGuestAttemptDto({
+                            attemptId: 'attempt-resume',
+                            attemptNumber: 1,
+                            status: 'completed',
+                            currentQuestionIndex: 2,
+                            totalQuestions: 2,
+                            answeredCount: 2,
+                            questions: [],
+                            result: { score: 1, total: 2, passed: false, finishedReason: 'submitted' }
+                        })
                 } as Response
             }
             throw new Error(`Unexpected fetch request: ${url} ${init?.method ?? 'GET'}`)

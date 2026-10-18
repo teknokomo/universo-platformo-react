@@ -13,12 +13,19 @@ const publicAttempt = () => ({
     currentQuestionIndex: 0,
     totalQuestions: 2,
     answeredCount: 0,
+    phase: 'question',
+    phaseRevision: 0,
+    timerState: 'running',
+    remainingMs: 2700000,
+    numberingMode: 'global',
+    currentBlock: null,
     questions: [
         {
             id: '018f8a78-7b8f-7c1d-a111-222233334445',
             prompt: 'Question',
             description: null,
-            sortOrder: 1,
+            sortOrder: 0,
+            displayNumber: '1',
             options: [{ id: '018f8a78-7b8f-7c1d-a111-222233334446', label: 'Choice' }]
         }
     ],
@@ -55,6 +62,7 @@ test('rejects unrecognized fields added to the answer-save response envelope', (
 
 test('accepts an in-progress boundary after the final saved answer and a terminal projection', () => {
     const finalAnswerSaved = publicAttempt()
+    finalAnswerSaved.phase = 'question'
     finalAnswerSaved.currentQuestionIndex = 2
     finalAnswerSaved.answeredCount = 2
     finalAnswerSaved.questions = []
@@ -74,7 +82,8 @@ test('rejects future question leaks, non-sequential progress, and the removed an
         id: '018f8a78-7b8f-7c1d-a111-222233334447',
         prompt: 'Future question',
         description: null,
-        sortOrder: 2,
+        sortOrder: 1,
+        displayNumber: '2',
         options: [{ id: '018f8a78-7b8f-7c1d-a111-222233334448', label: 'Future choice' }]
     })
     assert.throws(() => assertPublicAssessmentAttemptState(multipleQuestions, 'attempt'), /current unanswered question/u)

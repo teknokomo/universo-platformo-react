@@ -187,6 +187,7 @@ export async function syncApplicationSchemaFromSource(options: {
 
                 const runtimeSyncResult = await runPublishedApplicationRuntimeSync({
                     trx,
+                    generator,
                     applicationId: application.id,
                     schemaName: application.schemaName!,
                     snapshotHash: source.snapshotHash,
@@ -296,6 +297,7 @@ export async function syncApplicationSchemaFromSource(options: {
                     await runSchemaSyncStep(`initialSync:${application.id}:runtimeSync`, async () =>
                         runPublishedApplicationRuntimeSync({
                             trx,
+                            generator,
                             applicationId: application.id,
                             schemaName: application.schemaName!,
                             snapshotHash: source.snapshotHash,
@@ -509,6 +511,7 @@ export async function syncApplicationSchemaFromSource(options: {
 
                 const runtimeSyncResult = await runPublishedApplicationRuntimeSync({
                     trx,
+                    generator,
                     applicationId: application.id,
                     schemaName: application.schemaName!,
                     snapshotHash: source.snapshotHash,
@@ -629,6 +632,7 @@ export async function syncApplicationSchemaFromSource(options: {
                 afterMigrationRecorded: async ({ trx, snapshotAfter, migrationId }) => {
                     await runPublishedApplicationRuntimeSync({
                         trx,
+                        generator,
                         applicationId: application.id,
                         schemaName: application.schemaName!,
                         snapshotHash: source.snapshotHash,
@@ -749,6 +753,7 @@ async function runSchemaSyncStep<T>(_label: string, fn: () => Promise<T>): Promi
 
 export async function runPublishedApplicationRuntimeSync(options: {
     trx: ApplicationSyncTransaction
+    generator: DDLServices['generator']
     applicationId: string
     schemaName: string
     snapshotHash?: string | null
@@ -767,6 +772,7 @@ export async function runPublishedApplicationRuntimeSync(options: {
 }): Promise<{ seedWarnings: string[] }> {
     const {
         trx,
+        generator,
         applicationId,
         schemaName,
         snapshotHash,
@@ -778,6 +784,10 @@ export async function runPublishedApplicationRuntimeSync(options: {
         layoutResolutionPolicy
     } = options
     const runtimeSnapshot = buildRuntimeSnapshotForApplicationSync(snapshot, entities, options.workspacesEnabled)
+
+    await runSchemaSyncStep(`runtimeSync:${applicationId}:cascadeDeleteColumns`, async () =>
+        generator.ensureApplicationCascadeDeleteColumns(schemaName, entities, trx)
+    )
 
     await runSchemaSyncStep(`runtimeSync:${applicationId}:layouts`, async () =>
         persistPublishedLayouts({

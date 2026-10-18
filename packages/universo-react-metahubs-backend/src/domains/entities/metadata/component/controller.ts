@@ -50,6 +50,13 @@ import { readPlatformSystemComponentsPolicy, shouldExposeObjectSystemComponent }
 import { createEnsureMetahubRouteAccess } from '../../../shared/guards'
 import { respondSchemaSyncFailure, isSchemaSyncFailure, syncMetahubSchemaOrThrow, isUniqueViolation } from '../../../shared/errorGuards'
 import { uuidToLockKey, acquirePoolAdvisoryLock, releasePoolAdvisoryLock } from '../../../ddl'
+import {
+    getSiblingRowSelectConfig,
+    hasDependentSiblingRowSelectReferences,
+    siblingRowSelectSchema,
+    type ComponentMetadata,
+    validateSiblingRowSelectReference
+} from './siblingRowSelectValidation'
 
 // ---------------------------------------------------------------------------
 // Local helpers
@@ -71,6 +78,7 @@ const SET_KIND = 'set' as const
 const OBJECT_COMPATIBLE_ROUTE_KIND = 'object' as const
 const COMPONENT_LIMIT = 100
 const GLOBAL_COMPONENT_CODENAME_LOCK_ERROR = 'Could not acquire component codename lock. Please retry.'
+const INVALID_SIBLING_ROW_SELECT_REFERENCE = 'INVALID_SIBLING_ROW_SELECT_REFERENCE'
 
 // ---------------------------------------------------------------------------
 // Schemas
@@ -142,6 +150,31 @@ const validationRulesSchema = z
         }
     )
 
+type JsonUiValue = null | boolean | number | string | JsonUiValue[] | { [key: string]: JsonUiValue }
+
+// Bound user-authored JSON metadata so nested defaults stay cheap to validate.
+const jsonUiValueSchemaAtDepth = (depth: number): z.ZodType<JsonUiValue> => {
+    const scalarSchema = z.union([z.string().max(100_000), z.number().finite(), z.boolean(), z.null()])
+    if (depth >= 16) return scalarSchema
+
+    return z.union([
+        scalarSchema,
+        z.array(jsonUiValueSchemaAtDepth(depth + 1)).max(1_000),
+        z
+            .record(z.string().max(256), jsonUiValueSchemaAtDepth(depth + 1))
+            .refine((value) => Object.keys(value).length <= 1_000, 'defaultValue object has too many properties')
+    ])
+}
+
+const jsonUiValueSchema = jsonUiValueSchemaAtDepth(0)
+
+const rowOrderingSchema = z
+    .object({
+        orderFieldCodename: z.string().trim().min(1).max(128),
+        labelFieldCodename: z.string().trim().min(1).max(128)
+    })
+    .strict()
+
 const uiConfigSchema = z
     .object({
         widget: z
@@ -155,15 +188,25 @@ const uiConfigSchema = z
                 'datetime',
                 'reference',
                 'editorjsBlockContent',
-                'resourceSource'
+                'resourceSource',
+                'assessmentOptions'
             ])
             .optional(),
+        minOptions: z.number().int().min(2).max(100).optional(),
+        maxOptions: z.number().int().min(2).max(100).optional(),
         rows: z.number().int().min(2).max(12).optional(),
         placeholder: z.record(z.string()).optional(),
         helpText: z.record(z.string()).optional(),
         hidden: z.boolean().optional(),
         gridHidden: z.boolean().optional(),
         formHidden: z.boolean().optional(),
+        resetOnCopy: z.boolean().optional(),
+        defaultValue: jsonUiValueSchema.optional(),
+        serverOwned: z.boolean().optional(),
+        generateUuidV7: z.boolean().optional(),
+        siblingRowSelectKey: z.boolean().optional(),
+        siblingRowSelect: siblingRowSelectSchema.optional(),
+        rowOrdering: rowOrderingSchema.optional(),
         width: z.number().optional(),
         editor: z.enum(['editorjs']).optional(),
         blockContent: z.boolean().optional(),
@@ -189,6 +232,23 @@ const uiConfigSchema = z
         enumAllowEmpty: z.boolean().optional(),
         enumLabelEmptyDisplay: z.enum(ENUM_LABEL_EMPTY_DISPLAY_MODES).optional(),
         showTitle: z.boolean().optional()
+    })
+    .superRefine((config, ctx) => {
+        const hasOptionBounds = config.minOptions !== undefined || config.maxOptions !== undefined
+        if (hasOptionBounds && config.widget !== 'assessmentOptions') {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['widget'],
+                message: 'minOptions and maxOptions require the assessmentOptions widget'
+            })
+        }
+        if (config.minOptions !== undefined && config.maxOptions !== undefined && config.minOptions > config.maxOptions) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['minOptions'],
+                message: 'minOptions must be less than or equal to maxOptions'
+            })
+        }
     })
     .optional()
 
@@ -310,6 +370,7 @@ const normalizeMultilineUiConfig = (
     const jsonWidget =
         nextUiConfig.widget === 'editorjsBlockContent' ||
         nextUiConfig.widget === 'resourceSource' ||
+        nextUiConfig.widget === 'assessmentOptions' ||
         nextUiConfig.editor === 'editorjs' ||
         nextUiConfig.blockContent === true ||
         nextUiConfig.resourceSource === true ||
@@ -714,6 +775,22 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
             sortOrder,
             parentComponentId
         } = parsed.data
+
+        if (uiConfig?.siblingRowSelect) {
+            const siblingReferenceError = await validateSiblingRowSelectReference({
+                componentsService,
+                metahubId,
+                objectCollectionId,
+                userId,
+                parentComponentId,
+                fieldDataType: dataType,
+                config: uiConfig.siblingRowSelect
+            })
+            if (siblingReferenceError) {
+                return res.status(400).json({ error: siblingReferenceError, code: INVALID_SIBLING_ROW_SELECT_REFERENCE })
+            }
+        }
+
         const shouldBeDisplayComponent = Boolean(isDisplayComponent)
         const effectiveIsRequired = shouldBeDisplayComponent || Boolean(isRequired)
 
@@ -1023,6 +1100,26 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
             copyUiConfig = multilineUiConfig.uiConfig
         }
 
+        if (copyUiConfig.siblingRowSelect !== undefined) {
+            const parsedSiblingRowSelect = siblingRowSelectSchema.safeParse(copyUiConfig.siblingRowSelect)
+            if (!parsedSiblingRowSelect.success) {
+                return res.status(400).json({ error: 'Invalid sibling row selection metadata', code: INVALID_SIBLING_ROW_SELECT_REFERENCE })
+            }
+            const siblingReferenceError = await validateSiblingRowSelectReference({
+                componentsService,
+                metahubId,
+                objectCollectionId,
+                userId,
+                parentComponentId: source.parentComponentId,
+                fieldDataType: source.dataType,
+                config: parsedSiblingRowSelect.data
+            })
+            if (siblingReferenceError) {
+                return res.status(400).json({ error: siblingReferenceError, code: INVALID_SIBLING_ROW_SELECT_REFERENCE })
+            }
+            copyUiConfig = { ...copyUiConfig, siblingRowSelect: parsedSiblingRowSelect.data }
+        }
+
         if (parsed.data.targetConstantId !== undefined && source.targetEntityKind !== SET_KIND) {
             return res.status(400).json({
                 error: 'targetConstantId override is only supported for components referencing sets'
@@ -1308,6 +1405,21 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
             })
         }
 
+        if (uiConfig?.siblingRowSelect) {
+            const siblingReferenceError = await validateSiblingRowSelectReference({
+                componentsService,
+                metahubId,
+                objectCollectionId,
+                userId,
+                parentComponentId: component.parentComponentId,
+                fieldDataType: component.dataType,
+                config: uiConfig.siblingRowSelect
+            })
+            if (siblingReferenceError) {
+                return res.status(400).json({ error: siblingReferenceError, code: INVALID_SIBLING_ROW_SELECT_REFERENCE })
+            }
+        }
+
         if (component.dataType === ComponentDefinitionDataType.STRING && validationRules) {
             const oldRules = component.validationRules as Record<string, unknown> | undefined
             const wasVersioned = Boolean(oldRules?.versioned)
@@ -1539,7 +1651,19 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
                 }
             }
 
-            updated = await exec.transaction(async (trx: SqlQueryable) => {
+            const updateResult = await exec.transaction(async (trx: SqlQueryable) => {
+                const hasSiblingReferences = await hasDependentSiblingRowSelectReferences({
+                    componentsService,
+                    metahubId,
+                    objectCollectionId,
+                    userId,
+                    component,
+                    nextCodename: (updateData.codename ?? component.codename) as ComponentMetadata['codename'],
+                    nextUiConfig: updateData.uiConfig ?? component.uiConfig,
+                    db: trx
+                })
+                if (hasSiblingReferences) return { kind: 'invalid-sibling-reference' as const }
+
                 const nextComponent = await componentsService.update(metahubId, componentId, updateData, userId, trx)
 
                 if (isDisplayComponent === true) {
@@ -1560,8 +1684,15 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
                 }
 
                 await syncMetahubSchemaOrThrow(metahubId, trx, userId, 'component update')
-                return nextComponent
+                return { kind: 'updated' as const, component: nextComponent }
             })
+            if (updateResult.kind === 'invalid-sibling-reference') {
+                return res.status(400).json({
+                    error: 'Component is referenced by sibling row selectors and cannot be renamed or disable generated key metadata',
+                    code: INVALID_SIBLING_ROW_SELECT_REFERENCE
+                })
+            }
+            updated = updateResult.component
         } catch (error) {
             if (isSchemaSyncFailure(error)) {
                 return respondSchemaSyncFailure(res, error.operation, error.cause)
@@ -1628,6 +1759,53 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
                 error: 'Validation failed',
                 details: { mergedOrderIds: ['mergedOrderIds is not supported for cross-list transfers'] }
             })
+        }
+
+        if (newParentComponentId !== undefined) {
+            const component = await componentsService.findById(metahubId, componentId, userId)
+            if (!component || component.objectCollectionId !== objectCollectionId) {
+                return res.status(404).json({ error: 'Component not found' })
+            }
+
+            const hasSiblingReferences = await hasDependentSiblingRowSelectReferences({
+                componentsService,
+                metahubId,
+                objectCollectionId,
+                userId,
+                component,
+                nextCodename: component.codename,
+                nextUiConfig: component.uiConfig,
+                nextParentComponentId: newParentComponentId,
+                operation: 'move'
+            })
+            if (hasSiblingReferences) {
+                return res.status(400).json({
+                    error: 'Component is referenced by sibling row selectors and cannot be moved',
+                    code: INVALID_SIBLING_ROW_SELECT_REFERENCE
+                })
+            }
+
+            const siblingRowSelect = getSiblingRowSelectConfig(component)
+            if (siblingRowSelect) {
+                const parsedSiblingRowSelect = siblingRowSelectSchema.safeParse(siblingRowSelect)
+                if (!parsedSiblingRowSelect.success) {
+                    return res
+                        .status(400)
+                        .json({ error: 'Invalid sibling row selection metadata', code: INVALID_SIBLING_ROW_SELECT_REFERENCE })
+                }
+                const siblingReferenceError = await validateSiblingRowSelectReference({
+                    componentsService,
+                    metahubId,
+                    objectCollectionId,
+                    userId,
+                    parentComponentId: newParentComponentId,
+                    fieldDataType: component.dataType,
+                    config: parsedSiblingRowSelect.data
+                })
+                if (siblingReferenceError) {
+                    return res.status(400).json({ error: siblingReferenceError, code: INVALID_SIBLING_ROW_SELECT_REFERENCE })
+                }
+            }
         }
 
         const codenameScope = await getComponentCodenameScope(settingsService, metahubId, userId)
@@ -1855,7 +2033,20 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
         }
 
         try {
-            await exec.transaction(async (trx: SqlQueryable) => {
+            const deleteResult = await exec.transaction(async (trx: SqlQueryable) => {
+                const hasSiblingReferences = await hasDependentSiblingRowSelectReferences({
+                    componentsService,
+                    metahubId,
+                    objectCollectionId,
+                    userId,
+                    component,
+                    nextCodename: component.codename,
+                    nextUiConfig: component.uiConfig,
+                    operation: 'delete',
+                    db: trx
+                })
+                if (hasSiblingReferences) return false
+
                 await componentsService.ensureSequentialSortOrder(
                     metahubId,
                     objectCollectionId,
@@ -1872,7 +2063,14 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
                     trx
                 )
                 await syncMetahubSchemaOrThrow(metahubId, trx, userId, 'component delete')
+                return true
             })
+            if (!deleteResult) {
+                return res.status(400).json({
+                    error: 'Component is referenced by sibling row selectors and cannot be deleted',
+                    code: INVALID_SIBLING_ROW_SELECT_REFERENCE
+                })
+            }
         } catch (error) {
             if (isSchemaSyncFailure(error)) {
                 return respondSchemaSyncFailure(res, error.operation, error.cause)
@@ -2020,6 +2218,21 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
                 error: `Data type "${dataType}" is not allowed for child components`,
                 code: 'INVALID_CHILD_DATA_TYPE'
             })
+        }
+
+        if (uiConfig?.siblingRowSelect) {
+            const siblingReferenceError = await validateSiblingRowSelectReference({
+                componentsService,
+                metahubId,
+                objectCollectionId,
+                userId,
+                parentComponentId: parent.id,
+                fieldDataType: dataType,
+                config: uiConfig.siblingRowSelect
+            })
+            if (siblingReferenceError) {
+                return res.status(400).json({ error: siblingReferenceError, code: INVALID_SIBLING_ROW_SELECT_REFERENCE })
+            }
         }
 
         const codenameStyle = extractCodenameStyle(allSettings)

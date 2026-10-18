@@ -11,11 +11,17 @@ const PUBLIC_ATTEMPT_KEYS = [
     'currentQuestionIndex',
     'totalQuestions',
     'answeredCount',
+    'phase',
+    'phaseRevision',
+    'timerState',
+    'remainingMs',
+    'numberingMode',
+    'currentBlock',
     'questions',
     'result',
     'completionText'
 ] as const
-const PUBLIC_QUESTION_KEYS = ['id', 'prompt', 'description', 'sortOrder', 'options'] as const
+const PUBLIC_QUESTION_KEYS = ['id', 'prompt', 'description', 'sortOrder', 'displayNumber', 'options'] as const
 const PUBLIC_OPTION_KEYS = ['id', 'label'] as const
 const PUBLIC_RESULT_KEYS = ['score', 'total', 'passed', 'finishedReason'] as const
 
@@ -68,6 +74,31 @@ export function assertPublicAssessmentAttemptState(value: unknown, label: string
         throw new Error(`${label}.locale must be a supported locale tag`)
     }
     if (!Array.isArray(attempt.questions)) throw new Error(`${label}.questions must be an array`)
+    if (attempt.phase !== 'block_intro' && attempt.phase !== 'question') throw new Error(`${label}.phase must be a supported phase`)
+    if (!Number.isSafeInteger(attempt.phaseRevision) || Number(attempt.phaseRevision) < 0) {
+        throw new Error(`${label}.phaseRevision must be a non-negative safe integer`)
+    }
+    if (attempt.timerState !== 'untimed' && attempt.timerState !== 'running' && attempt.timerState !== 'paused') {
+        throw new Error(`${label}.timerState must be a supported timer state`)
+    }
+    if (attempt.numberingMode !== 'global' && attempt.numberingMode !== 'block') {
+        throw new Error(`${label}.numberingMode must be a supported numbering mode`)
+    }
+    if (
+        attempt.remainingMs !== null &&
+        (typeof attempt.remainingMs !== 'number' || !Number.isFinite(attempt.remainingMs) || attempt.remainingMs < 0)
+    ) {
+        throw new Error(`${label}.remainingMs must be non-negative milliseconds or null`)
+    }
+    if (attempt.timerState === 'untimed' ? attempt.remainingMs !== null : typeof attempt.remainingMs !== 'number') {
+        throw new Error(`${label}.remainingMs must agree with its timer state`)
+    }
+    if (attempt.currentBlock !== null) {
+        const block = assertExactPublicKeys(attempt.currentBlock, ['title', 'introduction'], `${label}.currentBlock`)
+        if (typeof block.title !== 'string' || typeof block.introduction !== 'string') {
+            throw new Error(`${label}.currentBlock must contain localized display text`)
+        }
+    }
 
     const counters = ['currentQuestionIndex', 'totalQuestions', 'answeredCount'] as const
     for (const counter of counters) {
@@ -84,14 +115,24 @@ export function assertPublicAssessmentAttemptState(value: unknown, label: string
     if (attempt.status === 'in_progress' && answeredCount !== currentQuestionIndex) {
         throw new Error(`${label}.answeredCount must equal currentQuestionIndex while the attempt is in progress`)
     }
-    const expectedQuestionCount = attempt.status === 'in_progress' && currentQuestionIndex < totalQuestions ? 1 : 0
+    const expectedQuestionCount =
+        attempt.status === 'in_progress' && attempt.phase === 'question' && currentQuestionIndex < totalQuestions ? 1 : 0
     if (attempt.questions.length !== expectedQuestionCount) {
-        throw new Error(`${label}.questions must contain only the current unanswered question`)
+        throw new Error(`${label}.questions must contain only the current unanswered question for its phase`)
+    }
+    if (attempt.status === 'in_progress' && attempt.phase === 'block_intro' && attempt.currentBlock === null) {
+        throw new Error(`${label}.currentBlock must be present during a block introduction`)
+    }
+    if (attempt.phase === 'question' && attempt.currentBlock !== null) {
+        throw new Error(`${label}.currentBlock must be null while a question is active`)
     }
 
     attempt.questions.forEach((question, questionIndex) => {
         const questionPath = `${label}.questions[${questionIndex}]`
         const publicQuestion = assertExactPublicKeys(question, PUBLIC_QUESTION_KEYS, questionPath)
+        if (typeof publicQuestion.sortOrder !== 'number' || !Number.isFinite(publicQuestion.sortOrder)) {
+            throw new Error(`${questionPath}.sortOrder must be a finite source-order value`)
+        }
         if (!Array.isArray(publicQuestion.options)) throw new Error(`${questionPath}.options must be an array`)
         publicQuestion.options.forEach((option, optionIndex) => {
             assertExactPublicKeys(option, PUBLIC_OPTION_KEYS, `${questionPath}.options[${optionIndex}]`)

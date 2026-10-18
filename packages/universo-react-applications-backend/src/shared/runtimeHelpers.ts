@@ -370,6 +370,7 @@ export const buildRuntimeRestoreSetClause = (
     if (contract.delete.trackBy) {
         clauses.push('_app_deleted_by = NULL')
     }
+    clauses.push('_upl_delete_cascade_id = NULL')
 
     return clauses.join(', ')
 }

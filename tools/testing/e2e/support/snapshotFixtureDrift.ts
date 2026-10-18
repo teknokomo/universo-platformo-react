@@ -12,6 +12,7 @@ const volatileTimestampFields = new Set(['createdAt', 'updatedAt', 'publishedAt'
 const volatileUuidFields = new Set([
     'ArticleId',
     'BadgeId',
+    'BlockKey',
     'ContentNodeId',
     'ContentNodeIdRef',
     'CourseId',
