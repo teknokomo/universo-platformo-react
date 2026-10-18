@@ -140,6 +140,7 @@ catalog:
     # Core CLI and proxy bootstrap dependencies.
     '@oclif/core': 5.1.2
     global-agent: ^4.1.3
+    supabase: 2.120.0
 
     # React Router - keep the security-patched v7 line in lockstep across all importers.
     react-router: ^7.18.2

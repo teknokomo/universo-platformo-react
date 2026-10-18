@@ -208,7 +208,7 @@
         "react-i18next": "catalog:",
         "rimraf": "^3.0.2",
         "run-script-os": "^1.1.6",
-        "supabase": "^2.98.2",
+        "supabase": "catalog:",
         "tsdown": "catalog:",
         "turbo": "2.10.12",
         "typescript": "catalog:",

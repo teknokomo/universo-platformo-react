@@ -68,8 +68,26 @@ export function getSupabaseWorkdirArgs(profile) {
     return ['--workdir', profile.workdir]
 }
 
-export function runSupabaseCli(profile, args) {
-    return runCommand('supabase', [...getSupabaseWorkdirArgs(profile), ...args], { cwd: profile.workdir })
+/**
+ * Uses GHCR slim images for E2E and Docker Hub for the required Kong image.
+ * @param {{ target: string }} profile
+ * @param {string} action
+ * @param {Record<string, string | undefined>} baseEnvironment
+ */
+export function getSupabaseCliEnvironment(profile, action, baseEnvironment = process.env) {
+    if (profile.target !== 'e2e' || action !== 'start') return baseEnvironment
+    return {
+        ...baseEnvironment,
+        SUPABASE_INTERNAL_IMAGE_REGISTRY: 'docker.io',
+        SUPABASE_USE_SLIM_IMAGES: 'true'
+    }
+}
+
+export function runSupabaseCli(profile, args, options = {}) {
+    return runCommand('supabase', [...getSupabaseWorkdirArgs(profile), ...args], {
+        cwd: profile.workdir,
+        env: options.env ?? process.env
+    })
 }
 
 export function ensureLocalSupabaseProject(profile) {
