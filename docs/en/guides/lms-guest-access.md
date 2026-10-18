@@ -40,6 +40,7 @@ The following routes are mounted under `/api/v1`:
 -   Guest runtime: `GET /public/a/:applicationId/runtime`
 -   Quiz attempt start: `POST /public/a/:applicationId/runtime/attempts/start?locale=<locale>`
 -   Quiz attempt resume/read: `GET /public/a/:applicationId/runtime/attempts/:attemptId?locale=<locale>`
+-   Continue from a block introduction: `POST /public/a/:applicationId/runtime/attempts/:attemptId/continue?locale=<locale>`
 -   Save an answer: `PUT /public/a/:applicationId/runtime/attempts/:attemptId/answers?locale=<locale>`
 -   Finalize an attempt: `POST /public/a/:applicationId/runtime/attempts/:attemptId/finalize?locale=<locale>`
 -   Save learning progress: `POST /public/a/:applicationId/runtime/guest-progress`
@@ -53,6 +54,14 @@ For a quiz or assessment target, `POST /public/a/:applicationId/guest-session` r
 A quiz attempt is started on the server and keeps its saved deadline and question snapshot. The `ConfirmAnswerBeforeNext` quiz setting defaults to `false`: selecting an answer saves it and advances after the server confirms it. When enabled, the guest runtime stages the choice locally, lets the participant change it, and saves it only after **Submit answer** is activated. The runtime can restore the same attempt after a reload. Correct answers are not included in the question data shown during the quiz. On submission or timeout, the server scores the saved answers and stores the score, score percentage, total questions, pass state, completion time, and finish reason with the attempt.
 
 For the Lyceum Marathon, each of the seven quizzes has 30 questions, four choices per question, and a 2,700-second time limit. The timer uses the server deadline; expired attempts are finalized before an authorized report is read. Locale is passed to the attempt lifecycle endpoints so both the interface and the closing message match the participant's selected language.
+
+### Quiz blocks
+
+A quiz may group its questions into ordered **Blocks**. Each block has a title and may have an introduction. A guest sees the block introduction before its questions and selects **Continue** to begin them. After each saved answer, the runtime advances to the next question in that block; after its last question, it opens the next block introduction or completes the quiz. The LMS template represents this structure with the quiz's `Blocks` table and the `Questions.BlockKey` sibling selector.
+
+By default, the quiz timer starts with the attempt and keeps running on block introductions. The quiz's **Pause timer on block introductions** setting can freeze the server-tracked remaining time until the guest continues. Question numbers are global by default; **Number questions within each block** switches to block-relative numbers such as `1.1`, `1.2`, `2.1`. Both settings are per quiz. The participant's session can retrieve only its current phase and current question, so future questions and correct-answer keys remain private.
+
+In either quiz authoring form, adding the first block to an existing flat quiz asks for confirmation before assigning all existing questions to that block. Cancel keeps both tables unchanged. Removing the final block asks before clearing the question assignments and returning to a flat quiz; question content and order are preserved. Use each row's **Move up / Move down** actions to reorder blocks, and the question's **Block** selector to move it. Give every block at least one question before saving. All related changes are saved together with the parent quiz, so you can create a block and assign its questions before choosing **Save**.
 
 The public guest session can retrieve only its own attempt and final result. It cannot open the Reports area or read another learner's result. Signed-in application staff with the `readReports` permission can use the saved `QuizAttemptResults` report, which shows quiz, learner, start and completion times, score, total questions, attempt status, and finish reason. See [LMS Reports](../lms/reports.md).
 

@@ -1,0 +1,3147 @@
+{
+    "datasetId": "sixth-muse",
+    "datasetVersion": 1,
+    "title": "Шестая муза",
+    "language": "ru",
+    "status": "reviewed",
+    "promotionStatus": "ready-for-generation",
+    "review": {
+        "status": "reviewed",
+        "reviewedAt": "2026-10-17",
+        "meaning": "Every source row retains the exact author prompt and answer as provenance, while its scored runtime wording, verified key, four fact-checked choices, and evidence notes are reviewed.",
+        "scoringApprovedRows": 30,
+        "authorDecisionRequiredRows": 0,
+        "unresolvedQuestionIds": [],
+        "promotionGate": "All 30 rows have a reviewed single-correct runtime prompt, one verified correct choice, three fact-checked distractors, and source-backed provenance."
+    },
+    "originalSource": {
+        "file": ".backup/Квиз-Шестая-муза.md",
+        "sha256": "3cf486bb6ecbddeae52c0d2cc337d2e739a06058bbb058df45e2dbb5f7a14376",
+        "transcriptionSha256": "86ae1a6fd3d661416b7aef76b7062435d1a802ab8d31675713a02aeb6cedfa45",
+        "sourceQuizTitle": "Квиз по лицеистам Царскосельского лицея",
+        "integrity": "Raw Markdown SHA-256 and the JSON-serialized source transcription digest pin the original author content. Original prompts and sourceAnswer values are retained unchanged; runtime prompt/key edits are documented per row in editorialMapping and provenanceReviewRegister."
+    },
+    "quizPolicies": {
+        "timeLimitSeconds": 2700,
+        "confirmAnswerBeforeNext": false,
+        "pauseTimerOnBlockIntro": false,
+        "blockRelativeNumbering": false,
+        "passingScorePercent": 50,
+        "maxAttempts": 3,
+        "classKey": null,
+        "guestAccess": {
+            "anonymousAccess": true,
+            "firstNameRequired": true,
+            "lastNameRequired": true,
+            "termsConsentRequired": true,
+            "privacyConsentRequired": true,
+            "captchaEnabled": false,
+            "accessLinkSlugProposal": "sixth-muse",
+            "shortLinkProvisioning": "Create after application publication through the existing application UI; this source does not pre-seed an application-owned alias."
+        }
+    },
+    "blocks": [
+        {
+            "id": "sixth-muse-block-1",
+            "semanticKey": "sixth-muse-block-1",
+            "order": 1,
+            "title": "Прозвища лицеистов",
+            "introduction": "Ответьте на вопросы о прозвищах воспитанников Царскосельского лицея.",
+            "questions": [
+                {
+                    "id": "sixth-muse-q01",
+                    "sourceQuestionNumber": 1,
+                    "orderWithinBlock": 1,
+                    "sourceAnswer": "Александр Пушкин.",
+                    "verifiedCorrectOptionId": "sixth-muse-q01-answer-pushkin",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q01-choice-kuech",
+                            "text": "Вильгельм Кюхельбекер.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["museumSobriquets"],
+                            "reviewNote": "The museum study associates Küchelbecker with «Кюхля», not the two sobriquets asked for."
+                        },
+                        {
+                            "id": "sixth-muse-q01-choice-delvig",
+                            "text": "Антон Дельвиг.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["pushkinProtocol", "museumSobriquets"],
+                            "reviewNote": "The anniversary protocol records Delvig’s separate nickname «Тося»."
+                        },
+                        {
+                            "id": "sixth-muse-q01-answer-pushkin",
+                            "text": "Александр Пушкин.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["museumSobriquets"],
+                            "reviewNote": "The Pushkin Museum study quotes Korf attributing «Француз» to Alexander Pushkin because of his knowledge of French."
+                        },
+                        {
+                            "id": "sixth-muse-q01-choice-gorchakov",
+                            "text": "Александр Горчаков.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["spbuGorchakov"],
+                            "reviewNote": "The SPbU study documents Gorchakov’s separate nickname «Франт»."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": ["museumSobriquets", "museumLyceum"],
+                        "singleCorrectRationale": "The Pushkin Museum study quotes Korf attributing «Француз» to Pushkin for his command of French; the runtime omits the weaker second sobriquet."
+                    },
+                    "originalPrompt": "Кто из лицеистов носил сразу два прозвища — Француз и Егоза?",
+                    "runtimePrompt": "Кого Модест Корф называл «Французом» за хорошее знание французского языка?",
+                    "verifiedCorrectAnswer": "Александр Пушкин.",
+                    "editorialMapping": {
+                        "changeType": "runtime-prompt-narrowing",
+                        "rationale": "The original clue combines «Француз» and «Егоза». Runtime scores only the sobriquet directly documented in the Pushkin Museum study and retains the full author wording in provenance.",
+                        "evidenceRefs": ["museumSobriquets"]
+                    },
+                    "verifiedCorrectPosition": 3,
+                    "reviewNote": "The Pushkin Museum study quotes Korf attributing «Француз» to Pushkin for his command of French; the runtime omits the weaker second sobriquet."
+                },
+                {
+                    "id": "sixth-muse-q02",
+                    "sourceQuestionNumber": 2,
+                    "orderWithinBlock": 2,
+                    "sourceAnswer": "Антона Дельвига.",
+                    "verifiedCorrectOptionId": "sixth-muse-q02-answer-nickname-tosya",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q02-answer-nickname-tosya",
+                            "text": "«Тося»",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["pushkinProtocol", "museumSobriquets"],
+                            "reviewNote": "The primary anniversary protocol derives «Тося» from Anton; the museum study records the same nominative form for Delvig."
+                        },
+                        {
+                            "id": "sixth-muse-q02-choice-nickname-kazak",
+                            "text": "«Казак»",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["eydelman"],
+                            "reviewNote": "Eydelman’s scholarly study associates «Казак» with Ivan Malinovsky."
+                        },
+                        {
+                            "id": "sixth-muse-q02-choice-nickname-zhanno",
+                            "text": "«Жанно»",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["museumSobriquets"],
+                            "reviewNote": "The museum sobriquet study assigns «Жанно» to Ivan Puschin."
+                        },
+                        {
+                            "id": "sixth-muse-q02-choice-nickname-kyukhlya",
+                            "text": "«Кюхля»",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["pushkinProtocol", "museumSobriquets"],
+                            "reviewNote": "The protocol and museum study assign «Кюхля» to Wilhelm Küchelbecker."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": ["pushkinProtocol", "museumSobriquets", "eydelman"],
+                        "singleCorrectRationale": "The 1828 anniversary protocol records the nominative «Тося» for Delvig; the runtime does not score the unsupported variant."
+                    },
+                    "originalPrompt": "Кого в Лицее ласково называли Тося или Тосе?",
+                    "runtimePrompt": "Какое прозвище Антона Дельвига записано в протоколе Лицейской годовщины 19 октября 1828 года?",
+                    "verifiedCorrectAnswer": "«Тося»",
+                    "editorialMapping": {
+                        "changeType": "runtime-prompt-and-answer-normalization",
+                        "rationale": "The original «Тося или Тосе» wording includes an unattested alternative. Runtime asks for the exact form recorded in the primary 1828 protocol and retains the original prompt and answer in provenance.",
+                        "evidenceRefs": ["pushkinProtocol", "museumSobriquets"]
+                    },
+                    "verifiedCorrectPosition": 1,
+                    "reviewNote": "The 1828 anniversary protocol records the nominative «Тося» for Delvig; the runtime does not score the unsupported variant."
+                },
+                {
+                    "id": "sixth-muse-q03",
+                    "sourceQuestionNumber": 3,
+                    "orderWithinBlock": 3,
+                    "sourceAnswer": "У Фёдора Матюшкина.",
+                    "verifiedCorrectOptionId": "sixth-muse-q03-answer-matyushkin",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q03-choice-malinovsky",
+                            "text": "У Ивана Малиновского.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["febMalinovsky"],
+                            "reviewNote": "The FEB source identifies Malinovsky as a Lyceum peer; the maritime nickname is attributed to Matyushkin by RGO."
+                        },
+                        {
+                            "id": "sixth-muse-q03-choice-gorchakov",
+                            "text": "У Александра Горчакова.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibGorchakov"],
+                            "reviewNote": "The Presidential Library identifies Gorchakov as a diplomat and state official, not the bearer of Matyushkin’s nickname."
+                        },
+                        {
+                            "id": "sixth-muse-q03-choice-danzas",
+                            "text": "У Константина Данзаса.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rbsDanzas", "museumSobriquets"],
+                            "reviewNote": "Biographical and museum sources identify Danzas as a different Lyceum peer and associate him with «Медведь»."
+                        },
+                        {
+                            "id": "sixth-muse-q03-answer-matyushkin",
+                            "text": "У Фёдора Матюшкина.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["rgoMatyushkin", "museumLyceum"],
+                            "reviewNote": "The Russian Geographical Society directly attributes «Плыть хочется» to Matyushkin and documents his maritime career."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": [
+                            "rgoMatyushkin",
+                            "museumLyceum",
+                            "rbsDanzas",
+                            "museumSobriquets",
+                            "prlibGorchakov",
+                            "febMalinovsky"
+                        ],
+                        "singleCorrectRationale": "The Russian Geographical Society source identifies the nickname and the person directly."
+                    },
+                    "originalPrompt": "У какого известного мореплавателя в Лицее было говорящее прозвище «Плыть хочется»?",
+                    "runtimePrompt": "У какого известного мореплавателя в Лицее было говорящее прозвище «Плыть хочется»?",
+                    "verifiedCorrectAnswer": "У Фёдора Матюшкина.",
+                    "editorialMapping": null,
+                    "verifiedCorrectPosition": 4,
+                    "reviewNote": "The Russian Geographical Society source identifies the nickname and the person directly."
+                },
+                {
+                    "id": "sixth-muse-q04",
+                    "sourceQuestionNumber": 4,
+                    "orderWithinBlock": 4,
+                    "sourceAnswer": "Сергея Ломоносова.",
+                    "verifiedCorrectOptionId": "sixth-muse-q04-answer-nickname-krot",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q04-answer-nickname-krot",
+                            "text": "«Крот»",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["korfMemoirs", "pushkinProtocol", "mgimoLomonosov"],
+                            "reviewNote": "The MGIMO scholarly article and Korf’s memoir connect «Крот» with Sergey Lomonosov’s cunning and resourcefulness."
+                        },
+                        {
+                            "id": "sixth-muse-q04-choice-nickname-payas",
+                            "text": "«Паяс»",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["grotLyceum", "pushkinProtocol", "museumSobriquets"],
+                            "reviewNote": "Grot and the anniversary protocol associate «Паяс» with Mikhail Yakovlev."
+                        },
+                        {
+                            "id": "sixth-muse-q04-choice-nickname-kazak",
+                            "text": "«Казак»",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["eydelman"],
+                            "reviewNote": "Eydelman associates this nickname with Ivan Malinovsky."
+                        },
+                        {
+                            "id": "sixth-muse-q04-choice-nickname-mordan",
+                            "text": "«Дьячок Мордан»",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["pushkinProtocol"],
+                            "reviewNote": "The anniversary protocol associates this nickname with Modest Korf."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": ["korfMemoirs", "pushkinProtocol", "grotLyceum", "museumSobriquets", "eydelman", "mgimoLomonosov"],
+                        "singleCorrectRationale": "The MGIMO article and Korf’s memoir directly attribute «Крот» to Sergey Lomonosov and explain the trait behind it."
+                    },
+                    "originalPrompt": "Кого за внешность или повадки однокурсники прозвали Крот?",
+                    "runtimePrompt": "Согласно исследованию МГИМО, какое прозвище лицейские товарищи дали Сергею Ломоносову за хитрость и пронырливость?",
+                    "verifiedCorrectAnswer": "«Крот»",
+                    "editorialMapping": {
+                        "changeType": "runtime-prompt-rewrite",
+                        "rationale": "The original broad description is tied to the MGIMO scholarly account and Korf’s memoir, both of which connect «Крот» with Lomonosov’s cunning and resourcefulness.",
+                        "evidenceRefs": ["mgimoLomonosov", "korfMemoirs"]
+                    },
+                    "verifiedCorrectPosition": 1,
+                    "reviewNote": "The MGIMO article and Korf’s memoir directly attribute «Крот» to Sergey Lomonosov and explain the trait behind it."
+                },
+                {
+                    "id": "sixth-muse-q05",
+                    "sourceQuestionNumber": 5,
+                    "orderWithinBlock": 5,
+                    "sourceAnswer": "Константин Данзас.",
+                    "verifiedCorrectOptionId": "sixth-muse-q05-answer-danzas",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q05-answer-danzas",
+                            "text": "Константин Данзас.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["museumSobriquets", "rbsDanzas"],
+                            "reviewNote": "The Pushkin Museum study directly lists Konstantin Danzas as «Медведь»."
+                        },
+                        {
+                            "id": "sixth-muse-q05-choice-malinovsky",
+                            "text": "Иван Малиновский.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["febMalinovsky", "eydelman"],
+                            "reviewNote": "The cited biographies identify Malinovsky as a different Lyceum peer; Eydelman records his separate nickname «Казак»."
+                        },
+                        {
+                            "id": "sixth-muse-q05-choice-gorchakov",
+                            "text": "Александр Горчаков.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibGorchakov", "spbuGorchakov"],
+                            "reviewNote": "The Presidential Library and SPbU study identify Gorchakov and his distinct sobriquet «Франт»."
+                        },
+                        {
+                            "id": "sixth-muse-q05-choice-matyushkin",
+                            "text": "Фёдор Матюшкин.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rgoMatyushkin"],
+                            "reviewNote": "RGO documents Matyushkin’s maritime career and his separate nickname «Плыть хочется»."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": [
+                            "museumSobriquets",
+                            "rbsDanzas",
+                            "febMalinovsky",
+                            "eydelman",
+                            "prlibGorchakov",
+                            "spbuGorchakov",
+                            "rgoMatyushkin"
+                        ],
+                        "singleCorrectRationale": "The institutional museum source directly attributes the nickname to Danzas."
+                    },
+                    "originalPrompt": "Кто получил суровое лицейское прозвище Медведь?",
+                    "runtimePrompt": "Кого музейная подборка лицейских прозвищ указывает как носителя прозвища «Медведь»?",
+                    "verifiedCorrectAnswer": "Константин Данзас.",
+                    "editorialMapping": null,
+                    "verifiedCorrectPosition": 1,
+                    "reviewNote": "The institutional museum source directly attributes the nickname to Danzas."
+                },
+                {
+                    "id": "sixth-muse-q06",
+                    "sourceQuestionNumber": 6,
+                    "orderWithinBlock": 6,
+                    "sourceAnswer": "Вильгельма Кюхельбекера.",
+                    "verifiedCorrectOptionId": "sixth-muse-q06-answer-kuech",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q06-choice-pushchin",
+                            "text": "Иван Пущин.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["museumSobriquets"],
+                            "reviewNote": "The museum study records «Жанно» for Puschin."
+                        },
+                        {
+                            "id": "sixth-muse-q06-choice-yakovlev",
+                            "text": "Михаил Яковлев.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["grotLyceum", "museumSobriquets"],
+                            "reviewNote": "Grot and the museum study record «Паяс» for Yakovlev."
+                        },
+                        {
+                            "id": "sixth-muse-q06-choice-delvig",
+                            "text": "Антон Дельвиг.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["pushkinProtocol", "museumSobriquets"],
+                            "reviewNote": "The anniversary protocol records Delvig’s separate nickname «Тося»."
+                        },
+                        {
+                            "id": "sixth-muse-q06-answer-kuech",
+                            "text": "Вильгельм Кюхельбекер.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["museumSobriquets", "pushkinProtocol"],
+                            "reviewNote": "The museum study and 1828 anniversary protocol record «Кюхля» for Wilhelm Küchelbecker."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": ["museumSobriquets", "pushkinProtocol", "grotLyceum"],
+                        "singleCorrectRationale": "Both the institutional museum study and primary anniversary protocol assign the nickname to Küchelbecker."
+                    },
+                    "originalPrompt": "Кого из будущих декабристов друзья шутливо звали Кюхля?",
+                    "runtimePrompt": "Кто из лицеистов носил прозвище «Кюхля»?",
+                    "verifiedCorrectAnswer": "Вильгельм Кюхельбекер.",
+                    "editorialMapping": null,
+                    "verifiedCorrectPosition": 4,
+                    "reviewNote": "Both the institutional museum study and primary anniversary protocol assign the nickname to Küchelbecker."
+                },
+                {
+                    "id": "sixth-muse-q07",
+                    "sourceQuestionNumber": 7,
+                    "orderWithinBlock": 7,
+                    "sourceAnswer": "Иван Малиновский.",
+                    "verifiedCorrectOptionId": "sixth-muse-q07-answer-malinovsky",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q07-answer-malinovsky",
+                            "text": "Иван Малиновский.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["eydelman", "febMalinovsky", "cultureLiceyFates"],
+                            "reviewNote": "Culture.ru identifies Ivan Malinovsky as «Казак» and describes his fiery, quarrelsome temperament."
+                        },
+                        {
+                            "id": "sixth-muse-q07-choice-danzas",
+                            "text": "Константин Данзас.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rbsDanzas", "museumSobriquets"],
+                            "reviewNote": "The museum study identifies Danzas with «Медведь» and also records his separate sobriquet «Франт»."
+                        },
+                        {
+                            "id": "sixth-muse-q07-choice-lomonosov",
+                            "text": "Сергей Ломоносов.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["korfMemoirs", "pushkinProtocol"],
+                            "reviewNote": "Korf’s memoir and the anniversary protocol associate Lomonosov with «Крот»."
+                        },
+                        {
+                            "id": "sixth-muse-q07-choice-gorchakov",
+                            "text": "Александр Горчаков.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibGorchakov", "spbuGorchakov"],
+                            "reviewNote": "The cited sources identify Gorchakov with the sobriquet «Франт»."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": [
+                            "eydelman",
+                            "febMalinovsky",
+                            "rbsDanzas",
+                            "museumSobriquets",
+                            "prlibGorchakov",
+                            "spbuGorchakov",
+                            "korfMemoirs",
+                            "pushkinProtocol",
+                            "cultureLiceyFates"
+                        ],
+                        "singleCorrectRationale": "The named Culture.ru source attributes «Казак» to Ivan Malinovsky; the runtime asks for this exact documented attribution."
+                    },
+                    "originalPrompt": "Кто заслужил боевое и гордое прозвище Казак?",
+                    "runtimePrompt": "Кого Культура.РФ связывает с лицейским прозвищем «Казак» за вспыльчивость и задиристость?",
+                    "verifiedCorrectAnswer": "Иван Малиновский.",
+                    "editorialMapping": {
+                        "changeType": "runtime-prompt-institutional-source-clarification",
+                        "rationale": "The runtime now names the institutional Culture.ru article that documents the Malinovsky attribution and the character traits associated with the nickname.",
+                        "evidenceRefs": ["cultureLiceyFates"]
+                    },
+                    "verifiedCorrectPosition": 1,
+                    "reviewNote": "The named Culture.ru source attributes «Казак» to Ivan Malinovsky; the runtime asks for this exact documented attribution."
+                },
+                {
+                    "id": "sixth-muse-q08",
+                    "sourceQuestionNumber": 8,
+                    "orderWithinBlock": 8,
+                    "sourceAnswer": "Александра Горчакова.",
+                    "verifiedCorrectOptionId": "sixth-muse-q08-answer-nickname-frant",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q08-choice-nickname-medved",
+                            "text": "«Медведь»",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["museumSobriquets"],
+                            "reviewNote": "The museum study assigns «Медведь» to Danzas."
+                        },
+                        {
+                            "id": "sixth-muse-q08-choice-nickname-kyukhlya",
+                            "text": "«Кюхля»",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["museumSobriquets", "pushkinProtocol"],
+                            "reviewNote": "The museum and primary protocol assign «Кюхля» to Küchelbecker."
+                        },
+                        {
+                            "id": "sixth-muse-q08-choice-nickname-tosya",
+                            "text": "«Тося»",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["pushkinProtocol", "museumSobriquets"],
+                            "reviewNote": "The primary protocol assigns «Тося» to Delvig."
+                        },
+                        {
+                            "id": "sixth-muse-q08-answer-nickname-frant",
+                            "text": "«Франт»",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["spbuGorchakov", "pushkinDigitalGorchakov"],
+                            "reviewNote": "The SPbU study links Gorchakov with «Франт» and explains the nickname in connection with his appearance and style."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": ["spbuGorchakov", "pushkinDigitalGorchakov", "museumSobriquets", "pushkinProtocol"],
+                        "singleCorrectRationale": "The runtime asks for Gorchakov’s sobriquet rather than implying that no other Lyceum peer ever shared «Франт»."
+                    },
+                    "originalPrompt": "Какого лицеиста за любовь к щегольству и нарядам прозвали Франт?",
+                    "runtimePrompt": "Какое лицейское прозвище исследование СПбГУ связывает с Александром Горчаковым?",
+                    "verifiedCorrectAnswer": "«Франт»",
+                    "editorialMapping": {
+                        "changeType": "runtime-prompt-and-answer-format",
+                        "rationale": "Sources also record «Франт» for Danzas, so the original person-identification wording could suggest a unique nickname. The runtime asks which nickname the cited SPbU study associates with Gorchakov and offers distinct nickname choices.",
+                        "evidenceRefs": ["spbuGorchakov", "museumSobriquets"]
+                    },
+                    "verifiedCorrectPosition": 4,
+                    "reviewNote": "The runtime asks for Gorchakov’s sobriquet rather than implying that no other Lyceum peer ever shared «Франт»."
+                },
+                {
+                    "id": "sixth-muse-q09",
+                    "sourceQuestionNumber": 9,
+                    "orderWithinBlock": 9,
+                    "sourceAnswer": "Михаил Яковлев.",
+                    "verifiedCorrectOptionId": "sixth-muse-q09-answer-nickname-payas",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q09-choice-nickname-tosya",
+                            "text": "«Тося»",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["pushkinProtocol", "museumSobriquets"],
+                            "reviewNote": "The protocol attributes «Тося» to Delvig."
+                        },
+                        {
+                            "id": "sixth-muse-q09-choice-nickname-zhanno",
+                            "text": "«Жанно»",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["museumSobriquets"],
+                            "reviewNote": "The museum study attributes «Жанно» to Puschin."
+                        },
+                        {
+                            "id": "sixth-muse-q09-answer-nickname-payas",
+                            "text": "«Паяс»",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["museumSobriquets", "grotLyceum", "pushkinProtocol"],
+                            "reviewNote": "The museum study gives the attested form «Паяс»; Grot and the protocol also record «паяс»/«паясом» in context."
+                        },
+                        {
+                            "id": "sixth-muse-q09-choice-nickname-kyukhlya",
+                            "text": "«Кюхля»",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["museumSobriquets", "pushkinProtocol"],
+                            "reviewNote": "The museum and protocol attribute «Кюхля» to Küchelbecker."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": ["museumSobriquets", "grotLyceum", "pushkinProtocol"],
+                        "singleCorrectRationale": "The Pushkin Museum study records «Паяс» for Yakovlev; the runtime asks for that exact form."
+                    },
+                    "originalPrompt": "Кто скрывался под артистичным лицейским прозвищем Паяц?",
+                    "runtimePrompt": "Какую форму прозвища Михаила Яковлева приводит исследование Всероссийского музея А. С. Пушкина?",
+                    "verifiedCorrectAnswer": "«Паяс»",
+                    "editorialMapping": {
+                        "changeType": "runtime-prompt-and-answer-correction",
+                        "rationale": "The source uses «Паяц», while the museum study records «Паяс». Runtime asks for the exact museum-attested form and preserves the source wording in provenance.",
+                        "evidenceRefs": ["museumSobriquets", "grotLyceum", "pushkinProtocol"]
+                    },
+                    "verifiedCorrectPosition": 3,
+                    "reviewNote": "The Pushkin Museum study records «Паяс» for Yakovlev; the runtime asks for that exact form."
+                },
+                {
+                    "id": "sixth-muse-q10",
+                    "sourceQuestionNumber": 10,
+                    "orderWithinBlock": 10,
+                    "sourceAnswer": "Дмитрия Маслова.",
+                    "verifiedCorrectOptionId": "sixth-muse-q10-answer-maslov",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q10-choice-yakovlev",
+                            "text": "Михаила Яковлева.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["grotLyceum", "rusarchivesYakovlev"],
+                            "reviewNote": "Grot and the archive guide document Yakovlev’s musical and comic talents, including the nickname «Паяс»."
+                        },
+                        {
+                            "id": "sixth-muse-q10-answer-maslov",
+                            "text": "Дмитрия Маслова.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["korfMemoirs", "sguMaslov", "klinLibraryMaslov"],
+                            "reviewNote": "Korf’s memoir calls Maslov «нашим Карамзиным»; the municipal library biography reproduces and attributes that passage."
+                        },
+                        {
+                            "id": "sixth-muse-q10-choice-korf",
+                            "text": "Модеста Корфа.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["korfMemoirs", "prlibKorf"],
+                            "reviewNote": "The memoir distinguishes its author Korf from the person it calls «нашим Карамзиным»."
+                        },
+                        {
+                            "id": "sixth-muse-q10-choice-lomonosov",
+                            "text": "Сергея Ломоносова.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["korfMemoirs", "tretyakovLomonosov"],
+                            "reviewNote": "Korf’s memoir assigns Lomonosov the separate nickname «Крот»."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": [
+                            "korfMemoirs",
+                            "sguMaslov",
+                            "prlibKorf",
+                            "grotLyceum",
+                            "rusarchivesYakovlev",
+                            "tretyakovLomonosov",
+                            "klinLibraryMaslov"
+                        ],
+                        "singleCorrectRationale": "The compound «Наш Карамзин Маслависти» is split: Korf’s source-supported sobriquet is asked independently; the unsupported hybrid is not scored."
+                    },
+                    "originalPrompt": "Чьё прозвище звучало необычно и длинно — «Наш Карамзин Маслависти»?",
+                    "runtimePrompt": "Кого Модест Корф называл «нашим Карамзиным» за перо и дар слова?",
+                    "verifiedCorrectAnswer": "Дмитрия Маслова.",
+                    "editorialMapping": {
+                        "changeType": "runtime-prompt-rewrite",
+                        "rationale": "Korf’s memoir supports «нашим Карамзиным» for Maslov, not the merged invented form «Маслависти». The runtime asks only about the attested nickname.",
+                        "evidenceRefs": ["korfMemoirs", "sguMaslov", "klinLibraryMaslov"]
+                    },
+                    "verifiedCorrectPosition": 2,
+                    "reviewNote": "The compound «Наш Карамзин Маслависти» is split: Korf’s source-supported sobriquet is asked independently; the unsupported hybrid is not scored."
+                }
+            ]
+        },
+        {
+            "id": "sixth-muse-block-2",
+            "semanticKey": "sixth-muse-block-2",
+            "order": 2,
+            "title": "Достижения и судьбы",
+            "introduction": null,
+            "questions": [
+                {
+                    "id": "sixth-muse-q11",
+                    "sourceQuestionNumber": 11,
+                    "orderWithinBlock": 1,
+                    "sourceAnswer": "Александр Пушкин.",
+                    "verifiedCorrectOptionId": "sixth-muse-q11-answer-pushkin",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q11-answer-pushkin",
+                            "text": "Александр Пушкин.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["prlibPushkin", "museumLyceum"],
+                            "reviewNote": "The Presidential Library and museum identify Pushkin as the author and central poet of the first Lyceum cohort."
+                        },
+                        {
+                            "id": "sixth-muse-q11-choice-pushchin",
+                            "text": "Иван Пущин.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibPuschin"],
+                            "reviewNote": "The Presidential Library identifies Puschin as Pushkin’s Lyceum friend and Decembrist, not the author of the novel."
+                        },
+                        {
+                            "id": "sixth-muse-q11-choice-gorchakov",
+                            "text": "Александр Горчаков.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibGorchakov"],
+                            "reviewNote": "The Presidential Library identifies Gorchakov as a diplomat and statesman."
+                        },
+                        {
+                            "id": "sixth-muse-q11-choice-matyushkin",
+                            "text": "Фёдор Матюшкин.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rgoMatyushkin"],
+                            "reviewNote": "RGO documents Matyushkin’s maritime career."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": ["prlibPushkin", "museumLyceum", "prlibPuschin", "prlibGorchakov", "rgoMatyushkin"],
+                        "singleCorrectRationale": "Replacing the evaluative phrase «великий поэт» with a named literary work gives the item a concrete single-correct discriminator."
+                    },
+                    "originalPrompt": "Кто из лицеистов стал великим русским поэтом?",
+                    "runtimePrompt": "Кто из приведённых лицеистов — автор романа в стихах «Евгений Онегин»?",
+                    "verifiedCorrectAnswer": "Александр Пушкин.",
+                    "editorialMapping": {
+                        "changeType": "runtime-prompt-precision",
+                        "rationale": "The evaluative source wording is replaced by a concrete authorship fact to make the scored criterion explicit.",
+                        "evidenceRefs": ["prlibPushkin"]
+                    },
+                    "verifiedCorrectPosition": 1,
+                    "reviewNote": "Replacing the evaluative phrase «великий поэт» with a named literary work gives the item a concrete single-correct discriminator."
+                },
+                {
+                    "id": "sixth-muse-q12",
+                    "sourceQuestionNumber": 12,
+                    "orderWithinBlock": 2,
+                    "sourceAnswer": "Антон Дельвиг.",
+                    "verifiedCorrectOptionId": "sixth-muse-q12-answer-delvig",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q12-choice-pushchin",
+                            "text": "Иван Пущин.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibPuschin"],
+                            "reviewNote": "The Presidential Library documents Puschin as a Decembrist and Pushkin’s friend."
+                        },
+                        {
+                            "id": "sixth-muse-q12-choice-matyushkin",
+                            "text": "Фёдор Матюшкин.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rgoMatyushkin"],
+                            "reviewNote": "RGO documents Matyushkin’s maritime career, not the newspaper’s publisher."
+                        },
+                        {
+                            "id": "sixth-muse-q12-choice-gorchakov",
+                            "text": "Александр Горчаков.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibGorchakov"],
+                            "reviewNote": "The Presidential Library documents Gorchakov as a diplomat and state official."
+                        },
+                        {
+                            "id": "sixth-muse-q12-answer-delvig",
+                            "text": "Антон Дельвиг.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["nlrDelvig", "nlrLiteraryGazette"],
+                            "reviewNote": "The NLR Delvig biography identifies him as publisher of the first issue on 1 January 1830; the NLR catalog covers the publication period and editorial history."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": [
+                            "rgoMatyushkin",
+                            "prlibPuschin",
+                            "prlibGorchakov",
+                            "nlrDelvig",
+                            "nlrLiteraryGazette",
+                            "cultureDelvig"
+                        ],
+                        "singleCorrectRationale": "Culture.ru documents Delvig’s publishing and editorship, including his removal from the editor position; NLR distinguishes the publisher/editor roles in its records."
+                    },
+                    "originalPrompt": "Кто во взрослой жизни прославился не только как поэт, но и как критик и журналист?",
+                    "runtimePrompt": "Какой лицеист в 1830 году начал издавать «Литературную газету», а затем был отстранён от должности её редактора?",
+                    "verifiedCorrectAnswer": "Антон Дельвиг.",
+                    "editorialMapping": {
+                        "changeType": "runtime-prompt-rewrite",
+                        "rationale": "The broad source clue could apply to several literary figures. Runtime names Delvig’s documented work on Literary Gazette and explicitly refers to his editor role, without conflating publisher with editor.",
+                        "evidenceRefs": ["cultureDelvig", "nlrDelvig", "nlrLiteraryGazette"]
+                    },
+                    "verifiedCorrectPosition": 4,
+                    "reviewNote": "Culture.ru documents Delvig’s publishing and editorship, including his removal from the editor position; NLR distinguishes the publisher/editor roles in its records."
+                },
+                {
+                    "id": "sixth-muse-q13",
+                    "sourceQuestionNumber": 13,
+                    "orderWithinBlock": 3,
+                    "sourceAnswer": "Иван Иванович Пущин.",
+                    "verifiedCorrectOptionId": "sixth-muse-q13-answer-pushchin",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q13-choice-kuech",
+                            "text": "Вильгельм Кюхельбекер.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibKuech", "museumLyceum", "prlibPuschinVisit"],
+                            "reviewNote": "The Presidential Library documents Küchelbecker’s poetry and Decembrist history; the bibliographic record names Puschin as author of this book. The January 1825 visit is attributed to Puschin in the Presidential Library account."
+                        },
+                        {
+                            "id": "sixth-muse-q13-choice-korf",
+                            "text": "Модест Корф.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibKorf", "museumLyceum", "prlibPuschinVisit"],
+                            "reviewNote": "The cited records identify Korf as a historian and state official; the bibliographic record names Puschin as author of this book. The January 1825 visit is attributed to Puschin in the Presidential Library account."
+                        },
+                        {
+                            "id": "sixth-muse-q13-choice-yakovlev",
+                            "text": "Михаил Яковлев.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rusarchivesYakovlev", "museumLyceum", "prlibPuschinVisit"],
+                            "reviewNote": "The archive guide identifies Yakovlev as a composer and singer; the bibliographic record names Puschin as author of this book. The January 1825 visit is attributed to Puschin in the Presidential Library account."
+                        },
+                        {
+                            "id": "sixth-muse-q13-answer-pushchin",
+                            "text": "Иван Иванович Пущин.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["prlibPuschinMemoirBook", "prlibPuschin", "prlibPuschinVisit"],
+                            "reviewNote": "The Presidential Library bibliographic record attributes «Записки о Пушкине» to Ivan Ivanovich Puschin."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": [
+                            "prlibPuschinMemoirBook",
+                            "prlibPuschin",
+                            "prlibKorf",
+                            "museumLyceum",
+                            "rusarchivesYakovlev",
+                            "prlibKuech",
+                            "prlibPuschinVisit"
+                        ],
+                        "singleCorrectRationale": "The Presidential Library documents Puschin’s January 1825 visit to Pushkin in Mikhailovskoye and his later Decembrist role."
+                    },
+                    "originalPrompt": "Какой близкий друг Пушкина стал декабристом во взрослой жизни?",
+                    "runtimePrompt": "Кто из лицеистов в январе 1825 года посетил Пушкина в Михайловском и позднее стал декабристом?",
+                    "verifiedCorrectAnswer": "Иван Иванович Пущин.",
+                    "editorialMapping": {
+                        "changeType": "runtime-prompt-rewrite",
+                        "rationale": "The original broad “close friend and Decembrist” description also fits other peers. Runtime uses the specific, source-documented January 1825 visit to make the answer unique.",
+                        "evidenceRefs": ["prlibPuschinVisit", "prlibPuschin"]
+                    },
+                    "verifiedCorrectPosition": 4,
+                    "reviewNote": "The Presidential Library documents Puschin’s January 1825 visit to Pushkin in Mikhailovskoye and his later Decembrist role."
+                },
+                {
+                    "id": "sixth-muse-q14",
+                    "sourceQuestionNumber": 14,
+                    "orderWithinBlock": 4,
+                    "sourceAnswer": "Вильгельм Кюхельбекер.",
+                    "verifiedCorrectOptionId": "sixth-muse-q14-answer-kuech",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q14-choice-delvig",
+                            "text": "Антон Дельвиг.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["cultureDelvig"],
+                            "reviewNote": "Culture.ru documents Delvig’s poetry and editorship; it attributes «Аргивяне» to Küchelbecker."
+                        },
+                        {
+                            "id": "sixth-muse-q14-answer-kuech",
+                            "text": "Вильгельм Кюхельбекер.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["cultureKuech", "prlibKuech"],
+                            "reviewNote": "Culture.ru documents Küchelbecker’s tragedy «Аргивяне» and participation in the Decembrist uprising; the Presidential Library corroborates his Decembrist role."
+                        },
+                        {
+                            "id": "sixth-muse-q14-choice-yakovlev",
+                            "text": "Михаил Яковлев.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rusarchivesYakovlev"],
+                            "reviewNote": "The archival guide documents Yakovlev as composer and baritone singer, not author of «Аргивяне»."
+                        },
+                        {
+                            "id": "sixth-muse-q14-choice-pushchin",
+                            "text": "Иван Иванович Пущин.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibPuschin"],
+                            "reviewNote": "The Presidential Library documents Puschin as a Decembrist and memoirist; it does not attribute «Аргивяне» to him."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": ["cultureKuech", "prlibKuech", "prlibPuschin", "rusarchivesYakovlev", "cultureDelvig"],
+                        "singleCorrectRationale": "Culture.ru identifies Küchelbecker as a poet who wrote «Аргивяне» and documents his participation in the Decembrist uprising; the Presidential Library corroborates his role."
+                    },
+                    "originalPrompt": "Какой лицеист совмещал в своей жизни судьбу поэта, писателя и декабриста?",
+                    "runtimePrompt": "Какой поэт-лицеист, участвовавший в восстании декабристов, написал трагедию «Аргивяне»?",
+                    "verifiedCorrectAnswer": "Вильгельм Кюхельбекер.",
+                    "editorialMapping": {
+                        "changeType": "runtime-prompt-rewrite",
+                        "rationale": "The source’s broad list of poet/writer/Decembrist roles overlaps with other peers. Runtime pairs Küchelbecker’s documented literary work «Аргивяне» with his Decembrist participation.",
+                        "evidenceRefs": ["cultureKuech", "prlibKuech"]
+                    },
+                    "verifiedCorrectPosition": 2,
+                    "reviewNote": "Culture.ru identifies Küchelbecker as a poet who wrote «Аргивяне» and documents his participation in the Decembrist uprising; the Presidential Library corroborates his role."
+                },
+                {
+                    "id": "sixth-muse-q15",
+                    "sourceQuestionNumber": 15,
+                    "orderWithinBlock": 5,
+                    "sourceAnswer": "Александр Горчаков.",
+                    "verifiedCorrectOptionId": "sixth-muse-q15-answer-gorchakov",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q15-choice-yakovlev",
+                            "text": "Михаил Яковлев.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rusarchivesYakovlev"],
+                            "reviewNote": "The archival guide documents Yakovlev’s musical and performing career."
+                        },
+                        {
+                            "id": "sixth-muse-q15-choice-matyushkin",
+                            "text": "Фёдор Матюшкин.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rgoMatyushkin"],
+                            "reviewNote": "RGO documents Matyushkin’s maritime career."
+                        },
+                        {
+                            "id": "sixth-muse-q15-answer-gorchakov",
+                            "text": "Александр Горчаков.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["prlibGorchakov", "bigencGorchakov"],
+                            "reviewNote": "The Presidential Library and Great Russian Encyclopedia document Gorchakov’s major diplomatic and state career."
+                        },
+                        {
+                            "id": "sixth-muse-q15-choice-delvig",
+                            "text": "Антон Дельвиг.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["cultureDelvig", "nlrDelvig"],
+                            "reviewNote": "Culture.ru and NLR document Delvig’s literary and publishing career."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": [
+                            "prlibGorchakov",
+                            "bigencGorchakov",
+                            "cultureDelvig",
+                            "nlrDelvig",
+                            "rgoMatyushkin",
+                            "rusarchivesYakovlev"
+                        ],
+                        "singleCorrectRationale": "The Presidential Library and Great Russian Encyclopedia document Gorchakov as foreign minister and state chancellor."
+                    },
+                    "originalPrompt": "Кто из выпускников Лицея добился выдающихся успехов как политический деятель?",
+                    "runtimePrompt": "Кто из выпускников Лицея стал министром иностранных дел и государственным канцлером Российской империи?",
+                    "verifiedCorrectAnswer": "Александр Горчаков.",
+                    "editorialMapping": {
+                        "changeType": "runtime-prompt-specific-career-marker",
+                        "rationale": "The source’s broad «political figure» category could fit several graduates. Runtime uses Gorchakov’s documented offices as the unique discriminator.",
+                        "evidenceRefs": ["prlibGorchakov", "bigencGorchakov"]
+                    },
+                    "verifiedCorrectPosition": 3,
+                    "reviewNote": "The Presidential Library and Great Russian Encyclopedia document Gorchakov as foreign minister and state chancellor."
+                },
+                {
+                    "id": "sixth-muse-q16",
+                    "sourceQuestionNumber": 16,
+                    "orderWithinBlock": 6,
+                    "sourceAnswer": "Дипломат.",
+                    "verifiedCorrectOptionId": "sixth-muse-q16-answer-diplomat",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q16-choice-navigator-admiral",
+                            "text": "Мореплаватель и адмирал.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rgoMatyushkin"],
+                            "reviewNote": "RGO documents Matyushkin’s maritime and admiral career."
+                        },
+                        {
+                            "id": "sixth-muse-q16-answer-diplomat",
+                            "text": "Дипломат.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["tretyakovLomonosov"],
+                            "reviewNote": "The Tretyakov Gallery profile identifies Sergey Grigorievich Lomonosov as a diplomat."
+                        },
+                        {
+                            "id": "sixth-muse-q16-choice-poet-translator",
+                            "text": "Поэт и переводчик.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rbsIllichevsky"],
+                            "reviewNote": "The biographical dictionary identifies Illichevsky as poet and translator."
+                        },
+                        {
+                            "id": "sixth-muse-q16-choice-composer-singer",
+                            "text": "Композитор и певец.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rusarchivesYakovlev"],
+                            "reviewNote": "The archival guide identifies composer and baritone singer Mikhail Yakovlev."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": ["tretyakovLomonosov", "rusarchivesYakovlev", "rgoMatyushkin", "rbsIllichevsky"],
+                        "singleCorrectRationale": "The Tretyakov Gallery provides a direct professional identification for Sergey Lomonosov."
+                    },
+                    "originalPrompt": "Какую профессию выбрал для себя лицеист Сергей Ломоносов?",
+                    "runtimePrompt": "Какую профессию выбрал для себя лицеист Сергей Ломоносов?",
+                    "verifiedCorrectAnswer": "Дипломат.",
+                    "editorialMapping": null,
+                    "verifiedCorrectPosition": 2,
+                    "reviewNote": "The Tretyakov Gallery provides a direct professional identification for Sergey Lomonosov."
+                },
+                {
+                    "id": "sixth-muse-q17",
+                    "sourceQuestionNumber": 17,
+                    "orderWithinBlock": 7,
+                    "sourceAnswer": "Михаил Яковлев.",
+                    "verifiedCorrectOptionId": "sixth-muse-q17-answer-yakovlev",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q17-choice-gorchakov",
+                            "text": "Александр Горчаков.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibGorchakov"],
+                            "reviewNote": "The Presidential Library documents Gorchakov as a diplomat and statesman."
+                        },
+                        {
+                            "id": "sixth-muse-q17-choice-matyushkin",
+                            "text": "Фёдор Матюшкин.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rgoMatyushkin"],
+                            "reviewNote": "RGO documents Matyushkin as a mariner and polar explorer."
+                        },
+                        {
+                            "id": "sixth-muse-q17-choice-delvig",
+                            "text": "Антон Дельвиг.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["cultureDelvig", "nlrDelvig"],
+                            "reviewNote": "Culture.ru and NLR document Delvig as a poet and publisher."
+                        },
+                        {
+                            "id": "sixth-muse-q17-answer-yakovlev",
+                            "text": "Михаил Яковлев.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["rusarchivesYakovlev", "grotLyceum"],
+                            "reviewNote": "The state archival guide identifies Yakovlev as a composer and baritone singer; Grot provides corroborating Lyceum context."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": [
+                            "rusarchivesYakovlev",
+                            "grotLyceum",
+                            "cultureDelvig",
+                            "nlrDelvig",
+                            "rgoMatyushkin",
+                            "prlibGorchakov"
+                        ],
+                        "singleCorrectRationale": "The unsupported qualifier «профессиональный» is removed; the runtime uses the archival source’s documented occupations."
+                    },
+                    "originalPrompt": "Кто из лицеистов стал профессиональным композитором и певцом?",
+                    "runtimePrompt": "Кто из выпускников Лицея, согласно архивному каталогу, был композитором и баритоном?",
+                    "verifiedCorrectAnswer": "Михаил Яковлев.",
+                    "editorialMapping": {
+                        "changeType": "runtime-prompt-rewrite",
+                        "rationale": "The archival source supports composer and baritone singer but not the source’s qualifier «профессиональный». Runtime asks only for the documented occupations.",
+                        "evidenceRefs": ["rusarchivesYakovlev", "grotLyceum"]
+                    },
+                    "verifiedCorrectPosition": 4,
+                    "reviewNote": "The unsupported qualifier «профессиональный» is removed; the runtime uses the archival source’s documented occupations."
+                },
+                {
+                    "id": "sixth-muse-q18",
+                    "sourceQuestionNumber": 18,
+                    "orderWithinBlock": 8,
+                    "sourceAnswer": "Он стал поэтом и переводчиком.",
+                    "verifiedCorrectOptionId": "sixth-muse-q18-answer-poet-translator",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q18-choice-composer-singer",
+                            "text": "Он стал композитором и певцом.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rusarchivesYakovlev"],
+                            "reviewNote": "The archival guide documents this career for Mikhail Yakovlev."
+                        },
+                        {
+                            "id": "sixth-muse-q18-choice-diplomat",
+                            "text": "Он сделал карьеру дипломата.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["tretyakovLomonosov"],
+                            "reviewNote": "The Tretyakov Gallery identifies Sergey Lomonosov as a diplomat."
+                        },
+                        {
+                            "id": "sixth-muse-q18-choice-admiral-polar-explorer",
+                            "text": "Он стал адмиралом и полярным исследователем.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rgoMatyushkin"],
+                            "reviewNote": "RGO documents this maritime career for Fyodor Matyushkin."
+                        },
+                        {
+                            "id": "sixth-muse-q18-answer-poet-translator",
+                            "text": "Он стал поэтом и переводчиком.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["rbsIllichevsky", "febIllichevskyTranslation"],
+                            "reviewNote": "The Russian Biographical Dictionary identifies Illichevsky as a poet; the FEB critical edition records his translation of Michaud’s poem."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": [
+                            "rbsIllichevsky",
+                            "rusarchivesYakovlev",
+                            "rgoMatyushkin",
+                            "tretyakovLomonosov",
+                            "febIllichevskyTranslation"
+                        ],
+                        "singleCorrectRationale": "The biographical-dictionary entry directly supports Illichevsky’s literary roles; distractors are documented careers of other peers."
+                    },
+                    "originalPrompt": "Какими достижениями во взрослой жизни прославился Алексей Илличевский?",
+                    "runtimePrompt": "Какими достижениями во взрослой жизни прославился Алексей Илличевский?",
+                    "verifiedCorrectAnswer": "Он стал поэтом и переводчиком.",
+                    "editorialMapping": null,
+                    "verifiedCorrectPosition": 4,
+                    "reviewNote": "The biographical-dictionary entry directly supports Illichevsky’s literary roles; distractors are documented careers of other peers."
+                },
+                {
+                    "id": "sixth-muse-q19",
+                    "sourceQuestionNumber": 19,
+                    "orderWithinBlock": 9,
+                    "sourceAnswer": "Модест Корф и Дмитрий Маслов.",
+                    "verifiedCorrectOptionId": "sixth-muse-q19-answer-korf-maslov-role-order",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q19-answer-korf-maslov-role-order",
+                            "text": "А — Модест Корф; Б — Дмитрий Маслов.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["prlibKorf", "sguMaslov"],
+                            "reviewNote": "The Presidential Library dates Korf’s acting state-secretary duties from 1834; the SGU biographical dictionary gives Maslov’s acting state-secretary role in the State Council Department of Laws."
+                        },
+                        {
+                            "id": "sixth-muse-q19-choice-gorchakov-kornilov-role-order",
+                            "text": "А — Александр Горчаков; Б — Александр Корнилов.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibGorchakov", "kornilovFamilyMuseum"],
+                            "reviewNote": "The sources document Gorchakov as diplomat/state leader and Kornilov as governor; neither source assigns these two specified offices to them."
+                        },
+                        {
+                            "id": "sixth-muse-q19-choice-maslov-korf-role-order",
+                            "text": "А — Дмитрий Маслов; Б — Модест Корф.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibKorf", "sguMaslov"],
+                            "reviewNote": "Both people and offices are documented, but the stated roles belong in the reverse order."
+                        },
+                        {
+                            "id": "sixth-muse-q19-choice-yakovlev-lomonosov-role-order",
+                            "text": "А — Михаил Яковлев; Б — Сергей Ломоносов.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rusarchivesYakovlev", "tretyakovLomonosov"],
+                            "reviewNote": "The sources document Yakovlev as composer/singer and Lomonosov as diplomat, not holders of the specified offices."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": [
+                            "prlibKorf",
+                            "sguMaslov",
+                            "prlibGorchakov",
+                            "kornilovFamilyMuseum",
+                            "rusarchivesYakovlev",
+                            "tretyakovLomonosov"
+                        ],
+                        "singleCorrectRationale": "The false “exclusively as a state official” premise is removed. The runtime defines two concrete offices and asks for the correct person-to-office mapping."
+                    },
+                    "originalPrompt": "Кто из списка лицеистов реализовал себя исключительно как государственный деятель (назовите двоих)?",
+                    "runtimePrompt": "Кому соответствуют должности: А — исполняющий обязанности государственного секретаря с 1834 года; Б — исполняющий должность статс-секретаря Госсовета по Департаменту законов?",
+                    "verifiedCorrectAnswer": "А — Модест Корф; Б — Дмитрий Маслов.",
+                    "editorialMapping": {
+                        "changeType": "runtime-prompt-and-answer-correction",
+                        "rationale": "The source’s exclusivity claim is false for Korf, whose sources also document historical and literary work. Runtime asks which person held each of two precise offices; the original pair is retained in sourceAnswer.",
+                        "evidenceRefs": ["prlibKorf", "sguMaslov"]
+                    },
+                    "verifiedCorrectPosition": 1,
+                    "reviewNote": "The false “exclusively as a state official” premise is removed. The runtime defines two concrete offices and asks for the correct person-to-office mapping."
+                },
+                {
+                    "id": "sixth-muse-q20",
+                    "sourceQuestionNumber": 20,
+                    "orderWithinBlock": 10,
+                    "sourceAnswer": "Военный.",
+                    "verifiedCorrectOptionId": "sixth-muse-q20-answer-military-service",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q20-answer-military-service",
+                            "text": "К военной службе; дослужился до генерал-майора.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["generalVolkhovsky", "hronoVolkhovsky", "museumLyceum", "museumVolkhovsky"],
+                            "reviewNote": "The Pushkin Museum guide identifies Volkhovsky as a major general among the first Lyceum graduates."
+                        },
+                        {
+                            "id": "sixth-muse-q20-choice-maritime-exploration",
+                            "text": "К мореплаванию и полярным исследованиям.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rgoMatyushkin"],
+                            "reviewNote": "RGO documents maritime and polar exploration for Matyushkin."
+                        },
+                        {
+                            "id": "sixth-muse-q20-choice-music-theatre",
+                            "text": "К музыке и театру.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rusarchivesYakovlev"],
+                            "reviewNote": "The archival guide documents music and performance for Yakovlev."
+                        },
+                        {
+                            "id": "sixth-muse-q20-choice-poetry-translation",
+                            "text": "К поэзии и переводам.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rbsIllichevsky"],
+                            "reviewNote": "The cited biographical dictionary documents poetry and translation for Illichevsky."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": [
+                            "rbsIllichevsky",
+                            "rusarchivesYakovlev",
+                            "rgoMatyushkin",
+                            "generalVolkhovsky",
+                            "hronoVolkhovsky",
+                            "museumLyceum",
+                            "museumVolkhovsky"
+                        ],
+                        "singleCorrectRationale": "The Pushkin Museum guide identifies Volkhovsky as a major general, confirming the military service answer."
+                    },
+                    "originalPrompt": "Какое взрослое достижение указано для Владимира Вольховского?",
+                    "runtimePrompt": "К какой сфере относилась основная служба Владимира Вольховского?",
+                    "verifiedCorrectAnswer": "К военной службе; дослужился до генерал-майора.",
+                    "editorialMapping": {
+                        "changeType": "runtime-prompt-precision",
+                        "rationale": "The source uses the fragment «Военный» as an answer; runtime keeps the service-domain clue and adds the museum-attested rank for a precise key.",
+                        "evidenceRefs": ["museumVolkhovsky", "generalVolkhovsky"]
+                    },
+                    "verifiedCorrectPosition": 1,
+                    "reviewNote": "The Pushkin Museum guide identifies Volkhovsky as a major general, confirming the military service answer."
+                }
+            ]
+        },
+        {
+            "id": "sixth-muse-block-3",
+            "semanticKey": "sixth-muse-block-3",
+            "order": 3,
+            "title": "Даты и цифры",
+            "introduction": null,
+            "questions": [
+                {
+                    "id": "sixth-muse-q21",
+                    "sourceQuestionNumber": 21,
+                    "orderWithinBlock": 1,
+                    "sourceAnswer": "Александр Горчаков.",
+                    "verifiedCorrectOptionId": "sixth-muse-q21-answer-year-1883",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q21-choice-year-1859",
+                            "text": "В 1859 году.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibPuschin"],
+                            "reviewNote": "The Presidential Library gives Puschin’s lifespan as 1798–1859."
+                        },
+                        {
+                            "id": "sixth-muse-q21-answer-year-1883",
+                            "text": "В 1883 году.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["prlibGorchakov"],
+                            "reviewNote": "The Presidential Library gives Gorchakov’s lifespan as 1798–1883."
+                        },
+                        {
+                            "id": "sixth-muse-q21-choice-year-1872",
+                            "text": "В 1872 году.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rgoMatyushkin"],
+                            "reviewNote": "RGO gives Matyushkin’s lifespan as 1799–1872."
+                        },
+                        {
+                            "id": "sixth-muse-q21-choice-year-1876",
+                            "text": "В 1876 году.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibKorf"],
+                            "reviewNote": "The Presidential Library gives Korf’s lifespan as 1800–1876."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": ["prlibGorchakov", "prlibKorf", "rgoMatyushkin", "prlibPuschin"],
+                        "singleCorrectRationale": "The original “longest-lived” superlative is replaced by a direct death-year fact that does not depend on an unbounded comparison."
+                    },
+                    "originalPrompt": "Кто из лицеистов прожил самую долгую жизнь, дожив до 1883 года?",
+                    "runtimePrompt": "В каком году умер Александр Горчаков?",
+                    "verifiedCorrectAnswer": "В 1883 году.",
+                    "editorialMapping": {
+                        "changeType": "runtime-prompt-precision",
+                        "rationale": "A direct birth/death source establishes Gorchakov’s death year; runtime avoids an unnecessary superlative comparison.",
+                        "evidenceRefs": ["prlibGorchakov"]
+                    },
+                    "verifiedCorrectPosition": 2,
+                    "reviewNote": "The original “longest-lived” superlative is replaced by a direct death-year fact that does not depend on an unbounded comparison."
+                },
+                {
+                    "id": "sixth-muse-q22",
+                    "sourceQuestionNumber": 22,
+                    "orderWithinBlock": 2,
+                    "sourceAnswer": "Дмитрий Маслов.",
+                    "verifiedCorrectOptionId": "sixth-muse-q22-answer-year-1796",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q22-choice-year-1799",
+                            "text": "1799 год.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["tretyakovLomonosov", "prlibPushkin"],
+                            "reviewNote": "The Tretyakov Gallery and Presidential Library give 1799 as the birth year of Lomonosov and Pushkin, not Maslov."
+                        },
+                        {
+                            "id": "sixth-muse-q22-choice-year-1798",
+                            "text": "1798 год.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibGorchakov", "prlibPuschin"],
+                            "reviewNote": "The Presidential Library gives 1798 as the birth year of Gorchakov and Puschin, not Maslov."
+                        },
+                        {
+                            "id": "sixth-muse-q22-answer-year-1796",
+                            "text": "1796 год.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["sguMaslov"],
+                            "reviewNote": "The SGU-published biographical dictionary gives Maslov’s birth year as 1796."
+                        },
+                        {
+                            "id": "sixth-muse-q22-choice-year-1800",
+                            "text": "1800 год.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibKorf"],
+                            "reviewNote": "The Presidential Library gives Korf’s birth year as 1800, not Maslov."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": ["sguMaslov", "prlibGorchakov", "prlibPuschin", "tretyakovLomonosov", "prlibPushkin", "prlibKorf"],
+                        "singleCorrectRationale": "The SGU-published biographical dictionary gives Maslov’s birth year as 1796; the distractor years are documented for other Lyceum peers."
+                    },
+                    "originalPrompt": "Кто был самым старшим из этого списка по году рождения (родился в 1796 году)?",
+                    "runtimePrompt": "Какой год рождения Дмитрия Николаевича Маслова указан в биографическом словаре высшего чиновничества?",
+                    "verifiedCorrectAnswer": "1796 год.",
+                    "editorialMapping": {
+                        "changeType": "runtime-prompt-and-answer-correction",
+                        "rationale": "The source’s “oldest” wording is not safe because published sources disagree on Malinovsky’s birth year. Runtime asks for Maslov’s individually documented year and avoids a disputed ranking.",
+                        "evidenceRefs": ["sguMaslov", "prlibGorchakov", "tretyakovLomonosov", "prlibKorf"]
+                    },
+                    "verifiedCorrectPosition": 3,
+                    "reviewNote": "The SGU-published biographical dictionary gives Maslov’s birth year as 1796; the distractor years are documented for other Lyceum peers."
+                },
+                {
+                    "id": "sixth-muse-q23",
+                    "sourceQuestionNumber": 23,
+                    "orderWithinBlock": 3,
+                    "sourceAnswer": "Сергей Ломоносов и Модест Корф.",
+                    "verifiedCorrectOptionId": "sixth-muse-q23-answer-year-1799",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q23-choice-year-1796",
+                            "text": "В 1796 году.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["sguMaslov"],
+                            "reviewNote": "The SGU biographical dictionary gives Dmitry Maslov’s birth year as 1796, not Sergey Lomonosov’s."
+                        },
+                        {
+                            "id": "sixth-muse-q23-choice-year-1800",
+                            "text": "В 1800 году.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibKorf"],
+                            "reviewNote": "The Presidential Library dates Modest Korf’s birth to 1800, not Sergey Lomonosov."
+                        },
+                        {
+                            "id": "sixth-muse-q23-answer-year-1799",
+                            "text": "В 1799 году.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["tretyakovLomonosov"],
+                            "reviewNote": "The Tretyakov Gallery identifies Sergey Grigorievich Lomonosov as born in 1799."
+                        },
+                        {
+                            "id": "sixth-muse-q23-choice-year-1798",
+                            "text": "В 1798 году.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibGorchakov", "prlibPuschin", "rusarchivesYakovlev"],
+                            "reviewNote": "1798 is documented for Gorchakov, Puschin, and Yakovlev, not Sergey Lomonosov."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": [
+                            "sguMaslov",
+                            "prlibGorchakov",
+                            "prlibPuschin",
+                            "rusarchivesYakovlev",
+                            "tretyakovLomonosov",
+                            "prlibKorf"
+                        ],
+                        "singleCorrectRationale": "The Tretyakov Gallery gives Lomonosov’s birth year as 1799; 1796 is independently documented for Maslov."
+                    },
+                    "originalPrompt": "Кто из лицеистов родился на рубеже веков — ровно в 1800 году (назовите двоих)?",
+                    "runtimePrompt": "В каком году родился дипломат Сергей Григорьевич Ломоносов?",
+                    "verifiedCorrectAnswer": "В 1799 году.",
+                    "editorialMapping": {
+                        "changeType": "runtime-prompt-and-answer-correction",
+                        "rationale": "The supplied pair answer claims Lomonosov was born in 1800, contrary to the Tretyakov Gallery’s 1799 date; Korf was born in 1800. Runtime asks for Lomonosov’s individual year.",
+                        "evidenceRefs": ["tretyakovLomonosov", "prlibKorf"]
+                    },
+                    "verifiedCorrectPosition": 3,
+                    "reviewNote": "The Tretyakov Gallery gives Lomonosov’s birth year as 1799; 1796 is independently documented for Maslov."
+                },
+                {
+                    "id": "sixth-muse-q24",
+                    "sourceQuestionNumber": 24,
+                    "orderWithinBlock": 4,
+                    "sourceAnswer": "Константин Данзас и Александр Корнилов.",
+                    "verifiedCorrectOptionId": "sixth-muse-q24-answer-year-1801",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q24-choice-year-1799",
+                            "text": "В 1799 году.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["tretyakovLomonosov", "prlibPushkin"],
+                            "reviewNote": "1799 is documented for Lomonosov and Pushkin, not Kornilov."
+                        },
+                        {
+                            "id": "sixth-muse-q24-answer-year-1801",
+                            "text": "В 1801 году.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["kornilovFamilyMuseum", "tambovLibraryKornilov"],
+                            "reviewNote": "The Kornilov family museum and Tambov regional library identify Alexander Alekseevich Kornilov as born in 1801."
+                        },
+                        {
+                            "id": "sixth-muse-q24-choice-year-1798",
+                            "text": "В 1798 году.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibGorchakov", "prlibPuschin"],
+                            "reviewNote": "1798 is documented for Gorchakov and Puschin, not Kornilov."
+                        },
+                        {
+                            "id": "sixth-muse-q24-choice-year-1796",
+                            "text": "В 1796 году.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["febMalinovsky", "sguMaslov"],
+                            "reviewNote": "1796 is documented for Malinovsky and Maslov, not Kornilov."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": [
+                            "kornilovFamilyMuseum",
+                            "tambovLibraryKornilov",
+                            "febMalinovsky",
+                            "sguMaslov",
+                            "prlibGorchakov",
+                            "prlibPuschin",
+                            "tretyakovLomonosov",
+                            "prlibPushkin"
+                        ],
+                        "singleCorrectRationale": "The source pair depends on a disputed Danzas date. Runtime asks only for Kornilov’s independently verified year."
+                    },
+                    "originalPrompt": "Кто из выпускников были самыми младшими и родились в 1801 году?",
+                    "runtimePrompt": "В каком году родился лицеист Александр Алексеевич Корнилов?",
+                    "verifiedCorrectAnswer": "В 1801 году.",
+                    "editorialMapping": {
+                        "changeType": "runtime-prompt-and-answer-correction",
+                        "rationale": "Sources differ on Danzas’s birth date; the runtime avoids scoring that dispute and asks for the well-sourced Kornilov date alone.",
+                        "evidenceRefs": ["kornilovFamilyMuseum", "tambovLibraryKornilov"]
+                    },
+                    "verifiedCorrectPosition": 2,
+                    "reviewNote": "The source pair depends on a disputed Danzas date. Runtime asks only for Kornilov’s independently verified year."
+                },
+                {
+                    "id": "sixth-muse-q25",
+                    "sourceQuestionNumber": 25,
+                    "orderWithinBlock": 5,
+                    "sourceAnswer": "В 1837 году.",
+                    "verifiedCorrectOptionId": "sixth-muse-q25-answer-year-1837",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q25-answer-year-1837",
+                            "text": "В 1837 году.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["prlibPushkin"],
+                            "reviewNote": "The Presidential Library records Pushkin’s death in 1837."
+                        },
+                        {
+                            "id": "sixth-muse-q25-choice-year-1846",
+                            "text": "В 1846 году.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibKuech"],
+                            "reviewNote": "The Presidential Library dates Küchelbecker’s death to 1846."
+                        },
+                        {
+                            "id": "sixth-muse-q25-choice-year-1831",
+                            "text": "В 1831 году.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["nlrDelvig"],
+                            "reviewNote": "NLR dates Delvig’s death to 1831."
+                        },
+                        {
+                            "id": "sixth-muse-q25-choice-year-1859",
+                            "text": "В 1859 году.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibPuschin"],
+                            "reviewNote": "The Presidential Library dates Puschin’s death to 1859."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": ["prlibPushkin", "nlrDelvig", "prlibKuech", "prlibPuschin"],
+                        "singleCorrectRationale": "Each year choice is a documented death year for Pushkin or another first-cohort Lyceum peer."
+                    },
+                    "originalPrompt": "В каком году оборвалась жизнь великого поэта Александра Пушкина?",
+                    "runtimePrompt": "В каком году умер Александр Пушкин?",
+                    "verifiedCorrectAnswer": "В 1837 году.",
+                    "editorialMapping": null,
+                    "verifiedCorrectPosition": 1,
+                    "reviewNote": "Each year choice is a documented death year for Pushkin or another first-cohort Lyceum peer."
+                },
+                {
+                    "id": "sixth-muse-q26",
+                    "sourceQuestionNumber": 26,
+                    "orderWithinBlock": 6,
+                    "sourceAnswer": "Алексей Илличевский.",
+                    "verifiedCorrectOptionId": "sixth-muse-q26-answer-illichevsky",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q26-choice-volkhovsky",
+                            "text": "Владимир Вольховский.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["hronoVolkhovsky", "generalVolkhovsky"],
+                            "reviewNote": "The cited biographies give Volkhovsky a death year different from 1837."
+                        },
+                        {
+                            "id": "sixth-muse-q26-choice-danzas",
+                            "text": "Константин Данзас.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rbsDanzas"],
+                            "reviewNote": "The biographical dictionary dates Danzas’s death to 1870."
+                        },
+                        {
+                            "id": "sixth-muse-q26-answer-illichevsky",
+                            "text": "Алексей Илличевский.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["rbsIllichevsky", "prlibPushkin", "febIllichevskyDates"],
+                            "reviewNote": "The FEB critical-edition notes date Illichevsky to 1798–1837; the Presidential Library dates Pushkin’s death to 1837."
+                        },
+                        {
+                            "id": "sixth-muse-q26-choice-delvig",
+                            "text": "Антон Дельвиг.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["nlrDelvig"],
+                            "reviewNote": "NLR dates Delvig’s death to 1831."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": [
+                            "rbsIllichevsky",
+                            "prlibPushkin",
+                            "nlrDelvig",
+                            "hronoVolkhovsky",
+                            "generalVolkhovsky",
+                            "rbsDanzas",
+                            "febIllichevskyDates"
+                        ],
+                        "singleCorrectRationale": "The FEB critical edition and Presidential Library independently establish the shared 1837 death year."
+                    },
+                    "originalPrompt": "Кто из лицеистов ушёл из жизни в один и тот же год с Александром Пушкиным (в 1837 году)?",
+                    "runtimePrompt": "Кто из лицеистов умер в 1837 году, как и Александр Пушкин?",
+                    "verifiedCorrectAnswer": "Алексей Илличевский.",
+                    "editorialMapping": null,
+                    "verifiedCorrectPosition": 3,
+                    "reviewNote": "The FEB critical edition and Presidential Library independently establish the shared 1837 death year."
+                },
+                {
+                    "id": "sixth-muse-q27",
+                    "sourceQuestionNumber": 27,
+                    "orderWithinBlock": 7,
+                    "sourceAnswer": "Александра Корнилова.",
+                    "verifiedCorrectOptionId": "sixth-muse-q27-answer-kornilov",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q27-choice-lomonosov",
+                            "text": "Сергей Григорьевич Ломоносов.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["tretyakovLomonosov"],
+                            "reviewNote": "The Tretyakov Gallery dates Lomonosov’s death to 1857."
+                        },
+                        {
+                            "id": "sixth-muse-q27-choice-gorchakov",
+                            "text": "Александр Горчаков.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibGorchakov"],
+                            "reviewNote": "The Presidential Library dates Gorchakov’s death to 1883."
+                        },
+                        {
+                            "id": "sixth-muse-q27-answer-kornilov",
+                            "text": "Александр Алексеевич Корнилов.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["sguMaslov", "kornilovFamilyMuseum", "tambovLibraryKornilov"],
+                            "reviewNote": "SGU gives Maslov’s death year as 1856; the Kornilov museum and regional library give the same year for Alexander Alekseevich Kornilov."
+                        },
+                        {
+                            "id": "sixth-muse-q27-choice-danzas",
+                            "text": "Константин Данзас.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rbsDanzas"],
+                            "reviewNote": "The Russian Biographical Dictionary dates Danzas’s death to 1870."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": [
+                            "sguMaslov",
+                            "kornilovFamilyMuseum",
+                            "tambovLibraryKornilov",
+                            "tretyakovLomonosov",
+                            "rbsDanzas",
+                            "prlibGorchakov"
+                        ],
+                        "singleCorrectRationale": "The original “same lifespan” premise is narrowed to the verified shared death year; the answer is unique among the choices."
+                    },
+                    "originalPrompt": "Чьи годы жизни полностью совпадают с годами жизни Дмитрия Маслова (1796–1856)?",
+                    "runtimePrompt": "Кто ещё из лицеистов умер в том же 1856 году, что и Дмитрий Маслов?",
+                    "verifiedCorrectAnswer": "Александр Алексеевич Корнилов.",
+                    "editorialMapping": {
+                        "changeType": "runtime-prompt-precision",
+                        "rationale": "The source answer shares only the death year with Maslov, not the full lifespan. Runtime asks only for the shared 1856 death year.",
+                        "evidenceRefs": ["sguMaslov", "kornilovFamilyMuseum", "tambovLibraryKornilov"]
+                    },
+                    "verifiedCorrectPosition": 3,
+                    "reviewNote": "The original “same lifespan” premise is narrowed to the verified shared death year; the answer is unique among the choices."
+                },
+                {
+                    "id": "sixth-muse-q28",
+                    "sourceQuestionNumber": 28,
+                    "orderWithinBlock": 8,
+                    "sourceAnswer": "1798–1831 гг.",
+                    "verifiedCorrectOptionId": "sixth-muse-q28-answer-lifespan-delvig",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q28-choice-lifespan-pushkin",
+                            "text": "1799–1837 гг.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibPushkin"],
+                            "reviewNote": "The Presidential Library gives Pushkin’s lifespan as 1799–1837."
+                        },
+                        {
+                            "id": "sixth-muse-q28-answer-lifespan-delvig",
+                            "text": "1798–1831 гг.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["nlrDelvig", "cultureDelvig"],
+                            "reviewNote": "The NLR profile gives Delvig’s dates as 1798–1831; Culture.ru corroborates his biography."
+                        },
+                        {
+                            "id": "sixth-muse-q28-choice-lifespan-lomonosov",
+                            "text": "1799–1857 гг.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["tretyakovLomonosov"],
+                            "reviewNote": "The Tretyakov Gallery gives Sergey Lomonosov’s lifespan as 1799–1857."
+                        },
+                        {
+                            "id": "sixth-muse-q28-choice-lifespan-pushchin",
+                            "text": "1798–1859 гг.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibPuschin"],
+                            "reviewNote": "The Presidential Library gives Puschin’s lifespan as 1798–1859."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": ["nlrDelvig", "cultureDelvig", "prlibPushkin", "prlibPuschin", "tretyakovLomonosov"],
+                        "singleCorrectRationale": "The misleading “33 years” claim is removed. Runtime asks for the lifespan recorded by NLR and uses three documented peer lifespans as distractors."
+                    },
+                    "originalPrompt": "Какую короткую жизнь (всего 33 года) прожил поэт и журналист Антон Дельвиг? Назовите годы его жизни.",
+                    "runtimePrompt": "Какие годы жизни указаны для Антона Дельвига в справке Российской национальной библиотеки?",
+                    "verifiedCorrectAnswer": "1798–1831 гг.",
+                    "editorialMapping": {
+                        "changeType": "runtime-prompt-and-choice-rewrite",
+                        "rationale": "The source dates imply Delvig was 32, not 33. Runtime drops the age claim and tests the source-verified dates.",
+                        "evidenceRefs": ["nlrDelvig"]
+                    },
+                    "verifiedCorrectPosition": 2,
+                    "reviewNote": "The misleading “33 years” claim is removed. Runtime asks for the lifespan recorded by NLR and uses three documented peer lifespans as distractors."
+                },
+                {
+                    "id": "sixth-muse-q29",
+                    "sourceQuestionNumber": 29,
+                    "orderWithinBlock": 9,
+                    "sourceAnswer": "73 года.",
+                    "verifiedCorrectOptionId": "sixth-muse-q29-answer-matyushkin-73",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q29-choice-pushkin-37",
+                            "text": "37 лет — Александр Пушкин.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibPushkin"],
+                            "reviewNote": "The Presidential Library gives Pushkin’s dates as 1799–1837 and age 37."
+                        },
+                        {
+                            "id": "sixth-muse-q29-answer-matyushkin-73",
+                            "text": "73 года — Фёдор Матюшкин.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["rgoMatyushkin"],
+                            "reviewNote": "The Russian Geographical Society directly states that Matyushkin died at age 73."
+                        },
+                        {
+                            "id": "sixth-muse-q29-choice-delvig-32",
+                            "text": "32 года — Антон Дельвиг.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["nlrDelvig"],
+                            "reviewNote": "NLR gives Delvig’s dates as 1798–1831 and age 32."
+                        },
+                        {
+                            "id": "sixth-muse-q29-choice-gorchakov-85",
+                            "text": "85 лет — Александр Горчаков.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["prlibGorchakov"],
+                            "reviewNote": "The Presidential Library gives Gorchakov’s dates as 1798–1883 and age 85."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": ["rgoMatyushkin", "nlrDelvig", "prlibPushkin", "prlibGorchakov"],
+                        "singleCorrectRationale": "The Russian Geographical Society gives Matyushkin’s age as 73; each distractor is a documented age of a named peer."
+                    },
+                    "originalPrompt": "Сколько полных лет прожил мореплаватель Фёдор Матюшкин (1799–1872)?",
+                    "runtimePrompt": "Сколько полных лет прожил Фёдор Матюшкин (1799–1872)?",
+                    "verifiedCorrectAnswer": "73 года — Фёдор Матюшкин.",
+                    "editorialMapping": {
+                        "changeType": "runtime-choice-evidence",
+                        "rationale": "The source’s numerical distractors were unsupported. Runtime choices identify real, source-verified peer ages so each alternative is fact-checked.",
+                        "evidenceRefs": ["rgoMatyushkin", "nlrDelvig", "prlibPushkin", "prlibGorchakov"]
+                    },
+                    "verifiedCorrectPosition": 2,
+                    "reviewNote": "The Russian Geographical Society gives Matyushkin’s age as 73; each distractor is a documented age of a named peer."
+                },
+                {
+                    "id": "sixth-muse-q30",
+                    "sourceQuestionNumber": 30,
+                    "orderWithinBlock": 10,
+                    "sourceAnswer": "Константин Данзас.",
+                    "verifiedCorrectOptionId": "sixth-muse-q30-answer-danzas",
+                    "options": [
+                        {
+                            "id": "sixth-muse-q30-choice-kornilov",
+                            "text": "Александр Алексеевич Корнилов.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["kornilovFamilyMuseum", "tambovLibraryKornilov"],
+                            "reviewNote": "The Kornilov museum and regional library date Kornilov’s death to 1856."
+                        },
+                        {
+                            "id": "sixth-muse-q30-choice-matyushkin",
+                            "text": "Фёдор Матюшкин.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["rgoMatyushkin"],
+                            "reviewNote": "RGO dates Matyushkin’s death to 1872 and documents his maritime career."
+                        },
+                        {
+                            "id": "sixth-muse-q30-choice-volkhovsky",
+                            "text": "Владимир Вольховский.",
+                            "kind": "distractor",
+                            "isCorrect": false,
+                            "reviewStatus": "reviewed-as-distractor",
+                            "evidenceRefs": ["hronoVolkhovsky", "generalVolkhovsky"],
+                            "reviewNote": "The cited biographies document Volkhovsky’s distinct military career and lifespan."
+                        },
+                        {
+                            "id": "sixth-muse-q30-answer-danzas",
+                            "text": "Константин Данзас.",
+                            "kind": "verified-correct",
+                            "isCorrect": true,
+                            "reviewStatus": "verified-correct",
+                            "evidenceRefs": ["rbsDanzas", "museumSobriquets"],
+                            "reviewNote": "The biographical dictionary dates Danzas’s death to 1870; the Pushkin Museum identifies him as «Медведь»."
+                        }
+                    ],
+                    "review": {
+                        "status": "reviewed",
+                        "disposition": "scoring-approved",
+                        "ambiguityStatus": "reviewed-single-correct",
+                        "reviewedAt": "2026-10-17",
+                        "evidenceRefs": [
+                            "hronoVolkhovsky",
+                            "generalVolkhovsky",
+                            "rgoMatyushkin",
+                            "kornilovFamilyMuseum",
+                            "tambovLibraryKornilov",
+                            "rbsDanzas",
+                            "museumSobriquets"
+                        ],
+                        "singleCorrectRationale": "The biographical dictionary dates Danzas’s death to 1870, and the Pushkin Museum records his nickname «Медведь»."
+                    },
+                    "originalPrompt": "Кто из военных лицеистов ушёл из жизни в 1870 году, имея в Лицее прозвище Медведь?",
+                    "runtimePrompt": "Кто из выпускников первого курса умер в 1870 году и в музейной подборке прозвищ назван «Медведем»?",
+                    "verifiedCorrectAnswer": "Константин Данзас.",
+                    "editorialMapping": {
+                        "changeType": "runtime-prompt-precision",
+                        "rationale": "The source combines a broad military label and the nickname/death clues. Runtime states the documented year and cited museum sobriquet explicitly.",
+                        "evidenceRefs": ["rbsDanzas", "museumSobriquets"]
+                    },
+                    "verifiedCorrectPosition": 4,
+                    "reviewNote": "The biographical dictionary dates Danzas’s death to 1870, and the Pushkin Museum records his nickname «Медведь»."
+                }
+            ]
+        }
+    ],
+    "answerPositionSchedule": {
+        "algorithm": "sha256-seeded-balanced-fisher-yates-v1",
+        "seed": "sixth-muse-balanced-options-2026-10-17-1",
+        "positionsByQuestion": [3, 1, 4, 1, 1, 4, 1, 4, 3, 2, 1, 4, 4, 2, 3, 2, 4, 4, 1, 1, 2, 3, 3, 2, 1, 3, 3, 2, 2, 4],
+        "verifiedCorrectPositionCounts": {
+            "1": 8,
+            "2": 7,
+            "3": 7,
+            "4": 8
+        },
+        "note": "A seeded Fisher–Yates shuffle distributes the balanced 8/7/7/8 correct positions; each row uses the same seed family to shuffle its three distractors."
+    },
+    "evidenceSources": {
+        "museumSobriquets": {
+            "title": "Тайны лицейского собрикета",
+            "publisher": "Всероссийский музей А. С. Пушкина",
+            "url": "https://www.museumpushkin.ru/assets/files/pushkinsky_museum_2020.pdf",
+            "note": "Institutional museum study citing archived correspondence and memoirs; directly records several first-intake nicknames, including Danzas as Франт/Медведь and Yakovlev as Паяс.",
+            "checkedAt": "2026-10-17"
+        },
+        "museumLyceum": {
+            "title": "19 октября — день Лицея",
+            "publisher": "Всероссийский музей А. С. Пушкина",
+            "url": "https://www.museumpushkin.ru/liceum_day/",
+            "note": "Institutional overview of first-cohort members and their documented public roles.",
+            "checkedAt": "2026-10-17"
+        },
+        "rgoMatyushkin": {
+            "title": "«Волн и бурь любимое дитя»",
+            "publisher": "Русское географическое общество",
+            "url": "https://rgo.ru/activity/redaction/articles/voln-i-bur-lyubimoe-ditya-kak-litseist-fedor-matyushkin-stal-moryakom-i-polyarnikom/",
+            "note": "The Russian Geographical Society documents Matyushkin’s maritime and polar career, gives his dates as 1799–1872, and states that he died at age 73.",
+            "checkedAt": "2026-10-17"
+        },
+        "eydelman": {
+            "title": "Пушкин: история и современность",
+            "publisher": "Натан Эйдельман, scholarly secondary source",
+            "url": "https://imwerden.de/pdf/eydelman_pushkin_istoriya_i_sovremennost_1984_text.pdf",
+            "note": "Supports the Kazak attribution to Malinovsky; stronger archival corroboration remains desirable.",
+            "checkedAt": "2026-10-17"
+        },
+        "spbuGorchakov": {
+            "title": "Исследование о лицейских прозвищах А. М. Горчакова",
+            "publisher": "Санкт-Петербургский государственный университет",
+            "url": "https://pureportal.spbu.ru/files/11363771/EK_2018_Vlad_preview.pdf",
+            "note": "Records Gorchakov as Франт; the Pushkin Museum also records Франт for Danzas, making source Q8 non-exclusive.",
+            "checkedAt": "2026-10-17"
+        },
+        "grotLyceum": {
+            "title": "Пушкинский Лицей",
+            "publisher": "Яков Грот, historical scholarly work",
+            "url": "https://ru.wikisource.org/wiki/Пушкинский_Лицей_(Грот)",
+            "note": "Grot’s historical account records Yakovlev’s talents as singer, violinist, composer, actor and mimic, and documents the nickname form «паяс»/«паяса».",
+            "checkedAt": "2026-10-17"
+        },
+        "korfMemoirs": {
+            "title": "Записки барона М. А. Корфа",
+            "publisher": "Модест Корф, memoir text edition",
+            "url": "https://litresp.ru/chitat/ru/К/korf-modest-andreevich/zapiski/25",
+            "note": "Korf’s memoir transcription directly calls Maslov «нашим Карамзиным» for pen and gift of speech, and says classmates called Sergey Lomonosov «кротом».",
+            "checkedAt": "2026-10-17"
+        },
+        "cultureDelvig": {
+            "title": "Антон Дельвиг",
+            "publisher": "Культура.РФ",
+            "url": "https://www.culture.ru/persons/12746/anton-delvig",
+            "note": "Culture.ru documents Delvig as publisher and editor of Literary Gazette, says he was removed from the editor position, and records his literary activity.",
+            "checkedAt": "2026-10-17"
+        },
+        "nlrDelvig": {
+            "title": "Дельвиг Антон Антонович",
+            "publisher": "Российская национальная библиотека",
+            "url": "https://nlr.ru/nlr_history/persons/info.php?id=41",
+            "note": "The NLR profile dates Delvig to 1798–1831, records his age as 32, and says he was publisher of the first Literary Gazette issue on 1 January 1830.",
+            "checkedAt": "2026-10-17"
+        },
+        "prlibPuschin": {
+            "title": "Родился поэт и декабрист Иван Иванович Пущин",
+            "publisher": "Президентская библиотека имени Б. Н. Ельцина",
+            "url": "https://www.prlib.ru/history/619243",
+            "note": "Supports Puschin’s Lyceum friendship with Pushkin and Decembrist biography.",
+            "checkedAt": "2026-10-17"
+        },
+        "cultureKuech": {
+            "title": "Вильгельм Кюхельбекер",
+            "publisher": "Культура.РФ",
+            "url": "https://www.culture.ru/persons/9643/vilgelm-kyukhelbeker",
+            "note": "Culture.ru documents Küchelbecker as poet and Decembrist and identifies his tragedy «Аргивяне».",
+            "checkedAt": "2026-10-17"
+        },
+        "prlibKuech": {
+            "title": "Вильгельм Карлович Кюхельбекер",
+            "publisher": "Президентская библиотека имени Б. Н. Ельцина",
+            "url": "https://www.prlib.ru/history/1338618",
+            "note": "The Presidential Library documents Küchelbecker as a poet, his participation in the 14 December 1825 uprising, and his later poetry.",
+            "checkedAt": "2026-10-17"
+        },
+        "bigencGorchakov": {
+            "title": "Горчаков Александр Михайлович",
+            "publisher": "Большая российская энциклопедия",
+            "url": "https://bigenc.ru/c/gorchakov-aleksandr-mikhailovich-996022",
+            "note": "Supports Gorchakov’s diplomatic and political career.",
+            "checkedAt": "2026-10-17"
+        },
+        "prlibGorchakov": {
+            "title": "Родился государственный деятель, дипломат Александр Михайлович Горчаков",
+            "publisher": "Президентская библиотека имени Б. Н. Ельцина",
+            "url": "https://www.prlib.ru/history/619314",
+            "note": "The Presidential Library gives Gorchakov’s dates as 1798–1883 and documents his diplomatic and state career.",
+            "checkedAt": "2026-10-17"
+        },
+        "tretyakovLomonosov": {
+            "title": "Ломоносов Сергей Григорьевич",
+            "publisher": "Государственная Третьяковская галерея",
+            "url": "https://my.tretyakov.ru/app/masterpiece/154380",
+            "note": "The Tretyakov Gallery profile identifies diplomat Sergey Grigorievich Lomonosov and gives his dates as 1799–1857.",
+            "checkedAt": "2026-10-17"
+        },
+        "rusarchivesYakovlev": {
+            "title": "Каталог документов РГAФД: Михаил Лукьянович Яковлев",
+            "publisher": "Федеральное архивное агентство / Российский государственный архив фонодокументов",
+            "url": "https://portal.rusarchives.ru/guide/perech_12/perech20061223117_p_008.shtml",
+            "note": "The Russian state archives guide identifies Yakovlev as composer and baritone singer; it does not say that he was a professional musician.",
+            "checkedAt": "2026-10-17"
+        },
+        "rbsIllichevsky": {
+            "title": "Илличевский, Алексей Демьянович",
+            "publisher": "Русский биографический словарь, цифровая публикация Викитеки",
+            "url": "https://ru.wikisource.org/wiki/РБС/ВТ/Илличевский,_Алексей_Демьянович",
+            "note": "Supports Illichevsky as poet, his translation work, and death in 1837.",
+            "checkedAt": "2026-10-17"
+        },
+        "prlibKorf": {
+            "title": "Модест Андреевич Корф",
+            "publisher": "Президентская библиотека имени Б. Н. Ельцина",
+            "url": "https://www.prlib.ru/history/619564",
+            "note": "The Presidential Library gives Korf’s dates as 1800–1876, records his acting State Secretary duties from 1834, and documents his historical/publication work.",
+            "checkedAt": "2026-10-17"
+        },
+        "sguMaslov": {
+            "title": "Высшее чиновничество Российской империи: биографический словарь",
+            "publisher": "Саратовский национальный исследовательский государственный университет",
+            "url": "https://old.sgu.ru/sites/default/files/depnews/file/2023/04/vysshie_chiny_rossiyskoy_imperii_biograficheskiy_slovar_t_3_m-r_m_2019.pdf",
+            "note": "The university-published biographical dictionary dates Dmitry Maslov to 1796–1856 and records his State Council Department of Laws and tax-department offices.",
+            "checkedAt": "2026-10-17"
+        },
+        "hronoVolkhovsky": {
+            "title": "Владимир Волховский",
+            "publisher": "Хронос: всемирная история в интернете",
+            "url": "https://www.hrono.ru/biograf/bio_we/volhovsky.php",
+            "note": "Secondary biographical source for the military-career clue; stronger institutional provenance remains requested.",
+            "checkedAt": "2026-10-17"
+        },
+        "rbsDanzas": {
+            "title": "Данзас, Константин Карлович",
+            "publisher": "Русский биографический словарь, цифровая публикация Викитеки",
+            "url": "https://ru.wikisource.org/wiki/РБС/ВТ/Данзас,_Константин_Карлович",
+            "note": "The Russian Biographical Dictionary documents Danzas’s Lyceum biography and death in 1870; the museum study separately records his sobriquets.",
+            "checkedAt": "2026-10-17"
+        },
+        "pushkinDigitalGorchakov": {
+            "title": "Экскурс: 19 октября",
+            "publisher": "Пушкин <Цифровой>",
+            "url": "https://pushkin.digital/ekskursy/19-oktjabrja?entity=biography&stanza=5",
+            "note": "Biographical collection connects Gorchakov’s «Франт» sobriquet with his personal bearing; read alongside the SPbU study of the clothing/style clue in the source stem.",
+            "checkedAt": "2026-10-17"
+        },
+        "febMalinovsky": {
+            "title": "И. В. Малиновский о Пушкине в Лицее",
+            "publisher": "Фундаментальная электронная библиотека «Русская литература и фольклор»",
+            "url": "https://feb-web.ru/feb/pushkin/serial/s38/s3822133.htm?cmd=p",
+            "note": "The FEB source documents Malinovsky’s Lyceum biography; later sources give differing birth years, so this fixture does not use it to assert an exclusive “oldest” ranking.",
+            "checkedAt": "2026-10-17"
+        },
+        "prlibPushkin": {
+            "title": "Родился великий русский поэт и писатель Александр Сергеевич Пушкин",
+            "publisher": "Президентская библиотека имени Б. Н. Ельцина",
+            "url": "https://www.prlib.ru/history/619292",
+            "note": "Institutional biography states Pushkin died in 1837.",
+            "checkedAt": "2026-10-17"
+        },
+        "generalVolkhovsky": {
+            "title": "Вольховский Владимир Дмитриевич",
+            "publisher": "Военная энциклопедия / биографический справочник генералов",
+            "url": "https://general.org.ua/book/t4/_indd_71.pdf",
+            "note": "Biographical entry identifies Volkovsky as a major general and documents his military career; the source answer «Военный» remains broad and the research gate is retained.",
+            "checkedAt": "2026-10-17"
+        },
+        "pushkinProtocol": {
+            "title": "Протокол празднования Лицейской годовщины 19 октября 1828 года",
+            "publisher": "Пушкинский текстологический портал (первичный документ)",
+            "url": "https://as-pushkin.net/pushkin/documents/prazdnik-liceya/protokol-001.php",
+            "note": "Primary anniversary protocol records «Тося» for Delvig, «Кюхля» for Küchelbecker, «Паяс» for Yakovlev, and «Крот» for Lomonosov.",
+            "checkedAt": "2026-10-17"
+        },
+        "nlrLiteraryGazette": {
+            "title": "Дореволюционные газеты Петербурга-Петрограда в Российской национальной библиотеке",
+            "publisher": "Российская национальная библиотека",
+            "url": "https://expositions.nlr.ru/fond/paper/paper_spb.php",
+            "note": "NLR catalog records the 1830–1831 Literary Gazette of A. Delvig and identifies Delvig and O. Somov among editors at different times; the NLR biography identifies Delvig as publisher of the first issue.",
+            "checkedAt": "2026-10-17"
+        },
+        "prlibPuschinMemoirBook": {
+            "title": "Записки о Пушкине. Письма из Сибири",
+            "publisher": "Президентская библиотека имени Б. Н. Ельцина",
+            "url": "https://www.prlib.ru/item/1151633",
+            "note": "Bibliographic record attributes the book «Записки о Пушкине» to Decembrist Ivan Ivanovich Puschin.",
+            "checkedAt": "2026-10-17"
+        },
+        "kornilovFamilyMuseum": {
+            "title": "Персоналии (история) — Музей рода Корниловых",
+            "publisher": "Музей рода Корниловых",
+            "url": "https://kornilov-museum.ru/people/",
+            "note": "The family museum register identifies Alexander Alekseevich Kornilov (1801–1856) as a first-cohort Tsarskoye Selo Lyceum alumnus.",
+            "checkedAt": "2026-10-17"
+        },
+        "tambovLibraryKornilov": {
+            "title": "Тамбовские даты. 2001 год: Александр Алексеевич Корнилов",
+            "publisher": "Тамбовская областная универсальная научная библиотека имени А. С. Пушкина",
+            "url": "https://www.tambovlib.ru/?view=editions.bibliograf.date.2001",
+            "note": "The regional library biography gives Kornilov’s birth date as 28 April 1801 and documents his Lyceum education and later public offices.",
+            "checkedAt": "2026-10-17"
+        },
+        "prlibPuschinVisit": {
+            "title": "Президентская библиотека об Иване Пущине — лицеисте, декабристе и друге великого поэта",
+            "publisher": "Президентская библиотека имени Б. Н. Ельцина",
+            "url": "https://www.prlib.ru/news/1298165",
+            "note": "The source identifies Puschin as a Lyceum friend and Decembrist and recounts his January 1825 visit to Pushkin in Mikhailovskoye.",
+            "checkedAt": "2026-10-17"
+        },
+        "mgimoLomonosov": {
+            "title": "Дипломаты — лицейские друзья А. С. Пушкина",
+            "publisher": "Московский государственный институт международных отношений (МГИМО)",
+            "url": "https://mgimo.ru/upload/2020/10/diplomaty-licejskie-druzya-a-s-pushkina.pdf",
+            "note": "MGIMO scholarly article identifies Sergey Lomonosov as «Крот» and connects the sobriquet with cunning and resourcefulness.",
+            "checkedAt": "2026-10-17"
+        },
+        "cultureLiceyFates": {
+            "title": "Александр Пушкин: судьбы лицейских друзей поэта",
+            "publisher": "Культура.РФ",
+            "url": "https://www.culture.ru/materials/238554/sudby-liceistov",
+            "note": "The institutional culture portal identifies Ivan Malinovsky as «Казак» and describes the temperament behind the nickname.",
+            "checkedAt": "2026-10-17"
+        },
+        "museumVolkhovsky": {
+            "title": "Мемориальный Музей-Лицей. Аннотация к залам",
+            "publisher": "Всероссийский музей А. С. Пушкина",
+            "url": "https://www.museumpushkin.ru/assets/files/annotaciya_v_zaly_2020.pdf",
+            "note": "The museum guide identifies Vladimir Volkhovsky as a major general and member of the first Lyceum cohort.",
+            "checkedAt": "2026-10-17"
+        },
+        "febIllichevskyDates": {
+            "title": "Томашевский. Примечания к Полному собранию сочинений Пушкина, том 1",
+            "publisher": "Фундаментальная электронная библиотека «Русская литература и фольклор»",
+            "url": "https://feb-web.ru/feb/pushkin/texts/push10/v01/d01-429.htm?cmd=p",
+            "note": "The scholarly critical-edition notes identify Alexey Illichevsky as a Lyceum poet and give his dates as 1798–1837.",
+            "checkedAt": "2026-10-17"
+        },
+        "febIllichevskyTranslation": {
+            "title": "Б. Томашевский. Пушкин: В 2 книгах. Книга 1 (1813–1824)",
+            "publisher": "Фундаментальная электронная библиотека «Русская литература и фольклор»",
+            "url": "https://feb-web.ru/feb/classics/critics/tomashevsky_b/tp/tp1-001-.htm?cmd=p",
+            "note": "The scholarly critical edition records Illichevsky’s translation of Michaud’s poem «Весна изгнанника».",
+            "checkedAt": "2026-10-17"
+        },
+        "klinLibraryMaslov": {
+            "title": "Маслов Дмитрий Николаевич",
+            "publisher": "Центральная библиотека Клина, краеведческий отдел",
+            "url": "https://www.biblio-klin.ru/kray_otd/gordost_zemli/5777-maslov-dm.html",
+            "note": "The municipal library biography quotes Korf’s memoir calling Maslov «нашим Карамзиным» and dates him to 1796–1856.",
+            "checkedAt": "2026-10-17"
+        }
+    },
+    "editorialChanges": [
+        {
+            "questionId": "sixth-muse-q01",
+            "sourceQuestionNumber": 1,
+            "changeType": "runtime-prompt-narrowing",
+            "rationale": "The original clue combines «Француз» and «Егоза». Runtime scores only the sobriquet directly documented in the Pushkin Museum study and retains the full author wording in provenance.",
+            "evidenceRefs": ["museumSobriquets"]
+        },
+        {
+            "questionId": "sixth-muse-q02",
+            "sourceQuestionNumber": 2,
+            "changeType": "runtime-prompt-and-answer-normalization",
+            "rationale": "The original «Тося или Тосе» wording includes an unattested alternative. Runtime asks for the exact form recorded in the primary 1828 protocol and retains the original prompt and answer in provenance.",
+            "evidenceRefs": ["pushkinProtocol", "museumSobriquets"]
+        },
+        {
+            "questionId": "sixth-muse-q04",
+            "sourceQuestionNumber": 4,
+            "changeType": "runtime-prompt-rewrite",
+            "rationale": "The original broad description is tied to the MGIMO scholarly account and Korf’s memoir, both of which connect «Крот» with Lomonosov’s cunning and resourcefulness.",
+            "evidenceRefs": ["mgimoLomonosov", "korfMemoirs"]
+        },
+        {
+            "questionId": "sixth-muse-q07",
+            "sourceQuestionNumber": 7,
+            "changeType": "runtime-prompt-institutional-source-clarification",
+            "rationale": "The runtime now names the institutional Culture.ru article that documents the Malinovsky attribution and the character traits associated with the nickname.",
+            "evidenceRefs": ["cultureLiceyFates"]
+        },
+        {
+            "questionId": "sixth-muse-q08",
+            "sourceQuestionNumber": 8,
+            "changeType": "runtime-prompt-and-answer-format",
+            "rationale": "Sources also record «Франт» for Danzas, so the original person-identification wording could suggest a unique nickname. The runtime asks which nickname the cited SPbU study associates with Gorchakov and offers distinct nickname choices.",
+            "evidenceRefs": ["spbuGorchakov", "museumSobriquets"]
+        },
+        {
+            "questionId": "sixth-muse-q09",
+            "sourceQuestionNumber": 9,
+            "changeType": "runtime-prompt-and-answer-correction",
+            "rationale": "The source uses «Паяц», while the museum study records «Паяс». Runtime asks for the exact museum-attested form and preserves the source wording in provenance.",
+            "evidenceRefs": ["museumSobriquets", "grotLyceum", "pushkinProtocol"]
+        },
+        {
+            "questionId": "sixth-muse-q10",
+            "sourceQuestionNumber": 10,
+            "changeType": "runtime-prompt-rewrite",
+            "rationale": "Korf’s memoir supports «нашим Карамзиным» for Maslov, not the merged invented form «Маслависти». The runtime asks only about the attested nickname.",
+            "evidenceRefs": ["korfMemoirs", "sguMaslov", "klinLibraryMaslov"]
+        },
+        {
+            "questionId": "sixth-muse-q11",
+            "sourceQuestionNumber": 11,
+            "changeType": "runtime-prompt-precision",
+            "rationale": "The evaluative source wording is replaced by a concrete authorship fact to make the scored criterion explicit.",
+            "evidenceRefs": ["prlibPushkin"]
+        },
+        {
+            "questionId": "sixth-muse-q12",
+            "sourceQuestionNumber": 12,
+            "changeType": "runtime-prompt-rewrite",
+            "rationale": "The broad source clue could apply to several literary figures. Runtime names Delvig’s documented work on Literary Gazette and explicitly refers to his editor role, without conflating publisher with editor.",
+            "evidenceRefs": ["cultureDelvig", "nlrDelvig", "nlrLiteraryGazette"]
+        },
+        {
+            "questionId": "sixth-muse-q13",
+            "sourceQuestionNumber": 13,
+            "changeType": "runtime-prompt-rewrite",
+            "rationale": "The original broad “close friend and Decembrist” description also fits other peers. Runtime uses the specific, source-documented January 1825 visit to make the answer unique.",
+            "evidenceRefs": ["prlibPuschinVisit", "prlibPuschin"]
+        },
+        {
+            "questionId": "sixth-muse-q14",
+            "sourceQuestionNumber": 14,
+            "changeType": "runtime-prompt-rewrite",
+            "rationale": "The source’s broad list of poet/writer/Decembrist roles overlaps with other peers. Runtime pairs Küchelbecker’s documented literary work «Аргивяне» with his Decembrist participation.",
+            "evidenceRefs": ["cultureKuech", "prlibKuech"]
+        },
+        {
+            "questionId": "sixth-muse-q15",
+            "sourceQuestionNumber": 15,
+            "changeType": "runtime-prompt-specific-career-marker",
+            "rationale": "The source’s broad «political figure» category could fit several graduates. Runtime uses Gorchakov’s documented offices as the unique discriminator.",
+            "evidenceRefs": ["prlibGorchakov", "bigencGorchakov"]
+        },
+        {
+            "questionId": "sixth-muse-q17",
+            "sourceQuestionNumber": 17,
+            "changeType": "runtime-prompt-rewrite",
+            "rationale": "The archival source supports composer and baritone singer but not the source’s qualifier «профессиональный». Runtime asks only for the documented occupations.",
+            "evidenceRefs": ["rusarchivesYakovlev", "grotLyceum"]
+        },
+        {
+            "questionId": "sixth-muse-q19",
+            "sourceQuestionNumber": 19,
+            "changeType": "runtime-prompt-and-answer-correction",
+            "rationale": "The source’s exclusivity claim is false for Korf, whose sources also document historical and literary work. Runtime asks which person held each of two precise offices; the original pair is retained in sourceAnswer.",
+            "evidenceRefs": ["prlibKorf", "sguMaslov"]
+        },
+        {
+            "questionId": "sixth-muse-q20",
+            "sourceQuestionNumber": 20,
+            "changeType": "runtime-prompt-precision",
+            "rationale": "The source uses the fragment «Военный» as an answer; runtime keeps the service-domain clue and adds the museum-attested rank for a precise key.",
+            "evidenceRefs": ["museumVolkhovsky", "generalVolkhovsky"]
+        },
+        {
+            "questionId": "sixth-muse-q21",
+            "sourceQuestionNumber": 21,
+            "changeType": "runtime-prompt-precision",
+            "rationale": "A direct birth/death source establishes Gorchakov’s death year; runtime avoids an unnecessary superlative comparison.",
+            "evidenceRefs": ["prlibGorchakov"]
+        },
+        {
+            "questionId": "sixth-muse-q22",
+            "sourceQuestionNumber": 22,
+            "changeType": "runtime-prompt-and-answer-correction",
+            "rationale": "The source’s “oldest” wording is not safe because published sources disagree on Malinovsky’s birth year. Runtime asks for Maslov’s individually documented year and avoids a disputed ranking.",
+            "evidenceRefs": ["sguMaslov", "prlibGorchakov", "tretyakovLomonosov", "prlibKorf"]
+        },
+        {
+            "questionId": "sixth-muse-q23",
+            "sourceQuestionNumber": 23,
+            "changeType": "runtime-prompt-and-answer-correction",
+            "rationale": "The supplied pair answer claims Lomonosov was born in 1800, contrary to the Tretyakov Gallery’s 1799 date; Korf was born in 1800. Runtime asks for Lomonosov’s individual year.",
+            "evidenceRefs": ["tretyakovLomonosov", "prlibKorf"]
+        },
+        {
+            "questionId": "sixth-muse-q24",
+            "sourceQuestionNumber": 24,
+            "changeType": "runtime-prompt-and-answer-correction",
+            "rationale": "Sources differ on Danzas’s birth date; the runtime avoids scoring that dispute and asks for the well-sourced Kornilov date alone.",
+            "evidenceRefs": ["kornilovFamilyMuseum", "tambovLibraryKornilov"]
+        },
+        {
+            "questionId": "sixth-muse-q27",
+            "sourceQuestionNumber": 27,
+            "changeType": "runtime-prompt-precision",
+            "rationale": "The source answer shares only the death year with Maslov, not the full lifespan. Runtime asks only for the shared 1856 death year.",
+            "evidenceRefs": ["sguMaslov", "kornilovFamilyMuseum", "tambovLibraryKornilov"]
+        },
+        {
+            "questionId": "sixth-muse-q28",
+            "sourceQuestionNumber": 28,
+            "changeType": "runtime-prompt-and-choice-rewrite",
+            "rationale": "The source dates imply Delvig was 32, not 33. Runtime drops the age claim and tests the source-verified dates.",
+            "evidenceRefs": ["nlrDelvig"]
+        },
+        {
+            "questionId": "sixth-muse-q29",
+            "sourceQuestionNumber": 29,
+            "changeType": "runtime-choice-evidence",
+            "rationale": "The source’s numerical distractors were unsupported. Runtime choices identify real, source-verified peer ages so each alternative is fact-checked.",
+            "evidenceRefs": ["rgoMatyushkin", "nlrDelvig", "prlibPushkin", "prlibGorchakov"]
+        },
+        {
+            "questionId": "sixth-muse-q30",
+            "sourceQuestionNumber": 30,
+            "changeType": "runtime-prompt-precision",
+            "rationale": "The source combines a broad military label and the nickname/death clues. Runtime states the documented year and cited museum sobriquet explicitly.",
+            "evidenceRefs": ["rbsDanzas", "museumSobriquets"]
+        }
+    ],
+    "provenanceReviewRegister": [
+        {
+            "questionId": "sixth-muse-q01",
+            "sourceQuestionNumber": 1,
+            "sourceBlockId": "sixth-muse-block-1",
+            "originalPrompt": "Кто из лицеистов носил сразу два прозвища — Француз и Егоза?",
+            "sourceAnswer": "Александр Пушкин.",
+            "runtimePrompt": "Кого Модест Корф называл «Французом» за хорошее знание французского языка?",
+            "verifiedCorrectAnswer": "Александр Пушкин.",
+            "verifiedCorrectOptionId": "sixth-muse-q01-answer-pushkin",
+            "verifiedCorrectPosition": 3,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-prompt-narrowing",
+                "rationale": "The original clue combines «Француз» and «Егоза». Runtime scores only the sobriquet directly documented in the Pushkin Museum study and retains the full author wording in provenance.",
+                "evidenceRefs": ["museumSobriquets"]
+            },
+            "evidenceRefs": ["museumSobriquets", "museumLyceum"],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q02",
+            "sourceQuestionNumber": 2,
+            "sourceBlockId": "sixth-muse-block-1",
+            "originalPrompt": "Кого в Лицее ласково называли Тося или Тосе?",
+            "sourceAnswer": "Антона Дельвига.",
+            "runtimePrompt": "Какое прозвище Антона Дельвига записано в протоколе Лицейской годовщины 19 октября 1828 года?",
+            "verifiedCorrectAnswer": "«Тося»",
+            "verifiedCorrectOptionId": "sixth-muse-q02-answer-nickname-tosya",
+            "verifiedCorrectPosition": 1,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-prompt-and-answer-normalization",
+                "rationale": "The original «Тося или Тосе» wording includes an unattested alternative. Runtime asks for the exact form recorded in the primary 1828 protocol and retains the original prompt and answer in provenance.",
+                "evidenceRefs": ["pushkinProtocol", "museumSobriquets"]
+            },
+            "evidenceRefs": ["pushkinProtocol", "museumSobriquets", "eydelman"],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q03",
+            "sourceQuestionNumber": 3,
+            "sourceBlockId": "sixth-muse-block-1",
+            "originalPrompt": "У какого известного мореплавателя в Лицее было говорящее прозвище «Плыть хочется»?",
+            "sourceAnswer": "У Фёдора Матюшкина.",
+            "runtimePrompt": "У какого известного мореплавателя в Лицее было говорящее прозвище «Плыть хочется»?",
+            "verifiedCorrectAnswer": "У Фёдора Матюшкина.",
+            "verifiedCorrectOptionId": "sixth-muse-q03-answer-matyushkin",
+            "verifiedCorrectPosition": 4,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": null,
+            "evidenceRefs": ["rgoMatyushkin", "museumLyceum", "rbsDanzas", "museumSobriquets", "prlibGorchakov", "febMalinovsky"],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q04",
+            "sourceQuestionNumber": 4,
+            "sourceBlockId": "sixth-muse-block-1",
+            "originalPrompt": "Кого за внешность или повадки однокурсники прозвали Крот?",
+            "sourceAnswer": "Сергея Ломоносова.",
+            "runtimePrompt": "Согласно исследованию МГИМО, какое прозвище лицейские товарищи дали Сергею Ломоносову за хитрость и пронырливость?",
+            "verifiedCorrectAnswer": "«Крот»",
+            "verifiedCorrectOptionId": "sixth-muse-q04-answer-nickname-krot",
+            "verifiedCorrectPosition": 1,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-prompt-rewrite",
+                "rationale": "The original broad description is tied to the MGIMO scholarly account and Korf’s memoir, both of which connect «Крот» with Lomonosov’s cunning and resourcefulness.",
+                "evidenceRefs": ["mgimoLomonosov", "korfMemoirs"]
+            },
+            "evidenceRefs": ["korfMemoirs", "pushkinProtocol", "grotLyceum", "museumSobriquets", "eydelman", "mgimoLomonosov"],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q05",
+            "sourceQuestionNumber": 5,
+            "sourceBlockId": "sixth-muse-block-1",
+            "originalPrompt": "Кто получил суровое лицейское прозвище Медведь?",
+            "sourceAnswer": "Константин Данзас.",
+            "runtimePrompt": "Кого музейная подборка лицейских прозвищ указывает как носителя прозвища «Медведь»?",
+            "verifiedCorrectAnswer": "Константин Данзас.",
+            "verifiedCorrectOptionId": "sixth-muse-q05-answer-danzas",
+            "verifiedCorrectPosition": 1,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": null,
+            "evidenceRefs": [
+                "museumSobriquets",
+                "rbsDanzas",
+                "febMalinovsky",
+                "eydelman",
+                "prlibGorchakov",
+                "spbuGorchakov",
+                "rgoMatyushkin"
+            ],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q06",
+            "sourceQuestionNumber": 6,
+            "sourceBlockId": "sixth-muse-block-1",
+            "originalPrompt": "Кого из будущих декабристов друзья шутливо звали Кюхля?",
+            "sourceAnswer": "Вильгельма Кюхельбекера.",
+            "runtimePrompt": "Кто из лицеистов носил прозвище «Кюхля»?",
+            "verifiedCorrectAnswer": "Вильгельм Кюхельбекер.",
+            "verifiedCorrectOptionId": "sixth-muse-q06-answer-kuech",
+            "verifiedCorrectPosition": 4,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": null,
+            "evidenceRefs": ["museumSobriquets", "pushkinProtocol", "grotLyceum"],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q07",
+            "sourceQuestionNumber": 7,
+            "sourceBlockId": "sixth-muse-block-1",
+            "originalPrompt": "Кто заслужил боевое и гордое прозвище Казак?",
+            "sourceAnswer": "Иван Малиновский.",
+            "runtimePrompt": "Кого Культура.РФ связывает с лицейским прозвищем «Казак» за вспыльчивость и задиристость?",
+            "verifiedCorrectAnswer": "Иван Малиновский.",
+            "verifiedCorrectOptionId": "sixth-muse-q07-answer-malinovsky",
+            "verifiedCorrectPosition": 1,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-prompt-institutional-source-clarification",
+                "rationale": "The runtime now names the institutional Culture.ru article that documents the Malinovsky attribution and the character traits associated with the nickname.",
+                "evidenceRefs": ["cultureLiceyFates"]
+            },
+            "evidenceRefs": [
+                "eydelman",
+                "febMalinovsky",
+                "rbsDanzas",
+                "museumSobriquets",
+                "prlibGorchakov",
+                "spbuGorchakov",
+                "korfMemoirs",
+                "pushkinProtocol",
+                "cultureLiceyFates"
+            ],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q08",
+            "sourceQuestionNumber": 8,
+            "sourceBlockId": "sixth-muse-block-1",
+            "originalPrompt": "Какого лицеиста за любовь к щегольству и нарядам прозвали Франт?",
+            "sourceAnswer": "Александра Горчакова.",
+            "runtimePrompt": "Какое лицейское прозвище исследование СПбГУ связывает с Александром Горчаковым?",
+            "verifiedCorrectAnswer": "«Франт»",
+            "verifiedCorrectOptionId": "sixth-muse-q08-answer-nickname-frant",
+            "verifiedCorrectPosition": 4,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-prompt-and-answer-format",
+                "rationale": "Sources also record «Франт» for Danzas, so the original person-identification wording could suggest a unique nickname. The runtime asks which nickname the cited SPbU study associates with Gorchakov and offers distinct nickname choices.",
+                "evidenceRefs": ["spbuGorchakov", "museumSobriquets"]
+            },
+            "evidenceRefs": ["spbuGorchakov", "pushkinDigitalGorchakov", "museumSobriquets", "pushkinProtocol"],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q09",
+            "sourceQuestionNumber": 9,
+            "sourceBlockId": "sixth-muse-block-1",
+            "originalPrompt": "Кто скрывался под артистичным лицейским прозвищем Паяц?",
+            "sourceAnswer": "Михаил Яковлев.",
+            "runtimePrompt": "Какую форму прозвища Михаила Яковлева приводит исследование Всероссийского музея А. С. Пушкина?",
+            "verifiedCorrectAnswer": "«Паяс»",
+            "verifiedCorrectOptionId": "sixth-muse-q09-answer-nickname-payas",
+            "verifiedCorrectPosition": 3,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-prompt-and-answer-correction",
+                "rationale": "The source uses «Паяц», while the museum study records «Паяс». Runtime asks for the exact museum-attested form and preserves the source wording in provenance.",
+                "evidenceRefs": ["museumSobriquets", "grotLyceum", "pushkinProtocol"]
+            },
+            "evidenceRefs": ["museumSobriquets", "grotLyceum", "pushkinProtocol"],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q10",
+            "sourceQuestionNumber": 10,
+            "sourceBlockId": "sixth-muse-block-1",
+            "originalPrompt": "Чьё прозвище звучало необычно и длинно — «Наш Карамзин Маслависти»?",
+            "sourceAnswer": "Дмитрия Маслова.",
+            "runtimePrompt": "Кого Модест Корф называл «нашим Карамзиным» за перо и дар слова?",
+            "verifiedCorrectAnswer": "Дмитрия Маслова.",
+            "verifiedCorrectOptionId": "sixth-muse-q10-answer-maslov",
+            "verifiedCorrectPosition": 2,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-prompt-rewrite",
+                "rationale": "Korf’s memoir supports «нашим Карамзиным» for Maslov, not the merged invented form «Маслависти». The runtime asks only about the attested nickname.",
+                "evidenceRefs": ["korfMemoirs", "sguMaslov", "klinLibraryMaslov"]
+            },
+            "evidenceRefs": [
+                "korfMemoirs",
+                "sguMaslov",
+                "prlibKorf",
+                "grotLyceum",
+                "rusarchivesYakovlev",
+                "tretyakovLomonosov",
+                "klinLibraryMaslov"
+            ],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q11",
+            "sourceQuestionNumber": 11,
+            "sourceBlockId": "sixth-muse-block-2",
+            "originalPrompt": "Кто из лицеистов стал великим русским поэтом?",
+            "sourceAnswer": "Александр Пушкин.",
+            "runtimePrompt": "Кто из приведённых лицеистов — автор романа в стихах «Евгений Онегин»?",
+            "verifiedCorrectAnswer": "Александр Пушкин.",
+            "verifiedCorrectOptionId": "sixth-muse-q11-answer-pushkin",
+            "verifiedCorrectPosition": 1,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-prompt-precision",
+                "rationale": "The evaluative source wording is replaced by a concrete authorship fact to make the scored criterion explicit.",
+                "evidenceRefs": ["prlibPushkin"]
+            },
+            "evidenceRefs": ["prlibPushkin", "museumLyceum", "prlibPuschin", "prlibGorchakov", "rgoMatyushkin"],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q12",
+            "sourceQuestionNumber": 12,
+            "sourceBlockId": "sixth-muse-block-2",
+            "originalPrompt": "Кто во взрослой жизни прославился не только как поэт, но и как критик и журналист?",
+            "sourceAnswer": "Антон Дельвиг.",
+            "runtimePrompt": "Какой лицеист в 1830 году начал издавать «Литературную газету», а затем был отстранён от должности её редактора?",
+            "verifiedCorrectAnswer": "Антон Дельвиг.",
+            "verifiedCorrectOptionId": "sixth-muse-q12-answer-delvig",
+            "verifiedCorrectPosition": 4,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-prompt-rewrite",
+                "rationale": "The broad source clue could apply to several literary figures. Runtime names Delvig’s documented work on Literary Gazette and explicitly refers to his editor role, without conflating publisher with editor.",
+                "evidenceRefs": ["cultureDelvig", "nlrDelvig", "nlrLiteraryGazette"]
+            },
+            "evidenceRefs": ["rgoMatyushkin", "prlibPuschin", "prlibGorchakov", "nlrDelvig", "nlrLiteraryGazette", "cultureDelvig"],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q13",
+            "sourceQuestionNumber": 13,
+            "sourceBlockId": "sixth-muse-block-2",
+            "originalPrompt": "Какой близкий друг Пушкина стал декабристом во взрослой жизни?",
+            "sourceAnswer": "Иван Иванович Пущин.",
+            "runtimePrompt": "Кто из лицеистов в январе 1825 года посетил Пушкина в Михайловском и позднее стал декабристом?",
+            "verifiedCorrectAnswer": "Иван Иванович Пущин.",
+            "verifiedCorrectOptionId": "sixth-muse-q13-answer-pushchin",
+            "verifiedCorrectPosition": 4,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-prompt-rewrite",
+                "rationale": "The original broad “close friend and Decembrist” description also fits other peers. Runtime uses the specific, source-documented January 1825 visit to make the answer unique.",
+                "evidenceRefs": ["prlibPuschinVisit", "prlibPuschin"]
+            },
+            "evidenceRefs": [
+                "prlibPuschinMemoirBook",
+                "prlibPuschin",
+                "prlibKorf",
+                "museumLyceum",
+                "rusarchivesYakovlev",
+                "prlibKuech",
+                "prlibPuschinVisit"
+            ],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q14",
+            "sourceQuestionNumber": 14,
+            "sourceBlockId": "sixth-muse-block-2",
+            "originalPrompt": "Какой лицеист совмещал в своей жизни судьбу поэта, писателя и декабриста?",
+            "sourceAnswer": "Вильгельм Кюхельбекер.",
+            "runtimePrompt": "Какой поэт-лицеист, участвовавший в восстании декабристов, написал трагедию «Аргивяне»?",
+            "verifiedCorrectAnswer": "Вильгельм Кюхельбекер.",
+            "verifiedCorrectOptionId": "sixth-muse-q14-answer-kuech",
+            "verifiedCorrectPosition": 2,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-prompt-rewrite",
+                "rationale": "The source’s broad list of poet/writer/Decembrist roles overlaps with other peers. Runtime pairs Küchelbecker’s documented literary work «Аргивяне» with his Decembrist participation.",
+                "evidenceRefs": ["cultureKuech", "prlibKuech"]
+            },
+            "evidenceRefs": ["cultureKuech", "prlibKuech", "prlibPuschin", "rusarchivesYakovlev", "cultureDelvig"],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q15",
+            "sourceQuestionNumber": 15,
+            "sourceBlockId": "sixth-muse-block-2",
+            "originalPrompt": "Кто из выпускников Лицея добился выдающихся успехов как политический деятель?",
+            "sourceAnswer": "Александр Горчаков.",
+            "runtimePrompt": "Кто из выпускников Лицея стал министром иностранных дел и государственным канцлером Российской империи?",
+            "verifiedCorrectAnswer": "Александр Горчаков.",
+            "verifiedCorrectOptionId": "sixth-muse-q15-answer-gorchakov",
+            "verifiedCorrectPosition": 3,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-prompt-specific-career-marker",
+                "rationale": "The source’s broad «political figure» category could fit several graduates. Runtime uses Gorchakov’s documented offices as the unique discriminator.",
+                "evidenceRefs": ["prlibGorchakov", "bigencGorchakov"]
+            },
+            "evidenceRefs": ["prlibGorchakov", "bigencGorchakov", "cultureDelvig", "nlrDelvig", "rgoMatyushkin", "rusarchivesYakovlev"],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q16",
+            "sourceQuestionNumber": 16,
+            "sourceBlockId": "sixth-muse-block-2",
+            "originalPrompt": "Какую профессию выбрал для себя лицеист Сергей Ломоносов?",
+            "sourceAnswer": "Дипломат.",
+            "runtimePrompt": "Какую профессию выбрал для себя лицеист Сергей Ломоносов?",
+            "verifiedCorrectAnswer": "Дипломат.",
+            "verifiedCorrectOptionId": "sixth-muse-q16-answer-diplomat",
+            "verifiedCorrectPosition": 2,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": null,
+            "evidenceRefs": ["tretyakovLomonosov", "rusarchivesYakovlev", "rgoMatyushkin", "rbsIllichevsky"],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q17",
+            "sourceQuestionNumber": 17,
+            "sourceBlockId": "sixth-muse-block-2",
+            "originalPrompt": "Кто из лицеистов стал профессиональным композитором и певцом?",
+            "sourceAnswer": "Михаил Яковлев.",
+            "runtimePrompt": "Кто из выпускников Лицея, согласно архивному каталогу, был композитором и баритоном?",
+            "verifiedCorrectAnswer": "Михаил Яковлев.",
+            "verifiedCorrectOptionId": "sixth-muse-q17-answer-yakovlev",
+            "verifiedCorrectPosition": 4,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-prompt-rewrite",
+                "rationale": "The archival source supports composer and baritone singer but not the source’s qualifier «профессиональный». Runtime asks only for the documented occupations.",
+                "evidenceRefs": ["rusarchivesYakovlev", "grotLyceum"]
+            },
+            "evidenceRefs": ["rusarchivesYakovlev", "grotLyceum", "cultureDelvig", "nlrDelvig", "rgoMatyushkin", "prlibGorchakov"],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q18",
+            "sourceQuestionNumber": 18,
+            "sourceBlockId": "sixth-muse-block-2",
+            "originalPrompt": "Какими достижениями во взрослой жизни прославился Алексей Илличевский?",
+            "sourceAnswer": "Он стал поэтом и переводчиком.",
+            "runtimePrompt": "Какими достижениями во взрослой жизни прославился Алексей Илличевский?",
+            "verifiedCorrectAnswer": "Он стал поэтом и переводчиком.",
+            "verifiedCorrectOptionId": "sixth-muse-q18-answer-poet-translator",
+            "verifiedCorrectPosition": 4,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": null,
+            "evidenceRefs": ["rbsIllichevsky", "rusarchivesYakovlev", "rgoMatyushkin", "tretyakovLomonosov", "febIllichevskyTranslation"],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q19",
+            "sourceQuestionNumber": 19,
+            "sourceBlockId": "sixth-muse-block-2",
+            "originalPrompt": "Кто из списка лицеистов реализовал себя исключительно как государственный деятель (назовите двоих)?",
+            "sourceAnswer": "Модест Корф и Дмитрий Маслов.",
+            "runtimePrompt": "Кому соответствуют должности: А — исполняющий обязанности государственного секретаря с 1834 года; Б — исполняющий должность статс-секретаря Госсовета по Департаменту законов?",
+            "verifiedCorrectAnswer": "А — Модест Корф; Б — Дмитрий Маслов.",
+            "verifiedCorrectOptionId": "sixth-muse-q19-answer-korf-maslov-role-order",
+            "verifiedCorrectPosition": 1,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-prompt-and-answer-correction",
+                "rationale": "The source’s exclusivity claim is false for Korf, whose sources also document historical and literary work. Runtime asks which person held each of two precise offices; the original pair is retained in sourceAnswer.",
+                "evidenceRefs": ["prlibKorf", "sguMaslov"]
+            },
+            "evidenceRefs": [
+                "prlibKorf",
+                "sguMaslov",
+                "prlibGorchakov",
+                "kornilovFamilyMuseum",
+                "rusarchivesYakovlev",
+                "tretyakovLomonosov"
+            ],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q20",
+            "sourceQuestionNumber": 20,
+            "sourceBlockId": "sixth-muse-block-2",
+            "originalPrompt": "Какое взрослое достижение указано для Владимира Вольховского?",
+            "sourceAnswer": "Военный.",
+            "runtimePrompt": "К какой сфере относилась основная служба Владимира Вольховского?",
+            "verifiedCorrectAnswer": "К военной службе; дослужился до генерал-майора.",
+            "verifiedCorrectOptionId": "sixth-muse-q20-answer-military-service",
+            "verifiedCorrectPosition": 1,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-prompt-precision",
+                "rationale": "The source uses the fragment «Военный» as an answer; runtime keeps the service-domain clue and adds the museum-attested rank for a precise key.",
+                "evidenceRefs": ["museumVolkhovsky", "generalVolkhovsky"]
+            },
+            "evidenceRefs": [
+                "rbsIllichevsky",
+                "rusarchivesYakovlev",
+                "rgoMatyushkin",
+                "generalVolkhovsky",
+                "hronoVolkhovsky",
+                "museumLyceum",
+                "museumVolkhovsky"
+            ],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q21",
+            "sourceQuestionNumber": 21,
+            "sourceBlockId": "sixth-muse-block-3",
+            "originalPrompt": "Кто из лицеистов прожил самую долгую жизнь, дожив до 1883 года?",
+            "sourceAnswer": "Александр Горчаков.",
+            "runtimePrompt": "В каком году умер Александр Горчаков?",
+            "verifiedCorrectAnswer": "В 1883 году.",
+            "verifiedCorrectOptionId": "sixth-muse-q21-answer-year-1883",
+            "verifiedCorrectPosition": 2,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-prompt-precision",
+                "rationale": "A direct birth/death source establishes Gorchakov’s death year; runtime avoids an unnecessary superlative comparison.",
+                "evidenceRefs": ["prlibGorchakov"]
+            },
+            "evidenceRefs": ["prlibGorchakov", "prlibKorf", "rgoMatyushkin", "prlibPuschin"],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q22",
+            "sourceQuestionNumber": 22,
+            "sourceBlockId": "sixth-muse-block-3",
+            "originalPrompt": "Кто был самым старшим из этого списка по году рождения (родился в 1796 году)?",
+            "sourceAnswer": "Дмитрий Маслов.",
+            "runtimePrompt": "Какой год рождения Дмитрия Николаевича Маслова указан в биографическом словаре высшего чиновничества?",
+            "verifiedCorrectAnswer": "1796 год.",
+            "verifiedCorrectOptionId": "sixth-muse-q22-answer-year-1796",
+            "verifiedCorrectPosition": 3,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-prompt-and-answer-correction",
+                "rationale": "The source’s “oldest” wording is not safe because published sources disagree on Malinovsky’s birth year. Runtime asks for Maslov’s individually documented year and avoids a disputed ranking.",
+                "evidenceRefs": ["sguMaslov", "prlibGorchakov", "tretyakovLomonosov", "prlibKorf"]
+            },
+            "evidenceRefs": ["sguMaslov", "prlibGorchakov", "prlibPuschin", "tretyakovLomonosov", "prlibPushkin", "prlibKorf"],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q23",
+            "sourceQuestionNumber": 23,
+            "sourceBlockId": "sixth-muse-block-3",
+            "originalPrompt": "Кто из лицеистов родился на рубеже веков — ровно в 1800 году (назовите двоих)?",
+            "sourceAnswer": "Сергей Ломоносов и Модест Корф.",
+            "runtimePrompt": "В каком году родился дипломат Сергей Григорьевич Ломоносов?",
+            "verifiedCorrectAnswer": "В 1799 году.",
+            "verifiedCorrectOptionId": "sixth-muse-q23-answer-year-1799",
+            "verifiedCorrectPosition": 3,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-prompt-and-answer-correction",
+                "rationale": "The supplied pair answer claims Lomonosov was born in 1800, contrary to the Tretyakov Gallery’s 1799 date; Korf was born in 1800. Runtime asks for Lomonosov’s individual year.",
+                "evidenceRefs": ["tretyakovLomonosov", "prlibKorf"]
+            },
+            "evidenceRefs": ["sguMaslov", "prlibGorchakov", "prlibPuschin", "rusarchivesYakovlev", "tretyakovLomonosov", "prlibKorf"],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q24",
+            "sourceQuestionNumber": 24,
+            "sourceBlockId": "sixth-muse-block-3",
+            "originalPrompt": "Кто из выпускников были самыми младшими и родились в 1801 году?",
+            "sourceAnswer": "Константин Данзас и Александр Корнилов.",
+            "runtimePrompt": "В каком году родился лицеист Александр Алексеевич Корнилов?",
+            "verifiedCorrectAnswer": "В 1801 году.",
+            "verifiedCorrectOptionId": "sixth-muse-q24-answer-year-1801",
+            "verifiedCorrectPosition": 2,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-prompt-and-answer-correction",
+                "rationale": "Sources differ on Danzas’s birth date; the runtime avoids scoring that dispute and asks for the well-sourced Kornilov date alone.",
+                "evidenceRefs": ["kornilovFamilyMuseum", "tambovLibraryKornilov"]
+            },
+            "evidenceRefs": [
+                "kornilovFamilyMuseum",
+                "tambovLibraryKornilov",
+                "febMalinovsky",
+                "sguMaslov",
+                "prlibGorchakov",
+                "prlibPuschin",
+                "tretyakovLomonosov",
+                "prlibPushkin"
+            ],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q25",
+            "sourceQuestionNumber": 25,
+            "sourceBlockId": "sixth-muse-block-3",
+            "originalPrompt": "В каком году оборвалась жизнь великого поэта Александра Пушкина?",
+            "sourceAnswer": "В 1837 году.",
+            "runtimePrompt": "В каком году умер Александр Пушкин?",
+            "verifiedCorrectAnswer": "В 1837 году.",
+            "verifiedCorrectOptionId": "sixth-muse-q25-answer-year-1837",
+            "verifiedCorrectPosition": 1,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": null,
+            "evidenceRefs": ["prlibPushkin", "nlrDelvig", "prlibKuech", "prlibPuschin"],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q26",
+            "sourceQuestionNumber": 26,
+            "sourceBlockId": "sixth-muse-block-3",
+            "originalPrompt": "Кто из лицеистов ушёл из жизни в один и тот же год с Александром Пушкиным (в 1837 году)?",
+            "sourceAnswer": "Алексей Илличевский.",
+            "runtimePrompt": "Кто из лицеистов умер в 1837 году, как и Александр Пушкин?",
+            "verifiedCorrectAnswer": "Алексей Илличевский.",
+            "verifiedCorrectOptionId": "sixth-muse-q26-answer-illichevsky",
+            "verifiedCorrectPosition": 3,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": null,
+            "evidenceRefs": [
+                "rbsIllichevsky",
+                "prlibPushkin",
+                "nlrDelvig",
+                "hronoVolkhovsky",
+                "generalVolkhovsky",
+                "rbsDanzas",
+                "febIllichevskyDates"
+            ],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q27",
+            "sourceQuestionNumber": 27,
+            "sourceBlockId": "sixth-muse-block-3",
+            "originalPrompt": "Чьи годы жизни полностью совпадают с годами жизни Дмитрия Маслова (1796–1856)?",
+            "sourceAnswer": "Александра Корнилова.",
+            "runtimePrompt": "Кто ещё из лицеистов умер в том же 1856 году, что и Дмитрий Маслов?",
+            "verifiedCorrectAnswer": "Александр Алексеевич Корнилов.",
+            "verifiedCorrectOptionId": "sixth-muse-q27-answer-kornilov",
+            "verifiedCorrectPosition": 3,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-prompt-precision",
+                "rationale": "The source answer shares only the death year with Maslov, not the full lifespan. Runtime asks only for the shared 1856 death year.",
+                "evidenceRefs": ["sguMaslov", "kornilovFamilyMuseum", "tambovLibraryKornilov"]
+            },
+            "evidenceRefs": [
+                "sguMaslov",
+                "kornilovFamilyMuseum",
+                "tambovLibraryKornilov",
+                "tretyakovLomonosov",
+                "rbsDanzas",
+                "prlibGorchakov"
+            ],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q28",
+            "sourceQuestionNumber": 28,
+            "sourceBlockId": "sixth-muse-block-3",
+            "originalPrompt": "Какую короткую жизнь (всего 33 года) прожил поэт и журналист Антон Дельвиг? Назовите годы его жизни.",
+            "sourceAnswer": "1798–1831 гг.",
+            "runtimePrompt": "Какие годы жизни указаны для Антона Дельвига в справке Российской национальной библиотеки?",
+            "verifiedCorrectAnswer": "1798–1831 гг.",
+            "verifiedCorrectOptionId": "sixth-muse-q28-answer-lifespan-delvig",
+            "verifiedCorrectPosition": 2,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-prompt-and-choice-rewrite",
+                "rationale": "The source dates imply Delvig was 32, not 33. Runtime drops the age claim and tests the source-verified dates.",
+                "evidenceRefs": ["nlrDelvig"]
+            },
+            "evidenceRefs": ["nlrDelvig", "cultureDelvig", "prlibPushkin", "prlibPuschin", "tretyakovLomonosov"],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q29",
+            "sourceQuestionNumber": 29,
+            "sourceBlockId": "sixth-muse-block-3",
+            "originalPrompt": "Сколько полных лет прожил мореплаватель Фёдор Матюшкин (1799–1872)?",
+            "sourceAnswer": "73 года.",
+            "runtimePrompt": "Сколько полных лет прожил Фёдор Матюшкин (1799–1872)?",
+            "verifiedCorrectAnswer": "73 года — Фёдор Матюшкин.",
+            "verifiedCorrectOptionId": "sixth-muse-q29-answer-matyushkin-73",
+            "verifiedCorrectPosition": 2,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-choice-evidence",
+                "rationale": "The source’s numerical distractors were unsupported. Runtime choices identify real, source-verified peer ages so each alternative is fact-checked.",
+                "evidenceRefs": ["rgoMatyushkin", "nlrDelvig", "prlibPushkin", "prlibGorchakov"]
+            },
+            "evidenceRefs": ["rgoMatyushkin", "nlrDelvig", "prlibPushkin", "prlibGorchakov"],
+            "reviewedAt": "2026-10-17"
+        },
+        {
+            "questionId": "sixth-muse-q30",
+            "sourceQuestionNumber": 30,
+            "sourceBlockId": "sixth-muse-block-3",
+            "originalPrompt": "Кто из военных лицеистов ушёл из жизни в 1870 году, имея в Лицее прозвище Медведь?",
+            "sourceAnswer": "Константин Данзас.",
+            "runtimePrompt": "Кто из выпускников первого курса умер в 1870 году и в музейной подборке прозвищ назван «Медведем»?",
+            "verifiedCorrectAnswer": "Константин Данзас.",
+            "verifiedCorrectOptionId": "sixth-muse-q30-answer-danzas",
+            "verifiedCorrectPosition": 4,
+            "disposition": "scoring-approved",
+            "ambiguityStatus": "reviewed-single-correct",
+            "editorialMapping": {
+                "changeType": "runtime-prompt-precision",
+                "rationale": "The source combines a broad military label and the nickname/death clues. Runtime states the documented year and cited museum sobriquet explicitly.",
+                "evidenceRefs": ["rbsDanzas", "museumSobriquets"]
+            },
+            "evidenceRefs": [
+                "hronoVolkhovsky",
+                "generalVolkhovsky",
+                "rgoMatyushkin",
+                "kornilovFamilyMuseum",
+                "tambovLibraryKornilov",
+                "rbsDanzas",
+                "museumSobriquets"
+            ],
+            "reviewedAt": "2026-10-17"
+        }
+    ]
+}

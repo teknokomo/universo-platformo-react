@@ -90,7 +90,7 @@ export const createGuestRuntimePayloadBuilder = (accessLinkService: GuestAccessL
         locale: string,
         workspaceId: string | null = null,
         includeQuestions = true,
-        options: { lockParentRecord?: boolean } = {}
+        options: { lockParentRecord?: boolean; includeCompletionTextSource?: boolean } = {}
     ) => {
         const assessmentConfig = config.assessment
         if (!assessmentConfig) return null
@@ -115,6 +115,10 @@ export const createGuestRuntimePayloadBuilder = (accessLinkService: GuestAccessL
             confirmAnswerBeforeNextValue === true ||
             confirmAnswerBeforeNextValue === 1 ||
             (typeof confirmAnswerBeforeNextValue === 'string' && confirmAnswerBeforeNextValue.trim().toLowerCase() === 'true')
+        const readBooleanField = (codename: string): boolean => {
+            const value = readAttrValue(row, attrByCodename[codename]?.column_name ?? '')
+            return value === true || value === 1 || (typeof value === 'string' && value.trim().toLowerCase() === 'true')
+        }
         const questionsTable = attrByCodename[quizFields.questions]
         const questionAttrs = questionsTable ? resolveChildComponents(binding, questionsTable.id) : []
         const questionAttrByCodename = indexByCodename(questionAttrs)
@@ -131,6 +135,7 @@ export const createGuestRuntimePayloadBuilder = (accessLinkService: GuestAccessL
                 questionType: columns[questionFields.questionType],
                 explanation: columns[questionFields.explanation],
                 sortOrder: columns[questionFields.sortOrder],
+                blockKey: columns[questionFields.blockKey],
                 options: columns[questionFields.options]
             },
             {
@@ -143,11 +148,24 @@ export const createGuestRuntimePayloadBuilder = (accessLinkService: GuestAccessL
             prompt: question.prompt,
             description: question.description,
             sortOrder: question.sortOrder,
+            ...(includeAnswers ? { blockKey: question.blockKey || null } : {}),
             ...(includeAnswers ? { explanation: question.explanation } : {}),
             options: includeAnswers
                 ? question.options.map((option) => ({ id: option.id, label: option.label, isCorrect: option.isCorrect }))
                 : question.options.map((option) => ({ id: option.id, label: option.label }))
         }))
+        const blocksTable = attrByCodename[quizFields.blocks]
+        const blockAttrs = blocksTable ? resolveChildComponents(binding, blocksTable.id) : []
+        const blockRows = blocksTable ? await loadPublicTableRows(executor, schemaName, blocksTable, blockAttrs, quizId, workspaceId) : []
+        const blockColumns = Object.fromEntries(blockAttrs.map((cmp) => [resolveRuntimeCodenameText(cmp.codename), cmp.column_name]))
+        const blockFields = assessmentConfig.fields.assessmentBlock
+        const blocks = blockRows.map((blockRow, index) => ({
+            key: String(blockRow[blockColumns[blockFields.blockKey]] ?? ''),
+            title: resolveLocalizedContent(blockRow[blockColumns[blockFields.title]], locale, ''),
+            introduction: resolveLocalizedContent(blockRow[blockColumns[blockFields.introduction]], locale, ''),
+            sortOrder: normalizeAccessLinkNumber(blockRow[blockColumns[blockFields.sortOrder]]) ?? index
+        }))
+        const completionTextSource = readAttrValue(row, attrByCodename[quizFields.completionText]?.column_name ?? 'completion_text')
 
         return {
             type: 'quiz' as const,
@@ -168,11 +186,15 @@ export const createGuestRuntimePayloadBuilder = (accessLinkService: GuestAccessL
                 readAttrValue(row, attrByCodename[quizFields.timeLimitSeconds]?.column_name ?? 'time_limit_seconds')
             ),
             confirmAnswerBeforeNext,
-            completionText: resolveLocalizedContent(
-                readAttrValue(row, attrByCodename[quizFields.completionText]?.column_name ?? 'completion_text'),
-                locale,
-                ''
-            ),
+            ...(includeAnswers
+                ? {
+                      blocks,
+                      pauseTimerOnBlockIntro: readBooleanField(quizFields.pauseTimerOnBlockIntro),
+                      blockRelativeNumbering: readBooleanField(quizFields.blockRelativeNumbering)
+                  }
+                : {}),
+            completionText: resolveLocalizedContent(completionTextSource, locale, ''),
+            ...(options.includeCompletionTextSource ? { completionTextSource } : {}),
             questionCount: questions.length,
             questions: includeQuestions ? questions : []
         }

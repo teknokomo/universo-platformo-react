@@ -28,6 +28,7 @@ import {
     LMS_LYCEUM_MARATHON_QUIZ_COUNT,
     LMS_LYCEUM_MARATHON_SEEDED_RESULT_COUNTS
 } from './lmsMarathonFixtureContract.ts'
+import { assertLmsSixthMuseSeedRowsContract, LMS_SIXTH_MUSE_ACCESS_LINK, LMS_SIXTH_MUSE_QUIZ_KEY } from './lmsSixthMuseFixtureContract.ts'
 import {
     assertEditorBlockTextLocalized,
     assertLocalizedFixtureValue,
@@ -203,11 +204,11 @@ export function assertLmsSeededRowsContract(options: {
         ['learning track', learningTrackRows.length, 2],
         ['track stage', trackStageRows.length, 2],
         ['track step', trackStepRows.length, 3],
-        ['quiz', quizRows.length, LMS_LYCEUM_MARATHON_QUIZ_COUNT],
+        ['quiz', quizRows.length, LMS_LYCEUM_MARATHON_QUIZ_COUNT + 1],
         ['quiz attempt', quizAttemptRows.length, LMS_LYCEUM_MARATHON_SEEDED_RESULT_COUNTS.quizAttempts],
         ['quiz response', quizResponseRows.length, LMS_LYCEUM_MARATHON_SEEDED_RESULT_COUNTS.quizResponses],
         ['content progress', contentProgressRows.length, LMS_DEMO_CONTENT_PROGRESS.length],
-        ['access link', accessLinkRows.length, LMS_DEMO_ACCESS_LINKS.length + LMS_LYCEUM_MARATHON_ACCESS_LINKS.length],
+        ['access link', accessLinkRows.length, LMS_DEMO_ACCESS_LINKS.length + LMS_LYCEUM_MARATHON_ACCESS_LINKS.length + 1],
         ['enrollment', enrollmentRows.length, LMS_DEMO_ENROLLMENTS.length + 2],
         ['knowledge space', knowledgeSpaceRows.length, 1],
         ['knowledge folder', knowledgeFolderRows.length, 1],
@@ -439,6 +440,15 @@ export function assertLmsSeededRowsContract(options: {
         readLocalizedText,
         assertLocalizedFixtureValue
     })
+    assertLmsSixthMuseSeedRowsContract({
+        quizRows,
+        accessLinkRows,
+        errors,
+        readLocalizedText,
+        assertLocalizedFixtureValue
+    })
+    const sixthMuseQuiz = quizRows.find((row) => readLocalizedText(row.data?.Title, 'ru') === LMS_SIXTH_MUSE_ACCESS_LINK.title.ru)
+    if (sixthMuseQuiz) quizRowsByKey.set(LMS_SIXTH_MUSE_QUIZ_KEY, sixthMuseQuiz)
 
     const guestContentRowsByKey = new Map<string, SnapshotElement>()
     for (const seededContent of LMS_DEMO_CONTENT_NODES) {

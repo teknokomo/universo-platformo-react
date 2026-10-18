@@ -80,6 +80,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     const [formExpectedVersion, setFormExpectedVersion] = useState<number | null>(null)
     const [deleteExpectedVersion, setDeleteExpectedVersion] = useState<number | null>(null)
     const [createInitialData, setCreateInitialData] = useState<Record<string, unknown> | undefined>(undefined)
+    const [formRetryData, setFormRetryData] = useState<Record<string, unknown> | undefined>(undefined)
     const [createWizard, setCreateWizard] = useState<RelationBuilderCreateWizard>(undefined)
     const [formError, setFormError] = useState<string | null>(null)
     const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -448,6 +449,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             setFormRelationScope(relationScope)
             setCreateWizard(createWizard)
             setFormError(null)
+            setFormRetryData(undefined)
             const effectiveCreateDefaultContext = createDefaultContextOverride
                 ? { ...(createDefaultContext ?? {}), ...createDefaultContextOverride }
                 : createDefaultContext
@@ -474,6 +476,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             setFormRelationScope(relationScope)
             setCreateWizard(undefined)
             setFormError(null)
+            setFormRetryData(undefined)
             setCreateInitialData(undefined)
             formColumnsRef.current = currentSchemaFingerprint
             setFormOpen(true)
@@ -490,6 +493,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         setFormRelationScope(undefined)
         setCreateWizard(undefined)
         setCreateInitialData(undefined)
+        setFormRetryData(undefined)
         setFormError(null)
         setCopyError(null)
         formColumnsRef.current = null
@@ -553,9 +557,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                           message: msg
                       })
 
-                setEditRowId(currentEditRowId)
-                setCopyRowId(currentCopyRowId)
                 setFormError(resolvedError)
+                setFormRetryData(sanitizedData)
                 if (isCopyMode) {
                     setCopyError(resolvedError)
                 } else {
@@ -567,7 +570,6 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
             setFormError(null)
             setCopyError(null)
-            setFormOpen(false)
 
             const mutationPromise = isCopyMode
                 ? copyMutation.mutateAsync({
@@ -585,16 +587,18 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                   })
                 : createMutation.mutateAsync({ data: sanitizedData, relationScope: currentRelationScope })
 
-            void mutationPromise
+            return mutationPromise
                 .then(() => {
                     if (formRequestIdRef.current !== requestId) return
 
+                    setFormOpen(false)
                     setEditRowId(null)
                     setCopyRowId(null)
                     setFormExpectedVersion(null)
                     setFormRelationScope(undefined)
                     setCreateWizard(undefined)
                     setCreateInitialData(undefined)
+                    setFormRetryData(undefined)
                     setFormError(null)
                     setCopyError(null)
                     formColumnsRef.current = null
@@ -602,8 +606,6 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 .catch((err: unknown) => {
                     reopenFormWithError(err)
                 })
-
-            return Promise.resolve()
         },
         [
             copyRowId,
@@ -705,6 +707,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             setFormOpen(true)
             setCopyError(null)
             setFormError(null)
+            setFormRetryData(undefined)
             setCreateInitialData(undefined)
             setCopyRowId(rowId)
             const currentRow = rows.find((row) => String(row.id) === rowId)
@@ -937,6 +940,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
     // Form initial data
     const formInitialData = useMemo(() => {
+        if (formRetryData) return formRetryData
         if (!sourceRowId) return createInitialData
         if (rowQuery.data) {
             const raw = rowQuery.data as Record<string, unknown>
@@ -956,7 +960,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             return sourceData
         }
         return undefined
-    }, [sourceRowId, createInitialData, copyRowId, fieldConfigs, rowQuery.data, copyTablesQuery.data, locale])
+    }, [formRetryData, sourceRowId, createInitialData, copyRowId, fieldConfigs, rowQuery.data, copyTablesQuery.data, locale])
 
     const isCopyTablesReady = !copyRowId || tableColumnRefs.length === 0 || !adapter?.fetchTabularRows || Boolean(copyTablesQuery.data)
     const isFormReady = !sourceRowId || (Boolean(rowQuery.data) && isCopyTablesReady)
@@ -1003,7 +1007,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         formInitialData,
         createWizard,
         isFormReady,
-        isSubmitting: createMutation.isPending || updateMutation.isPending,
+        isSubmitting: createMutation.isPending || copyMutation.isPending || updateMutation.isPending,
         isReordering: reorderMutation.isPending,
         canPersistRowReorder,
         canPersistRelationRowReorder,

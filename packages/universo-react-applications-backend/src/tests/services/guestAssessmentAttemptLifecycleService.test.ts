@@ -45,6 +45,11 @@ const attemptTable: GuestAssessmentAttemptTable = {
         finishedReason: 'finished_reason',
         questionsSnapshot: 'questions_snapshot',
         questionSetDigest: 'question_set_digest',
+        flowSnapshot: 'flow_snapshot',
+        phase: 'phase',
+        phaseRevision: 'phase_revision',
+        timerState: 'timer_state',
+        frozenRemainingMs: 'frozen_remaining_ms',
         accessLinkId: 'access_link_id',
         classIdSnapshot: 'class_id_snapshot',
         score: 'score',
@@ -76,6 +81,7 @@ const questionsSnapshot = [
         description: null,
         explanation: 'Private explanation',
         sortOrder: 1,
+        blockKey: null,
         options: [
             { id: correctOptionId, label: 'Correct', isCorrect: true },
             { id: wrongOptionId, label: 'Wrong', isCorrect: false }
@@ -88,6 +94,12 @@ const makeAttempt = (deadlineAt: string, id = attemptId) => ({
     attemptNumber: 1,
     status: 'Started',
     deadlineAt,
+    effectiveTimeLimitSeconds: 2700,
+    phase: 'question',
+    phaseRevision: 0,
+    timerState: 'running',
+    frozenRemainingMs: null,
+    flowSnapshot: { contractVersion: 1, blocks: [], pauseTimerOnBlockIntro: false, numberingMode: 'global', completionText: '' },
     questionsSnapshot,
     passingScorePercentSnapshot: 100
 })
@@ -132,7 +144,59 @@ describe('guest assessment attempt lifecycle service', () => {
                 score_percent: 100,
                 total_questions: 1,
                 passed: true,
-                submitted_at: now.toISOString()
+                submitted_at: '2026-10-11T11:00:00.000Z'
+            }),
+            participantId
+        )
+    })
+
+    it('times out a resumed block-flow attempt at its server deadline', async () => {
+        const blockKey = uuidV7(7)
+        const resumedBlockAttempt = {
+            ...makeAttempt('2026-10-11T11:00:00.000Z'),
+            phaseRevision: 3,
+            timerState: 'running',
+            flowSnapshot: {
+                contractVersion: 1,
+                blocks: [{ key: blockKey, title: 'Second block', introduction: null, sortOrder: 0 }],
+                pauseTimerOnBlockIntro: true,
+                numberingMode: 'block',
+                completionText: ''
+            },
+            questionsSnapshot: questionsSnapshot.map((question) => ({ ...question, blockKey }))
+        }
+        mockFindAttempt.mockResolvedValue(resumedBlockAttempt)
+        mockListResponses.mockResolvedValue([{ questionId, selectedOptionIds: JSON.stringify([correctOptionId]), isCorrect: true }])
+
+        const result = await finalizeGuestAssessmentAttempt(
+            executor,
+            attemptTable,
+            responseTable,
+            attemptId,
+            participantId,
+            'timed_out',
+            now
+        )
+
+        expect(result).toMatchObject({
+            status: 'TimedOut',
+            finishedReason: 'timed_out',
+            phase: 'question',
+            phaseRevision: 3,
+            score: 1,
+            totalQuestions: 1,
+            passed: true,
+            submittedAt: '2026-10-11T11:00:00.000Z'
+        })
+        expect(mockUpdateAttempt).toHaveBeenCalledWith(
+            executor,
+            attemptTable,
+            attemptId,
+            participantId,
+            expect.objectContaining({
+                status: 'TimedOut',
+                finished_reason: 'timed_out',
+                submitted_at: '2026-10-11T11:00:00.000Z'
             }),
             participantId
         )

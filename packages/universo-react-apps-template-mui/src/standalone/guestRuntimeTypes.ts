@@ -1,6 +1,12 @@
 // Guest runtime payload and view contracts.
 
-import type { GuestIntakePolicy } from '@universo-react/types'
+import type {
+    GuestAssessmentAttemptPhase,
+    GuestAssessmentBlockIntro,
+    GuestAssessmentNumberingMode,
+    GuestAssessmentTimerState,
+    GuestIntakePolicy
+} from '@universo-react/types'
 
 export type { GuestIntakePolicy } from '@universo-react/types'
 
@@ -67,8 +73,15 @@ export type GuestRuntimePayload = GuestRuntimeContent | GuestRuntimeQuiz
 export type GuestQuizQuestion = {
     id: string
     prompt: string
+    displayNumber: string
     options: Array<{ id: string; label: string }>
 }
+
+export type GuestQuizPhase = GuestAssessmentAttemptPhase
+export type GuestQuizTimerState = GuestAssessmentTimerState
+export type GuestQuizNumberingMode = GuestAssessmentNumberingMode
+
+export type GuestQuizCurrentBlock = GuestAssessmentBlockIntro
 
 export type GuestQuizResult = {
     correctCount: number | null
@@ -82,6 +95,12 @@ export type GuestQuizAttempt = {
     attemptId: string
     attemptNumber: number | null
     status: 'in_progress' | 'completed'
+    phase: GuestQuizPhase
+    phaseRevision: number
+    timerState: GuestQuizTimerState
+    remainingMs: number | null
+    numberingMode: GuestQuizNumberingMode
+    currentBlock: GuestQuizCurrentBlock | null
     currentQuestionIndex: number
     totalQuestions: number
     answeredCount: number

@@ -3,6 +3,7 @@ import {
     buildE2eSupabaseConfig,
     getExcludeArgs,
     getLocalSupabaseProfile,
+    getSupabaseCliEnvironment,
     getSupabaseWorkdirArgs,
     localSupabaseProfiles,
     minimalExcludedServices
@@ -26,6 +27,25 @@ describe('local Supabase profiles', () => {
 
     it('uses explicit workdir arguments for Supabase CLI commands', () => {
         expect(getSupabaseWorkdirArgs(localSupabaseProfiles.e2e)).toEqual(['--workdir', localSupabaseProfiles.e2e.workdir])
+    })
+
+    it('uses slim service images for E2E startup without changing other command environments', () => {
+        const baseEnvironment = {
+            PATH: '/usr/bin',
+            SUPABASE_INTERNAL_IMAGE_REGISTRY: 'public.ecr.aws',
+            SUPABASE_USE_SLIM_IMAGES: 'false'
+        }
+        const e2eEnvironment = getSupabaseCliEnvironment(localSupabaseProfiles.e2e, 'start', baseEnvironment)
+
+        expect(e2eEnvironment).toEqual({
+            ...baseEnvironment,
+            SUPABASE_INTERNAL_IMAGE_REGISTRY: 'docker.io',
+            SUPABASE_USE_SLIM_IMAGES: 'true'
+        })
+        expect(baseEnvironment.SUPABASE_USE_SLIM_IMAGES).toBe('false')
+        expect(baseEnvironment.SUPABASE_INTERNAL_IMAGE_REGISTRY).toBe('public.ecr.aws')
+        expect(getSupabaseCliEnvironment(localSupabaseProfiles.dev, 'start', baseEnvironment)).toBe(baseEnvironment)
+        expect(getSupabaseCliEnvironment(localSupabaseProfiles.e2e, 'status', baseEnvironment)).toBe(baseEnvironment)
     })
 
     it('keeps minimal stack exclusions centralized', () => {

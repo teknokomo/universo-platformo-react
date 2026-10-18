@@ -5,7 +5,7 @@ jest.mock('@universo-react/admin-backend', () => ({
     hasSubjectPermission: jest.fn(async () => false)
 }))
 
-const mockCloneSchemaWithExecutor: jest.Mock = jest.fn(async (executor?: unknown) => undefined)
+const mockCloneSchemaWithExecutor: jest.Mock = jest.fn(async (_executor?: unknown) => undefined)
 const mockGenerateSchemaName: jest.Mock = jest.fn((id: string) => `app_${id.replace(/-/g, '')}`)
 const mockGenerateChildTableName: jest.Mock = jest.fn((attributeId: string) => `tab_${attributeId.replace(/-/g, '')}`)
 const mockIsValidSchemaName: jest.Mock = jest.fn(() => true)
@@ -41,6 +41,7 @@ import { getGlobalRoleCodename, hasSubjectPermission, isSuperuser } from '@unive
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 import type { DbExecutor } from '@universo-react/utils'
+import { isUuidV7 } from '@universo-react/utils'
 import { createMockDbExecutor, createMockDataStore } from '../utils/dbMocks'
 import { createApplicationsRoutes } from '../../routes/applicationsRoutes'
 import { ROLE_PERMISSIONS } from '../../routes/guards'
@@ -3121,7 +3122,7 @@ describe('Applications Routes', () => {
     describe('POST /applications/:applicationId/runtime/modules/:moduleId/call', () => {
         const buildRuntimeModulesRouteDataSource = (applicationId: string, moduleRow: Record<string, unknown>) => {
             const runtimeSchemaName = buildRuntimeSchemaName(applicationId)
-            const managerQuery = jest.fn(async (sql: string, params?: unknown[]) => {
+            const managerQuery = jest.fn(async (sql: string, _params?: unknown[]) => {
                 if (sql.includes('SELECT to_regclass($1) AS table_name')) {
                     return [{ table_name: `${runtimeSchemaName}._app_modules` }]
                 }
@@ -6964,6 +6965,70 @@ describe('Applications Routes', () => {
             expect(String(updateCall?.[0])).not.toContain('_app_deleted_by = $1')
         })
 
+        it('persists one UUID v7 cascade marker on a soft-deleted parent and its TABLE children', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue([])
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'owner'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_deadbeef'
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
+                    return [
+                        {
+                            id: runtimeLinkedCollectionId,
+                            codename: 'orders',
+                            table_name: 'orders',
+                            config: { systemFields: { lifecycleContract: { delete: { mode: 'soft' } } } }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
+                    return [
+                        {
+                            id: 'blocks-component-id',
+                            codename: 'Blocks',
+                            column_name: 'blocks',
+                            data_type: 'TABLE'
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."orders"')) {
+                    return [{ id: runtimeRowId, _upl_locked: false, _upl_version: 1 }]
+                }
+                if (sql.includes('UPDATE "app_deadbeef"."orders"') || sql.includes('UPDATE "app_deadbeef"."blocks"')) {
+                    return [{ id: runtimeRowId }]
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            await request(app)
+                .delete(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}`)
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .expect(200)
+
+            const updateCalls = (dataSource.manager.query as jest.Mock).mock.calls.filter((call) =>
+                String(call[0]).includes('UPDATE "app_deadbeef".')
+            )
+            const parentDeleteCall = updateCalls.find((call) => String(call[0]).includes('"orders"'))
+            const childCascadeCall = updateCalls.find((call) => String(call[0]).includes('"blocks"'))
+            const cascadeId = parentDeleteCall?.[1]?.[2]
+
+            expect(typeof cascadeId).toBe('string')
+            expect(isUuidV7(cascadeId)).toBe(true)
+            expect(String(parentDeleteCall?.[0])).toContain('_upl_delete_cascade_id = $3')
+            expect(parentDeleteCall?.[1]).toEqual(['test-user-id', runtimeRowId, cascadeId])
+            expect(String(childCascadeCall?.[0])).toContain('_upl_delete_cascade_id = $3')
+            expect(childCascadeCall?.[1]).toEqual(['test-user-id', runtimeRowId, cascadeId])
+        })
+
         it('rejects stale-version runtime delete before mutating the runtime table', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
             const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue([])
@@ -7145,6 +7210,27 @@ describe('Applications Routes', () => {
         it('restores a soft-deleted runtime row with optimistic concurrency', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
             const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue([])
+            const parentCascadeId = '019f2000-0000-7000-8000-000000000009'
+            const previousCascadeId = '019f2000-0000-7000-8000-000000000008'
+            const sameDeleteTimestamp = new Date('2026-10-17T10:00:00.123Z')
+            const childRows = [
+                {
+                    id: 'removed-block-row-id',
+                    block_key: '019f2000-0000-7000-8000-000000000006',
+                    _app_deleted: true,
+                    _upl_delete_cascade_id: previousCascadeId,
+                    _upl_updated_at: sameDeleteTimestamp,
+                    _upl_updated_by: 'test-user-id'
+                },
+                {
+                    id: 'current-block-row-id',
+                    block_key: '019f2000-0000-7000-8000-000000000007',
+                    _app_deleted: true,
+                    _upl_delete_cascade_id: parentCascadeId,
+                    _upl_updated_at: sameDeleteTimestamp,
+                    _upl_updated_by: 'test-user-id'
+                }
+            ]
             const runtimeRowHandle = issueRuntimeRecordHandle({
                 applicationId: runtimeApplicationId,
                 workspaceId: null,
@@ -7161,7 +7247,7 @@ describe('Applications Routes', () => {
                 id: runtimeApplicationId,
                 schemaName: 'app_deadbeef'
             })
-            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
                 if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
@@ -7179,13 +7265,41 @@ describe('Applications Routes', () => {
                     ]
                 }
                 if (sql.includes('FROM "app_deadbeef"._app_components')) {
-                    return []
+                    return [
+                        {
+                            id: 'blocks-component-id',
+                            codename: 'Blocks',
+                            column_name: 'blocks',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
                 }
                 if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."orders"')) {
-                    return [{ id: runtimeRowId, _upl_locked: false, _upl_version: 4, _app_deleted: true }]
+                    return [
+                        {
+                            id: runtimeRowId,
+                            _upl_locked: false,
+                            _upl_version: 4,
+                            _app_deleted: true,
+                            _upl_updated_at: sameDeleteTimestamp,
+                            _upl_delete_cascade_id: parentCascadeId,
+                            _upl_updated_by: 'test-user-id'
+                        }
+                    ]
                 }
                 if (sql.includes('UPDATE "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId }]
+                }
+                if (sql.includes('UPDATE "app_deadbeef"."blocks"')) {
+                    const markerId = params?.[2]
+                    const markerActor = params?.[3]
+                    for (const childRow of childRows) {
+                        if (markerId === childRow._upl_delete_cascade_id && markerActor === childRow._upl_updated_by) {
+                            childRow._app_deleted = false
+                        }
+                    }
+                    return []
                 }
                 return []
             })
@@ -7197,6 +7311,10 @@ describe('Applications Routes', () => {
                 .expect(200)
 
             expect(response.body).toEqual({ status: 'restored' })
+            const sourceReadCall = (dataSource.manager.query as jest.Mock).mock.calls.find(
+                (call) => String(call[0]).includes('SELECT *') && String(call[0]).includes('FROM "app_deadbeef"."orders"')
+            )
+            expect(String(sourceReadCall?.[0])).toContain('FOR UPDATE')
             const updateCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
                 String(call[0]).includes('UPDATE "app_deadbeef"."orders"')
             )
@@ -7205,7 +7323,16 @@ describe('Applications Routes', () => {
             expect(String(updateCall?.[0])).toContain('_app_deleted_at = NULL')
             expect(String(updateCall?.[0])).toContain('_upl_version = COALESCE(_upl_version, 1) + 1')
             expect(String(updateCall?.[0])).toContain('COALESCE(_upl_version, 1) = $3')
-            expect(updateCall?.[1]).toEqual(['test-user-id', runtimeRowId, 4])
+            expect(String(updateCall?.[0])).toContain('_upl_delete_cascade_id = $4')
+            expect(updateCall?.[1]).toEqual(['test-user-id', runtimeRowId, 4, parentCascadeId])
+            const childRestoreCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
+                String(call[0]).includes('UPDATE "app_deadbeef"."blocks"')
+            )
+            expect(String(childRestoreCall?.[0])).toContain('_upl_updated_at = now()')
+            expect(String(childRestoreCall?.[0])).toContain('_upl_updated_by = $4')
+            expect(String(childRestoreCall?.[0])).toContain('_upl_delete_cascade_id = $3')
+            expect(childRestoreCall?.[1]).toEqual(['test-user-id', runtimeRowId, parentCascadeId, 'test-user-id'])
+            expect(childRows.filter((row) => !row._app_deleted).map((row) => row.id)).toEqual(['current-block-row-id'])
             expect(dispatchLifecycleEventSpy).toHaveBeenCalledWith(
                 expect.objectContaining({
                     payload: expect.objectContaining({ eventName: 'beforeUpdate', metadata: { action: 'restore' } })
@@ -8134,6 +8261,278 @@ describe('Applications Routes', () => {
                 .expect(201)
 
             expect(response.body).toEqual({ id: runtimeRowId, status: 'created' })
+        })
+
+        it('generates UUID v7 sibling keys for generic TABLE creates and rejects client-authored keys', async () => {
+            const blocksTableId = '018f8a78-7b8f-7c1d-a111-2222333344e1'
+            const blockKeyId = '018f8a78-7b8f-7c1d-a111-2222333344e2'
+            const blockTitleId = '018f8a78-7b8f-7c1d-a111-2222333344e3'
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'editor'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_deadbeef',
+                workspacesEnabled: false
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes('FROM "app_deadbeef"._app_components') && sql.includes('parent_component_id = $1')) {
+                    expect(params?.[0]).toBe(blocksTableId)
+                    return [
+                        {
+                            id: blockKeyId,
+                            codename: 'BlockKey',
+                            column_name: 'block_key',
+                            data_type: 'STRING',
+                            is_required: true,
+                            validation_rules: {},
+                            ui_config: { generateUuidV7: true, siblingRowSelectKey: true }
+                        },
+                        {
+                            id: blockTitleId,
+                            codename: 'Title',
+                            column_name: 'title',
+                            data_type: 'STRING',
+                            is_required: true,
+                            validation_rules: {},
+                            ui_config: {}
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
+                    return [
+                        {
+                            id: blocksTableId,
+                            codename: 'Blocks',
+                            column_name: 'blocks',
+                            data_type: 'TABLE',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: {}
+                        }
+                    ]
+                }
+                if (sql.includes('INSERT INTO "app_deadbeef"."orders"')) return [{ id: runtimeRowId }]
+                if (sql.includes('INSERT INTO "app_deadbeef"."blocks"')) return []
+                if (sql.includes('FROM "app_deadbeef"."orders"')) return [{ id: runtimeRowId }]
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const invalidResponse = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows`)
+                .send({
+                    objectCollectionId: runtimeLinkedCollectionId,
+                    data: { Blocks: [{ BlockKey: 'client-authored', Title: 'First block' }] }
+                })
+                .expect(400)
+            expect(invalidResponse.body.error).toContain('Invalid generated sibling row key: Blocks.BlockKey')
+            expect(dataSource.manager.query).not.toHaveBeenCalledWith(
+                expect.stringContaining('INSERT INTO "app_deadbeef"."orders"'),
+                expect.any(Array)
+            )
+
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows`)
+                .send({ objectCollectionId: runtimeLinkedCollectionId, data: { Blocks: [{ Title: 'First block' }] } })
+                .expect(201)
+            expect(response.body).toEqual({ id: runtimeRowId, status: 'created' })
+
+            const childInsert = (dataSource.manager.query as jest.Mock).mock.calls.find(([sql]) =>
+                String(sql).includes('INSERT INTO "app_deadbeef"."blocks"')
+            )
+            expect(childInsert).toBeDefined()
+            expect((childInsert?.[1] as unknown[]).some((value) => isUuidV7(value))).toBe(true)
+        })
+
+        it('requires a sibling block reference on generic TABLE bulk updates when blocks exist', async () => {
+            const blocksTableId = '018f8a78-7b8f-7c1d-a111-2222333344e4'
+            const questionsTableId = '018f8a78-7b8f-7c1d-a111-2222333344e5'
+            const blockKeyId = '018f8a78-7b8f-7c1d-a111-2222333344e6'
+            const questionBlockKeyId = '018f8a78-7b8f-7c1d-a111-2222333344e7'
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'editor'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_deadbeef',
+                workspacesEnabled: false
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes('FROM "app_deadbeef"._app_components') && sql.includes('parent_component_id = $1')) {
+                    if (params?.[0] === questionsTableId) {
+                        return [
+                            {
+                                id: questionBlockKeyId,
+                                codename: 'BlockKey',
+                                column_name: 'block_key',
+                                data_type: 'STRING',
+                                is_required: false,
+                                validation_rules: {},
+                                ui_config: {
+                                    siblingRowSelect: {
+                                        tableCodename: 'Blocks',
+                                        valueFieldCodename: 'BlockKey',
+                                        labelFieldCodename: 'Title',
+                                        requiredWithRows: true
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                    if (params?.[0] === blocksTableId) {
+                        return [
+                            {
+                                id: blockKeyId,
+                                codename: 'BlockKey',
+                                column_name: 'block_key',
+                                data_type: 'STRING',
+                                is_required: true,
+                                validation_rules: {},
+                                ui_config: { generateUuidV7: true, siblingRowSelectKey: true }
+                            }
+                        ]
+                    }
+                }
+                if (
+                    sql.includes('FROM "app_deadbeef"._app_components') &&
+                    sql.includes('WHERE object_id = $1') &&
+                    sql.includes("data_type = 'TABLE'")
+                ) {
+                    return [{ id: blocksTableId, column_name: 'blocks' }]
+                }
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
+                    return [
+                        {
+                            id: blocksTableId,
+                            codename: 'Blocks',
+                            column_name: 'blocks',
+                            data_type: 'TABLE',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: {}
+                        },
+                        {
+                            id: questionsTableId,
+                            codename: 'Questions',
+                            column_name: 'questions',
+                            data_type: 'TABLE',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: {}
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."orders"')) {
+                    return [{ id: runtimeRowId, _upl_locked: false, _upl_version: 1 }]
+                }
+                if (sql.includes('UPDATE "app_deadbeef"."orders"')) return [{ id: runtimeRowId }]
+                if (sql.includes('INSERT INTO "app_deadbeef"."questions"')) return []
+                if (sql.includes('SELECT 1') && sql.includes('FROM "app_deadbeef"."blocks"')) return [{ '?column?': 1 }]
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .patch(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}`)
+                .send({ objectCollectionId: runtimeLinkedCollectionId, data: { Questions: [{ Question: 'Unassigned' }] } })
+                .expect(400)
+
+            expect(response.body).toEqual({ error: 'A sibling row selection is required while target rows exist' })
+        })
+
+        it('blocks generic TABLE bulk replacement of a sibling key referenced by active rows', async () => {
+            const blocksTableId = '018f8a78-7b8f-7c1d-a111-2222333344e8'
+            const blockKeyId = '018f8a78-7b8f-7c1d-a111-2222333344e9'
+            const oldBlockKey = '019f2000-0000-7000-8000-000000000010'
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'editor'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_deadbeef',
+                workspacesEnabled: false
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes('FROM "app_deadbeef"._app_components') && sql.includes('parent_component_id = $1')) {
+                    expect(params?.[0]).toBe(blocksTableId)
+                    return [
+                        {
+                            id: blockKeyId,
+                            codename: 'BlockKey',
+                            column_name: 'block_key',
+                            data_type: 'STRING',
+                            is_required: true,
+                            validation_rules: {},
+                            ui_config: { generateUuidV7: true, siblingRowSelectKey: true }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_deadbeef"._app_components') && sql.includes('JOIN "app_deadbeef"._app_components AS child')) {
+                    return [{ table_name: 'questions', value_column: 'block_key' }]
+                }
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
+                    return [
+                        {
+                            id: blocksTableId,
+                            codename: 'Blocks',
+                            column_name: 'blocks',
+                            data_type: 'TABLE',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: {}
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."orders"')) {
+                    return [{ id: runtimeRowId, _upl_locked: false, _upl_version: 1 }]
+                }
+                if (sql.includes('UPDATE "app_deadbeef"."orders"')) return [{ id: runtimeRowId }]
+                if (sql.includes('FROM "app_deadbeef"."blocks"') && sql.includes('FOR UPDATE')) {
+                    if (sql.includes('_app_deleted = true')) return []
+                    return [{ id: 'active-block-row-id', block_key: oldBlockKey }]
+                }
+                if (sql.includes('FROM "app_deadbeef"."questions"')) return [{ id: 'active-question-row' }]
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .patch(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}`)
+                .send({ objectCollectionId: runtimeLinkedCollectionId, data: { Blocks: [{ Title: 'Replacement' }] } })
+                .expect(409)
+
+            expect(response.body).toEqual({
+                code: 'RUNTIME_SIBLING_TARGET_IN_USE',
+                error: 'Reassign or remove related rows before deleting this group'
+            })
+            expect(dataSource.manager.query).not.toHaveBeenCalledWith(
+                expect.stringContaining('DELETE FROM "app_deadbeef"."blocks"'),
+                expect.any(Array)
+            )
+            expect(dataSource.manager.query).not.toHaveBeenCalledWith(
+                expect.stringContaining('INSERT INTO "app_deadbeef"."blocks"'),
+                expect.any(Array)
+            )
         })
 
         it('revalidates parent-derived edit access inside the create transaction', async () => {
@@ -9247,6 +9646,9 @@ describe('Applications Routes', () => {
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
                 if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes('SELECT ui_config FROM "app_deadbeef"._app_components') && params?.[0] === tableComponentId) {
+                    return [{ ui_config: {} }, { ui_config: {} }]
                 }
                 if (sql.includes('FROM "app_deadbeef"._app_components') && params?.[0] === tableComponentId) {
                     expect(sql).toContain('data_type')

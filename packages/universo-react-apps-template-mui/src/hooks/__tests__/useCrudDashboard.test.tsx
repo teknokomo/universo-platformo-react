@@ -230,7 +230,8 @@ describe('useCrudDashboard optimistic mutations', () => {
 
         await act(async () => {
             getState().handleOpenCreate()
-            await getState().handleFormSubmit({ name: 'Workspace B row' })
+            void getState().handleFormSubmit({ name: 'Workspace B row' })
+            await Promise.resolve()
         })
 
         await waitFor(() => {
@@ -805,7 +806,7 @@ describe('useCrudDashboard optimistic mutations', () => {
         expect(getState().columns.map((column) => column.field)).toEqual(['name'])
     })
 
-    it('adds a pending create row immediately and closes the form right away', async () => {
+    it('adds a pending create row immediately while keeping the form open until save completes', async () => {
         const deferredCreate = createDeferred<Record<string, unknown>>()
         const onRuntimeDataChanged = vi.fn().mockResolvedValue(undefined)
         const adapter = createAdapter({
@@ -825,7 +826,7 @@ describe('useCrudDashboard optimistic mutations', () => {
             await Promise.resolve()
         })
 
-        expect(getState().formOpen).toBe(false)
+        expect(getState().formOpen).toBe(true)
 
         await waitFor(() => {
             const pendingRow = getState().rows[0] as { id: string; name: string; __pendingAction?: string; __pending?: boolean }
@@ -844,7 +845,7 @@ describe('useCrudDashboard optimistic mutations', () => {
         await waitFor(() => expect(onRuntimeDataChanged).toHaveBeenCalledTimes(1))
     })
 
-    it('marks copied rows with the copy pending action and closes the form right away', async () => {
+    it('marks copied rows as pending while keeping the form open until save completes', async () => {
         const deferredCopy = createDeferred<Record<string, unknown>>()
         const copyRow = vi.fn().mockImplementation(() => deferredCopy.promise)
         const adapter = createAdapter({
@@ -874,8 +875,9 @@ describe('useCrudDashboard optimistic mutations', () => {
             data: { name: 'Copied optimistic' },
             expectedVersion: 1
         })
-        expect(getState().formOpen).toBe(false)
+        expect(getState().formOpen).toBe(true)
         expect(getState().copyRowId).toBe('row-1')
+        expect(getState().isSubmitting).toBe(true)
 
         await waitFor(() => {
             const pendingRow = getState().rows[0] as unknown as { name: string; __pendingAction?: string; __pending?: boolean }
@@ -1051,7 +1053,7 @@ describe('useCrudDashboard optimistic mutations', () => {
         await waitFor(() => expect(onRuntimeDataChanged).toHaveBeenCalledTimes(1))
     })
 
-    it('marks updated rows as pending before the server responds and closes the form right away', async () => {
+    it('marks updated rows as pending while keeping the form open until save completes', async () => {
         const deferredUpdate = createDeferred<Record<string, unknown>>()
         const adapter = createAdapter({
             updateRow: vi.fn().mockImplementation(() => deferredUpdate.promise)
@@ -1073,7 +1075,7 @@ describe('useCrudDashboard optimistic mutations', () => {
             await Promise.resolve()
         })
 
-        expect(getState().formOpen).toBe(false)
+        expect(getState().formOpen).toBe(true)
         expect(getState().editRowId).toBe('row-1')
 
         await waitFor(() => {
@@ -1288,7 +1290,7 @@ describe('useCrudDashboard optimistic mutations', () => {
         })
     })
 
-    it('reopens the form with an inline error if a background save fails', async () => {
+    it('keeps the submitted draft visible with an inline error if save fails', async () => {
         const deferredCreate = createDeferred<Record<string, unknown>>()
         const onRuntimeDataChanged = vi.fn().mockResolvedValue(undefined)
         const adapter = createAdapter({
@@ -1303,22 +1305,25 @@ describe('useCrudDashboard optimistic mutations', () => {
         await act(async () => {
             getState().handleOpenCreate()
         })
+        let submitPromise: Promise<void> | undefined
         await act(async () => {
-            void getState().handleFormSubmit({ name: 'Broken create' })
+            submitPromise = getState().handleFormSubmit({ name: 'Broken create' })
             await Promise.resolve()
         })
 
-        expect(getState().formOpen).toBe(false)
+        expect(getState().formOpen).toBe(true)
+        expect(getState().isSubmitting).toBe(true)
 
         deferredCreate.reject(new Error('backend exploded'))
         await act(async () => {
-            await Promise.resolve()
+            await submitPromise
         })
 
         await waitFor(() => {
             expect(getState().formOpen).toBe(true)
             expect(getState().formError).toBe('Create failed: Please try again or reload the page.')
             expect(getState().formError).not.toContain('backend exploded')
+            expect(getState().formInitialData).toEqual({ name: 'Broken create' })
             expect(onRuntimeDataChanged).toHaveBeenCalledTimes(1)
         })
     })

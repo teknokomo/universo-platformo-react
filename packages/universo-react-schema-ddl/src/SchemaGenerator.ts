@@ -279,6 +279,7 @@ export class SchemaGenerator {
 
         if (contract.delete.mode === 'soft') {
             table.boolean('_app_deleted').notNullable().defaultTo(false)
+            table.uuid('_upl_delete_cascade_id').nullable()
             if (contract.delete.trackAt) {
                 table.timestamp('_app_deleted_at', { useTz: true }).nullable()
             }
@@ -398,7 +399,6 @@ export class SchemaGenerator {
                             continue
                         }
 
-                        const parentTableName = resolveEntityTableName(entity)
                         const tabularTableName = generateChildTableName(tableParentField.id)
                         await this.addForeignKeyToTable(schemaName, tabularTableName, childRefField, entities, trx)
                     }
@@ -625,6 +625,44 @@ export class SchemaGenerator {
         await this.createApplicationLifecycleIndexes(schemaName, tabularTableName, lifecycleContract, trx)
 
         console.log(`[SchemaGenerator] Tabular table ${schemaName}.${tabularTableName} created`)
+    }
+
+    /**
+     * Ensures the cascade marker exists on soft-delete runtime tables during application sync.
+     * This is an idempotent, additive DDL repair for schemas created before the marker was added.
+     */
+    public async ensureApplicationCascadeDeleteColumns(
+        schemaName: string,
+        entities: EntityDefinition[],
+        trx?: Knex.Transaction
+    ): Promise<void> {
+        if (!isValidSchemaName(schemaName)) {
+            throw new Error(`Invalid schema name: ${schemaName}`)
+        }
+
+        const knex = trx ?? this.knex
+        const tableNames = new Set<string>()
+
+        for (const entity of entities) {
+            if (!hasPhysicalRuntimeTable(entity) || SchemaGenerator.resolveLifecycleContract(entity).delete.mode !== 'soft') {
+                continue
+            }
+
+            tableNames.add(resolveEntityTableName(entity))
+            for (const field of entity.fields) {
+                if (field.dataType === ComponentDefinitionDataType.TABLE && !field.parentComponentId) {
+                    tableNames.add(generateChildTableName(field.id))
+                }
+            }
+        }
+
+        for (const tableName of tableNames) {
+            await knex.raw('ALTER TABLE IF EXISTS ??.?? ADD COLUMN IF NOT EXISTS ?? uuid NULL', [
+                schemaName,
+                tableName,
+                '_upl_delete_cascade_id'
+            ])
+        }
     }
 
     public async addForeignKey(

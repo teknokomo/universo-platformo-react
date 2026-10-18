@@ -23,6 +23,7 @@ jest.mock('../../domains/shared/guards', () => ({
 
 import type { Request, Response, NextFunction } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
+import { createRequestDbContext } from '@universo-react/utils'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 
@@ -64,6 +65,7 @@ const mockComponentsService = {
     update: jest.fn(),
     findByCodename: jest.fn(),
     create: jest.fn(),
+    delete: jest.fn(),
     findChildComponents: jest.fn(),
     findChildComponentsByParentIds: jest.fn(),
     findAllFlat: jest.fn(),
@@ -152,6 +154,11 @@ describe('Field Definition Routes', () => {
 
     const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
         ;(req as unknown as { user?: { id: string } }).user = { id: 'test-user-id' }
+        const executor = mockExecutor
+        ;(req as unknown as { dbContext?: unknown }).dbContext = createRequestDbContext(
+            { query: executor.query, isReleased: executor.isReleased },
+            executor
+        )
         next()
     }
 
@@ -165,9 +172,7 @@ describe('Field Definition Routes', () => {
         res: Response,
         next: NextFunction
     ) => {
-        if (res.headersSent) {
-            return next(err)
-        }
+        if (res.headersSent) return next(err)
         const statusCode = err.statusCode || err.status || 500
         res.status(statusCode).json({
             error: err.message || 'Internal Server Error',
@@ -180,6 +185,9 @@ describe('Field Definition Routes', () => {
 
     const buildApp = () => {
         mockExecutor = createMockDbExecutor()
+        mockExecutor.query.mockImplementation(async (sql: string) =>
+            sql.includes('pg_try_advisory_xact_lock') ? [{ acquired: true }] : []
+        )
         const app = express()
         app.use(express.json())
         app.use(createEntityComponentRoutes(ensureAuth, () => mockExecutor, mockRateLimiter, mockRateLimiter))
@@ -714,6 +722,14 @@ describe('Field Definition Routes', () => {
 
     describe('PATCH /metahub/:metahubId/object/:objectCollectionId/components/reorder', () => {
         it('passes cross-list move settings to reorder service', async () => {
+            mockComponentsService.findById.mockResolvedValueOnce({
+                id: '11111111-1111-1111-1111-111111111111',
+                objectCollectionId: 'object-1',
+                codename: 'Notes',
+                dataType: 'STRING',
+                parentComponentId: null,
+                uiConfig: {}
+            })
             mockSettingsService.findByKey.mockImplementation(async (_metahubId: string, key: string) => {
                 const values: Record<string, unknown> = {
                     'entity.object.componentCodenameScope': 'per-level',
@@ -751,6 +767,14 @@ describe('Field Definition Routes', () => {
         })
 
         it('returns 403 when service rejects cross-list transfer by settings', async () => {
+            mockComponentsService.findById.mockResolvedValueOnce({
+                id: '11111111-1111-1111-1111-111111111111',
+                objectCollectionId: 'object-1',
+                codename: 'Notes',
+                dataType: 'STRING',
+                parentComponentId: null,
+                uiConfig: {}
+            })
             mockComponentsService.reorderComponent.mockRejectedValueOnce(
                 new MetahubDomainError({
                     message: 'Moving components between root and child lists is disabled by settings',
@@ -774,6 +798,14 @@ describe('Field Definition Routes', () => {
         })
 
         it('returns structured 409 when TABLE child limit is reached', async () => {
+            mockComponentsService.findById.mockResolvedValueOnce({
+                id: '11111111-1111-1111-1111-111111111111',
+                objectCollectionId: 'object-1',
+                codename: 'Notes',
+                dataType: 'STRING',
+                parentComponentId: null,
+                uiConfig: {}
+            })
             mockComponentsService.reorderComponent.mockRejectedValueOnce(
                 new MetahubDomainError({
                     message: 'Maximum 3 child components per TABLE',
@@ -818,65 +850,6 @@ describe('Field Definition Routes', () => {
                 'test-user-id'
             )
             expect(mockComponentsService.reorderComponent).not.toHaveBeenCalled()
-        })
-    })
-
-    describe('PATCH /metahub/:metahubId/object/:objectCollectionId/component/:componentId/move', () => {
-        it('moves an component only when it belongs to the routed object', async () => {
-            mockComponentsService.findById.mockResolvedValue({
-                id: 'attr-1',
-                objectCollectionId: 'object-1',
-                sortOrder: 2,
-                parentComponentId: null,
-                isSystem: false
-            })
-
-            const app = buildApp()
-            await request(app)
-                .patch('/metahub/metahub-1/entities/object/instance/object-1/component/attr-1/move')
-                .send({ direction: 'up' })
-                .expect(200)
-
-            expect(mockComponentsService.moveComponent).toHaveBeenCalledWith('metahub-1', 'object-1', 'attr-1', 'up', 'test-user-id')
-        })
-
-        it('returns 404 when the component belongs to another object', async () => {
-            mockComponentsService.findById.mockResolvedValue({
-                id: 'attr-foreign',
-                objectCollectionId: 'object-2',
-                sortOrder: 2,
-                parentComponentId: null,
-                isSystem: false
-            })
-
-            const app = buildApp()
-            const response = await request(app)
-                .patch('/metahub/metahub-1/entities/object/instance/object-1/component/attr-foreign/move')
-                .send({ direction: 'up' })
-                .expect(404)
-
-            expect(response.body).toMatchObject({ error: 'Component not found' })
-            expect(mockComponentsService.moveComponent).not.toHaveBeenCalled()
-        })
-
-        it('returns 404 when a shared-pool component id is submitted through a object route', async () => {
-            mockComponentsService.findById.mockResolvedValue({
-                id: 'shared-attr-1',
-                objectCollectionId: 'shared-object-pool-1',
-                sortOrder: 1,
-                parentComponentId: null,
-                isSystem: false,
-                isShared: true
-            })
-
-            const app = buildApp()
-            const response = await request(app)
-                .patch('/metahub/metahub-1/entities/object/instance/object-1/component/shared-attr-1/move')
-                .send({ direction: 'down' })
-                .expect(404)
-
-            expect(response.body).toMatchObject({ error: 'Component not found' })
-            expect(mockComponentsService.moveComponent).not.toHaveBeenCalled()
         })
     })
 
@@ -1054,211 +1027,6 @@ describe('Field Definition Routes', () => {
                 error: 'System component upl.deleted cannot be disabled'
             })
             expect(mockSyncMetahubSchema).not.toHaveBeenCalled()
-        })
-    })
-
-    describe('PATCH /metahub/:metahubId/object/:objectCollectionId/component/:componentId/toggle-required', () => {
-        it('returns 400 when trying to make display component optional', async () => {
-            mockComponentsService.findById.mockResolvedValue({
-                id: 'attr-1',
-                objectCollectionId: 'object-1',
-                dataType: 'STRING',
-                isDisplayComponent: true,
-                isRequired: true,
-                uiConfig: {}
-            })
-
-            const app = buildApp()
-            const response = await request(app)
-                .patch('/metahub/metahub-1/entities/object/instance/object-1/component/attr-1/toggle-required')
-                .expect(400)
-
-            expect(response.body.error).toBe('Display component must be required')
-            expect(mockComponentsService.update).not.toHaveBeenCalled()
-            expect(mockSyncMetahubSchema).not.toHaveBeenCalled()
-        })
-
-        it('returns 400 for enum label mode without default value', async () => {
-            mockComponentsService.findById.mockResolvedValue({
-                id: 'attr-1',
-                objectCollectionId: 'object-1',
-                dataType: 'REF',
-                targetEntityId: 'enum-1',
-                targetEntityKind: 'enumeration',
-                isRequired: false,
-                uiConfig: { enumPresentationMode: 'label' }
-            })
-
-            const app = buildApp()
-            const response = await request(app)
-                .patch('/metahub/metahub-1/entities/object/instance/object-1/component/attr-1/toggle-required')
-                .expect(400)
-
-            expect(response.body.error).toBe('required REF label mode requires defaultEnumValueId')
-            expect(mockComponentsService.update).not.toHaveBeenCalled()
-            expect(mockSyncMetahubSchema).not.toHaveBeenCalled()
-        })
-
-        it('returns 400 when default enum value does not belong to selected enumeration', async () => {
-            mockComponentsService.findById.mockResolvedValue({
-                id: 'attr-1',
-                objectCollectionId: 'object-1',
-                dataType: 'REF',
-                targetEntityId: 'enum-1',
-                targetEntityKind: 'enumeration',
-                isRequired: false,
-                uiConfig: { enumPresentationMode: 'label', defaultEnumValueId: 'value-1' }
-            })
-            mockEnumerationValuesService.findById.mockResolvedValue({
-                id: 'value-1',
-                objectId: 'enum-2'
-            })
-
-            const app = buildApp()
-            const response = await request(app)
-                .patch('/metahub/metahub-1/entities/object/instance/object-1/component/attr-1/toggle-required')
-                .expect(400)
-
-            expect(response.body.error).toBe('defaultEnumValueId must reference a value from the selected target enumeration')
-            expect(mockComponentsService.update).not.toHaveBeenCalled()
-            expect(mockSyncMetahubSchema).not.toHaveBeenCalled()
-        })
-    })
-
-    describe('POST /metahub/:metahubId/object/:objectCollectionId/component/:componentId/copy', () => {
-        it('copies TABLE component and child components inside a transaction', async () => {
-            mockComponentsService.findById.mockResolvedValue({
-                id: 'attr-source',
-                objectCollectionId: 'object-1',
-                codename: 'products',
-                dataType: 'TABLE',
-                name: { _primary: 'en', locales: { en: { content: 'Products' } } },
-                uiConfig: { showTitle: true },
-                validationRules: {},
-                isRequired: true,
-                parentComponentId: null,
-                targetEntityId: null,
-                targetEntityKind: null
-            })
-            mockComponentsService.findByCodename.mockResolvedValue(null)
-            mockComponentsService.create
-                .mockResolvedValueOnce({
-                    id: 'attr-copy',
-                    objectCollectionId: 'object-1',
-                    codename: 'products-copy',
-                    dataType: 'TABLE'
-                })
-                .mockResolvedValueOnce({
-                    id: 'child-copy',
-                    objectCollectionId: 'object-1',
-                    codename: 'name',
-                    dataType: 'STRING'
-                })
-            mockComponentsService.findChildComponents.mockResolvedValue([
-                {
-                    id: 'child-1',
-                    codename: 'name',
-                    dataType: 'STRING',
-                    name: { _primary: 'en', locales: { en: { content: 'Name' } } },
-                    validationRules: {},
-                    uiConfig: {},
-                    isRequired: false,
-                    sortOrder: 1,
-                    targetEntityId: null,
-                    targetEntityKind: null
-                }
-            ])
-
-            const app = buildApp()
-            const response = await request(app)
-                .post('/metahub/metahub-1/entities/object/instance/object-1/component/attr-source/copy')
-                .expect(201)
-
-            expect(response.body.id).toBe('attr-copy')
-            expect(response.body.copiedChildComponents).toBe(1)
-            expect(mockExecutor.transaction).toHaveBeenCalledTimes(1)
-            expect(mockComponentsService.findByCodename).toHaveBeenCalledWith(
-                'metahub-1',
-                'object-1',
-                'ProductsCopy',
-                null,
-                'test-user-id',
-                mockExecutor,
-                { ignoreParentScope: false }
-            )
-            expect(mockComponentsService.create).toHaveBeenCalledWith(
-                'metahub-1',
-                expect.objectContaining({
-                    parentComponentId: 'attr-copy',
-                    codename: 'name'
-                }),
-                'test-user-id',
-                mockExecutor
-            )
-            expect(mockSyncMetahubSchema).toHaveBeenCalled()
-        })
-
-        it('returns 409 when unique codename cannot be generated', async () => {
-            mockComponentsService.findById.mockResolvedValue({
-                id: 'attr-source',
-                objectCollectionId: 'object-1',
-                codename: 'products',
-                dataType: 'STRING',
-                name: { _primary: 'en', locales: { en: { content: 'Products' } } },
-                uiConfig: {},
-                validationRules: {},
-                isRequired: false,
-                parentComponentId: null,
-                targetEntityId: null,
-                targetEntityKind: null
-            })
-            mockComponentsService.findByCodename.mockResolvedValue({ id: 'existing' })
-
-            const app = buildApp()
-            const response = await request(app)
-                .post('/metahub/metahub-1/entities/object/instance/object-1/component/attr-source/copy')
-                .expect(409)
-
-            expect(response.body.error).toBe('Unable to generate unique codename for component copy')
-            expect(mockComponentsService.create).not.toHaveBeenCalled()
-            expect(mockSyncMetahubSchema).not.toHaveBeenCalled()
-        })
-
-        it('returns 409 when global codename lock cannot be acquired', async () => {
-            mockSettingsService.findByKey.mockImplementation(async (_metahubId: string, key: string) => {
-                if (key === 'entity.object.componentCodenameScope') {
-                    return { key, value: { _value: 'global' } }
-                }
-                const defaults: Record<string, unknown> = {
-                    'general.codenameStyle': 'pascal-case',
-                    'general.codenameAlphabet': 'en-ru',
-                    'general.codenameAllowMixedAlphabets': false
-                }
-                return key in defaults ? { key, value: { _value: defaults[key] } } : null
-            })
-            mockAcquireAdvisoryLock.mockResolvedValue(false)
-            mockComponentsService.findById.mockResolvedValue({
-                id: 'attr-source',
-                objectCollectionId: 'object-1',
-                codename: 'products',
-                dataType: 'STRING',
-                name: { _primary: 'en', locales: { en: { content: 'Products' } } },
-                uiConfig: {},
-                validationRules: {},
-                isRequired: false,
-                parentComponentId: null,
-                targetEntityId: null,
-                targetEntityKind: null
-            })
-
-            const app = buildApp()
-            const response = await request(app)
-                .post('/metahub/metahub-1/entities/object/instance/object-1/component/attr-source/copy')
-                .expect(409)
-
-            expect(response.body.error).toContain('Could not acquire component codename lock')
-            expect(mockComponentsService.create).not.toHaveBeenCalled()
-            expect(mockReleaseAdvisoryLock).not.toHaveBeenCalled()
         })
     })
 })

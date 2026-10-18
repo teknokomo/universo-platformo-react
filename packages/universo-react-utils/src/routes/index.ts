@@ -58,6 +58,7 @@ const publicApplicationRuntimePaths = [
     'runtime',
     'runtime/attempts/start',
     `runtime/attempts/${publicRuntimeRecordIdPathSegment}`,
+    `runtime/attempts/${publicRuntimeRecordIdPathSegment}/continue`,
     `runtime/attempts/${publicRuntimeRecordIdPathSegment}/answers`,
     `runtime/attempts/${publicRuntimeRecordIdPathSegment}/finalize`,
     'runtime/guest-progress',

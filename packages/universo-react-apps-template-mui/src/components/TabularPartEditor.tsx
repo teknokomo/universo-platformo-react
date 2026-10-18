@@ -16,7 +16,15 @@ import type { FieldConfig } from './dialogs/FormDialog'
 import { ConfirmDeleteDialog } from './dialogs/ConfirmDeleteDialog'
 import { getDataGridLocaleText } from '../utils/getDataGridLocale'
 import { buildTabularColumns, isHiddenTabularField } from '../utils/tabularColumns'
-import { buildInitialTabularRowValues, normalizeTabularCellValue } from '../utils/tabularCellValues'
+import {
+    buildInitialTabularRowValues,
+    getTabularRowOrderingLabel,
+    normalizeTabularCellValue,
+    normalizeTabularRowOrdering,
+    readTabularRowOrderingConfig,
+    sortTabularRowsByOrder,
+    type TabularSiblingTableValues
+} from '../utils/tabularCellValues'
 
 export interface TabularPartEditorProps {
     /** Display label for the table section. */
@@ -27,6 +35,10 @@ export interface TabularPartEditorProps {
     onChange: (rows: Record<string, unknown>[]) => void
     /** Child components. */
     childFields: FieldConfig[]
+    /** Current rows from sibling TABLE fields, keyed by their metadata codenames. */
+    siblingTableValues?: TabularSiblingTableValues
+    /** Optional row order metadata from the parent TABLE component. */
+    rowOrdering?: unknown
     /** Whether to show the label above the table. */
     showTitle?: boolean
     /** BCP-47 locale string for DataGrid i18n (e.g. "en", "ru"). */
@@ -53,6 +65,8 @@ export function TabularPartEditor({
     value,
     onChange,
     childFields,
+    siblingTableValues,
+    rowOrdering,
     showTitle = true,
     locale,
     minRows,
@@ -61,6 +75,9 @@ export function TabularPartEditor({
     const { t, i18n } = useTranslation('apps')
     const nextLocalIdRef = useRef(1)
     const pendingCellEditRef = useRef<{ rowId: string; fieldId: string } | null>(null)
+    const orderingConfig = useMemo(() => readTabularRowOrderingConfig(rowOrdering), [rowOrdering])
+    const orderedValue = useMemo(() => sortTabularRowsByOrder(value, rowOrdering, childFields), [value, rowOrdering, childFields])
+    const canReorderRows = Boolean(orderingConfig)
     const apiRef = useGridApiRef()
     const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null)
     const [menuRowId, setMenuRowId] = useState<string | null>(null)
@@ -72,7 +89,7 @@ export function TabularPartEditor({
         () => childFields.find((field) => !isHiddenTabularField(field) && (field.type === 'STRING' || field.type === 'NUMBER'))?.id ?? null,
         [childFields]
     )
-    const deleteDisabled = typeof minRows === 'number' && value.length <= minRows
+    const deleteDisabled = typeof minRows === 'number' && orderedValue.length <= minRows
 
     const startRowPrimaryEdit = useCallback(
         (rowId: string) => {
@@ -90,15 +107,15 @@ export function TabularPartEditor({
     // Ensure every row has a local id for DataGrid
     const rows: GridRowsProp = useMemo(
         () =>
-            value.map((row, index) => ({
+            orderedValue.map((row, index) => ({
                 ...row,
                 id: getRowId(row, index),
                 _tp_sort_order: row._tp_sort_order ?? index
             })),
-        [value]
+        [orderedValue]
     )
 
-    const addDisabled = typeof maxRows === 'number' && value.length >= maxRows
+    const addDisabled = typeof maxRows === 'number' && orderedValue.length >= maxRows
 
     const getNumberValidationMessage = useCallback(
         (field: FieldConfig, result: NumberValidationResult): string => {
@@ -129,21 +146,21 @@ export function TabularPartEditor({
     )
 
     const handleAddRow = useCallback(() => {
-        if (typeof maxRows === 'number' && value.length >= maxRows) return
+        if (typeof maxRows === 'number' && orderedValue.length >= maxRows) return
         setRowEditError(null)
         const localId = nextLocalIdRef.current++
         const newRow: Record<string, unknown> = {
             _localId: `__local_new_${localId}`,
             ...buildInitialTabularRowValues(childFields),
-            _tp_sort_order: value.length
+            _tp_sort_order: orderedValue.length
         }
 
         if (firstEditableFieldId) {
             pendingCellEditRef.current = { rowId: String(newRow._localId), fieldId: firstEditableFieldId }
         }
 
-        onChange([...value, newRow])
-    }, [value, onChange, childFields, maxRows, firstEditableFieldId])
+        onChange(normalizeTabularRowOrdering([...orderedValue, newRow], rowOrdering, childFields))
+    }, [orderedValue, onChange, childFields, maxRows, firstEditableFieldId, rowOrdering])
 
     useEffect(() => {
         const pending = pendingCellEditRef.current
@@ -160,9 +177,15 @@ export function TabularPartEditor({
         (rowId: string) => {
             if (deleteDisabled) return
             setRowEditError(null)
-            onChange(value.filter((row, idx) => getRowId(row, idx) !== rowId))
+            onChange(
+                normalizeTabularRowOrdering(
+                    orderedValue.filter((row, idx) => getRowId(row, idx) !== rowId),
+                    rowOrdering,
+                    childFields
+                )
+            )
         },
-        [value, onChange, deleteDisabled]
+        [orderedValue, onChange, deleteDisabled, rowOrdering, childFields]
     )
 
     const handleOpenRowMenu = useCallback((event: MouseEvent<HTMLElement>, rowId: string) => {
@@ -203,13 +226,13 @@ export function TabularPartEditor({
     const handleSelectChange = useCallback(
         (rowId: string, fieldId: string, newValue: unknown) => {
             setRowEditError(null)
-            const updated = value.map((row, idx) => {
+            const updated = orderedValue.map((row, idx) => {
                 if (getRowId(row, idx) !== rowId) return row
                 return { ...row, [fieldId]: newValue }
             })
-            onChange(updated)
+            onChange(normalizeTabularRowOrdering(updated, rowOrdering, childFields))
         },
-        [value, onChange]
+        [orderedValue, onChange, rowOrdering, childFields]
     )
 
     const rowNumberById = useMemo(() => {
@@ -234,13 +257,66 @@ export function TabularPartEditor({
                 numberIncrementAriaLabel: t('number.increment', 'Increment'),
                 numberDecrementAriaLabel: t('number.decrement', 'Decrement'),
                 numberInvalidMessage: t('validation.invalidNumber', 'Invalid number'),
-                getNumberValidationMessage
+                getNumberValidationMessage,
+                siblingTableValues,
+                siblingSelectPlaceholderLabel: t(
+                    'tabular.siblingSelectPlaceholder',
+                    resolvedLocale.startsWith('ru') ? 'Выберите вариант' : 'Select an option'
+                ),
+                siblingNoOptionsLabel: t(
+                    'tabular.siblingNoOptions',
+                    resolvedLocale.startsWith('ru') ? 'Нет доступных вариантов' : 'No options available'
+                ),
+                siblingNoSelectableOptionsLabel: t(
+                    'tabular.siblingNoSelectableOptions',
+                    resolvedLocale.startsWith('ru') ? 'Нет записей с доступными названиями' : 'No items have usable labels'
+                ),
+                siblingUnavailableLabel: t(
+                    'tabular.siblingUnavailable',
+                    resolvedLocale.startsWith('ru') ? 'Вариант недоступен' : 'Unavailable option'
+                )
             }),
-        [childFields, rowNumberById, handleDeleteRow, handleOpenRowMenu, handleSelectChange, t, resolvedLocale, getNumberValidationMessage]
+        [
+            childFields,
+            rowNumberById,
+            handleDeleteRow,
+            handleOpenRowMenu,
+            handleSelectChange,
+            siblingTableValues,
+            t,
+            resolvedLocale,
+            getNumberValidationMessage
+        ]
     )
 
+    const handleMoveRow = useCallback(
+        (direction: -1 | 1) => {
+            if (!canReorderRows || !menuRowId) return
+            const currentIndex = orderedValue.findIndex((row, index) => getRowId(row, index) === menuRowId)
+            const nextIndex = currentIndex + direction
+            if (currentIndex < 0 || nextIndex < 0 || nextIndex >= orderedValue.length) {
+                handleCloseRowMenu()
+                return
+            }
+            const nextRows = [...orderedValue]
+            ;[nextRows[currentIndex], nextRows[nextIndex]] = [nextRows[nextIndex], nextRows[currentIndex]]
+            onChange(normalizeTabularRowOrdering(nextRows, rowOrdering, childFields))
+            handleCloseRowMenu()
+        },
+        [canReorderRows, menuRowId, orderedValue, rowOrdering, childFields, onChange, handleCloseRowMenu]
+    )
+
+    const menuRowIndex = orderedValue.findIndex((row, index) => getRowId(row, index) === menuRowId)
+    const menuRowLabel =
+        menuRowIndex >= 0
+            ? getTabularRowOrderingLabel(orderedValue[menuRowIndex], rowOrdering, childFields, resolvedLocale) ||
+              (resolvedLocale.startsWith('ru') ? `Строка ${menuRowIndex + 1}` : `Row ${menuRowIndex + 1}`)
+            : ''
+    const moveUpLabel = t('runtime.table.moveUp', resolvedLocale.startsWith('ru') ? 'Переместить вверх' : 'Move up')
+    const moveDownLabel = t('runtime.table.moveDown', resolvedLocale.startsWith('ru') ? 'Переместить вниз' : 'Move down')
+
     return (
-        <Box sx={{ mt: 1 }}>
+        <Box sx={{ mt: 1, width: '100%', maxWidth: '100%', minWidth: 0 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: showTitle ? 'space-between' : 'flex-end', mb: 1 }}>
                 {showTitle && (
                     <Typography
@@ -264,7 +340,18 @@ export function TabularPartEditor({
             )}
 
             {/* Flex container replaces deprecated autoHeight prop (MUI DataGrid v7+) */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 36, maxHeight: 400 }}>
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minHeight: 36,
+                    maxHeight: 400,
+                    width: '100%',
+                    maxWidth: '100%',
+                    minWidth: 0,
+                    overflowX: 'hidden'
+                }}
+            >
                 <DataGrid
                     apiRef={apiRef}
                     rows={rows}
@@ -283,7 +370,7 @@ export function TabularPartEditor({
                         const rowId = String(newRow.id)
                         const correctedRow = { ...newRow }
                         setRowEditError(null)
-                        const updated = value.map((row, idx) => {
+                        const updated = orderedValue.map((row, idx) => {
                             if (getRowId(row, idx) !== rowId) return row
                             const patched = { ...row }
                             for (const field of childFields) {
@@ -312,7 +399,7 @@ export function TabularPartEditor({
                             }
                             return patched
                         })
-                        onChange(updated)
+                        onChange(normalizeTabularRowOrdering(updated, rowOrdering, childFields))
                         return correctedRow
                     }}
                     onProcessRowUpdateError={(error) => {
@@ -322,6 +409,10 @@ export function TabularPartEditor({
                     }}
                     sx={{
                         flex: 1,
+                        width: '100%',
+                        maxWidth: '100%',
+                        minWidth: 0,
+                        boxSizing: 'border-box',
                         // Compact overlay height for empty state
                         '--DataGrid-overlayHeight': '52px',
                         [`& .MuiDataGrid-columnHeader`]: {
@@ -381,6 +472,24 @@ export function TabularPartEditor({
                     <EditIcon fontSize='small' sx={{ mr: 1 }} />
                     {t('app.edit', 'Edit')}
                 </MenuItem>
+                {canReorderRows ? (
+                    <>
+                        <MenuItem
+                            onClick={() => handleMoveRow(-1)}
+                            disabled={menuRowIndex <= 0}
+                            aria-label={`${moveUpLabel}: ${menuRowLabel}`}
+                        >
+                            {moveUpLabel}
+                        </MenuItem>
+                        <MenuItem
+                            onClick={() => handleMoveRow(1)}
+                            disabled={menuRowIndex < 0 || menuRowIndex >= orderedValue.length - 1}
+                            aria-label={`${moveDownLabel}: ${menuRowLabel}`}
+                        >
+                            {moveDownLabel}
+                        </MenuItem>
+                    </>
+                ) : null}
                 <Divider />
                 <MenuItem onClick={handleDeleteRowFromMenu} disabled={deleteDisabled} sx={{ color: 'error.main' }}>
                     <DeleteIcon fontSize='small' sx={{ mr: 1 }} />

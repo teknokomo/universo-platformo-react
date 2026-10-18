@@ -43,10 +43,14 @@ const fields = {
         'maxAttempts',
         'timeLimitSeconds',
         'confirmAnswerBeforeNext',
+        'pauseTimerOnBlockIntro',
+        'blockRelativeNumbering',
         'completionText',
+        'blocks',
         'questions'
     ],
-    assessmentQuestion: ['prompt', 'description', 'questionType', 'explanation', 'sortOrder', 'options'],
+    assessmentBlock: ['blockKey', 'title', 'introduction', 'sortOrder'],
+    assessmentQuestion: ['prompt', 'description', 'questionType', 'explanation', 'sortOrder', 'blockKey', 'options'],
     assessmentResponse: [
         'studentId',
         'quizId',
@@ -69,6 +73,11 @@ const fields = {
         'finishedReason',
         'questionsSnapshot',
         'questionSetDigest',
+        'flowSnapshot',
+        'phase',
+        'phaseRevision',
+        'timerState',
+        'frozenRemainingMs',
         'accessLinkId',
         'classIdSnapshot',
         'score',
@@ -117,6 +126,7 @@ const expectedResolvedConfig = (config: ReturnType<typeof createValidGuestConfig
         },
         fields: {
             assessment: config.fields.assessment,
+            assessmentBlock: config.fields.assessmentBlock,
             assessmentQuestion: config.fields.assessmentQuestion,
             assessmentResponse: config.fields.assessmentResponse,
             assessmentAttempt: config.fields.assessmentAttempt
@@ -153,6 +163,7 @@ describe('resolvePublicGuestRuntimeConfig', () => {
                 contentNode: config.fields.contentNode,
                 contentPart: config.fields.contentPart,
                 quiz: config.fields.assessment,
+                quizBlock: config.fields.assessmentBlock,
                 quizQuestion: config.fields.assessmentQuestion,
                 quizResponse: config.fields.assessmentResponse,
                 quizAttempt: config.fields.assessmentAttempt,

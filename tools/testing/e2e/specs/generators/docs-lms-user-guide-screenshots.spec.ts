@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import { readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import path from 'node:path'
-import type { Locator, Page } from '@playwright/test'
+import type { Browser, Locator, Page } from '@playwright/test'
 import { buildVLC } from '@universo-react/utils'
 import { expect, test } from '../../fixtures/test'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
@@ -44,6 +44,7 @@ import {
     LMS_LYCEUM_MARATHON_QUIZZES,
     LMS_LYCEUM_MARATHON_TIME_LIMIT_SECONDS
 } from '../../support/lmsFixtureContract'
+import { LMS_SIXTH_MUSE_ACCESS_LINK, LMS_SIXTH_MUSE_SOURCE } from '../../support/lmsSixthMuseFixtureContract'
 import { applicationSelectors, confirmDeleteSelectors, entityDialogSelectors } from '../../support/selectors/contracts'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
@@ -1234,8 +1235,7 @@ async function captureGuestGuide(page: Page, locale: Locale, applicationId: stri
         : `You have ${timeLimitMinutes} minutes to complete this quiz.`
     await expect(page.getByText(expectedTimeText, { exact: true })).toBeVisible({ timeout: 30_000 })
     await expect(page.getByRole('timer')).toHaveText(/^\d{1,2}:\d{2}$/)
-    await expect(page.getByText(isRu ? 'Вопрос 1 из 30' : 'Question 1 of 30', { exact: true })).toBeVisible({ timeout: 30_000 })
-    await captureDocsStepScreenshot(page, locale, 'guest-access', 2, page.locator('body'))
+    await expect(page.getByText(isRu ? 'Вопрос 1' : 'Question 1', { exact: true })).toBeVisible({ timeout: 30_000 })
     const questionsByPrompt = new Map<string, (typeof quiz.questions)[number]>()
     for (const question of quiz.questions) {
         const prompt = readLocalizedText(question.prompt, locale)?.trim()
@@ -1258,7 +1258,7 @@ async function captureGuestGuide(page: Page, locale: Locale, applicationId: stri
             locale,
             `${locale} docs question ${index + 1}`
         )
-        await expect(page.getByText(isRu ? `Вопрос ${index + 1} из 30` : `Question ${index + 1} of 30`, { exact: true })).toBeVisible({
+        await expect(page.getByText(isRu ? `Вопрос ${index + 1}` : `Question ${index + 1}`, { exact: true })).toBeVisible({
             timeout: 30_000
         })
         const renderedPrompt = (await questionHeading.innerText()).trim()
@@ -1290,8 +1290,7 @@ async function captureGuestGuide(page: Page, locale: Locale, applicationId: stri
         answeredQuestionIds.add(question.id)
         currentAttempt = savedAttempt
         if (index === 0) {
-            await expect(page.getByText(isRu ? 'Вопрос 2 из 30' : 'Question 2 of 30', { exact: true })).toBeVisible({ timeout: 30_000 })
-            await captureDocsStepScreenshot(page, locale, 'guest-access', 3, page.locator('body'))
+            await expect(page.getByText(isRu ? 'Вопрос 2' : 'Question 2', { exact: true })).toBeVisible({ timeout: 30_000 })
         }
     }
     if (answeredQuestionIds.size !== quiz.questions.length) {
@@ -1320,6 +1319,71 @@ async function captureGuestGuide(page: Page, locale: Locale, applicationId: stri
     await expect(resultRow.locator('[role="gridcell"][data-field="Score"]')).toHaveText('30')
     await expect(resultRow.locator('[role="gridcell"][data-field="TotalQuestions"]')).toHaveText('30')
     await captureDocsStepScreenshot(page, locale, 'guest-access', 5, page.locator('body'))
+}
+
+async function captureGuestBlockFlowGuide(browser: Browser, hostPage: Page, locale: Locale, applicationId: string) {
+    const isRu = locale === 'ru'
+    const origin = new URL(hostPage.url()).origin
+    const guestContext = await browser.newContext({
+        storageState: { cookies: [], origins: [] },
+        locale: isRu ? 'ru-RU' : 'en-US',
+        timezoneId: 'UTC',
+        colorScheme: 'light',
+        reducedMotion: 'reduce',
+        viewport: DOCS_VIEWPORT
+    })
+
+    try {
+        const guestPage = await guestContext.newPage()
+        expect(await guestContext.cookies(origin), 'The block-flow guide must use an anonymous browser context').toHaveLength(0)
+        await guestPage.goto(
+            new URL(
+                `/public/a/${applicationId}/links/${encodeURIComponent(LMS_SIXTH_MUSE_ACCESS_LINK.slug)}?locale=${locale}`,
+                origin
+            ).toString()
+        )
+        const startButton = guestPage.getByRole('button', { name: isRu ? 'Начать обучение' : 'Start learning', exact: true })
+        await expect(startButton).toBeVisible({ timeout: 30_000 })
+        await guestPage.getByLabel(isRu ? 'Имя' : 'First name').fill(isRu ? 'Мария' : 'Maria')
+        await guestPage.getByLabel(isRu ? 'Фамилия' : 'Last name').fill(isRu ? 'Лицея' : 'Lyceum')
+        await guestPage.getByRole('checkbox').nth(0).check()
+        await guestPage.getByRole('checkbox').nth(1).check()
+
+        const startResponsePromise = guestPage.waitForResponse((response) => {
+            const responseUrl = new URL(response.url())
+            return (
+                response.request().method() === 'POST' &&
+                responseUrl.pathname === `/api/v1/public/a/${applicationId}/runtime/attempts/start`
+            )
+        })
+        await startButton.click()
+        expect((await startResponsePromise).status(), `${locale} Sixth Muse attempt must start`).toBe(200)
+
+        const firstBlock = LMS_SIXTH_MUSE_SOURCE.blocks[0]
+        const firstQuestion = firstBlock?.questions[0]
+        if (!firstBlock || !firstQuestion) throw new Error('Sixth Muse source must include a first block and question')
+        await expect(guestPage.getByRole('heading', { name: firstBlock.title, exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(guestPage.getByRole('timer')).toBeVisible()
+        await expect(guestPage.getByRole('button', { name: isRu ? 'Продолжить' : 'Continue', exact: true })).toBeVisible()
+        await captureDocsStepScreenshot(guestPage, locale, 'guest-access', 2, guestPage.locator('body'))
+
+        const continueResponsePromise = guestPage.waitForResponse((response) => {
+            const responseUrl = new URL(response.url())
+            return (
+                response.request().method() === 'POST' &&
+                responseUrl.pathname.startsWith(`/api/v1/public/a/${applicationId}/runtime/attempts/`) &&
+                responseUrl.pathname.endsWith('/continue')
+            )
+        })
+        await guestPage.getByRole('button', { name: isRu ? 'Продолжить' : 'Continue', exact: true }).click()
+        expect((await continueResponsePromise).status(), `${locale} Sixth Muse block must continue to its questions`).toBe(200)
+        await expect(guestPage.getByText(isRu ? 'Вопрос 1' : 'Question 1', { exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(guestPage.getByRole('heading', { name: firstQuestion.runtimePrompt, exact: true })).toBeVisible()
+        await expect(guestPage.getByRole('radiogroup').getByRole('radio')).toHaveCount(4)
+        await captureDocsStepScreenshot(guestPage, locale, 'guest-access', 3, guestPage.locator('body'))
+    } finally {
+        await guestContext.close()
+    }
 }
 
 async function captureTroubleshootingGuide(page: Page, locale: Locale, applicationId: string, labels: Record<string, string>) {
@@ -1361,7 +1425,7 @@ test.describe('LMS user guide documentation screenshots', () => {
         }
     })
 
-    test('@generator lms user guide screenshots use canonical snapshot and runtime UX oracles', async ({ page, runManifest }) => {
+    test('@generator lms user guide screenshots use canonical snapshot and runtime UX oracles', async ({ browser, page, runManifest }) => {
         test.setTimeout(1_800_000)
         api = await createLoggedInApiContext({
             email: runManifest.testUser.email,
@@ -1443,6 +1507,7 @@ test.describe('LMS user guide documentation screenshots', () => {
             await captureKnowledgeGuide(page, locale, applicationId, labels)
             await captureReportsGuide(page, locale, applicationId, labels)
             await captureGuestGuide(page, locale, applicationId, publicWorkspaceId)
+            await captureGuestBlockFlowGuide(browser, page, locale, applicationId)
             await captureTroubleshootingGuide(page, locale, applicationId, labels)
         }
 

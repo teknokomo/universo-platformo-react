@@ -29,6 +29,12 @@ import {
     validateTabularHierarchy,
     isServerOwnedChildAttr
 } from './runtimeChildRowsValidation'
+import {
+    assertSiblingRowKeyHasNoReferences,
+    isGeneratedSiblingRowSelectKey,
+    validateExistingSiblingRowSelectsForTarget,
+    validateSiblingRowSelectTargets
+} from './runtimeChildRowsSiblingValidation'
 
 const tabularDeleteQuerySchema = z
     .object({
@@ -156,6 +162,7 @@ export const createRuntimeChildRowCopyDeleteHandlers = (
                             (attr) =>
                                 IDENTIFIER_REGEX.test(attr.column_name) &&
                                 (!isServerOwnedChildAttr(attr) ||
+                                    isGeneratedSiblingRowSelectKey(attr) ||
                                     attr === hierarchyAttrs?.identityAttr ||
                                     attr === hierarchyAttrs?.parentAttr)
                         )
@@ -168,6 +175,7 @@ export const createRuntimeChildRowCopyDeleteHandlers = (
                             }
                         ])
                 )
+                const childMetaByColumn = new Map(tc.childAttrs.map((attr) => [attr.column_name, attr]))
                 const copyColumns = [...childAttrsByColumn.keys()]
                 const headerColumns = [
                     '_tp_parent_id',
@@ -190,9 +198,15 @@ export const createRuntimeChildRowCopyDeleteHandlers = (
                 }
                 for (const column of copyColumns) {
                     copyPlaceholders.push(`$${paramIndex++}`)
+                    const childAttr = childMetaByColumn.get(column)
+                    const uiConfig = childAttr?.ui_config
                     const copyValue =
                         hierarchyAttrs && column === hierarchyAttrs.identityAttr.column_name
                             ? copiedHierarchyIdentity
+                            : uiConfig?.generateUuidV7 === true
+                            ? generateUuidV7()
+                            : uiConfig?.resetOnCopy === true
+                            ? uiConfig.defaultValue ?? null
                             : sourceRow[column] ?? null
                     copyValues.push(normalizeRuntimeTableChildInsertValueByMeta(copyValue, childAttrsByColumn.get(column)))
                 }
@@ -212,6 +226,9 @@ export const createRuntimeChildRowCopyDeleteHandlers = (
                         }
                     ])
                 }
+                await validateSiblingRowSelectTargets(tx, ctx.schemaIdent, tc, recordId, runtimeRowCondition, [{ data: copiedData }], {
+                    isCreate: true
+                })
 
                 const [row] = (await tx.query(
                     `INSERT INTO ${tc.tabTableIdent} (${allColumns.join(', ')}) VALUES (${copyPlaceholders.join(', ')}) RETURNING id`,
@@ -221,6 +238,8 @@ export const createRuntimeChildRowCopyDeleteHandlers = (
                 if (!row?.id) {
                     throw new UpdateFailure(500, { error: 'Failed to copy child row' })
                 }
+
+                await validateExistingSiblingRowSelectsForTarget(tx, ctx.schemaIdent, tc, recordId, runtimeRowCondition)
 
                 return row
             })
@@ -298,11 +317,12 @@ export const createRuntimeChildRowCopyDeleteHandlers = (
                 await assertCanonicalMatrixChildMutation({ ...ctx, manager: tx }, applicationId, tc, recordId, 'delete')
 
                 const hierarchyAttrs = resolveHierarchyAttrs(tc)
+                const generatedKeyAttrs = tc.childAttrs.filter(isGeneratedSiblingRowSelectKey)
                 const childRows = (await tx.query(
                     `
             SELECT id, COALESCE(_upl_version, 1)::int AS version${
                 hierarchyAttrs ? `, ${quoteIdentifier(hierarchyAttrs.identityAttr.column_name)} AS hierarchy_identity` : ''
-            }
+            }${generatedKeyAttrs.map((attr) => `, ${quoteIdentifier(attr.column_name)}`).join('')}
             FROM ${tc.tabTableIdent}
             WHERE id = $1
               AND _tp_parent_id = $2
@@ -310,7 +330,7 @@ export const createRuntimeChildRowCopyDeleteHandlers = (
             LIMIT 1
           `,
                     [childRowId, recordId]
-                )) as Array<{ id: string; version: number; hierarchy_identity?: unknown }>
+                )) as Array<Record<string, unknown> & { id: string; version: number; hierarchy_identity?: unknown }>
 
                 if (childRows.length === 0) {
                     throw new UpdateFailure(404, { error: 'Child row not found' })
@@ -342,6 +362,7 @@ export const createRuntimeChildRowCopyDeleteHandlers = (
                         throw new UpdateFailure(409, { error: 'Hierarchy child rows must be moved or deleted first' })
                     }
                 }
+                await assertSiblingRowKeyHasNoReferences(tx, ctx.schemaIdent, tc, recordId, runtimeRowCondition, childRows[0])
 
                 const { minRows } = getTableRowLimits(tc.tableAttr.validation_rules)
                 if (minRows !== null) {
@@ -402,6 +423,7 @@ export const createRuntimeChildRowCopyDeleteHandlers = (
                         error: expectedVersion !== undefined ? 'Version conflict' : 'Child row not found'
                     })
                 }
+                await validateExistingSiblingRowSelectsForTarget(tx, ctx.schemaIdent, tc, recordId, runtimeRowCondition)
             })
 
             return res.json({ status: 'deleted' })

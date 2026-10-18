@@ -3,6 +3,7 @@ import Dialog, { type DialogProps } from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
+import type { TransitionProps } from '@mui/material/transitions'
 
 export interface StandardDialogProps {
     open: boolean
@@ -13,6 +14,7 @@ export interface StandardDialogProps {
     maxWidth?: DialogProps['maxWidth']
     fullWidth?: boolean
     isBusy?: boolean
+    onTransitionEntered?: TransitionProps['onEntered']
     /** Optional WAI-ARIA describedby id for danger framing or auxiliary copy. */
     ariaDescribedBy?: string
 }
@@ -31,6 +33,7 @@ export function StandardDialog({
     maxWidth = 'sm',
     fullWidth = true,
     isBusy = false,
+    onTransitionEntered,
     ariaDescribedBy
 }: StandardDialogProps) {
     const titleId = `runtime-standard-dialog-${useId().replace(/:/g, '')}`
@@ -43,6 +46,7 @@ export function StandardDialog({
             {...(ariaDescribedBy ? { 'aria-describedby': ariaDescribedBy } : {})}
             maxWidth={maxWidth}
             fullWidth={fullWidth}
+            slotProps={onTransitionEntered ? { transition: { onEntered: onTransitionEntered } } : undefined}
         >
             <DialogTitle id={titleId}>{title}</DialogTitle>
             <DialogContent>{children}</DialogContent>

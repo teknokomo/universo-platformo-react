@@ -107,6 +107,8 @@ import {
     getDataTypeColor
 } from './componentListUtils'
 import { buildObjectCollectionAuthoringPath } from '../../../../shared/entityMetadataRoutePaths'
+import { getComponentMutationErrorMessage } from '../hooks/componentErrorHandler'
+import type { DomainMutationError } from '../../../../shared'
 
 type GenericFormValues = Record<string, unknown>
 
@@ -494,18 +496,15 @@ export const ComponentListContent = ({
                                 )
                                 return
                             }
-                            const msg =
-                                retryError instanceof Error
-                                    ? retryError.message
-                                    : t('components.reorderError', 'Failed to reorder component')
+                            const msg = getComponentMutationErrorMessage(retryError as DomainMutationError, t, 'components.reorderError')
                             enqueueSnackbar(msg, { variant: 'error' })
                         }
                     }
                     return
                 }
 
-                // Other errors — show generic snackbar
-                const message = error instanceof Error ? error.message : t('components.reorderError', 'Failed to reorder component')
+                // Other errors — show a localized domain message where available.
+                const message = getComponentMutationErrorMessage(error as DomainMutationError, t, 'components.reorderError')
                 enqueueSnackbar(message, { variant: 'error' })
             }
         },

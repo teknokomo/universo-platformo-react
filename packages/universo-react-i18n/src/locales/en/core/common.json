@@ -776,6 +776,17 @@
         "optimistic": {
             "rollbackNotice": "Action failed. Changes have been reverted."
         },
-        "pendingCreateBlocked": "This item is still being created. Please wait a moment and try again."
+        "pendingCreateBlocked": "This item is still being created. Please wait a moment and try again.",
+        "tableGrouping": {
+            "title": "Update related table rows?",
+            "groupDescription": "Assign all existing related rows to the first item in {{table}}? Both tables will be saved together when you save this form.",
+            "ungroupDescription": "Remove the grouping from all related rows? Their content and order will be kept. Both tables will be saved together when you save this form.",
+            "confirm": "Apply change",
+            "cancel": "Cancel",
+            "emptyGroup": "Each group must contain at least one related row before saving.",
+            "duplicateGroup": "Each group must have a unique key. Remove or recreate the duplicate group before saving.",
+            "targetMissing": "Reassign this row to an existing group and try again.",
+            "targetInUse": "Reassign or remove related rows before deleting this group."
+        }
     }
 }

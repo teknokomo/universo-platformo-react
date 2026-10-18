@@ -5,7 +5,11 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
 const createElementMutateAsyncMock = vi.fn()
+const updateElementMutateAsyncMock = vi.fn()
 const enqueueSnackbarMock = vi.fn()
+const inlineTableEditorMock = vi.fn()
+let parentValuesFixture: Record<string, unknown> | undefined
+const childComponentsFixture: Record<string, typeof objectComponents> = {}
 const recordsFixture: Array<{
     id: string
     objectCollectionId: string
@@ -117,7 +121,7 @@ vi.mock('@tanstack/react-query', () => ({
             }
         }
         if (Array.isArray(queryKey) && queryKey.includes('childComponentsForElements')) {
-            return { data: {}, isLoading: false, error: null }
+            return { data: childComponentsFixture, isLoading: false, error: null }
         }
         return { data: undefined, isLoading: false, error: null }
     },
@@ -280,6 +284,7 @@ vi.mock('@universo-react/template-mui/components/dialogs', () => ({
         renderField?: (params: {
             field: { id: string; label: string; type: string; required?: boolean; validationRules?: Record<string, unknown> }
             value: unknown
+            values: Record<string, unknown>
             onChange: (value: unknown) => void
             disabled: boolean
             error: string | null
@@ -294,7 +299,8 @@ vi.mock('@universo-react/template-mui/components/dialogs', () => ({
                     <React.Fragment key={field.id}>
                         {renderField?.({
                             field,
-                            value: initialData?.[field.id],
+                            value: (parentValuesFixture ?? initialData)?.[field.id],
+                            values: parentValuesFixture ?? initialData ?? {},
                             onChange: () => undefined,
                             disabled: false,
                             error: null,
@@ -311,7 +317,7 @@ vi.mock('@universo-react/template-mui/components/dialogs', () => ({
 
 vi.mock('../../hooks/mutations', () => ({
     useCreateRecord: () => ({ mutateAsync: createElementMutateAsyncMock, isPending: false }),
-    useUpdateRecord: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    useUpdateRecord: () => ({ mutateAsync: updateElementMutateAsyncMock, isPending: false }),
     useDeleteRecord: () => ({ mutateAsync: vi.fn(), isPending: false }),
     useMoveRecord: () => ({ mutateAsync: vi.fn(), isPending: false }),
     useReorderRecord: () => ({ mutateAsync: vi.fn(), isPending: false })
@@ -386,7 +392,7 @@ vi.mock('../../hooks/useRecordListData', () => ({
         objectResolutionError: null,
         components: objectComponents,
         orderedComponents: objectComponents,
-        childComponentsMap: {},
+        childComponentsMap: childComponentsFixture,
         childEnumValuesMap: {},
         setConstantsMap: {},
         allowElementCopy: true,
@@ -428,7 +434,10 @@ vi.mock('../RecordActions', () => ({
 
 vi.mock('../InlineTableEditor', () => ({
     __esModule: true,
-    default: () => null
+    default: (props: unknown) => {
+        inlineTableEditorMock(props)
+        return null
+    }
 }))
 
 vi.mock('../../../presets/ui/ObjectCollectionActions', () => ({
@@ -519,6 +528,54 @@ describe('RecordList record editor', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         recordsFixture.splice(0, recordsFixture.length)
+        objectComponents.splice(2)
+        parentValuesFixture = undefined
+        for (const key of Object.keys(childComponentsFixture)) delete childComponentsFixture[key]
+    })
+
+    it('passes current coupled parent TABLE values to both inline editors', async () => {
+        const user = userEvent.setup()
+        for (const [index, codename] of ['Sections', 'Items'].entries()) {
+            const id = `table-${index}`
+            objectComponents.push({ ...objectComponents[0], id, codename, dataType: 'TABLE', isRequired: false, sortOrder: index + 3 })
+            childComponentsFixture[id] = [{ ...objectComponents[0], id: `child-${index}`, codename: 'Title' }]
+        }
+        const initial = { Sections: [{ key: 'old' }], Items: [{ section: 'old', text: 'Keep content' }] }
+        recordsFixture.push({
+            id: 'record-1',
+            objectCollectionId: 'object-1',
+            data: initial,
+            ownerId: null,
+            sortOrder: 1,
+            createdAt: '',
+            updatedAt: ''
+        })
+        const route = (
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/object/instance/object-1/records']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instance/:objectCollectionId/records' element={<RecordList />} />
+                </Routes>
+            </MemoryRouter>
+        )
+        const view = render(route)
+        await user.click(await screen.findByRole('button', { name: 'Edit record' }))
+        await waitFor(() => expect(inlineTableEditorMock).toHaveBeenCalledTimes(2))
+        parentValuesFixture = { Sections: [{ key: 'new' }], Items: [{ section: 'new', text: 'Keep content' }] }
+        inlineTableEditorMock.mockClear()
+        // A parent form render supplies the coupled update; record.data still holds the old source.
+        view.rerender(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/object/instance/object-1/records']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instance/:objectCollectionId/records' element={<RecordList />} />
+                </Routes>
+            </MemoryRouter>
+        )
+        await waitFor(() => expect(inlineTableEditorMock).toHaveBeenCalledTimes(2))
+        for (const [props] of inlineTableEditorMock.mock.calls) {
+            expect(props.siblingTableValues.Sections.rows).toEqual(parentValuesFixture.Sections)
+            expect(props.siblingTableValues.Items.rows).toEqual(parentValuesFixture.Items)
+        }
+        expect(recordsFixture[0].data).toEqual(initial)
     })
 
     it('keeps the create dialog open and surfaces the API message when creation fails', async () => {
@@ -546,6 +603,103 @@ describe('RecordList record editor', () => {
             expect(screen.getByRole('dialog', { name: 'Add Record' })).toBeInTheDocument()
             expect(screen.getByText('Validation failed: child localized content is invalid')).toBeInTheDocument()
         })
+    })
+
+    it('shows the localized empty-group explanation for an unreferenced target row', async () => {
+        const user = userEvent.setup()
+        createElementMutateAsyncMock.mockRejectedValueOnce({
+            response: {
+                status: 400,
+                data: {
+                    code: 'RECORD_SIBLING_TARGET_UNREFERENCED',
+                    message: 'Every sibling target row must be referenced by at least one source row'
+                }
+            }
+        })
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/object/instance/object-1/records']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instance/:objectCollectionId/records' element={<RecordList />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        await user.click(await screen.findByRole('button', { name: /create/i }))
+        await user.click(screen.getByRole('button', { name: 'Submit dialog' }))
+
+        expect(await screen.findByText('Each group must contain at least one related row before saving.')).toBeInTheDocument()
+        expect(screen.queryByText('Every sibling target row must be referenced by at least one source row')).not.toBeInTheDocument()
+    })
+
+    it('shows the localized duplicate-group explanation when the API rejects duplicate target keys', async () => {
+        const user = userEvent.setup()
+        createElementMutateAsyncMock.mockRejectedValueOnce({
+            response: {
+                status: 400,
+                data: {
+                    code: 'RECORD_SIBLING_TARGET_KEY_DUPLICATE',
+                    message: 'Sibling row target keys must be unique'
+                }
+            }
+        })
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/object/instance/object-1/records']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instance/:objectCollectionId/records' element={<RecordList />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        await user.click(await screen.findByRole('button', { name: /create/i }))
+        await user.click(screen.getByRole('button', { name: 'Submit dialog' }))
+
+        expect(
+            await screen.findByText('Each group must have a unique key. Remove or recreate the duplicate group before saving.')
+        ).toBeInTheDocument()
+        expect(screen.queryByText('Sibling row target keys must be unique')).not.toBeInTheDocument()
+    })
+
+    it('keeps the edit dialog open with a localized message when an update rejects an unreferenced group', async () => {
+        const user = userEvent.setup()
+        updateElementMutateAsyncMock.mockRejectedValueOnce({
+            response: {
+                status: 400,
+                data: {
+                    code: 'RECORD_SIBLING_TARGET_UNREFERENCED',
+                    message: 'Every sibling target row must be referenced by at least one source row'
+                }
+            }
+        })
+        recordsFixture.push({
+            id: 'record-1',
+            objectCollectionId: 'object-1',
+            data: { Name: 'Existing record' },
+            ownerId: null,
+            sortOrder: 1,
+            createdAt: '',
+            updatedAt: ''
+        })
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/object/instance/object-1/records']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instance/:objectCollectionId/records' element={<RecordList />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        await user.click(await screen.findByRole('button', { name: 'Edit record' }))
+        expect(await screen.findByRole('dialog', { name: 'Edit Element' })).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Submit dialog' }))
+
+        await waitFor(() => {
+            expect(updateElementMutateAsyncMock).toHaveBeenCalledTimes(1)
+            expect(screen.getByRole('dialog', { name: 'Edit Element' })).toBeInTheDocument()
+            expect(screen.getByText('Each group must contain at least one related row before saving.')).toBeInTheDocument()
+        })
+        expect(screen.queryByText('Every sibling target row must be referenced by at least one source row')).not.toBeInTheDocument()
     })
 
     it('opens the shared action editor for an Object record and formats its table cell as friendly text', async () => {

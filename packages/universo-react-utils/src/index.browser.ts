@@ -26,6 +26,21 @@ export {
 export { formatDate, formatRange } from './ui-utils/formatDate'
 export { isSemanticLongTextRuntimeField, type RuntimeFieldSemanticInput } from './ui-utils/fieldSemantics'
 export { isRuntimeSensitiveFieldName, isRuntimeTechnicalFieldName } from './ui-utils/runtimeFieldVisibility'
+export {
+    buildTabularSiblingRowOptions,
+    hasTabularRowOrderingField,
+    isSafeTabularSiblingLabel,
+    normalizeTabularSiblingRowOrder,
+    readTabularRowOrderingConfig,
+    readTabularSiblingSelectConfig,
+    resolveTabularSiblingFieldValue,
+    sortTabularSiblingRows,
+    type TabularRowOrderingConfig,
+    type TabularSiblingField,
+    type TabularSiblingRowOption,
+    type TabularSiblingRowSource,
+    type TabularSiblingSelectConfig
+} from './ui-utils/tabularSiblingRows'
 
 // API error handling utilities
 export * as api from './api/error-handlers'
@@ -238,3 +253,13 @@ export type {
     ConfirmOptimisticCreateOptions,
     ConfirmOptimisticUpdateOptions
 } from './optimisticCrud'
+
+export {
+    getDuplicateTabularGroupingTargetIds,
+    getInvalidTabularSiblingSourceIds,
+    getTabularGroupingFieldIds,
+    getUnreferencedTabularGroupingTargetIds,
+    planTabularGroupingTransition,
+    type TabularGroupingField,
+    type TabularGroupingTransition
+} from './ui-utils/tabularGrouping'

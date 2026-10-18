@@ -12,12 +12,7 @@ import IconButton from '@mui/material/IconButton'
 import InputBase from '@mui/material/InputBase'
 import InputAdornment from '@mui/material/InputAdornment'
 import FormHelperText from '@mui/material/FormHelperText'
-import MenuItem from '@mui/material/MenuItem'
-import Select from '@mui/material/Select'
 import Typography from '@mui/material/Typography'
-import FormControlLabel from '@mui/material/FormControlLabel'
-import Radio from '@mui/material/Radio'
-import RadioGroup from '@mui/material/RadioGroup'
 import Box from '@mui/material/Box'
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp'
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
@@ -36,7 +31,14 @@ import {
 import type { FieldConfig } from '../components/dialogs/FormDialog'
 import { AssessmentOptionsCell } from '../components/AssessmentOptionsCell'
 import { getAssessmentOptionCount } from './assessmentOptions'
-import { getTabularStringDisplayValue, isLocalizedStringField, updateLocalizedTabularStringValue } from './tabularCellValues'
+import { buildTabularReferenceColumn } from './tabularReferenceColumns'
+import {
+    getTabularStringDisplayValue,
+    isLocalizedStringField,
+    readTabularSiblingRowSelectConfig,
+    updateLocalizedTabularStringValue,
+    type TabularSiblingTableValues
+} from './tabularCellValues'
 import {
     formatRuntimeDateValue,
     formatRuntimeSafeValue,
@@ -45,8 +47,6 @@ import {
     isRuntimeTechnicalFieldName
 } from './displayValue'
 import { isSemanticLongTextRuntimeField } from './fieldSemantics'
-
-type RefOption = { id: string; label: string; codename?: string }
 
 type CellStylePreviewConfig = {
     fillColorField?: string
@@ -134,8 +134,11 @@ export const isHiddenTabularField = (field: FieldConfig): boolean => {
             const label = formatRuntimeSafeValue(option.label)
             return Boolean(label) && !isRuntimeTechnicalFieldName(label) && !/\b(?:rh1\.|usr_internal_)/i.test(label)
         })
+    const hasHumanReadableSiblingOptions = readTabularSiblingRowSelectConfig(field) !== null
     const isTechnicalIdentity = isRuntimeTechnicalFieldName(field.id) || isRuntimeTechnicalFieldName(field.codename)
-    const isTechnicalField = isRuntimeTechnicalFieldName(field.label) || (isTechnicalIdentity && !hasHumanReadableReferenceOptions)
+    const isTechnicalField =
+        isRuntimeTechnicalFieldName(field.label) ||
+        (isTechnicalIdentity && !hasHumanReadableReferenceOptions && !hasHumanReadableSiblingOptions)
 
     const isSensitive =
         uiConfig.sensitive === true ||
@@ -148,6 +151,8 @@ export const isHiddenTabularField = (field: FieldConfig): boolean => {
         uiConfig.hidden === true ||
         uiConfig.gridHidden === true ||
         uiConfig.formHidden === true ||
+        uiConfig.serverOwned === true ||
+        uiConfig.generateUuidV7 === true ||
         isTechnicalField ||
         isStructuredValue ||
         isSensitive
@@ -593,18 +598,6 @@ const renderTabularLongTextCell = (params: GridRenderCellParams, locale: string)
     </Typography>
 )
 
-/**
- * Resolve the effective selected value for a REF enum field.
- * If the raw value is empty or missing, fall back to defaultEnumValueId when available.
- */
-function resolveEnumValue(rawValue: unknown, field: FieldConfig, refOptions: RefOption[]): string {
-    const explicit = typeof rawValue === 'string' && rawValue.length > 0 ? rawValue : null
-    if (explicit) return explicit
-    const def = field.defaultEnumValueId
-    if (typeof def === 'string' && refOptions.some((o) => o.id === def)) return def
-    return ''
-}
-
 export interface BuildTabularColumnsOptions {
     /** Child components. */
     childFields: FieldConfig[]
@@ -630,6 +623,18 @@ export interface BuildTabularColumnsOptions {
     numberInvalidMessage?: string
     /** Maps NUMBER validation failures to localized user-facing helper text. */
     getNumberValidationMessage?: (field: FieldConfig, result: NumberValidationResult) => string
+    /** Current rows from sibling TABLE fields, keyed by their metadata codenames. */
+    siblingTableValues?: TabularSiblingTableValues
+    /** Localized empty selection label for sibling TABLE selectors. */
+    siblingSelectPlaceholderLabel?: string
+    /** Localized label shown when a sibling TABLE has no selectable rows. */
+    siblingNoOptionsLabel?: string
+    /** Localized label shown when sibling rows exist but none has a safe selectable label. */
+    siblingNoSelectableOptionsLabel?: string
+    /** Localized label for a previously selected row that is no longer available. */
+    siblingUnavailableLabel?: string
+    /** Temporarily prevents edits while a related TABLE value is loading. */
+    disabled?: boolean
 }
 
 /**
@@ -650,7 +655,13 @@ export function buildTabularColumns({
     numberIncrementAriaLabel,
     numberDecrementAriaLabel,
     numberInvalidMessage,
-    getNumberValidationMessage
+    getNumberValidationMessage,
+    siblingTableValues,
+    siblingSelectPlaceholderLabel = 'Select an option',
+    siblingNoOptionsLabel = 'No options available',
+    siblingNoSelectableOptionsLabel = siblingNoOptionsLabel,
+    siblingUnavailableLabel = 'Unavailable option',
+    disabled = false
 }: BuildTabularColumnsOptions): GridColDef[] {
     const normalizedLocale = locale.split(/[-_]/)[0]?.toLowerCase() || 'en'
     const incrementAriaLabel = numberIncrementAriaLabel ?? (normalizedLocale === 'ru' ? 'Увеличить' : 'Increase value')
@@ -687,167 +698,33 @@ export function buildTabularColumns({
                             minOptions={field.uiConfig?.minOptions}
                             maxOptions={field.uiConfig?.maxOptions}
                             tabIndex={params.tabIndex}
-                            onSave={onSelectChange ? (options) => onSelectChange(String(params.id), field.id, options) : undefined}
+                            onSave={
+                                !disabled && onSelectChange ? (options) => onSelectChange(String(params.id), field.id, options) : undefined
+                            }
                         />
                     ),
                     valueFormatter: (value: unknown) => getAssessmentOptionCount(value)
                 }
             }
 
-            // REF fields with options → singleSelect dropdown
-            const refOptions = field.refOptions ?? field.enumOptions ?? []
-            if (field.type === 'REF' && refOptions.length > 0) {
-                const mode =
-                    field.enumPresentationMode === 'radio' || field.enumPresentationMode === 'label' ? field.enumPresentationMode : 'select'
-                const allowEmpty = field.enumAllowEmpty !== false
-                const emptyDisplay = field.enumLabelEmptyDisplay === 'empty' ? 'empty' : 'dash'
+            const referenceColumn = buildTabularReferenceColumn(field, {
+                locale,
+                disabled,
+                siblingTableValues,
+                onSelectChange,
+                siblingSelectPlaceholderLabel,
+                siblingNoOptionsLabel,
+                siblingNoSelectableOptionsLabel,
+                siblingUnavailableLabel
+            })
+            if (referenceColumn) return referenceColumn
 
-                if (mode === 'label') {
-                    return {
-                        field: field.id,
-                        headerName: field.label,
-                        flex: 1,
-                        minWidth: 140,
-                        editable: false,
-                        renderCell: (params) => {
-                            const selectedId = resolveEnumValue(params.value, field, refOptions)
-                            const selected = selectedId ? refOptions.find((o) => o.id === selectedId) : null
-                            const label = selected?.label ?? ''
-                            return (
-                                <Typography
-                                    component='span'
-                                    sx={{ fontSize: 'inherit', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                                    noWrap
-                                >
-                                    {label || (emptyDisplay === 'empty' ? '' : '—')}
-                                </Typography>
-                            )
-                        }
-                    }
-                }
-
-                if (mode === 'radio') {
-                    // Always-visible radio buttons in renderCell (no DataGrid edit mode)
-                    return {
-                        field: field.id,
-                        headerName: field.label,
-                        flex: 1,
-                        minWidth: 180,
-                        editable: false,
-                        renderCell: (params) => {
-                            const selectedId = resolveEnumValue(params.value, field, refOptions)
-                            return (
-                                <RadioGroup
-                                    value={selectedId}
-                                    aria-label={field.label}
-                                    onChange={(event) => {
-                                        onSelectChange?.(String(params.id), field.id, event.target.value || null)
-                                    }}
-                                    sx={{ py: 0.5 }}
-                                >
-                                    {refOptions.map((option) => (
-                                        <FormControlLabel
-                                            key={`${params.id}-${params.field}-${option.id}`}
-                                            value={option.id}
-                                            control={<Radio size='small' />}
-                                            label={option.label || ' '}
-                                            sx={{ m: 0, '& .MuiFormControlLabel-label': { fontSize: 'inherit', lineHeight: 1.4 } }}
-                                        />
-                                    ))}
-                                </RadioGroup>
-                            )
-                        }
-                    }
-                }
-
-                // Select mode: always-visible Select in renderCell (no edit mode toggle)
-                return {
-                    field: field.id,
-                    headerName: field.label,
-                    flex: 1,
-                    minWidth: 140,
-                    editable: false,
-                    renderCell: (params) => {
-                        const selectedValue = resolveEnumValue(params.value, field, refOptions)
-                        return (
-                            <Select
-                                size='small'
-                                variant='standard'
-                                inputProps={{ 'aria-label': field.label }}
-                                value={selectedValue}
-                                onChange={(event) => {
-                                    const newValue = event.target.value === '' ? null : event.target.value
-                                    onSelectChange?.(String(params.id), field.id, newValue)
-                                }}
-                                fullWidth
-                                displayEmpty
-                                disableUnderline
-                                sx={{
-                                    fontSize: 'inherit',
-                                    minWidth: 0,
-                                    m: 0,
-                                    p: 0,
-                                    backgroundColor: 'transparent',
-                                    borderRadius: 0,
-                                    '&.MuiInputBase-root': {
-                                        backgroundColor: 'transparent',
-                                        border: 'none',
-                                        borderRadius: 0,
-                                        boxShadow: 'none'
-                                    },
-                                    // Remove all visual decoration — only the up/down arrow icon stays
-                                    '& .MuiSelect-select': {
-                                        py: 0,
-                                        pr: '20px !important',
-                                        pl: 0,
-                                        background: 'transparent !important',
-                                        border: 'none !important',
-                                        borderRadius: 0
-                                    },
-                                    '& .MuiSelect-icon': {
-                                        right: 0
-                                    },
-                                    '&:before, &:after': { display: 'none !important' }
-                                }}
-                                MenuProps={{
-                                    slotProps: {
-                                        paper: {
-                                            sx: {
-                                                '& .MuiMenuItem-root': { minHeight: 36 },
-                                                '& .MuiMenuItem-root.Mui-selected': {
-                                                    bgcolor: 'action.selected'
-                                                }
-                                            }
-                                        }
-                                    }
-                                }}
-                            >
-                                {allowEmpty && (
-                                    <MenuItem value='' sx={{ minHeight: 36 }}>
-                                        {'\u00A0'}
-                                    </MenuItem>
-                                )}
-                                {refOptions.map((opt) => (
-                                    <MenuItem key={opt.id} value={opt.id} sx={{ minHeight: 36 }}>
-                                        {opt.label}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        )
-                    },
-                    valueFormatter: (value: unknown) => {
-                        if (!value) return ''
-                        const opt = refOptions.find((o) => o.id === value)
-                        return opt?.label ?? formatRuntimeSafeValue(value, locale)
-                    }
-                }
-            }
             const colDef: GridColDef = {
                 field: field.id,
                 headerName: field.label,
                 flex: 1,
                 minWidth: 120,
-                editable: true,
+                editable: !disabled,
                 type: field.type === 'NUMBER' ? 'number' : field.type === 'BOOLEAN' ? 'boolean' : field.type === 'DATE' ? 'date' : 'string'
             }
 
@@ -993,6 +870,7 @@ export function buildTabularColumns({
                 >
                     <IconButton
                         size='small'
+                        disabled={disabled}
                         onClick={(e) => {
                             e.stopPropagation()
                             if (onOpenRowMenu) {

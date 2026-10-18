@@ -18,7 +18,7 @@ import { isRuntimeEnumerationKind, isRuntimeObjectTargetKind } from '../services
 
 export const getSafeRuntimeChildAttrs = (
     tc: Exclude<Awaited<ReturnType<typeof resolveTabularContext>>, { error: string }>,
-    options: { allowAssessmentOptions?: boolean } = {}
+    options: { allowAssessmentOptions?: boolean; allowSiblingRowSelectKeys?: boolean } = {}
 ): typeof tc.childAttrs =>
     tc.childAttrs.filter((attr) => {
         const uiConfig = attr.ui_config ?? {}
@@ -27,10 +27,15 @@ export const getSafeRuntimeChildAttrs = (
         const dataType = String(attr.data_type ?? '').toUpperCase()
         const isReadableAssessmentOptions =
             options.allowAssessmentOptions === true && dataType === 'JSON' && uiConfig.widget === 'assessmentOptions'
+        const isReadableSiblingRowSelectKey =
+            options.allowSiblingRowSelectKeys === true &&
+            dataType === 'STRING' &&
+            uiConfig.siblingRowSelectKey === true &&
+            uiConfig.generateUuidV7 === true
 
         if (
             !IDENTIFIER_REGEX.test(columnName) ||
-            uiConfig.hidden === true ||
+            (uiConfig.hidden === true && !isReadableSiblingRowSelectKey) ||
             uiConfig.gridHidden === true ||
             uiConfig.formHidden === true ||
             uiConfig.serverOwned === true ||
@@ -265,7 +270,7 @@ export const prepareHierarchyCreateData = (
 }
 
 export const isServerOwnedChildAttr = (attr: { ui_config?: Record<string, unknown> | null }): boolean =>
-    attr.ui_config?.serverOwned === true
+    attr.ui_config?.serverOwned === true || (attr.ui_config?.siblingRowSelectKey === true && attr.ui_config.generateUuidV7 === true)
 
 export const assertNoClientSuppliedServerOwnedChildFields = (
     tc: Exclude<Awaited<ReturnType<typeof resolveTabularContext>>, { error: string }>,

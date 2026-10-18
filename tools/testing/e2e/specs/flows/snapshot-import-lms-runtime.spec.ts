@@ -4,6 +4,7 @@ import type { Locator, Page, Request, Response } from '@playwright/test'
 import { buildVLC, createLocalizedContent } from '@universo-react/utils'
 import { expect, test } from '../../fixtures/test'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
+import { assertLmsQuizGroupingAuthoring } from '../../support/lmsQuizGroupingAuthoring'
 import { createLmsRuntimeBuilderHelpers, expectLmsLinkSortOrderDefault } from '../../support/lmsRuntimeBuilderHelpers'
 import { createLmsRuntimePlayerHelpers } from '../../support/lmsRuntimePlayerHelpers'
 import { expectImportedLmsMarathonRuntime } from '../../support/lmsMarathonImportedRuntimeAssertions'
@@ -37,6 +38,7 @@ import {
     expectNoTechnicalLeakage,
     expectNoVisibleTextPatterns,
     expectSemanticFieldControls,
+    RUNTIME_UX_VIEWPORT_MATRIX,
     waitForLayoutFrame
 } from '../../support/browser/runtimeUx'
 import {
@@ -82,6 +84,7 @@ import {
     LMS_SECONDARY_LINK,
     LMS_WELCOME_PAGE
 } from '../../support/lmsFixtureContract'
+import { LMS_SIXTH_MUSE_SOURCE } from '../../support/lmsSixthMuseFixtureContract'
 import {
     waitForApplicationObjectId,
     waitForApplicationLedgerFactCount,
@@ -116,10 +119,12 @@ async function readImportedQuizQuestionRows(
     workspaceId: string,
     quizIds: string[]
 ): Promise<Map<string, Array<Record<string, unknown>>>> {
-    const [{ tableComponentId, childColumnName: optionsColumn }, { childColumnName: promptColumn }] = await Promise.all([
-        readApplicationTabularChildFieldMetadata(applicationId, 'Quizzes', 'Questions', 'Options'),
-        readApplicationTabularChildFieldMetadata(applicationId, 'Quizzes', 'Questions', 'Prompt')
-    ])
+    const [{ tableComponentId, childColumnName: optionsColumn }, { childColumnName: promptColumn }, { childColumnName: blockKeyColumn }] =
+        await Promise.all([
+            readApplicationTabularChildFieldMetadata(applicationId, 'Quizzes', 'Questions', 'Options'),
+            readApplicationTabularChildFieldMetadata(applicationId, 'Quizzes', 'Questions', 'Prompt'),
+            readApplicationTabularChildFieldMetadata(applicationId, 'Quizzes', 'Questions', 'BlockKey')
+        ])
     const rowsByQuiz = await Promise.all(
         quizIds.map(async (quizId) => {
             const params = new URLSearchParams({ objectCollectionId: quizzesObjectId, workspaceId })
@@ -136,7 +141,49 @@ async function readImportedQuizQuestionRows(
                 items.map((item) => ({
                     ...item,
                     Prompt: item[promptColumn],
-                    Options: item[optionsColumn]
+                    Options: item[optionsColumn],
+                    BlockKey: item[blockKeyColumn]
+                }))
+            ] as const
+        })
+    )
+    return new Map(rowsByQuiz)
+}
+
+async function readImportedQuizBlockRows(
+    api: ApiContext,
+    applicationId: string,
+    quizzesObjectId: string,
+    workspaceId: string,
+    quizIds: string[]
+): Promise<Map<string, Array<Record<string, unknown>>>> {
+    const [
+        { tableComponentId, childColumnName: blockKeyColumn },
+        { childColumnName: titleColumn },
+        { childColumnName: introductionColumn }
+    ] = await Promise.all([
+        readApplicationTabularChildFieldMetadata(applicationId, 'Quizzes', 'Blocks', 'BlockKey'),
+        readApplicationTabularChildFieldMetadata(applicationId, 'Quizzes', 'Blocks', 'Title'),
+        readApplicationTabularChildFieldMetadata(applicationId, 'Quizzes', 'Blocks', 'Introduction')
+    ])
+    const rowsByQuiz = await Promise.all(
+        quizIds.map(async (quizId) => {
+            const params = new URLSearchParams({ objectCollectionId: quizzesObjectId, workspaceId })
+            const response = await sendWithCsrf(
+                api,
+                'GET',
+                `/api/v1/applications/${applicationId}/runtime/rows/${quizId}/tabular/${tableComponentId}?${params.toString()}`
+            )
+            expect(response.status, `Imported quiz ${quizId} blocks must be readable through runtime tabular data`).toBe(200)
+            const payload = (await response.json()) as { items?: Array<Record<string, unknown>> }
+            const items = Array.isArray(payload.items) ? payload.items : []
+            return [
+                quizId,
+                items.map((item) => ({
+                    ...item,
+                    BlockKey: item[blockKeyColumn],
+                    Title: item[titleColumn],
+                    Introduction: item[introductionColumn]
                 }))
             ] as const
         })
@@ -1253,8 +1300,11 @@ async function assertCreateTargetDefaults(options: {
         await expect(dialog.getByRole('textbox', { name: 'Sort Order', exact: true })).toHaveValue('0.00')
         await fillRuntimeBlockEditorField(page, dialog, pageBody)
         await expect(dialog.getByTestId('entity-form-submit')).toBeEnabled()
-        await expectRuntimeUxViewportMatrix(page, `${label} Page create dialog with content`, {
-            beforeEachViewport: async (viewport) => {
+        const originalViewport = page.viewportSize()
+        try {
+            for (const viewport of RUNTIME_UX_VIEWPORT_MATRIX) {
+                await page.setViewportSize({ width: viewport.width, height: viewport.height })
+                await waitForLayoutFrame(page)
                 const dialogHeading = dialog.getByRole('heading').first()
                 const submitButton = dialog.getByTestId('entity-form-submit')
                 const firstField = dialog.getByRole('textbox').first()
@@ -1263,6 +1313,28 @@ async function assertCreateTargetDefaults(options: {
                 const viewportScreenshotPath = screenshotPath.replace(/\.png$/i, `-create-page-${viewportSuffix}`)
 
                 await expect(dialog, `Page create dialog must remain visible at ${viewport.name}`).toBeVisible()
+                // The background is inert and scroll-locked by the open modal. Its page-level overflow is checked before this flow opens.
+                const dialogLayout = await dialog.evaluate((element) => {
+                    const rect = element.getBoundingClientRect()
+                    const content = element.querySelector<HTMLElement>('.MuiDialogContent-root')
+                    return {
+                        left: rect.left,
+                        right: rect.right,
+                        scrollWidth: element.scrollWidth,
+                        clientWidth: element.clientWidth,
+                        contentScrollWidth: content?.scrollWidth ?? 0,
+                        contentClientWidth: content?.clientWidth ?? 0
+                    }
+                })
+                expect(dialogLayout.left, `Page create dialog must start inside ${viewport.name}`).toBeGreaterThanOrEqual(-1)
+                expect(dialogLayout.right, `Page create dialog must fit inside ${viewport.name}`).toBeLessThanOrEqual(viewport.width + 1)
+                expect(dialogLayout.scrollWidth, `Page create dialog must not widen at ${viewport.name}`).toBeLessThanOrEqual(
+                    dialogLayout.clientWidth + 1
+                )
+                expect(
+                    dialogLayout.contentScrollWidth,
+                    `Page create dialog content must not widen at ${viewport.name}`
+                ).toBeLessThanOrEqual(dialogLayout.contentClientWidth + 1)
                 await dialog.evaluate((element) => {
                     const dialogElement = element as HTMLElement
                     const scrollableElements = [dialogElement, ...Array.from(dialogElement.querySelectorAll<HTMLElement>('*'))].filter(
@@ -1295,7 +1367,12 @@ async function assertCreateTargetDefaults(options: {
                 ).toBeInViewport({ ratio: 1 })
                 await expectLocatorFullyFitsViewport(submitButton, `Page create dialog action after scrolling at ${viewport.name}`)
             }
-        })
+        } finally {
+            if (originalViewport) {
+                await page.setViewportSize(originalViewport)
+                await waitForLayoutFrame(page)
+            }
+        }
     } else {
         await expectLmsLinkSortOrderDefault({ dialog, label: `${label} Link target` })
         await expect(dialog.getByRole('combobox', { name: 'Resource Type', exact: true })).toContainText(/^URL$/i)
@@ -3087,14 +3164,14 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         }
 
         const [seededQuizRows, seededAccessLinkRows, seededStudents, seededQuizAttempts, seededQuizResponses] = await Promise.all([
-            waitForApplicationRuntimeRowCount(api, applicationId, quizzesObjectId, LMS_LYCEUM_MARATHON_QUIZ_COUNT, {
+            waitForApplicationRuntimeRowCount(api, applicationId, quizzesObjectId, LMS_LYCEUM_MARATHON_QUIZ_COUNT + 1, {
                 workspaceId: mainWorkspaceId
             }),
             waitForApplicationRuntimeRowCount(
                 api,
                 applicationId,
                 accessLinksObjectId,
-                LMS_DEMO_ACCESS_LINKS.length + LMS_LYCEUM_MARATHON_ACCESS_LINKS.length,
+                LMS_DEMO_ACCESS_LINKS.length + LMS_LYCEUM_MARATHON_ACCESS_LINKS.length + 1,
                 { workspaceId: mainWorkspaceId }
             ),
             waitForApplicationRuntimeRowCount(api, applicationId, studentsObjectId, LMS_DEMO_STUDENTS.length, {
@@ -3138,10 +3215,14 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         }>
         const quizAccessLinkTargets = await readPublishedQuizAccessLinkTargets(applicationId, mainWorkspaceId)
         const quizIds = (marathonQuizRuntime.rows ?? []).flatMap((row) => (typeof row.id === 'string' ? [row.id] : []))
-        const quizQuestionsById = await readImportedQuizQuestionRows(api, applicationId, quizzesObjectId, mainWorkspaceId, quizIds)
+        const [quizQuestionsById, quizBlocksById] = await Promise.all([
+            readImportedQuizQuestionRows(api, applicationId, quizzesObjectId, mainWorkspaceId, quizIds),
+            readImportedQuizBlockRows(api, applicationId, quizzesObjectId, mainWorkspaceId, quizIds)
+        ])
         expectImportedLmsMarathonRuntime({
             quizTable: marathonQuizRuntime,
             quizQuestionsById,
+            quizBlocksById,
             quizAccessLinkTargets,
             studentTable: studentRuntime,
             seededQuizRows,
@@ -3276,6 +3357,68 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await expect(page.getByRole('button', { name: 'Copy link' })).toHaveCount(0)
         await clickRuntimeNavigationItem(page, 'Quizzes')
         await expectRuntimeNavigationItemSelected(page, 'Quizzes')
+        await switchRuntimeLocale(page, 'ru')
+        const russianQuizzesSurface = page.getByRole('grid').first()
+        await expect(russianQuizzesSurface, 'The quiz authoring surface must remain available in Russian').toBeVisible({ timeout: 30_000 })
+        const russianSixthMuseRow = russianQuizzesSurface.getByRole('row').filter({ hasText: LMS_SIXTH_MUSE_SOURCE.title })
+        await expect(russianSixthMuseRow).toHaveCount(1)
+        await russianSixthMuseRow.getByRole('button', { name: /Действия для/u }).click()
+        await page.getByRole('menuitem', { name: 'Редактировать', exact: true }).click()
+        const russianSixthMuseDialog = page
+            .getByRole('dialog')
+            .filter({ has: page.getByRole('heading', { name: 'Редактировать элемент', exact: true }) })
+        await expect(russianSixthMuseDialog).toBeVisible()
+        await expect(russianSixthMuseDialog.getByText('Блоки', { exact: true })).toBeVisible()
+        await expect(russianSixthMuseDialog.getByText('Вопросы', { exact: true })).toBeVisible()
+        await expect(
+            russianSixthMuseDialog.getByRole('checkbox', { name: 'Останавливать таймер на вводных страницах блоков', exact: true })
+        ).toBeVisible()
+        await expect(
+            russianSixthMuseDialog.getByRole('checkbox', { name: 'Нумеровать вопросы внутри каждого блока', exact: true })
+        ).toBeVisible()
+        await expectNoTechnicalLeakage(russianSixthMuseDialog, {
+            label: 'Sixth Muse Russian authoring dialog',
+            checkUuidSubstrings: true,
+            checkOpaqueRuntimeHandles: true
+        })
+        await expect(russianSixthMuseDialog.getByRole('button', { name: 'Сохранить', exact: true })).toBeEnabled()
+        await expect(russianSixthMuseDialog.getByRole('button', { name: 'Отмена', exact: true })).toBeVisible()
+        const russianAuthoringGrids = russianSixthMuseDialog.getByRole('grid')
+        await expect(russianAuthoringGrids).toHaveCount(2)
+        const russianBlockSelector = russianAuthoringGrids.nth(1).getByRole('combobox', { name: 'Блок', exact: true }).first()
+        await expect(russianBlockSelector, 'Question block assignment must expose its Russian accessible label').toBeVisible()
+        await russianBlockSelector.click()
+        for (const block of LMS_SIXTH_MUSE_SOURCE.blocks) {
+            await expect(page.getByRole('option', { name: block.title, exact: true })).toBeVisible()
+        }
+        await expectNoTechnicalLeakage(page.getByRole('listbox'), {
+            label: 'Sixth Muse Russian block options',
+            checkUuidSubstrings: true
+        })
+        const russianSecondBlock = LMS_SIXTH_MUSE_SOURCE.blocks[1]
+        const russianFirstBlock = LMS_SIXTH_MUSE_SOURCE.blocks[0]
+        if (!russianSecondBlock || !russianFirstBlock) throw new Error('Sixth Muse must provide ordered Russian block options')
+        await page.getByRole('option', { name: russianSecondBlock.title, exact: true }).click()
+        await expect(russianBlockSelector).toHaveText(russianSecondBlock.title)
+        await russianBlockSelector.click()
+        await page.getByRole('option', { name: russianFirstBlock.title, exact: true }).click()
+        await expect(russianBlockSelector).toHaveText(russianFirstBlock.title)
+        await russianAuthoringGrids.nth(0).scrollIntoViewIfNeeded()
+        await expect(russianAuthoringGrids.nth(0)).toBeInViewport()
+        await page.screenshot({
+            path: testInfo.outputPath('lms-sixth-muse-authoring-blocks-ru.png'),
+            fullPage: true,
+            animations: 'disabled'
+        })
+        await russianAuthoringGrids.nth(1).scrollIntoViewIfNeeded()
+        await expect(russianAuthoringGrids.nth(1)).toBeInViewport()
+        await page.screenshot({
+            path: testInfo.outputPath('lms-sixth-muse-authoring-questions-ru.png'),
+            fullPage: true,
+            animations: 'disabled'
+        })
+        await russianSixthMuseDialog.getByRole('button', { name: 'Отмена', exact: true }).click()
+        await switchRuntimeLocale(page, 'en')
         await expect(page.getByTestId('runtime-main-content')).toHaveCSS(
             'margin-top',
             '0px',
@@ -3289,6 +3432,360 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         ).toBeVisible({ timeout: 30_000 })
         await expectNoTechnicalLeakage(quizzesSurface, { label: 'LMS quiz authoring records', checkUuidSubstrings: true })
         await page.screenshot({ path: testInfo.outputPath('lms-quiz-authoring-navigation-en.png'), fullPage: true })
+        const sixthMuseRow = quizzesSurface.getByRole('row').filter({ hasText: /Шестая муза|Sixth Muse/u })
+        await expect(sixthMuseRow, 'The imported Sixth Muse quiz must be available in the existing runtime authoring surface').toHaveCount(
+            1
+        )
+        await sixthMuseRow.getByRole('button', { name: /Actions for /u }).click()
+        await page.getByRole('menuitem', { name: 'Edit', exact: true }).click()
+        const sixthMuseEditDialog = page
+            .getByRole('dialog')
+            .filter({ has: page.getByRole('heading', { name: 'Edit element', exact: true }) })
+        await expect(sixthMuseEditDialog, 'Editing Sixth Muse must use the existing generic runtime form').toBeVisible()
+        await expect(sixthMuseEditDialog.getByText('Blocks', { exact: true })).toBeVisible()
+        await expect(sixthMuseEditDialog.getByText('Questions', { exact: true })).toBeVisible()
+        await expect(sixthMuseEditDialog.getByText('Pause timer on block introductions', { exact: true })).toBeVisible()
+        await expect(sixthMuseEditDialog.getByText('Number questions within each block', { exact: true })).toBeVisible()
+        const authoringGrids = sixthMuseEditDialog.getByRole('grid')
+        await expect(authoringGrids, 'The existing quiz form must expose the Blocks and Questions TABLE editors').toHaveCount(2)
+        const blockRows = authoringGrids.nth(0).getByRole('rowgroup').getByRole('row')
+        await expect(blockRows, 'The block TABLE editor must contain the three ordered Sixth Muse blocks').toHaveCount(
+            LMS_SIXTH_MUSE_SOURCE.blocks.length
+        )
+        for (const [index, block] of LMS_SIXTH_MUSE_SOURCE.blocks.entries()) {
+            const row = blockRows.nth(index)
+            await expect(row.getByRole('gridcell').nth(0)).toHaveText(String(index + 1))
+            await expect(
+                row.getByRole('gridcell').nth(1),
+                `The authoring dialog must render block ${index + 1} in the reviewed order`
+            ).toHaveText(block.title)
+        }
+        await expectNoTechnicalLeakage(sixthMuseEditDialog, {
+            label: 'Sixth Muse generic quiz authoring dialog',
+            checkUuidSubstrings: true,
+            checkOpaqueRuntimeHandles: true
+        })
+        const sixthMuseRuntimeRow = (marathonQuizRuntime.rows ?? []).find(
+            (row) =>
+                readLocalizedText(readRuntimeRowValue(row, marathonQuizRuntime.columns ?? [], 'Title', 'title'), 'ru') === 'Шестая муза'
+        )
+        const sixthMuseQuizId = typeof sixthMuseRuntimeRow?.id === 'string' ? sixthMuseRuntimeRow.id : undefined
+        if (!sixthMuseQuizId) throw new Error('The imported Sixth Muse quiz must expose its persisted runtime row')
+        const isSixthMuseParentRowPatch = (response: Response): boolean => {
+            const url = new URL(response.url())
+            return (
+                response.request().method() === 'PATCH' &&
+                url.pathname.startsWith(`/api/v1/applications/${applicationId}/runtime/rows/`) &&
+                url.pathname.split('/').length === 8
+            )
+        }
+        const pauseTimerPolicy = sixthMuseEditDialog.getByRole('checkbox', {
+            name: 'Pause timer on block introductions',
+            exact: true
+        })
+        const blockRelativeNumberingPolicy = sixthMuseEditDialog.getByRole('checkbox', {
+            name: 'Number questions within each block',
+            exact: true
+        })
+        await expect(pauseTimerPolicy).not.toBeChecked()
+        await expect(blockRelativeNumberingPolicy).not.toBeChecked()
+        const saveSixthMusePolicies = async (expectedPaused: boolean, expectedBlockRelative: boolean): Promise<void> => {
+            const updateResponsePromise = waitForSettledMutationResponse(page, isSixthMuseParentRowPatch, {
+                label: 'Saving Sixth Muse quiz policies'
+            })
+            await sixthMuseEditDialog.getByRole('button', { name: 'Save', exact: true }).click()
+            const updateResponse = await updateResponsePromise
+            expect(updateResponse.status(), 'Saving Sixth Muse settings through the generic form must succeed').toBe(200)
+            await expect(sixthMuseEditDialog).toHaveCount(0)
+            const updatedRuntime = (await getApplicationRuntime(api, applicationId, {
+                objectId: quizzesObjectId,
+                workspaceId: mainWorkspaceId,
+                limit: 100,
+                offset: 0
+            })) as { columns?: Array<{ field?: unknown; codename?: unknown }>; rows?: Array<Record<string, unknown>> }
+            const updatedQuiz = (updatedRuntime.rows ?? []).find((row) => row.id === sixthMuseQuizId)
+            expect(updatedQuiz, 'The saved Sixth Muse quiz must remain available in runtime records').toBeTruthy()
+            expect(
+                readRuntimeRowValue(updatedQuiz as Record<string, unknown>, updatedRuntime.columns ?? [], 'PauseTimerOnBlockIntro')
+            ).toBe(expectedPaused)
+            expect(
+                readRuntimeRowValue(updatedQuiz as Record<string, unknown>, updatedRuntime.columns ?? [], 'BlockRelativeNumbering')
+            ).toBe(expectedBlockRelative)
+        }
+
+        await pauseTimerPolicy.check()
+        await blockRelativeNumberingPolicy.check()
+        await saveSixthMusePolicies(true, true)
+        await sixthMuseRow.getByRole('button', { name: /Actions for /u }).click()
+        await page.getByRole('menuitem', { name: 'Edit', exact: true }).click()
+        await expect(sixthMuseEditDialog).toBeVisible()
+        await expect(pauseTimerPolicy).toBeChecked()
+        await expect(blockRelativeNumberingPolicy).toBeChecked()
+        await pauseTimerPolicy.uncheck()
+        await blockRelativeNumberingPolicy.uncheck()
+        await saveSixthMusePolicies(false, false)
+
+        const firstSourceBlock = LMS_SIXTH_MUSE_SOURCE.blocks[0]
+        const secondSourceBlock = LMS_SIXTH_MUSE_SOURCE.blocks[1]
+        const firstSourceQuestion = firstSourceBlock?.questions[0]
+        if (!firstSourceBlock || !secondSourceBlock || !firstSourceQuestion) {
+            throw new Error('Sixth Muse must include its first question in each of the first two blocks')
+        }
+        const [questionRowsByQuiz, blockRowsByQuiz] = await Promise.all([
+            readImportedQuizQuestionRows(api, applicationId, quizzesObjectId, mainWorkspaceId, [sixthMuseQuizId]),
+            readImportedQuizBlockRows(api, applicationId, quizzesObjectId, mainWorkspaceId, [sixthMuseQuizId])
+        ])
+        const initialQuestionRows = questionRowsByQuiz.get(sixthMuseQuizId) ?? []
+        const targetQuestionRow = initialQuestionRows.find(
+            (row) => readLocalizedText(row.Prompt, 'ru') === firstSourceQuestion.runtimePrompt
+        )
+        const storedBlockRows = blockRowsByQuiz.get(sixthMuseQuizId) ?? []
+        const firstStoredBlock = storedBlockRows.find((row) => readLocalizedText(row.Title, 'en') === firstSourceBlock.title)
+        const secondStoredBlock = storedBlockRows.find((row) => readLocalizedText(row.Title, 'en') === secondSourceBlock.title)
+        if (
+            !targetQuestionRow ||
+            typeof targetQuestionRow.BlockKey !== 'string' ||
+            typeof firstStoredBlock?.BlockKey !== 'string' ||
+            typeof secondStoredBlock?.BlockKey !== 'string'
+        ) {
+            throw new Error('Sixth Muse authoring rows must expose the first question and the first two semantic block keys')
+        }
+        const originalBlockKey = targetQuestionRow.BlockKey
+        expect(originalBlockKey, 'The first source question must initially belong to the first block').toBe(firstStoredBlock.BlockKey)
+
+        const originalIntroduction = firstSourceBlock.introduction
+        if (typeof originalIntroduction !== 'string' || !originalIntroduction) {
+            throw new Error('The first Sixth Muse block must contain a reviewed introduction for authoring coverage')
+        }
+        await sixthMuseRow.getByRole('button', { name: /Actions for /u }).click()
+        await page.getByRole('menuitem', { name: 'Edit', exact: true }).click()
+        await expect(sixthMuseEditDialog).toBeVisible()
+        const firstBlockIntroductionCell = () =>
+            authoringGrids.nth(0).getByRole('rowgroup').getByRole('row').nth(0).getByRole('gridcell').nth(2)
+        const editFirstBlockIntroduction = async (value: string): Promise<void> => {
+            const cell = firstBlockIntroductionCell()
+            await cell.scrollIntoViewIfNeeded()
+            await cell.dblclick()
+            const introductionEditor = sixthMuseEditDialog.getByRole('textbox', { name: 'Introduction', exact: true })
+            await expect(introductionEditor, 'The Introduction field must use a multiline editor').toBeVisible()
+            expect(await introductionEditor.evaluate((element) => element.tagName)).toBe('TEXTAREA')
+            await introductionEditor.fill(value)
+            await introductionEditor.press('Tab')
+            await expect(cell).toContainText(value)
+        }
+        const saveBlockIntroduction = async (): Promise<void> => {
+            const updateResponsePromise = waitForSettledMutationResponse(page, isSixthMuseParentRowPatch, {
+                label: 'Saving Sixth Muse block introduction'
+            })
+            await sixthMuseEditDialog.getByRole('button', { name: 'Save', exact: true }).click()
+            const updateResponse = await updateResponsePromise
+            const updateResponseBody = await updateResponse.text()
+            expect(
+                updateResponse.status(),
+                `Saving the block introduction through the generic form must succeed: ${updateResponseBody}`
+            ).toBe(200)
+            await expect(sixthMuseEditDialog).toHaveCount(0)
+        }
+        const assertPersistedBlockIntroduction = async (expected: string): Promise<void> => {
+            const rows =
+                (await readImportedQuizBlockRows(api, applicationId, quizzesObjectId, mainWorkspaceId, [sixthMuseQuizId])).get(
+                    sixthMuseQuizId
+                ) ?? []
+            const row = rows.find((candidate) => readLocalizedText(candidate.Title, 'ru') === firstSourceBlock.title)
+            expect(readLocalizedText(row?.Introduction, 'en')).toBe(expected)
+            expect(readLocalizedText(row?.Introduction, 'ru')).toBe(originalIntroduction)
+        }
+        const authoredIntroduction = `${originalIntroduction}\nPersistence check.`
+        await editFirstBlockIntroduction(authoredIntroduction)
+        await saveBlockIntroduction()
+        await assertPersistedBlockIntroduction(authoredIntroduction)
+
+        await sixthMuseRow.getByRole('button', { name: /Actions for /u }).click()
+        await page.getByRole('menuitem', { name: 'Edit', exact: true }).click()
+        await expect(sixthMuseEditDialog).toBeVisible()
+        await expect(firstBlockIntroductionCell()).toContainText(authoredIntroduction)
+        await editFirstBlockIntroduction(originalIntroduction)
+        await saveBlockIntroduction()
+        await assertPersistedBlockIntroduction(originalIntroduction)
+
+        await sixthMuseRow.getByRole('button', { name: /Actions for /u }).click()
+        await page.getByRole('menuitem', { name: 'Edit', exact: true }).click()
+        await expect(sixthMuseEditDialog).toBeVisible()
+        const questionBlockSelector = authoringGrids.nth(1).getByRole('combobox', { name: 'Block' }).first()
+        await expect(questionBlockSelector, 'Each question must use the generic sibling-row Block selector').toBeVisible()
+        await questionBlockSelector.click()
+        for (const block of LMS_SIXTH_MUSE_SOURCE.blocks) {
+            await expect(page.getByRole('option', { name: block.title, exact: true })).toBeVisible()
+        }
+        await expectNoTechnicalLeakage(page.getByRole('listbox'), {
+            label: 'Sixth Muse block options',
+            checkUuidSubstrings: true
+        })
+        const reassignedBlock = secondSourceBlock
+        await page.getByRole('option', { name: reassignedBlock.title, exact: true }).click()
+        await expect(questionBlockSelector).toHaveText(reassignedBlock.title)
+        await expectNoTechnicalLeakage(sixthMuseEditDialog, {
+            label: 'Sixth Muse generic quiz authoring dialog',
+            checkUuidSubstrings: true,
+            checkOpaqueRuntimeHandles: true
+        })
+        const saveQuestionBlockAssignment = async (): Promise<void> => {
+            const updateResponsePromise = waitForSettledMutationResponse(page, isSixthMuseParentRowPatch, {
+                label: 'Saving Sixth Muse question block assignment'
+            })
+            await sixthMuseEditDialog.getByRole('button', { name: 'Save', exact: true }).click()
+            const updateResponse = await updateResponsePromise
+            expect(updateResponse.status(), 'Saving a question block assignment through the generic form must succeed').toBe(200)
+            await expect(sixthMuseEditDialog).toHaveCount(0)
+        }
+        await saveQuestionBlockAssignment()
+        const reassignedQuestionRows =
+            (await readImportedQuizQuestionRows(api, applicationId, quizzesObjectId, mainWorkspaceId, [sixthMuseQuizId])).get(
+                sixthMuseQuizId
+            ) ?? []
+        const reassignedQuestionRow = reassignedQuestionRows.find(
+            (row) => readLocalizedText(row.Prompt, 'ru') === firstSourceQuestion.runtimePrompt
+        )
+        expect(reassignedQuestionRow?.BlockKey, 'The first source question must persist its reassigned semantic block key').toBe(
+            secondStoredBlock.BlockKey
+        )
+
+        await sixthMuseRow.getByRole('button', { name: /Actions for /u }).click()
+        await page.getByRole('menuitem', { name: 'Edit', exact: true }).click()
+        await expect(sixthMuseEditDialog).toBeVisible()
+        const persistedQuestionBlockSelector = sixthMuseEditDialog.getByRole('grid').nth(1).getByRole('combobox', { name: 'Block' }).first()
+        await expect(persistedQuestionBlockSelector).toHaveText(reassignedBlock.title)
+        await persistedQuestionBlockSelector.click()
+        await page.getByRole('option', { name: firstSourceBlock.title, exact: true }).click()
+        await expect(persistedQuestionBlockSelector).toHaveText(firstSourceBlock.title)
+        await saveQuestionBlockAssignment()
+        const restoredQuestionRows =
+            (await readImportedQuizQuestionRows(api, applicationId, quizzesObjectId, mainWorkspaceId, [sixthMuseQuizId])).get(
+                sixthMuseQuizId
+            ) ?? []
+        const restoredQuestionRow = restoredQuestionRows.find(
+            (row) => readLocalizedText(row.Prompt, 'ru') === firstSourceQuestion.runtimePrompt
+        )
+        expect(restoredQuestionRow?.BlockKey, 'The source block assignment must be restored after the authoring flow').toBe(
+            originalBlockKey
+        )
+
+        await sixthMuseRow.getByRole('button', { name: /Actions for /u }).click()
+        await page.getByRole('menuitem', { name: 'Edit', exact: true }).click()
+        await expect(sixthMuseEditDialog).toBeVisible()
+        await expect(sixthMuseEditDialog.getByRole('grid').nth(1).getByRole('combobox', { name: 'Block' }).first()).toHaveText(
+            firstSourceBlock.title
+        )
+
+        await page.setViewportSize({ width: 1920, height: 1080 })
+        await expectNoPageHorizontalOverflow(page, 'Sixth Muse authoring dialog at 1920px')
+        await page.screenshot({
+            path: testInfo.outputPath('lms-sixth-muse-authoring-blocks-en.png'),
+            fullPage: true,
+            animations: 'disabled'
+        })
+        for (const viewport of [
+            { name: 'mobile', width: 390, height: 844 },
+            { name: 'tablet', width: 768, height: 1024 }
+        ]) {
+            await page.setViewportSize({ width: viewport.width, height: viewport.height })
+            await expectNoPageHorizontalOverflow(page, `Sixth Muse authoring page at ${viewport.width}px`)
+            await expect(sixthMuseEditDialog).toBeVisible()
+            const dialogBounds = await sixthMuseEditDialog.boundingBox()
+            expect(dialogBounds, `Sixth Muse authoring dialog must render at ${viewport.width}px`).not.toBeNull()
+            expect(dialogBounds!.x, `Sixth Muse authoring dialog must fit the left edge at ${viewport.width}px`).toBeGreaterThanOrEqual(0)
+            expect(
+                dialogBounds!.x + dialogBounds!.width,
+                `Sixth Muse authoring dialog must fit the right edge at ${viewport.width}px`
+            ).toBeLessThanOrEqual(viewport.width)
+            const dialogContent = await sixthMuseEditDialog.locator('.MuiDialogContent-root').evaluate((element) => ({
+                scrollWidth: element.scrollWidth,
+                clientWidth: element.clientWidth
+            }))
+            expect(
+                dialogContent.scrollWidth,
+                `Sixth Muse authoring dialog content must not overflow at ${viewport.width}px`
+            ).toBeLessThanOrEqual(dialogContent.clientWidth)
+            const questionGrid = authoringGrids.nth(1)
+            await questionGrid.scrollIntoViewIfNeeded()
+            await expect(questionGrid, `The question editor must be reachable in the ${viewport.name} dialog`).toBeInViewport()
+            const questionGridScroller = questionGrid.locator('.MuiDataGrid-virtualScroller')
+            const initialScrollState = await questionGridScroller.evaluate((element) => ({
+                clientWidth: element.clientWidth,
+                scrollWidth: element.scrollWidth,
+                scrollLeft: element.scrollLeft
+            }))
+            expect(initialScrollState.scrollWidth, `Question columns must remain reachable at ${viewport.width}px`).toBeGreaterThan(
+                initialScrollState.clientWidth
+            )
+            expect(initialScrollState.scrollLeft).toBe(0)
+            await expect(questionGrid.getByRole('columnheader').first()).toBeInViewport()
+            await questionGridScroller.evaluate((element) => {
+                element.scrollLeft = element.scrollWidth
+                element.dispatchEvent(new Event('scroll', { bubbles: true }))
+            })
+            await expect
+                .poll(() => questionGridScroller.evaluate((element) => element.scrollLeft + element.clientWidth >= element.scrollWidth - 2))
+                .toBe(true)
+            const rightmostQuestionHeader = questionGrid.getByRole('columnheader').last()
+            await expect(rightmostQuestionHeader, `The rightmost question column must be visible at ${viewport.width}px`).toBeInViewport()
+            const [questionGridBounds, rightmostHeaderBounds] = await Promise.all([
+                questionGrid.boundingBox(),
+                rightmostQuestionHeader.boundingBox()
+            ])
+            expect(questionGridBounds).not.toBeNull()
+            expect(rightmostHeaderBounds, `The last question column must be reachable at ${viewport.width}px`).not.toBeNull()
+            expect(rightmostHeaderBounds!.x).toBeGreaterThanOrEqual(questionGridBounds!.x - 1)
+            expect(rightmostHeaderBounds!.x + rightmostHeaderBounds!.width).toBeLessThanOrEqual(
+                questionGridBounds!.x + questionGridBounds!.width + 1
+            )
+            await expectNoPageHorizontalOverflow(page, `Sixth Muse authoring scrolled to last question column at ${viewport.width}px`)
+            await page.screenshot({
+                path: testInfo.outputPath(`lms-sixth-muse-authoring-blocks-en-${viewport.name}-right.png`),
+                fullPage: true,
+                animations: 'disabled'
+            })
+            await questionGridScroller.evaluate((element) => {
+                element.scrollLeft = 0
+                element.dispatchEvent(new Event('scroll', { bubbles: true }))
+            })
+            await expect(questionGrid.getByRole('columnheader').first()).toBeInViewport()
+            await page.screenshot({
+                path: testInfo.outputPath(`lms-sixth-muse-authoring-blocks-en-${viewport.name}.png`),
+                fullPage: true,
+                animations: 'disabled'
+            })
+        }
+        await page.setViewportSize({ width: 1920, height: 1080 })
+        await sixthMuseEditDialog.getByRole('button', { name: 'Cancel' }).click()
+        const flatQuizTitle = 'Lyceum Intellectual Marathon — Grade 5'
+        const flatQuizRow = (marathonQuizRuntime.rows ?? []).find(
+            (row) =>
+                readLocalizedText(readRuntimeRowValue(row, marathonQuizRuntime.columns ?? [], 'Title', 'title'), 'en') === flatQuizTitle
+        )
+        if (typeof flatQuizRow?.id !== 'string') throw new Error('The flat grade quiz must be available for grouping authoring')
+        const flatQuizId = flatQuizRow.id
+        await assertLmsQuizGroupingAuthoring({
+            page,
+            quizzesSurface,
+            quizTitle: flatQuizTitle,
+            testInfo,
+            isParentPatch: (response) => {
+                const url = new URL(response.url())
+                return (
+                    response.request().method() === 'PATCH' &&
+                    url.pathname.startsWith(`/api/v1/applications/${applicationId}/runtime/rows/`) &&
+                    url.pathname.split('/').length === 8
+                )
+            },
+            readState: async () => {
+                const [blocks, questions] = await Promise.all([
+                    readImportedQuizBlockRows(api, applicationId, quizzesObjectId, mainWorkspaceId, [flatQuizId]),
+                    readImportedQuizQuestionRows(api, applicationId, quizzesObjectId, mainWorkspaceId, [flatQuizId])
+                ])
+                return { blocks: blocks.get(flatQuizId) ?? [], questions: questions.get(flatQuizId) ?? [] }
+            }
+        })
         await page.goto(`/a/${applicationId}`)
         await expect(page.getByRole('heading', { name: LMS_WELCOME_PAGE.title.en })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByTestId('runtime-page-progress')).toContainText('Reading progress 0%', { timeout: 30_000 })

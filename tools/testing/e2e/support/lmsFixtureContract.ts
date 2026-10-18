@@ -12,6 +12,17 @@ export {
     LMS_LYCEUM_MARATHON_TIME_LIMIT_SECONDS
 } from './lmsMarathonFixtureContract.ts'
 
+export {
+    assertLmsSixthMuseSeedRowsContract,
+    buildLmsSixthMuseQuizRecord,
+    LMS_SIXTH_MUSE_ACCESS_LINK,
+    LMS_SIXTH_MUSE_ACCESS_POLICY,
+    LMS_SIXTH_MUSE_OPTION_COUNT,
+    LMS_SIXTH_MUSE_QUESTION_COUNT,
+    LMS_SIXTH_MUSE_QUIZ_KEY,
+    LMS_SIXTH_MUSE_SOURCE
+} from './lmsSixthMuseFixtureContract.ts'
+
 export const LMS_FIXTURE_FILENAME = 'metahubs-lms-app-snapshot.json'
 
 export { LMS_CANONICAL_METAHUB, LMS_PUBLICATION, LMS_WELCOME_PAGE, LMS_SAMPLE_LINK, LMS_SECONDARY_LINK } from './lmsFixtureDataOverview.ts'

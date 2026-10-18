@@ -18,6 +18,11 @@ export function createPublicApplicationsRoutes(
     router.get('/public/a/:applicationId/runtime', readLimiter, asyncHandler(guest.getRuntime))
     router.post('/public/a/:applicationId/runtime/attempts/start', writeLimiter, asyncHandler(guest.startGuestAssessmentAttempt))
     router.get('/public/a/:applicationId/runtime/attempts/:attemptId', readLimiter, asyncHandler(guest.getGuestAssessmentAttempt))
+    router.post(
+        '/public/a/:applicationId/runtime/attempts/:attemptId/continue',
+        writeLimiter,
+        asyncHandler(guest.continueGuestAssessmentAttempt)
+    )
     router.put('/public/a/:applicationId/runtime/attempts/:attemptId/answers', writeLimiter, asyncHandler(guest.saveGuestAssessmentAnswer))
     router.post(
         '/public/a/:applicationId/runtime/attempts/:attemptId/finalize',

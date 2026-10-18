@@ -13,6 +13,8 @@ import {
     toGuestAssessmentAttemptState,
     type AssessmentAttemptQuestion
 } from '../../services/assessmentAttemptLifecycle'
+import { assessmentAttemptFlowSnapshotSchema, parseAssessmentAttemptRuntimeState } from '../../services/assessmentAttemptFlow'
+import { getAssessmentAttemptRemainingMs } from '../../services/assessmentAttemptTiming'
 import type { PublicGuestRuntimeConfig } from '../../services/publicGuestRuntimeConfig'
 import type { GuestAssessmentAccessLink } from './accessLinkTypes'
 import { normalizeAccessLinkDate, normalizeAccessLinkNumber } from './shared'
@@ -22,8 +24,12 @@ export type { GuestAssessmentAccessLink } from './accessLinkTypes'
 type GuestAssessmentQuizPayload = {
     type: 'quiz'
     completionText: string
+    completionTextSource?: unknown
     questionCount: number
     questions: unknown[]
+    blocks?: Array<{ key: string; title: string; introduction: string | null; sortOrder: number }>
+    pauseTimerOnBlockIntro?: boolean
+    blockRelativeNumbering?: boolean
     maxAttempts: number | null
     timeLimitSeconds: number | null
     passingScorePercent: number | null
@@ -82,7 +88,7 @@ export type GuestAssessmentAttemptHandlerDependencies = {
         locale: string,
         workspaceId?: string | null,
         includeQuestions?: boolean,
-        options?: { lockParentRecord?: boolean }
+        options?: { lockParentRecord?: boolean; includeCompletionTextSource?: boolean }
     ) => Promise<GuestAssessmentQuizPayload | null>
     resolveGuestAssessmentRuntimeTables: typeof resolveGuestAssessmentRuntimeTables
     lockPublicApplicationForGuestAssessment: (executor: DbExecutor, applicationId: string) => Promise<boolean>
@@ -106,8 +112,7 @@ export type GuestAssessmentAttemptHandlerDependencies = {
 }
 
 export const createGuestAssessmentAttemptSupport = (dependencies: GuestAssessmentAttemptHandlerDependencies) => {
-    const { validateGuestSession, setPublicWorkspaceContext, loadAccessLinkRecordBy, buildQuizPayload, maxGuestSessionTokenLength } =
-        dependencies
+    const { validateGuestSession, setPublicWorkspaceContext, loadAccessLinkRecordBy, maxGuestSessionTokenLength } = dependencies
     const MAX_GUEST_ANSWER_ID_LENGTH = 128
     const guestAttemptSessionSchema = z.object({
         participantId: z.string().uuid(),
@@ -135,6 +140,35 @@ export const createGuestAssessmentAttemptSupport = (dependencies: GuestAssessmen
         return assessmentAttemptQuestionsSchema.parse(decoded)
     }
 
+    const parseAssessmentAttemptFlowSnapshot = (value: unknown) => {
+        let decoded = value
+        if (typeof value === 'string') {
+            try {
+                decoded = JSON.parse(value)
+            } catch {
+                throw new Error('Stored assessment flow snapshot is invalid')
+            }
+        }
+        return assessmentAttemptFlowSnapshotSchema.parse(decoded)
+    }
+
+    const parseAttemptRuntime = (attempt: Record<string, unknown>) => {
+        const questions = parseAssessmentAttemptSnapshot(attempt.questionsSnapshot)
+        const flow = parseAssessmentAttemptFlowSnapshot(attempt.flowSnapshot)
+        const runtimeState = parseAssessmentAttemptRuntimeState({
+            phase: String(attempt.phase ?? ''),
+            phaseRevision: normalizeAccessLinkNumber(attempt.phaseRevision) ?? Number.NaN,
+            timerState: String(attempt.timerState ?? ''),
+            deadlineAt: normalizeAccessLinkDate(attempt.deadlineAt),
+            frozenRemainingMs: normalizeAccessLinkNumber(attempt.frozenRemainingMs),
+            effectiveTimeLimitSeconds: Math.floor(normalizeAccessLinkNumber(attempt.effectiveTimeLimitSeconds) ?? 0),
+            status: String(attempt.status ?? ''),
+            flow,
+            questionBlockKeys: questions.map((question) => question.blockKey)
+        })
+        return { questions, flow, runtimeState }
+    }
+
     const parseSelectedOptionIds = (value: unknown): string[] => {
         let decoded = value
         if (typeof value === 'string') {
@@ -152,10 +186,9 @@ export const createGuestAssessmentAttemptSupport = (dependencies: GuestAssessmen
         attemptTable: GuestAssessmentAttemptTable,
         responseTable: GuestAssessmentResponseTable,
         attempt: Record<string, unknown> & { id: string },
-        locale: string,
-        completionText: string
+        locale: string
     ) => {
-        const questions = parseAssessmentAttemptSnapshot(attempt.questionsSnapshot)
+        const { questions, flow, runtimeState } = parseAttemptRuntime(attempt)
         const storedResponses = await listGuestAssessmentResponses(executor, responseTable, attempt.id)
         const answeredQuestionIds = storedResponses.map((response) => String(response.questionId))
         const rawStatus = String(attempt.status ?? 'Started')
@@ -173,20 +206,35 @@ export const createGuestAssessmentAttemptSupport = (dependencies: GuestAssessmen
         const publicStatus =
             rawStatus.toLowerCase() === 'started' ? 'in_progress' : rawStatus.toLowerCase() === 'timedout' ? 'timed_out' : 'completed'
         const startedAt = normalizeAccessLinkDate(attempt.startedAt) ?? new Date(0).toISOString()
+        const serverNow = new Date()
+        const remainingMs = getAssessmentAttemptRemainingMs(
+            {
+                timerState: runtimeState.timerState,
+                deadlineAt: runtimeState.deadlineAt,
+                frozenRemainingMs: runtimeState.frozenRemainingMs
+            },
+            serverNow
+        )
         const state = toGuestAssessmentAttemptState({
             attemptId: attempt.id,
             attemptNumber: normalizeAccessLinkNumber(attempt.attemptNumber) ?? 1,
             status: publicStatus,
             startedAt,
-            deadlineAt: normalizeAccessLinkDate(attempt.deadlineAt),
+            deadlineAt: runtimeState.deadlineAt,
             questions,
             answeredQuestionIds,
-            result,
-            completionText: isRevoked ? '' : completionText
+            flow,
+            phase: runtimeState.phase,
+            phaseRevision: runtimeState.phaseRevision,
+            timerState: runtimeState.timerState,
+            remainingMs,
+            locale,
+            result
         })
         return {
             ...state,
-            serverNow: new Date().toISOString(),
+            ...(isRevoked ? { completionText: '' } : {}),
+            serverNow: serverNow.toISOString(),
             locale
         }
     }
@@ -259,28 +307,17 @@ export const createGuestAssessmentAttemptSupport = (dependencies: GuestAssessmen
         )
     }
 
-    const getAttemptCompletionText = async (
-        executor: DbExecutor,
-        schemaName: string,
-        config: PublicGuestRuntimeConfig,
-        link: GuestAssessmentAccessLink,
-        assessmentId: string,
-        locale: string
-    ): Promise<string> => {
-        const payload = await buildQuizPayload(executor, schemaName, config, assessmentId, false, locale, link.workspaceId)
-        return payload?.type === 'quiz' ? payload.completionText : ''
-    }
-
     return {
         guestAttemptSessionSchema,
         startGuestAssessmentAttemptSchema,
         answerGuestAssessmentQuestionSchema,
         parseAssessmentAttemptSnapshot,
+        parseAssessmentAttemptFlowSnapshot,
+        parseAttemptRuntime,
         parseSelectedOptionIds,
         toGuestAttemptState,
         resolveGuestAttemptAccess,
-        revalidateGuestAttemptAccess,
-        getAttemptCompletionText
+        revalidateGuestAttemptAccess
     }
 }
 

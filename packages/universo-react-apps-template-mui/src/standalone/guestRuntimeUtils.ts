@@ -66,6 +66,36 @@ export const normalizeGuestQuizAttempt = (value: unknown, fallbackAttemptId = ''
         return null
     }
 
+    const phase = value.phase
+    const phaseRevision = value.phaseRevision
+    const timerState = value.timerState
+    const remainingMs = value.remainingMs
+    const numberingMode = value.numberingMode
+    const currentBlock =
+        value.currentBlock === null
+            ? null
+            : isRecord(value.currentBlock) &&
+              typeof value.currentBlock.title === 'string' &&
+              typeof value.currentBlock.introduction === 'string'
+            ? { title: value.currentBlock.title, introduction: value.currentBlock.introduction }
+            : undefined
+
+    if (
+        (phase !== 'block_intro' && phase !== 'question') ||
+        typeof phaseRevision !== 'number' ||
+        !Number.isSafeInteger(phaseRevision) ||
+        phaseRevision < 0 ||
+        (timerState !== 'untimed' && timerState !== 'running' && timerState !== 'paused') ||
+        (remainingMs !== null && (typeof remainingMs !== 'number' || !Number.isFinite(remainingMs) || remainingMs < 0)) ||
+        (timerState === 'untimed' ? remainingMs !== null : typeof remainingMs !== 'number') ||
+        (numberingMode !== 'global' && numberingMode !== 'block') ||
+        currentBlock === undefined ||
+        (value.status === 'in_progress' && phase === 'block_intro' && currentBlock === null) ||
+        (value.status !== 'in_progress' && value.status !== 'completed' && value.status !== 'timed_out' && value.status !== 'revoked')
+    ) {
+        return null
+    }
+
     if (value.status === 'completed' || value.status === 'timed_out' || value.status === 'revoked') {
         const rawResult = isRecord(value.result) ? value.result : value
         const resultDetails = isRecord(rawResult.result) ? rawResult.result : rawResult
@@ -122,6 +152,12 @@ export const normalizeGuestQuizAttempt = (value: unknown, fallbackAttemptId = ''
             attemptId,
             attemptNumber: normalizePositiveInteger(value.attemptNumber),
             status: 'completed',
+            phase,
+            phaseRevision,
+            timerState,
+            remainingMs,
+            numberingMode,
+            currentBlock,
             currentQuestionIndex: normalizedTotal,
             totalQuestions: normalizedTotal,
             answeredCount: Math.min(answeredCount, normalizedTotal),
@@ -150,15 +186,17 @@ export const normalizeGuestQuizAttempt = (value: unknown, fallbackAttemptId = ''
         totalQuestions === null ||
         answeredCount === null ||
         currentQuestionIndex > totalQuestions ||
-        answeredCount !== currentQuestionIndex
+        answeredCount !== currentQuestionIndex ||
+        (phase === 'block_intro' && currentQuestionIndex >= totalQuestions)
     ) {
         return null
     }
     if (
         (typeof value.deadlineAt === 'string' && !Number.isFinite(Date.parse(value.deadlineAt))) ||
         !Number.isFinite(Date.parse(value.serverNow)) ||
-        (currentQuestionIndex < totalQuestions && value.questions.length !== 1) ||
-        (currentQuestionIndex === totalQuestions && value.questions.length !== 0)
+        (phase === 'block_intro' && value.questions.length !== 0) ||
+        (phase === 'question' && currentQuestionIndex < totalQuestions && value.questions.length !== 1) ||
+        (phase === 'question' && currentQuestionIndex === totalQuestions && value.questions.length !== 0)
     ) {
         return null
     }
@@ -169,6 +207,7 @@ export const normalizeGuestQuizAttempt = (value: unknown, fallbackAttemptId = ''
             !isRecord(rawQuestion) ||
             typeof rawQuestion.id !== 'string' ||
             typeof rawQuestion.prompt !== 'string' ||
+            typeof rawQuestion.displayNumber !== 'string' ||
             !Array.isArray(rawQuestion.options)
         ) {
             return null
@@ -182,13 +221,19 @@ export const normalizeGuestQuizAttempt = (value: unknown, fallbackAttemptId = ''
             options.push({ id: rawOption.id, label: rawOption.label })
         }
 
-        questions.push({ id: rawQuestion.id, prompt: rawQuestion.prompt, options })
+        questions.push({ id: rawQuestion.id, prompt: rawQuestion.prompt, displayNumber: rawQuestion.displayNumber, options })
     }
 
     return {
         attemptId,
         attemptNumber: normalizePositiveInteger(value.attemptNumber),
         status: 'in_progress',
+        phase,
+        phaseRevision,
+        timerState,
+        remainingMs,
+        numberingMode,
+        currentBlock,
         currentQuestionIndex,
         totalQuestions,
         answeredCount,
@@ -201,17 +246,11 @@ export const normalizeGuestQuizAttempt = (value: unknown, fallbackAttemptId = ''
 }
 
 export const getInitialRemainingSeconds = (attempt: GuestQuizAttempt) => {
-    if (!attempt.deadlineAt || !attempt.serverNow) {
+    if (attempt.timerState === 'untimed' || attempt.remainingMs === null) {
         return null
     }
 
-    const deadline = Date.parse(attempt.deadlineAt)
-    const serverNow = Date.parse(attempt.serverNow)
-    if (!Number.isFinite(deadline) || !Number.isFinite(serverNow)) {
-        return 0
-    }
-
-    return Math.max(0, Math.ceil((deadline - serverNow) / 1000))
+    return Math.max(0, Math.ceil(attempt.remainingMs / 1000))
 }
 
 export const getGuestAttemptStorageKey = (applicationId: string, slug: string, participantId: string, assessmentId: string) =>

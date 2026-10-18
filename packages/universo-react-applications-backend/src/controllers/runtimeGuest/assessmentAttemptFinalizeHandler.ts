@@ -22,7 +22,6 @@ export const createFinalizeGuestAssessmentAttemptHandler = (
     } = dependencies
     const {
         guestAttemptSessionSchema,
-        getAttemptCompletionText,
         parseAssessmentAttemptSnapshot,
         resolveGuestAttemptAccess,
         revalidateGuestAttemptAccess,
@@ -105,14 +104,6 @@ export const createFinalizeGuestAssessmentAttemptHandler = (
                         parsed.data.participantId,
                         'submitted'
                     )) ?? attempt
-                const completionText = await getAttemptCompletionText(
-                    tx,
-                    ctx.schemaName,
-                    config,
-                    currentLink,
-                    String(finalizedAttempt.quizId),
-                    locale
-                )
                 return {
                     responseStatus: 200 as const,
                     attemptState: await toGuestAttemptState(
@@ -120,8 +111,7 @@ export const createFinalizeGuestAssessmentAttemptHandler = (
                         persistence.attemptTable,
                         persistence.responseTable,
                         finalizedAttempt,
-                        locale,
-                        completionText
+                        locale
                     )
                 }
             })

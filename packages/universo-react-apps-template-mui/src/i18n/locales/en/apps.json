@@ -75,6 +75,10 @@
     "tabular": {
         "addRow": "Add Row",
         "delete": "Delete",
+        "siblingSelectPlaceholder": "Select an item",
+        "siblingNoOptions": "No items available",
+        "siblingNoSelectableOptions": "Items exist, but none has a usable label",
+        "siblingUnavailable": "Selected item is unavailable",
         "noRows": "No rows yet. Click \"Add Row\" to start.",
         "editTitle": "Edit Row",
         "createTitle": "New Row",
@@ -95,10 +99,12 @@
         "copyChildTables": "Copy child tables",
         "copyChildTablesRequiredHint": "This option is required because at least one child table is mandatory.",
         "errorFetch": "Failed to load rows",
+        "retry": "Retry",
         "errorCreate": "Failed to create row",
         "errorUpdate": "Failed to update row",
         "errorDelete": "Failed to delete row",
-        "errorCopy": "Failed to copy row"
+        "errorCopy": "Failed to copy row",
+        "groupingTablesHidden": "Related tables required for grouping are hidden. Contact an application administrator."
     },
     "table": {
         "editAfterSave": "Table data can be edited after saving the element.",
@@ -800,9 +806,14 @@
         "quizAttemptResumed": "Your saved quiz attempt has been restored. Continue with the next unanswered question.",
         "quizTimeLimit": "You have {{minutes}} minutes to complete this quiz.",
         "quizNoTimeLimit": "There is no time limit for this quiz.",
+        "quizTimerPaused": "The timer is paused. Your remaining time will stay frozen until you continue.",
         "quizTimedOutResult": "Time expired. Your saved answers were scored.",
         "quizTimeRemaining": "Time remaining",
-        "quizProgress": "Question {{current}} of {{total}}",
+        "quizAnsweredProgress": "{{answered}} of {{total}} questions answered",
+        "quizQuestionDisplayNumber": "Question {{number}}",
+        "continueQuiz": "Continue",
+        "continuingQuiz": "Loading the next question...",
+        "retryQuizContinue": "Retry continue",
         "quizSelectAnswer": "Choose an answer to continue.",
         "quizKeyboardSubmitHint": "Use Space or Enter to submit the focused answer.",
         "quizChooseAnswerToConfirm": "Choose an answer, then confirm to continue.",
@@ -847,6 +858,7 @@
             "quizAttemptStart": "Failed to start the quiz.",
             "quizAttemptLoad": "Failed to load or resume your quiz attempt.",
             "quizAnswerSave": "Failed to save your answer.",
+            "quizContinue": "Failed to continue to the next quiz question.",
             "quizFinalize": "Failed to finish the quiz."
         }
     },

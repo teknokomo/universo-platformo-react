@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import appsEn from '../../i18n/locales/en/apps.json'
 import appsRu from '../../i18n/locales/ru/apps.json'
+import commonEn from '@universo-react/i18n/locales/en/common.json'
+import commonRu from '@universo-react/i18n/locales/ru/common.json'
 import {
     RUNTIME_RULE_ERROR_KEYS,
     RUNTIME_RULE_ERROR_MESSAGES,
@@ -50,8 +52,9 @@ describe('runtimeErrors', () => {
     it('resolves the rule codes from the shared apps bundles in both locales', () => {
         for (const code of Object.keys(RUNTIME_RULE_ERROR_KEYS)) {
             const key = RUNTIME_RULE_ERROR_KEYS[code] ?? ''
-            const english = readNestedValue(appsEn, key)
-            const russian = readNestedValue(appsRu, key)
+            const [namespace, path] = key.includes(':') ? key.split(':', 2) : ['apps', key]
+            const english = readNestedValue(namespace === 'common' ? commonEn.common : appsEn, path ?? '')
+            const russian = readNestedValue(namespace === 'common' ? commonRu.common : appsRu, path ?? '')
             expect(typeof english, `${code} English translation`).toBe('string')
             expect(typeof russian, `${code} Russian translation`).toBe('string')
             expect(russian).not.toBe(english)
@@ -81,6 +84,10 @@ describe('runtimeErrors', () => {
             'at least one guest identity field'
         )
         expect(resolveRuntimeRuleErrorMessage({ code: 'RUNTIME_ACCESS_LINK_INTAKE_POLICY_INVALID' }, 'ru')).toContain('хотя бы одно поле')
+        expect(resolveRuntimeRuleErrorMessage({ code: 'RUNTIME_SIBLING_TARGET_UNREFERENCED' }, 'en')).toContain('Each group')
+        expect(resolveRuntimeRuleErrorMessage({ code: 'RUNTIME_SIBLING_TARGET_UNREFERENCED' }, 'ru')).toContain('в каждую группу')
+        expect(resolveRuntimeRuleErrorMessage({ code: 'RUNTIME_SIBLING_TARGET_MISSING' }, 'ru')).toContain('существующей группе')
+        expect(resolveRuntimeRuleErrorMessage({ code: 'RUNTIME_SIBLING_TARGET_IN_USE' }, 'ru')).toContain('удалением группы')
         expect(
             extractRuntimeErrorMessage(
                 {

@@ -516,6 +516,9 @@ export type RuntimeAccessEntryConfig = z.infer<typeof runtimeAccessEntryConfigSc
 export const isRuntimeServerOwnedAttr = (attr: { ui_config?: Record<string, unknown> | null }): boolean =>
     attr.ui_config?.serverOwned === true
 
+export const isRuntimeGeneratedSiblingRowKeyAttr = (attr: { ui_config?: Record<string, unknown> | null }): boolean =>
+    attr.ui_config?.siblingRowSelectKey === true && attr.ui_config.generateUuidV7 === true
+
 export const readRuntimeRecordAccessConfig = (config: Record<string, unknown> | null | undefined): RuntimeRecordAccessConfig | null => {
     const parsed = runtimeRecordAccessConfigSchema.safeParse(config?.runtimeRecordAccess)
     return parsed.success ? parsed.data : null

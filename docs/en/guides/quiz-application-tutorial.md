@@ -9,6 +9,7 @@ By the end, you will have a metahub-hosted quiz widget module, a layout that ren
 
 The quiz application remains intentionally independent from the LMS template.
 In the LMS MVP, the same quiz widget can be embedded from a learning-content item, but the committed quiz fixture and tutorial still represent the standalone modules-powered quiz path.
+For the entity-backed LMS assessment flow, including anonymous access and question blocks, see the [LMS Guest Access guide](lms-guest-access.md).
 
 ## Before You Start
 

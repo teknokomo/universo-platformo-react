@@ -35,6 +35,11 @@ import {
     validateTabularCoordinates,
     validateTabularHierarchy
 } from './runtimeChildRowsValidation'
+import {
+    prepareGeneratedSiblingRowKeys,
+    validateExistingSiblingRowSelectsForTarget,
+    validateSiblingRowSelectTargets
+} from './runtimeChildRowsSiblingValidation'
 import { loadRuntimeChildParentRecord } from './runtimeChildRowParentAccess'
 import { createRuntimeChildRowCopyDeleteHandlers } from './runtimeChildRowCopyDeleteHandlers'
 import { isRuntimeChildParentReference, resolveRuntimeChildParentRecordId } from './runtimeChildRowParentReference'
@@ -159,7 +164,8 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
         )
 
         const safeChildAttrs = getSafeRuntimeChildAttrs(tc, {
-            allowAssessmentOptions: ctx.permissions.editContent === true || ctx.permissions.manageApplication === true
+            allowAssessmentOptions: ctx.permissions.editContent === true || ctx.permissions.manageApplication === true,
+            allowSiblingRowSelectKeys: ctx.permissions.editContent === true || ctx.permissions.manageApplication === true
         })
         const hierarchyAttrs = resolveHierarchyAttrs(tc)
         const selectedColumns = new Set(safeChildAttrs.map((attr) => attr.column_name))
@@ -262,7 +268,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
             if (error instanceof UpdateFailure) return res.status(error.statusCode).json(error.body)
             throw error
         }
-        const data = prepareHierarchyCreateData(tc, clientData)
+        const data = prepareHierarchyCreateData(tc, prepareGeneratedSiblingRowKeys(tc, clientData))
         const sortOrder = typeof data._tp_sort_order === 'number' ? data._tp_sort_order : 0
 
         const colNames: string[] = ['_tp_parent_id', '_tp_sort_order']
@@ -413,6 +419,15 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 }
                 await validateTabularHierarchy(tx, tc, recordId, runtimeRowCondition, [{ data: effectiveCreateData }])
                 await validateTabularCoordinates(tx, tc, recordId, runtimeRowCondition, [{ data: effectiveCreateData }])
+                await validateSiblingRowSelectTargets(
+                    tx,
+                    ctx.schemaIdent,
+                    tc,
+                    recordId,
+                    runtimeRowCondition,
+                    [{ data: effectiveCreateData }],
+                    { isCreate: true }
+                )
 
                 const { minRows, maxRows } = getTableRowLimits(tc.tableAttr.validation_rules)
                 const activeCountRows = (await tx.query(
@@ -434,7 +449,8 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 }
 
                 const safeChildAttrs = getSafeRuntimeChildAttrs(tc, {
-                    allowAssessmentOptions: ctx.permissions.editContent === true || ctx.permissions.manageApplication === true
+                    allowAssessmentOptions: ctx.permissions.editContent === true || ctx.permissions.manageApplication === true,
+                    allowSiblingRowSelectKeys: ctx.permissions.editContent === true || ctx.permissions.manageApplication === true
                 })
                 const returningCols = [
                     'id',
@@ -452,6 +468,8 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 if (!row?.id) {
                     throw new UpdateFailure(500, { error: 'Failed to create child row' })
                 }
+
+                await validateExistingSiblingRowSelectsForTarget(tx, ctx.schemaIdent, tc, recordId, runtimeRowCondition)
 
                 const item: Record<string, unknown> & { id: string } = {
                     id: String(row.id),
@@ -568,6 +586,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
                 await validateTabularHierarchy(tx, tc, recordId, runtimeRowCondition, [{ childRowId, data }])
                 await validateTabularCoordinates(tx, tc, recordId, runtimeRowCondition, [{ childRowId, data }])
+                await validateSiblingRowSelectTargets(tx, ctx.schemaIdent, tc, recordId, runtimeRowCondition, [{ childRowId, data }])
 
                 const update = await buildChildRowUpdate(tx, ctx.schemaIdent, tc, data, ctx.userId, ctx.workspacesEnabled)
                 if ('error' in update) throw new UpdateFailure(400, update.error)
@@ -593,7 +612,10 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                     values
                 )) as Array<{ id: string }>
 
-                if (updated.length > 0) return
+                if (updated.length > 0) {
+                    await validateExistingSiblingRowSelectsForTarget(tx, ctx.schemaIdent, tc, recordId, runtimeRowCondition)
+                    return
+                }
 
                 const childRows = (await tx.query(
                     `
@@ -713,6 +735,10 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                     ...uniformUpdates.flatMap((group) => group.rows.map((row) => ({ childRowId: row.childRowId, data: group.data })))
                 ])
                 await validateTabularCoordinates(tx, tc, recordId, runtimeRowCondition, [
+                    ...parsedBody.data.updates.map((update) => ({ childRowId: update.childRowId, data: update.data })),
+                    ...uniformUpdates.flatMap((group) => group.rows.map((row) => ({ childRowId: row.childRowId, data: group.data })))
+                ])
+                await validateSiblingRowSelectTargets(tx, ctx.schemaIdent, tc, recordId, runtimeRowCondition, [
                     ...parsedBody.data.updates.map((update) => ({ childRowId: update.childRowId, data: update.data })),
                     ...uniformUpdates.flatMap((group) => group.rows.map((row) => ({ childRowId: row.childRowId, data: group.data })))
                 ])
@@ -933,6 +959,8 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                         })
                     }
                 }
+
+                await validateExistingSiblingRowSelectsForTarget(tx, ctx.schemaIdent, tc, recordId, runtimeRowCondition)
 
                 return requestedChildRowIds
             })

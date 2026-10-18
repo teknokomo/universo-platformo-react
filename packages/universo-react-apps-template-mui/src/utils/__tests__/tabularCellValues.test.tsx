@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { buildCellStylePreviewSx, buildTabularColumns, isHiddenTabularField } from '../tabularColumns'
 import {
     buildInitialTabularRowValues,
+    buildTabularSiblingRowOptions,
     getTabularStringDisplayValue,
     isLocalizedStringField,
+    normalizeTabularRowOrdering,
     normalizeTabularRowValues
 } from '../tabularCellValues'
 
@@ -30,6 +33,70 @@ describe('tabularCellValues', () => {
                 }
             })
         ).toBe(true)
+    })
+
+    it('generates UUID v7 values for any STRING child field marked generateUuidV7', () => {
+        const row = buildInitialTabularRowValues([
+            { id: 'generated-key-id', codename: 'BlockKey', type: 'STRING', uiConfig: { generateUuidV7: true, serverOwned: true } },
+            { id: 'ordinary-key-id', codename: 'AnotherKey', type: 'STRING', uiConfig: { serverOwned: true } }
+        ])
+
+        expect(row['generated-key-id']).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
+        expect(row['ordinary-key-id']).toBeNull()
+    })
+
+    it('builds sibling selector options from localized sibling row labels and stores only the semantic key', () => {
+        const semanticKey = '0199a9b5-3cde-7abc-8def-0123456789ab'
+        const options = buildTabularSiblingRowOptions(
+            {
+                id: 'QuestionBlockKey',
+                codename: 'BlockKey',
+                label: 'Block',
+                type: 'STRING',
+                uiConfig: {
+                    siblingRowSelect: {
+                        tableCodename: 'Blocks',
+                        valueFieldCodename: 'BlockKey',
+                        labelFieldCodename: 'Title'
+                    }
+                }
+            },
+            {
+                Blocks: {
+                    rows: [
+                        {
+                            BlockKey: semanticKey,
+                            Title: {
+                                _schema: '1',
+                                _primary: 'ru',
+                                locales: { ru: { content: 'Вступление', version: 1, isActive: true } }
+                            }
+                        }
+                    ],
+                    childFields: [
+                        { id: 'BlockKey', codename: 'BlockKey' },
+                        { id: 'Title', codename: 'Title' }
+                    ]
+                }
+            },
+            'ru'
+        )
+
+        expect(options).toEqual([{ id: semanticKey, label: 'Вступление' }])
+        expect(options[0].label).not.toContain(semanticKey)
+    })
+
+    it('normalizes configured row order values after a table reorder', () => {
+        const rows = normalizeTabularRowOrdering(
+            [{ title: 'Second' }, { title: 'First' }],
+            { orderFieldCodename: 'SortOrder', labelFieldCodename: 'Title' },
+            [{ id: 'order-id', codename: 'SortOrder' }]
+        )
+
+        expect(rows).toEqual([
+            { title: 'Second', 'order-id': 1 },
+            { title: 'First', 'order-id': 2 }
+        ])
     })
 
     it('renders localized child STRING values as text instead of object stringification', () => {
@@ -249,7 +316,7 @@ describe('tabularCellValues', () => {
                 codename: 'CellId',
                 label: 'Cell ID',
                 type: 'STRING' as const,
-                uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true }
+                uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true, generateUuidV7: true }
             },
             {
                 id: 'ColKey',
@@ -725,5 +792,92 @@ describe('tabularCellValues', () => {
         )
 
         expect(screen.getByText('dashed')).toBeInTheDocument()
+    })
+
+    it('renders sibling TABLE selector labels and emits the semantic key without displaying it', async () => {
+        const user = userEvent.setup()
+        const semanticKey = '0199a9b5-3cde-7abc-8def-0123456789ab'
+        const onSelectChange = vi.fn()
+        const columns = buildTabularColumns({
+            childFields: [
+                {
+                    id: 'question-block-id',
+                    codename: 'BlockKey',
+                    label: 'Block',
+                    type: 'STRING' as const,
+                    uiConfig: {
+                        siblingRowSelect: {
+                            tableCodename: 'Blocks',
+                            valueFieldCodename: 'BlockKey',
+                            labelFieldCodename: 'Title'
+                        }
+                    }
+                }
+            ],
+            siblingTableValues: {
+                Blocks: {
+                    rows: [
+                        { 'block-key-id': semanticKey, 'block-title-id': 'Opening' },
+                        { 'block-key-id': '0199a9b5-3cde-7abc-8def-0123456789ac', 'block-title-id': 'Second block' }
+                    ],
+                    childFields: [
+                        { id: 'block-key-id', codename: 'BlockKey' },
+                        { id: 'block-title-id', codename: 'Title' }
+                    ]
+                }
+            },
+            rowNumberById: new Map([['question-1', 1]]),
+            onDeleteRow: vi.fn(),
+            onSelectChange,
+            locale: 'en'
+        })
+        const blockColumn = columns.find((column) => column.field === 'question-block-id')
+
+        render(<>{blockColumn?.renderCell?.({ id: 'question-1', field: 'question-block-id', value: semanticKey } as never)}</>)
+
+        expect(screen.getByRole('combobox', { name: 'Block' })).toHaveTextContent('Opening')
+        expect(screen.queryByText(semanticKey)).not.toBeInTheDocument()
+        await user.click(screen.getByRole('combobox', { name: 'Block' }))
+        await user.click(await screen.findByRole('option', { name: 'Second block' }))
+
+        expect(onSelectChange).toHaveBeenCalledWith('question-1', 'question-block-id', '0199a9b5-3cde-7abc-8def-0123456789ac')
+        expect(screen.getByRole('combobox', { name: 'Block' })).toHaveTextContent('Opening')
+    })
+
+    it('hides server-owned generated key fields from visible TABLE columns', () => {
+        const field = {
+            id: 'opaque-id',
+            codename: 'BlockKey',
+            label: 'Block key',
+            type: 'STRING' as const,
+            uiConfig: { hidden: true, serverOwned: true, generateUuidV7: true }
+        }
+        const columns = buildTabularColumns({
+            childFields: [field],
+            rowNumberById: new Map(),
+            onDeleteRow: vi.fn()
+        })
+
+        expect(isHiddenTabularField(field)).toBe(true)
+        expect(columns.some((column) => column.field === field.id)).toBe(false)
+    })
+
+    it('never exposes a raw REF identity when display options are unavailable', () => {
+        const rawReferenceId = '0199a9b5-3cde-7abc-8def-0123456789ab'
+        const field = { id: 'RelatedRecord', label: 'Target', type: 'REF' as const }
+        const columns = buildTabularColumns({
+            childFields: [field],
+            rowNumberById: new Map([['row-1', 1]]),
+            onDeleteRow: vi.fn(),
+            locale: 'en',
+            siblingUnavailableLabel: 'Selected reference is unavailable'
+        })
+        const targetColumn = columns.find((column) => column.field === field.id)
+
+        expect(targetColumn?.editable).toBe(false)
+        render(<>{targetColumn?.renderCell?.({ id: 'row-1', field: field.id, value: rawReferenceId } as never)}</>)
+
+        expect(screen.getByText('Selected reference is unavailable')).toBeInTheDocument()
+        expect(screen.queryByText(rawReferenceId)).not.toBeInTheDocument()
     })
 })

@@ -5,6 +5,7 @@ import {
     ensureLocalSupabaseProject,
     getExcludeArgs,
     getLocalSupabaseProfile,
+    getSupabaseCliEnvironment,
     runSupabaseCli
 } from './profiles.mjs'
 
@@ -15,7 +16,9 @@ export function runLocalSupabaseAction({ action, target = 'dev', stack = 'full' 
     if (action === 'start') {
         const project = ensureLocalSupabaseProject(profile)
         ensureLocalNetwork(profile.networkId)
-        const output = runSupabaseCli(profile, ['start', '--network-id', profile.networkId, ...getExcludeArgs(normalizedStack)])
+        const output = runSupabaseCli(profile, ['start', '--network-id', profile.networkId, ...getExcludeArgs(normalizedStack)], {
+            env: getSupabaseCliEnvironment(profile, action)
+        })
         return {
             output,
             message: [

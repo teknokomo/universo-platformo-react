@@ -16,6 +16,11 @@ export type GuestAssessmentAttemptColumns = {
     finishedReason: string
     questionsSnapshot: string
     questionSetDigest: string
+    flowSnapshot: string
+    phase: string
+    phaseRevision: string
+    timerState: string
+    frozenRemainingMs: string
     accessLinkId: string
     classIdSnapshot: string
     score: string
@@ -95,6 +100,11 @@ const attemptSelect = (table: GuestAssessmentAttemptTable) => {
         `${quoteColumn(columns.finishedReason)} AS "finishedReason"`,
         `${quoteColumn(columns.questionsSnapshot)} AS "questionsSnapshot"`,
         `${quoteColumn(columns.questionSetDigest)} AS "questionSetDigest"`,
+        `${quoteColumn(columns.flowSnapshot)} AS "flowSnapshot"`,
+        `${quoteColumn(columns.phase)} AS "phase"`,
+        `${quoteColumn(columns.phaseRevision)} AS "phaseRevision"`,
+        `${quoteColumn(columns.timerState)} AS "timerState"`,
+        `${quoteColumn(columns.frozenRemainingMs)} AS "frozenRemainingMs"`,
         `${quoteColumn(columns.accessLinkId)} AS "accessLinkId"`,
         `${quoteColumn(columns.score)} AS "score"`,
         `${quoteColumn(columns.totalQuestions)} AS "totalQuestions"`,
@@ -137,6 +147,7 @@ export const listExpiredGuestAssessmentAttemptIdentities = async (
                 ${quoteColumn(table.columns.deadlineAt)} AS "deadlineAt"
          FROM ${qSchemaTable(table.schemaName, table.tableName)}
          WHERE ${quoteColumn(table.columns.status)} = 'Started'
+           AND ${quoteColumn(table.columns.timerState)} = 'running'
            AND ${quoteColumn(table.columns.deadlineAt)} IS NOT NULL
            AND ${quoteColumn(table.columns.deadlineAt)} <= $1
            ${cursorClause}

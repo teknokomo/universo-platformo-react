@@ -1,7 +1,6 @@
 import type { Request, Response } from 'express'
 import type { DbExecutor } from '@universo-react/utils'
 import { withTransactionSavepoint } from '@universo-react/utils/database'
-import { generateChildTableName } from '@universo-react/schema-ddl'
 import { assertRuntimeRecordMutable } from '../../services/runtimeRecordBehavior'
 import {
     dispatchRuntimeLifecycle,
@@ -13,21 +12,18 @@ import {
     RUNTIME_WRITABLE_TYPES,
     UpdateFailure,
     buildRuntimeActiveRowCondition,
+    buildRuntimeDeletedRowCondition,
+    buildRuntimeRestoreSetClause,
     buildRuntimeSoftDeleteSetClause,
     coerceRuntimeValue,
     ensureEnumerationValueBelongsToTarget,
     ensureRuntimePermission,
     formatRuntimeFieldLabel,
-    formatRuntimeFieldPath,
-    getDefaultEnumValueId,
     getEnumPresentationMode,
     getRuntimeInputValue,
     getSetConstantConfig,
-    getTableRowCountError,
-    getTableRowLimits,
     isSoftDeleteLifecycle,
     normalizeConfiguredRuntimeJsonValue,
-    normalizeRuntimeTableChildInsertValue,
     quoteIdentifier,
     resolveRefId,
     resolveRuntimeCodenameText,
@@ -76,13 +72,10 @@ import {
 import { resolveRuntimeRelationOwnedFieldCodenames } from '../../services/runtimeRowSupport/list'
 import { lockGuestAccessLinkWorkspace, revokeGuestSessionsForAccessLink } from '../../services/guestAccessLinkRevocation'
 
-import { insertRuntimeChildRowsBatch } from './tableChildren'
-import type {
-    RuntimeRowWriteDeps,
-    RuntimeWriteResolvedObjectCollection,
-    RuntimeWriteTableDataEntry,
-    RuntimeTableChildAttrRow
-} from './types'
+import { buildBulkUpdateTableEntries, replaceRuntimeTableChildRows } from './bulkUpdateTableChildren'
+export { buildBulkUpdateTableEntries, prepareBulkUpdateTableChildRows, replaceRuntimeTableChildRows } from './bulkUpdateTableChildren'
+
+import type { RuntimeRowWriteDeps, RuntimeWriteResolvedObjectCollection, RuntimeWriteTableDataEntry } from './types'
 import { isRuntimeRecordReference, resolveRuntimeRecordReference } from '../../services/runtimeRecordHandle'
 
 export const buildBulkUpdateScalarPatch = async (params: {
@@ -155,263 +148,6 @@ export const buildBulkUpdateScalarPatch = async (params: {
     }
 
     return { kind: 'ok', setClauses, values, normalizedPatchByColumn, paramIndex }
-}
-
-export const prepareBulkUpdateTableChildRows = async (params: {
-    manager: DbExecutor
-    schemaIdent: string
-    tableFieldPath: string
-    tableAttr: RuntimeObjectCollectionAttr
-    childRows: Array<Record<string, unknown>>
-    childAttrs: RuntimeTableChildAttrRow[]
-}): Promise<
-    { kind: 'ok'; rows: Array<Record<string, unknown>> } | { kind: 'failure'; statusCode: number; body: Record<string, unknown> }
-> => {
-    const preparedRows: Array<Record<string, unknown>> = []
-
-    for (let rowIdx = 0; rowIdx < params.childRows.length; rowIdx++) {
-        const rowData = params.childRows[rowIdx]
-        if (!rowData || typeof rowData !== 'object' || Array.isArray(rowData)) {
-            return {
-                kind: 'failure',
-                statusCode: 400,
-                body: { error: `Invalid row ${rowIdx + 1} for ${params.tableFieldPath}: row must be an object` }
-            }
-        }
-
-        const preparedRow: Record<string, unknown> = {}
-
-        for (const cAttr of params.childAttrs) {
-            if (!IDENTIFIER_REGEX.test(cAttr.column_name)) continue
-
-            const childFieldPath = formatRuntimeFieldPath(params.tableAttr.codename, cAttr.codename)
-            if (hasRuntimeServerOwnedInput(rowData, cAttr)) {
-                return { kind: 'failure', statusCode: 400, body: { error: `Field is server-owned: ${childFieldPath}` } }
-            }
-            const isEnumRef = cAttr.data_type === 'REF' && isRuntimeEnumerationKind(cAttr.target_object_kind)
-            const { hasUserValue: hasChildUserValue, value: childInputValue } = getRuntimeInputValue(
-                rowData,
-                cAttr.column_name,
-                cAttr.codename
-            )
-            let cRaw = childInputValue
-
-            if (isEnumRef && getEnumPresentationMode(cAttr.ui_config) === 'label' && hasChildUserValue) {
-                return { kind: 'failure', statusCode: 400, body: { error: `Field is read-only: ${childFieldPath}` } }
-            }
-
-            if (cRaw === undefined && isEnumRef && typeof cAttr.target_object_id === 'string') {
-                const defaultEnumValueId = getDefaultEnumValueId(cAttr.ui_config)
-                if (defaultEnumValueId) {
-                    try {
-                        await ensureEnumerationValueBelongsToTarget(
-                            params.manager,
-                            params.schemaIdent,
-                            defaultEnumValueId,
-                            cAttr.target_object_id
-                        )
-                        cRaw = defaultEnumValueId
-                    } catch (error) {
-                        if (error instanceof Error && error.message === 'Enumeration value does not belong to target enumeration') {
-                            cRaw = undefined
-                        } else {
-                            throw error
-                        }
-                    }
-                }
-            }
-
-            const childSetConstantConfig =
-                cAttr.data_type === 'REF' && isRuntimeSetKind(cAttr.target_object_kind) ? getSetConstantConfig(cAttr.ui_config) : null
-            if (childSetConstantConfig) {
-                const providedRefId = resolveRefId(cRaw)
-                if (!providedRefId) {
-                    cRaw = childSetConstantConfig.id
-                } else if (providedRefId !== childSetConstantConfig.id) {
-                    return { kind: 'failure', statusCode: 400, body: { error: `Field is read-only: ${childFieldPath}` } }
-                } else {
-                    cRaw = childSetConstantConfig.id
-                }
-            }
-
-            if (cRaw === undefined || cRaw === null) {
-                if (cAttr.is_required && cAttr.data_type !== 'BOOLEAN') {
-                    let defaultValue: unknown
-                    switch (cAttr.data_type) {
-                        case 'STRING':
-                            defaultValue = ''
-                            break
-                        case 'NUMBER':
-                            defaultValue = 0
-                            break
-                        default:
-                            defaultValue = ''
-                    }
-                    preparedRow[cAttr.column_name] = defaultValue
-                }
-                continue
-            }
-
-            try {
-                const cCoerced = normalizeConfiguredRuntimeJsonValue(
-                    coerceRuntimeValue(cRaw, cAttr.data_type, cAttr.validation_rules),
-                    cAttr
-                )
-
-                if (isEnumRef && typeof cAttr.target_object_id === 'string' && cCoerced) {
-                    await ensureEnumerationValueBelongsToTarget(
-                        params.manager,
-                        params.schemaIdent,
-                        String(cCoerced),
-                        cAttr.target_object_id
-                    )
-                }
-
-                preparedRow[cAttr.column_name] = normalizeRuntimeTableChildInsertValue(cCoerced, cAttr.data_type, cAttr.validation_rules)
-            } catch (err) {
-                const formatError = toRuntimeInputFormatErrorBody(err)
-                if (formatError) return { kind: 'failure', statusCode: 400, body: formatError }
-                return {
-                    kind: 'failure',
-                    statusCode: 400,
-                    body: { error: `Invalid value for ${childFieldPath}: ${err instanceof Error ? err.message : String(err)}` }
-                }
-            }
-        }
-
-        preparedRows.push(preparedRow)
-    }
-
-    return { kind: 'ok', rows: preparedRows }
-}
-
-export const buildBulkUpdateTableEntries = async (params: {
-    manager: DbExecutor
-    schemaIdent: string
-    data: Record<string, unknown>
-    tableAttrs: RuntimeObjectCollectionAttr[]
-}): Promise<
-    { kind: 'ok'; entries: RuntimeWriteTableDataEntry[] } | { kind: 'failure'; statusCode: number; body: Record<string, unknown> }
-> => {
-    const tableDataEntries: RuntimeWriteTableDataEntry[] = []
-
-    for (const tAttr of params.tableAttrs) {
-        const tableFieldPath = formatRuntimeFieldPath(tAttr.codename)
-        const { hasUserValue, value: raw } = getRuntimeInputValue(params.data, tAttr.column_name, tAttr.codename)
-        if (!hasUserValue) continue
-        if (raw !== undefined && raw !== null && !Array.isArray(raw)) {
-            return {
-                kind: 'failure',
-                statusCode: 400,
-                body: { error: `Invalid value for ${tableFieldPath}: TABLE value must be an array` }
-            }
-        }
-
-        const childRows = Array.isArray(raw) ? (raw as Array<Record<string, unknown>>) : []
-        const rowCountError = getTableRowCountError(childRows.length, tableFieldPath, getTableRowLimits(tAttr.validation_rules))
-        if (rowCountError) {
-            return { kind: 'failure', statusCode: 400, body: { error: rowCountError } }
-        }
-
-        const fallbackTabTableName = generateChildTableName(tAttr.id)
-        const tabTableName =
-            typeof tAttr.column_name === 'string' && IDENTIFIER_REGEX.test(tAttr.column_name) ? tAttr.column_name : fallbackTabTableName
-        if (!IDENTIFIER_REGEX.test(tabTableName)) {
-            return { kind: 'failure', statusCode: 400, body: { error: `Invalid tabular table name for ${tableFieldPath}` } }
-        }
-
-        const childAttrsResult = (await params.manager.query(
-            `
-      SELECT id, codename, column_name, data_type, is_required, validation_rules,
-             target_object_id, target_object_kind, ui_config
-      FROM ${params.schemaIdent}._app_components
-      WHERE parent_component_id = $1
-        AND _upl_deleted = false
-        AND _app_deleted = false
-      ORDER BY sort_order ASC
-    `,
-            [tAttr.id]
-        )) as RuntimeTableChildAttrRow[]
-
-        const preparedResult = await prepareBulkUpdateTableChildRows({
-            manager: params.manager,
-            schemaIdent: params.schemaIdent,
-            tableFieldPath,
-            tableAttr: tAttr,
-            childRows,
-            childAttrs: childAttrsResult
-        })
-        if (preparedResult.kind !== 'ok') return preparedResult
-
-        tableDataEntries.push({
-            tabTableName,
-            rows: preparedResult.rows,
-            childAttrsByColumn: new Map(
-                childAttrsResult.map((childAttr) => [
-                    childAttr.column_name,
-                    {
-                        column_name: childAttr.column_name,
-                        data_type: childAttr.data_type,
-                        validation_rules: childAttr.validation_rules
-                    }
-                ])
-            )
-        })
-    }
-
-    return { kind: 'ok', entries: tableDataEntries }
-}
-
-export const replaceRuntimeTableChildRows = async (params: {
-    executor: DbExecutor
-    schemaIdent: string
-    userId: string
-    workspacesEnabled: boolean
-    currentWorkspaceId: string | null
-    runtimeRowCondition: string
-    runtimeDeleteSetClause: string | null
-    parentRowId: string
-    entries: RuntimeWriteTableDataEntry[]
-}): Promise<void> => {
-    for (const { tabTableName, rows: childRows, childAttrsByColumn } of params.entries) {
-        const tabTableIdent = `${params.schemaIdent}.${quoteIdentifier(tabTableName)}`
-
-        if (params.runtimeDeleteSetClause) {
-            await params.executor.query(
-                `
-          UPDATE ${tabTableIdent}
-          SET ${params.runtimeDeleteSetClause},
-              _upl_version = COALESCE(_upl_version, 1) + 1
-          WHERE _tp_parent_id = $2
-            AND ${params.runtimeRowCondition}
-        `,
-                [params.userId, params.parentRowId]
-            )
-        } else {
-            await params.executor.query(
-                `
-          DELETE FROM ${tabTableIdent}
-          WHERE _tp_parent_id = $1
-            AND ${params.runtimeRowCondition}
-        `,
-                [params.parentRowId]
-            )
-        }
-
-        if (childRows.length > 0) {
-            await insertRuntimeChildRowsBatch({
-                executor: params.executor,
-                schemaIdent: params.schemaIdent,
-                tabTableName,
-                parentRowId: params.parentRowId,
-                childRows,
-                childAttrsByColumn,
-                workspacesEnabled: params.workspacesEnabled,
-                currentWorkspaceId: params.currentWorkspaceId,
-                userId: params.userId
-            })
-        }
-    }
 }
 
 export const executeBulkUpdateStatement = async (params: {
@@ -501,11 +237,23 @@ export const executeBulkUpdateStatement = async (params: {
     await replaceRuntimeTableChildRows({
         executor: params.executor,
         schemaIdent: params.ctx.schemaIdent,
+        objectCollectionId: params.objectCollection.id,
         userId: params.ctx.userId,
         workspacesEnabled: params.ctx.workspacesEnabled,
         currentWorkspaceId: params.ctx.currentWorkspaceId,
         runtimeRowCondition: params.runtimeRowCondition,
         runtimeDeleteSetClause: params.runtimeDeleteSetClause,
+        runtimeDeletedRowCondition: params.runtimeDeleteSetClause
+            ? buildRuntimeDeletedRowCondition(
+                  params.objectCollection.lifecycleContract,
+                  params.objectCollection.config,
+                  undefined,
+                  params.ctx.currentWorkspaceId
+              )
+            : null,
+        runtimeRestoreSetClause: params.runtimeDeleteSetClause
+            ? buildRuntimeRestoreSetClause('$1', params.objectCollection.lifecycleContract, params.objectCollection.config)
+            : null,
         parentRowId: params.rowId,
         entries: params.tableDataEntries
     })

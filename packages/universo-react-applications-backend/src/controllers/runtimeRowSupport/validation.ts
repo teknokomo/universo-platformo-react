@@ -12,6 +12,7 @@ import {
     buildRuntimeActiveRowCondition
 } from '../../shared/runtimeHelpers'
 import {
+    isRuntimeGeneratedSiblingRowKeyAttr,
     isRuntimeServerOwnedAttr,
     type RuntimeDateOffsetDerivationRule,
     type RuntimeDateOrderRule,
@@ -38,7 +39,9 @@ import {
 export const hasRuntimeServerOwnedInput = (
     data: Record<string, unknown>,
     attr: { column_name: string; codename: unknown; ui_config?: Record<string, unknown> | null }
-): boolean => isRuntimeServerOwnedAttr(attr) && getRuntimeInputValue(data, attr.column_name, attr.codename).hasUserValue
+): boolean =>
+    (isRuntimeServerOwnedAttr(attr) || isRuntimeGeneratedSiblingRowKeyAttr(attr)) &&
+    getRuntimeInputValue(data, attr.column_name, attr.codename).hasUserValue
 
 export const rejectRuntimeServerOwnedInput = (
     res: Response,

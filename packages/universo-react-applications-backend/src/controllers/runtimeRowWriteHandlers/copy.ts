@@ -75,7 +75,7 @@ import {
 } from '../../services/runtimeRowSupport/access'
 import { copyRuntimeConfiguredRelations, loadRuntimeRowById } from '../runtimeRowSupport/rows'
 
-import { copyRuntimeChildTableRows } from './tableChildren'
+import { copyRuntimeChildTables } from './tableChildren'
 import { assertRuntimeCopyReferenceFieldsAreScoped, buildRuntimeCopyFieldValues } from './copyFieldValues'
 import type { RuntimeRowWriteDeps, RuntimeWriteCopyRelationsConfig, RuntimeWriteResolvedObjectCollection } from './types'
 import { isRuntimeRecordReference, issueRuntimeRecordHandle, resolveRuntimeRecordReference } from '../../services/runtimeRecordHandle'
@@ -537,16 +537,14 @@ export const executeCopyRowTransaction = async (params: {
     )) as Array<{ id: string }>
 
     if (params.copyChildTables) {
-        for (const tableAttr of params.tableAttrsForCopy) {
-            await copyRuntimeChildTableRows({
-                executor: params.executor,
-                ctx: params.ctx,
-                tableAttr,
-                runtimeRowCondition: params.runtimeRowCondition,
-                sourceParentId: params.rowId,
-                copiedParentId: insertedParent.id
-            })
-        }
+        await copyRuntimeChildTables({
+            executor: params.executor,
+            ctx: params.ctx,
+            tableAttrs: params.tableAttrsForCopy,
+            runtimeRowCondition: params.runtimeRowCondition,
+            sourceParentId: params.rowId,
+            copiedParentId: insertedParent.id
+        })
     }
 
     if (params.copyRelationsConfig && params.copyRelationsConfig.relations.length > 0) {

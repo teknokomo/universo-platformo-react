@@ -5,6 +5,41 @@ import { lmsSeedInitialEntities } from '../../domains/templates/data/lms.seed-en
 import { orderDashboardSeedPlacements } from '../../domains/templates/services/dashboardSeedPlacement'
 
 describe('LMS Quiz authoring dashboard seed', () => {
+    it('caps quiz Blocks at the assessment flow snapshot limit', () => {
+        const quizzes = lmsSeedAssessmentEntities.find((candidate) => candidate.codename === 'Quizzes')
+        const blocks = quizzes?.components.find((component) => component.codename === 'Blocks')
+
+        expect(blocks?.validationRules).toMatchObject({ maxRows: 100 })
+    })
+
+    it('uses generated UUID v7 block keys and sibling selectors for questions', () => {
+        const quizzes = lmsSeedAssessmentEntities.find((candidate) => candidate.codename === 'Quizzes')
+        const blocks = quizzes?.components.find((component) => component.codename === 'Blocks')
+        const questions = quizzes?.components.find((component) => component.codename === 'Questions')
+        const blockKey = blocks?.childComponents?.find((component) => component.codename === 'BlockKey')
+        const introduction = blocks?.childComponents?.find((component) => component.codename === 'Introduction')
+        const questionBlock = questions?.childComponents?.find((component) => component.codename === 'BlockKey')
+
+        expect(blockKey).toMatchObject({
+            dataType: 'STRING',
+            isRequired: true,
+            uiConfig: { hidden: true, generateUuidV7: true, siblingRowSelectKey: true, resetOnCopy: true }
+        })
+        expect(questionBlock).toMatchObject({
+            dataType: 'STRING',
+            uiConfig: {
+                siblingRowSelect: {
+                    tableCodename: 'Blocks',
+                    valueFieldCodename: 'BlockKey',
+                    labelFieldCodename: 'Title',
+                    requiredWithRows: true,
+                    requireEachTargetReferenced: true
+                }
+            }
+        })
+        expect(introduction).toMatchObject({ dataType: 'STRING', uiConfig: { widget: 'textarea', rows: 4 } })
+    })
+
     it('exposes quizzes in runtime navigation and keeps guest links in their dedicated authoring tab', () => {
         const quizzes = lmsSeedAssessmentEntities.find((candidate) => candidate.codename === 'Quizzes')
         const accessLinks = lmsSeedAssessmentEntities.find((candidate) => candidate.codename === 'AccessLinks')
@@ -308,5 +343,40 @@ describe('LMS Quiz authoring dashboard seed', () => {
             widget: 'textarea',
             rows: 4
         })
+    })
+
+    it('places the sibling block selector on quiz question rows', () => {
+        const quizzes = lmsSeedAssessmentEntities.find(({ codename }) => codename === 'Quizzes')
+        const questions = quizzes?.components.find((component) => component.codename === 'Questions')?.childComponents ?? []
+        const blocks = quizzes?.components.find((component) => component.codename === 'Blocks')?.childComponents ?? []
+        const blockField = questions.find((component) => component.codename === 'BlockKey')
+        const blockKey = blocks.find((component) => component.codename === 'BlockKey')
+
+        expect(blockField).toMatchObject({
+            dataType: 'STRING',
+            uiConfig: {
+                siblingRowSelect: {
+                    tableCodename: 'Blocks',
+                    valueFieldCodename: 'BlockKey',
+                    labelFieldCodename: 'Title',
+                    requireEachTargetReferenced: true
+                }
+            }
+        })
+        expect(lmsSeedAssessmentEntities.find(({ codename }) => codename === 'QuizAttempts')?.components).not.toEqual(
+            expect.arrayContaining([expect.objectContaining({ codename: 'BlockKey' })])
+        )
+        expect(blockKey?.uiConfig).toMatchObject({ hidden: true, resetOnCopy: true, generateUuidV7: true, siblingRowSelectKey: true })
+    })
+
+    it('hides server-generated response identifiers and selected-option JSON from ordinary record surfaces', () => {
+        const responses = lmsSeedAssessmentEntities.find(({ codename }) => codename === 'QuizResponses')
+
+        for (const codename of ['QuestionId', 'SelectedOptionIds']) {
+            expect(responses?.components.find((component) => component.codename === codename)?.uiConfig).toMatchObject({
+                hidden: true,
+                serverOwned: true
+            })
+        }
     })
 })

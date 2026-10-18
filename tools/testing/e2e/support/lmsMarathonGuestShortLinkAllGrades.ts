@@ -184,6 +184,13 @@ export async function runLmsMarathonAllGradesGuestSmoke(flow: LmsMarathonPrepare
                 checkUuidSubstrings: true
             })
             await expectNoPageHorizontalOverflow(page, `Grade ${shortLink.grade} first quiz question at 390x844`)
+            if (shortLink.grade === expectedGrades[0]) {
+                await page.screenshot({
+                    path: flow.testInfo.outputPath('lms-flat-quiz-first-question-en.png'),
+                    fullPage: true,
+                    animations: 'disabled'
+                })
+            }
         } finally {
             await context.close()
         }

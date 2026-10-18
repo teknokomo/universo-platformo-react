@@ -25,6 +25,43 @@ export const getRequestPathname = (input: RequestInfo | URL) => {
     return pathname.startsWith('/api/v1/') ? pathname.slice('/api/v1'.length) : pathname
 }
 
+export const makeGuestAttemptDto = (value: unknown): unknown => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return value
+    const source = value as Record<string, unknown>
+    const currentQuestionIndex = typeof source.currentQuestionIndex === 'number' ? source.currentQuestionIndex : 0
+    const timerState = source.timerState ?? (typeof source.deadlineAt === 'string' ? 'running' : 'untimed')
+    const questions = Array.isArray(source.questions)
+        ? source.questions.map((question) => {
+              if (!question || typeof question !== 'object' || Array.isArray(question)) return question
+              const item = question as Record<string, unknown>
+              return {
+                  ...item,
+                  displayNumber: typeof item.displayNumber === 'string' ? item.displayNumber : String(currentQuestionIndex + 1)
+              }
+          })
+        : source.questions
+
+    return {
+        phase: 'question',
+        phaseRevision: 0,
+        timerState,
+        remainingMs: timerState === 'untimed' ? null : 2_700_000,
+        numberingMode: 'global',
+        currentBlock: null,
+        ...source,
+        questions
+    }
+}
+
+export const makeGuestAttemptResponse = (value: unknown): unknown => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return value
+    const source = value as Record<string, unknown>
+    if (Object.prototype.hasOwnProperty.call(source, 'attempt')) {
+        return { ...source, attempt: makeGuestAttemptDto(source.attempt) }
+    }
+    return makeGuestAttemptDto(value)
+}
+
 const i18nMockState = vi.hoisted(() => ({
     locale: 'en'
 }))
@@ -43,10 +80,23 @@ const guestMockState = vi.hoisted(() => ({
     guestAttemptStartCalls: 0,
     guestAttemptStartObserver: null,
     guestAttemptStartResponses: [],
+    guestBlockIntro: false,
+    guestBlockIntroPaused: false,
+    guestContinueResponseOverride: null,
+    deferGuestContinueResponse: false,
+    releaseGuestContinueResponse: null,
+    guestContinueCalls: 0,
+    guestContinueRequestBodies: [] as Record<string, unknown>[],
     guestFinalizeResponse: {
         attemptId: 'attempt-1',
         attemptNumber: 1,
         status: 'completed',
+        phase: 'question',
+        phaseRevision: 0,
+        timerState: 'untimed',
+        remainingMs: null,
+        numberingMode: 'global',
+        currentBlock: null,
         result: { score: 1, total: 2, passed: false, finishedReason: 'submitted' },
         completionText: 'Well done.'
     },
@@ -76,6 +126,13 @@ const guestMockState = vi.hoisted(() => ({
     guestAttemptStartCalls: number
     guestAttemptStartObserver: (() => void) | null
     guestAttemptStartResponses: Array<{ ok: boolean; status: number; payload: unknown } | null>
+    guestBlockIntro: boolean
+    guestBlockIntroPaused: boolean
+    guestContinueResponseOverride: { ok: boolean; status?: number; payload?: unknown } | null
+    deferGuestContinueResponse: boolean
+    releaseGuestContinueResponse: (() => void) | null
+    guestContinueCalls: number
+    guestContinueRequestBodies: Array<Record<string, unknown>>
     guestFinalizeResponse: Record<string, unknown>
     guestIntakePolicy: {
         requireFirstName: boolean
@@ -107,9 +164,14 @@ export const guestTranslations = {
         'guest.quizAttemptResumed': 'Your saved quiz attempt has been restored. Continue with the next unanswered question.',
         'guest.quizTimeLimit': 'You have {{minutes}} minutes to complete this quiz.',
         'guest.quizNoTimeLimit': 'There is no time limit for this quiz.',
+        'guest.quizTimerPaused': enApps.guest.quizTimerPaused,
         'guest.quizTimedOutResult': 'Time expired. Your saved answers were scored.',
         'guest.quizTimeRemaining': 'Time remaining',
-        'guest.quizProgress': 'Question {{current}} of {{total}}',
+        'guest.quizAnsweredProgress': enApps.guest.quizAnsweredProgress,
+        'guest.quizQuestionDisplayNumber': enApps.guest.quizQuestionDisplayNumber,
+        'guest.continueQuiz': enApps.guest.continueQuiz,
+        'guest.continuingQuiz': enApps.guest.continuingQuiz,
+        'guest.retryQuizContinue': enApps.guest.retryQuizContinue,
         'guest.quizSelectAnswer': 'Choose an answer to continue.',
         'guest.quizKeyboardSubmitHint': enApps.guest.quizKeyboardSubmitHint,
         'guest.quizChooseAnswerToConfirm': enApps.guest.quizChooseAnswerToConfirm,
@@ -145,6 +207,7 @@ export const guestTranslations = {
         'guest.errors.quizAttemptStart': 'Failed to start the quiz.',
         'guest.errors.quizAttemptLoad': 'Failed to load or resume your quiz attempt.',
         'guest.errors.quizAnswerSave': 'Failed to save your answer.',
+        'guest.errors.quizContinue': enApps.guest.errors.quizContinue,
         'guest.errors.quizFinalize': 'Failed to finish the quiz.'
     },
     ru: {
@@ -164,9 +227,14 @@ export const guestTranslations = {
         'guest.quizAttemptResumed': 'Сохранённая попытка восстановлена. Продолжайте со следующего вопроса без ответа.',
         'guest.quizTimeLimit': 'На прохождение теста отведено {{minutes}} мин.',
         'guest.quizNoTimeLimit': 'Для этого теста ограничение по времени не установлено.',
+        'guest.quizTimerPaused': ruApps.guest.quizTimerPaused,
         'guest.quizTimedOutResult': 'Время вышло. Сохранённые ответы учтены при подсчёте результата.',
         'guest.quizTimeRemaining': 'Осталось времени',
-        'guest.quizProgress': 'Вопрос {{current}} из {{total}}',
+        'guest.quizAnsweredProgress': ruApps.guest.quizAnsweredProgress,
+        'guest.quizQuestionDisplayNumber': ruApps.guest.quizQuestionDisplayNumber,
+        'guest.continueQuiz': ruApps.guest.continueQuiz,
+        'guest.continuingQuiz': ruApps.guest.continuingQuiz,
+        'guest.retryQuizContinue': ruApps.guest.retryQuizContinue,
         'guest.quizSelectAnswer': 'Выберите ответ, чтобы продолжить.',
         'guest.quizKeyboardSubmitHint': ruApps.guest.quizKeyboardSubmitHint,
         'guest.quizChooseAnswerToConfirm': ruApps.guest.quizChooseAnswerToConfirm,
@@ -202,6 +270,7 @@ export const guestTranslations = {
         'guest.errors.quizAttemptStart': 'Не удалось начать тест.',
         'guest.errors.quizAttemptLoad': 'Не удалось загрузить или восстановить попытку теста.',
         'guest.errors.quizAnswerSave': 'Не удалось сохранить ответ.',
+        'guest.errors.quizContinue': ruApps.guest.errors.quizContinue,
         'guest.errors.quizFinalize': 'Не удалось завершить тест.'
     }
 } as const
@@ -316,10 +385,23 @@ export const resetGuestAppTestHarness = () => {
     guestTestState.guestAttemptStartCalls = 0
     guestTestState.guestAttemptStartObserver = null
     guestTestState.guestAttemptStartResponses = []
+    guestTestState.guestBlockIntro = false
+    guestTestState.guestBlockIntroPaused = false
+    guestTestState.guestContinueResponseOverride = null
+    guestTestState.deferGuestContinueResponse = false
+    guestTestState.releaseGuestContinueResponse = null
+    guestTestState.guestContinueCalls = 0
+    guestTestState.guestContinueRequestBodies = []
     guestTestState.guestFinalizeResponse = {
         attemptId: 'attempt-1',
         attemptNumber: 1,
         status: 'completed',
+        phase: 'question',
+        phaseRevision: 0,
+        timerState: 'untimed',
+        remainingMs: null,
+        numberingMode: 'global',
+        currentBlock: null,
         result: { score: 1, total: 2, passed: false, finishedReason: 'submitted' },
         completionText: 'Well done.'
     }
@@ -456,31 +538,47 @@ export const resetGuestAppTestHarness = () => {
                     return {
                         ok: customResponse.ok,
                         status: customResponse.status,
-                        json: async () => customResponse.payload
+                        json: async () => makeGuestAttemptResponse(customResponse.payload)
                     } as Response
                 }
                 return {
                     ok: true,
-                    json: async () => ({
-                        attemptId: 'attempt-1',
-                        attemptNumber: guestTestState.guestAttemptNumber,
-                        deadlineAt: '2030-01-01T00:45:00.000Z',
-                        serverNow: '2030-01-01T00:00:00.000Z',
-                        status: 'in_progress',
-                        currentQuestionIndex: 0,
-                        totalQuestions: 2,
-                        answeredCount: 0,
-                        questions: [
-                            {
-                                id: 'question-1',
-                                prompt: 'Question prompt',
-                                options: [
-                                    { id: 'option-1', label: 'Correct option' },
-                                    { id: 'option-2', label: 'Wrong option' }
-                                ]
-                            }
-                        ]
-                    })
+                    json: async () =>
+                        makeGuestAttemptDto({
+                            attemptId: 'attempt-1',
+                            attemptNumber: guestTestState.guestAttemptNumber,
+                            deadlineAt: '2030-01-01T00:45:00.000Z',
+                            serverNow: '2030-01-01T00:00:00.000Z',
+                            status: 'in_progress',
+                            phase: guestTestState.guestBlockIntro ? 'block_intro' : 'question',
+                            phaseRevision: 0,
+                            timerState: guestTestState.guestBlockIntroPaused ? 'paused' : 'running',
+                            remainingMs: guestTestState.guestBlockIntroPaused ? 125_000 : 2_700_000,
+                            numberingMode: guestTestState.guestBlockIntro ? 'block' : 'global',
+                            currentBlock: guestTestState.guestBlockIntro
+                                ? {
+                                      key: 'internal-block-key-should-not-render',
+                                      title: 'Unit one',
+                                      introduction: 'Read these instructions before continuing.'
+                                  }
+                                : null,
+                            currentQuestionIndex: 0,
+                            totalQuestions: 2,
+                            answeredCount: 0,
+                            questions: guestTestState.guestBlockIntro
+                                ? []
+                                : [
+                                      {
+                                          id: 'question-1',
+                                          prompt: 'Question prompt',
+                                          displayNumber: '1',
+                                          options: [
+                                              { id: 'option-1', label: 'Correct option' },
+                                              { id: 'option-2', label: 'Wrong option' }
+                                          ]
+                                      }
+                                  ]
+                        })
                 } as Response
             }
 
@@ -488,15 +586,16 @@ export const resetGuestAppTestHarness = () => {
                 if (guestTestState.guestSessionUnavailable) {
                     return {
                         ok: true,
-                        json: async () => ({
-                            attemptId: 'attempt-1',
-                            attemptNumber: 1,
-                            status: 'completed',
-                            totalQuestions: 2,
-                            answeredCount: 1,
-                            questions: [],
-                            result: { score: 1, total: 2, passed: false, finishedReason: 'revoked' }
-                        })
+                        json: async () =>
+                            makeGuestAttemptDto({
+                                attemptId: 'attempt-1',
+                                attemptNumber: 1,
+                                status: 'completed',
+                                totalQuestions: 2,
+                                answeredCount: 1,
+                                questions: [],
+                                result: { score: 1, total: 2, passed: false, finishedReason: 'revoked' }
+                            })
                     } as Response
                 }
                 const answeredCount = guestTestState.guestSavedAnswerIds.length
@@ -513,17 +612,70 @@ export const resetGuestAppTestHarness = () => {
                 ]
                 return {
                     ok: true,
-                    json: async () => ({
-                        attemptId: 'attempt-1',
-                        attemptNumber: guestTestState.guestAttemptNumber,
-                        deadlineAt: '2030-01-01T00:45:00.000Z',
-                        serverNow: '2030-01-01T00:00:00.000Z',
-                        status: 'in_progress',
-                        currentQuestionIndex: answeredCount,
-                        totalQuestions: questions.length,
-                        answeredCount,
-                        questions: questions[answeredCount] ? [questions[answeredCount]] : []
+                    json: async () =>
+                        makeGuestAttemptDto({
+                            attemptId: 'attempt-1',
+                            attemptNumber: guestTestState.guestAttemptNumber,
+                            deadlineAt: '2030-01-01T00:45:00.000Z',
+                            serverNow: '2030-01-01T00:00:00.000Z',
+                            status: 'in_progress',
+                            currentQuestionIndex: answeredCount,
+                            totalQuestions: questions.length,
+                            answeredCount,
+                            questions: questions[answeredCount] ? [questions[answeredCount]] : []
+                        })
+                } as Response
+            }
+
+            if (getRequestPathname(url) === '/public/a/app-1/runtime/attempts/attempt-1/continue') {
+                guestTestState.guestContinueCalls += 1
+                guestTestState.guestContinueRequestBodies.push(JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>)
+                if (guestTestState.deferGuestContinueResponse) {
+                    guestTestState.deferGuestContinueResponse = false
+                    await new Promise<void>((resolve) => {
+                        guestTestState.releaseGuestContinueResponse = resolve
                     })
+                }
+                if (guestTestState.guestContinueResponseOverride) {
+                    return {
+                        ok: guestTestState.guestContinueResponseOverride.ok,
+                        status:
+                            guestTestState.guestContinueResponseOverride.status ??
+                            (guestTestState.guestContinueResponseOverride.ok ? 200 : 500),
+                        json: async () => guestTestState.guestContinueResponseOverride?.payload ?? {}
+                    } as Response
+                }
+                guestTestState.guestBlockIntro = false
+                return {
+                    ok: true,
+                    json: async () =>
+                        makeGuestAttemptDto({
+                            attemptId: 'attempt-1',
+                            attemptNumber: guestTestState.guestAttemptNumber,
+                            deadlineAt: '2030-01-01T00:45:00.000Z',
+                            serverNow: '2030-01-01T00:00:01.000Z',
+                            status: 'in_progress',
+                            phase: 'question',
+                            phaseRevision: 1,
+                            timerState: guestTestState.guestBlockIntroPaused ? 'paused' : 'running',
+                            remainingMs: guestTestState.guestBlockIntroPaused ? 125_000 : 2_699_000,
+                            numberingMode: 'block',
+                            currentBlock: null,
+                            currentQuestionIndex: 0,
+                            totalQuestions: 2,
+                            answeredCount: 0,
+                            questions: [
+                                {
+                                    id: 'question-1',
+                                    prompt: 'Question prompt',
+                                    displayNumber: '1.1',
+                                    options: [
+                                        { id: 'option-1', label: 'Correct option' },
+                                        { id: 'option-2', label: 'Wrong option' }
+                                    ]
+                                }
+                            ]
+                        })
                 } as Response
             }
 
@@ -544,7 +696,7 @@ export const resetGuestAppTestHarness = () => {
                 if (guestTestState.guestAnswerResponseOverride) {
                     return {
                         ok: guestTestState.guestAnswerResponseOverride.ok,
-                        json: async () => guestTestState.guestAnswerResponseOverride?.payload
+                        json: async () => makeGuestAttemptResponse(guestTestState.guestAnswerResponseOverride?.payload)
                     } as Response
                 }
                 const requestBody = JSON.parse(String(init?.body ?? '{}')) as { questionId?: string }
@@ -564,27 +716,28 @@ export const resetGuestAppTestHarness = () => {
                 ]
                 return {
                     ok: true,
-                    json: async () => ({
-                        ok: true,
-                        attempt: {
-                            attemptId: 'attempt-1',
-                            attemptNumber: guestTestState.guestAttemptNumber,
-                            deadlineAt: '2030-01-01T00:45:00.000Z',
-                            serverNow: '2030-01-01T00:00:00.000Z',
-                            status: 'in_progress',
-                            currentQuestionIndex: answeredCount,
-                            totalQuestions: questions.length,
-                            answeredCount,
-                            questions: questions[answeredCount] ? [questions[answeredCount]] : []
-                        }
-                    })
+                    json: async () =>
+                        makeGuestAttemptResponse({
+                            ok: true,
+                            attempt: makeGuestAttemptDto({
+                                attemptId: 'attempt-1',
+                                attemptNumber: guestTestState.guestAttemptNumber,
+                                deadlineAt: '2030-01-01T00:45:00.000Z',
+                                serverNow: '2030-01-01T00:00:00.000Z',
+                                status: 'in_progress',
+                                currentQuestionIndex: answeredCount,
+                                totalQuestions: questions.length,
+                                answeredCount,
+                                questions: questions[answeredCount] ? [questions[answeredCount]] : []
+                            })
+                        })
                 } as Response
             }
 
             if (getRequestPathname(url) === '/public/a/app-1/runtime/attempts/attempt-1/finalize') {
                 return {
                     ok: true,
-                    json: async () => guestTestState.guestFinalizeResponse
+                    json: async () => makeGuestAttemptDto(guestTestState.guestFinalizeResponse)
                 } as Response
             }
 

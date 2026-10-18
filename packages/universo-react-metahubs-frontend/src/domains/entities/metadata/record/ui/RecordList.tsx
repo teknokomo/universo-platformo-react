@@ -462,6 +462,21 @@ const RecordList = () => {
     const { kindKey } = useParams<{ kindKey?: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
+    const getSiblingTargetValidationMessage = (error: unknown): string | null => {
+        if (!hasAxiosResponse(error)) return null
+        const responseData = error.response.data
+        if (!responseData || typeof responseData !== 'object') return null
+        const code = (responseData as Record<string, unknown>).code
+        if (code === 'RECORD_SIBLING_TARGET_UNREFERENCED') {
+            return tc('tableGrouping.emptyGroup', { defaultValue: 'Each group must contain at least one related row before saving.' })
+        }
+        if (code === 'RECORD_SIBLING_TARGET_KEY_DUPLICATE') {
+            return tc('tableGrouping.duplicateGroup', {
+                defaultValue: 'Each group must have a unique key. Remove or recreate the duplicate group before saving.'
+            })
+        }
+        return null
+    }
 
     const marketingActionSummaryLabels = useMemo<MarketingActionSummaryLabels>(
         () => ({
@@ -770,17 +785,36 @@ const RecordList = () => {
         ]
     )
 
+    const getSiblingTableValues = useCallback(
+        (values: Record<string, unknown>) => {
+            const sources: Record<string, { rows: Record<string, unknown>[]; childFields: DynamicFieldConfig[]; rowOrdering?: unknown }> =
+                {}
+            for (const tableField of elementFields) {
+                if (tableField.type !== 'TABLE' || !tableField.codename) continue
+                const rows = values[tableField.id]
+                sources[tableField.codename] = {
+                    rows: Array.isArray(rows) ? (rows as Record<string, unknown>[]) : [],
+                    childFields: tableField.childFields ?? [],
+                    rowOrdering: tableField.uiConfig?.rowOrdering
+                }
+            }
+            return sources
+        },
+        [elementFields]
+    )
+
     const renderElementField = useCallback(
         (params: {
             field: DynamicFieldConfig
             value: unknown
+            values: Record<string, unknown>
             onChange: (value: unknown) => void
             disabled: boolean
             error: string | null
             helperText?: string
             locale: string
         }) => {
-            const { field, value, onChange, disabled, error, helperText, locale } = params
+            const { field, value, values, onChange, disabled, error, helperText, locale } = params
 
             if (field.validationRules?.format === 'marketingAction') {
                 return (
@@ -802,8 +836,10 @@ const RecordList = () => {
                     <InlineTableEditor
                         label={field.label}
                         value={tableRows}
-                        onChange={(rows) => onChange(rows)}
+                        onChange={onChange}
                         childFields={field.childFields}
+                        siblingTableValues={getSiblingTableValues(values)}
+                        rowOrdering={field.uiConfig?.rowOrdering}
                         disabled={disabled}
                         locale={locale}
                         showTitle={field.tableShowTitle}
@@ -917,7 +953,7 @@ const RecordList = () => {
 
             return undefined
         },
-        [metahubId, t]
+        [metahubId, t, getSiblingTableValues]
     )
 
     const { confirm } = useConfirm()
@@ -1254,7 +1290,12 @@ const RecordList = () => {
             components: orderedComponents.map((component) => ({
                 dataType: component.dataType,
                 codename: resolveFieldKey(component),
-                uiConfig: component.uiConfig
+                uiConfig: component.uiConfig,
+                childComponents: (component.childFields ?? []).map((child) => ({
+                    dataType: child.type,
+                    codename: resolveFieldKey(child),
+                    uiConfig: child.uiConfig
+                }))
             })),
             locale: i18n.language
         })
@@ -1396,7 +1437,7 @@ const RecordList = () => {
 
             handleDialogClose()
         } catch (e: unknown) {
-            const responseMessage = extractResponseMessage(e)
+            const responseMessage = getSiblingTargetValidationMessage(e) ?? extractResponseMessage(e)
             const message =
                 typeof responseMessage === 'string'
                     ? responseMessage
@@ -1419,7 +1460,7 @@ const RecordList = () => {
         setSubmitting(true)
         try {
             const normalizedData = applySetReferenceDefaultsToPayload(data)
-            updateElementMutation.mutate({
+            await updateElementMutation.mutateAsync({
                 metahubId,
                 treeEntityId: effectiveTreeEntityId,
                 objectCollectionId,
@@ -1430,7 +1471,7 @@ const RecordList = () => {
             // Invalidation handled by mutation hook
             handleEditClose()
         } catch (e: unknown) {
-            const responseMessage = extractResponseMessage(e)
+            const responseMessage = getSiblingTargetValidationMessage(e) ?? extractResponseMessage(e)
             const message =
                 typeof responseMessage === 'string'
                     ? responseMessage
@@ -1440,7 +1481,7 @@ const RecordList = () => {
                     ? e
                     : t('records.updateError')
             setDialogError(message)
-            console.error('Failed to update element', e)
+            console.error('Failed to update element')
         } finally {
             setSubmitting(false)
         }
@@ -1460,7 +1501,7 @@ const RecordList = () => {
             })
             handleCopyClose()
         } catch (e: unknown) {
-            const responseMessage = extractResponseMessage(e)
+            const responseMessage = getSiblingTargetValidationMessage(e) ?? extractResponseMessage(e)
             setCopyDialogError(
                 typeof responseMessage === 'string'
                     ? responseMessage

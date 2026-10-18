@@ -62,8 +62,17 @@ export const LMS_PUBLIC_GUEST_RUNTIME_CONFIG = {
             maxAttempts: 'MaxAttempts',
             timeLimitSeconds: 'TimeLimitSeconds',
             confirmAnswerBeforeNext: 'ConfirmAnswerBeforeNext',
+            pauseTimerOnBlockIntro: 'PauseTimerOnBlockIntro',
+            blockRelativeNumbering: 'BlockRelativeNumbering',
             completionText: 'CompletionText',
+            blocks: 'Blocks',
             questions: 'Questions'
+        },
+        assessmentBlock: {
+            blockKey: 'BlockKey',
+            title: 'Title',
+            introduction: 'Introduction',
+            sortOrder: 'SortOrder'
         },
         assessmentQuestion: {
             prompt: 'Prompt',
@@ -71,6 +80,7 @@ export const LMS_PUBLIC_GUEST_RUNTIME_CONFIG = {
             questionType: 'QuestionType',
             explanation: 'Explanation',
             sortOrder: 'SortOrder',
+            blockKey: 'BlockKey',
             options: 'Options'
         },
         assessmentResponse: {
@@ -95,6 +105,11 @@ export const LMS_PUBLIC_GUEST_RUNTIME_CONFIG = {
             finishedReason: 'FinishedReason',
             questionsSnapshot: 'QuestionsSnapshot',
             questionSetDigest: 'QuestionSetDigest',
+            flowSnapshot: 'FlowSnapshot',
+            phase: 'Phase',
+            phaseRevision: 'PhaseRevision',
+            timerState: 'TimerState',
+            frozenRemainingMs: 'FrozenRemainingMs',
             accessLinkId: 'AccessLinkId',
             classIdSnapshot: 'ClassIdSnapshot',
             score: 'Score',

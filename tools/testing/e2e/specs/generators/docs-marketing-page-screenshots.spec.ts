@@ -146,7 +146,7 @@ async function writeScreenshotProvenance(captures: ScreenshotCapture[]): Promise
 test('@generator marketing page GitBook screenshot generator captures the published runtime in English and Russian', async ({
     browser,
     runManifest
-}) => {
+}, testInfo) => {
     test.setTimeout(300_000)
     const api = await createLoggedInApiContext(runManifest.testUser)
     let browserContext: Awaited<ReturnType<typeof browser.newContext>> | undefined
@@ -157,14 +157,15 @@ test('@generator marketing page GitBook screenshot generator captures the publis
             viewport: manifest.viewport
         })
         const page = await browserContext.newPage()
-        const metahubName = `Marketing Docs ${runManifest.runId}`
-        const codenameToken = String(runManifest.runId)
+        const attemptToken = `${runManifest.runId}-${testInfo.repeatEachIndex}-retry-${testInfo.retry}`
+        const metahubName = `Marketing Docs ${attemptToken}`
+        const codenameToken = attemptToken
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/^-+|-+$/g, '')
         const metahubCodename = `marketing-docs-${codenameToken}`
         const metahub = await createMetahub(api, {
-            name: { en: metahubName, ru: `Документация marketing-page ${runManifest.runId}` },
+            name: { en: metahubName, ru: `Документация marketing-page ${attemptToken}` },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', metahubCodename),
             templateCodename: 'marketing-page'
@@ -173,10 +174,10 @@ test('@generator marketing page GitBook screenshot generator captures the publis
         await recordCreatedMetahub({ id: metahub.id, name: metahubName, codename: metahubCodename })
 
         const publication = await createPublication(api, metahub.id, {
-            name: { en: `Marketing Docs Publication ${runManifest.runId}` },
+            name: { en: `Marketing Docs Publication ${attemptToken}` },
             namePrimaryLocale: 'en',
             autoCreateApplication: true,
-            applicationName: { en: `Marketing Docs Application ${runManifest.runId}` },
+            applicationName: { en: `Marketing Docs Application ${attemptToken}` },
             applicationNamePrimaryLocale: 'en',
             applicationIsPublic: true,
             runtimePolicy: {

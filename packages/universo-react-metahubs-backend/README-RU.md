@@ -33,6 +33,8 @@ Backend-пакет для design-time ресурсов metahub, metadata publica
 ## LMS Template Contract
 
 -   Встроенный `lms` template остаётся entity-first: classes, students, content projects, resources, courses, course sections, course items, learning tracks, track stages, track steps, modules, quizzes, assignments, events, certificates, reports, knowledge spaces, development plans, access links, progress, enrollments, sharing/star/recent/trash projections, supporting enumerations и Object-backed ledgers являются обычными metadata entities.
+-   Тесты остаются entity-backed: `Quizzes` содержит упорядоченные таблицы `Blocks` и `Questions`, а настройки теста задают лимит времени, остановку таймера на заглавных страницах и способ нумерации вопросов. `Questions.BlockKey` — скрытый серверный UUID v7; сервер проверяет его принадлежность тому же тесту и защищает блоки от удаления, пока на них ссылаются вопросы.
+-   Выбор блока использует общий selector metadata с проверкой обязательной связи (`requiredWithRows`), поэтому для этого сценария не вводится отдельная LMS-only форма. `AccessLinks` задаёт гостевую анкету; попытки и ответы сохраняются в `QuizAttempts` и `QuizResponses`, а результаты показывает seeded report `QuizAttemptResults`.
 -   LMS ledgers экспортируются как metadata с `config.ledger`; operational ledger facts не экспортируются как обычные Object runtime rows.
 -   Default LMS layout использует shared dashboard shell (`menuWidget`, `appNavbar`, `header`, `detailsTitle`, `detailsTable`) вместо глобальных LMS-only widgets.
 -   Learning Content layouts используют generic runtime widgets и datasource contracts, включая `records.union` для unified libraries и deleted-row queries для trash views.
