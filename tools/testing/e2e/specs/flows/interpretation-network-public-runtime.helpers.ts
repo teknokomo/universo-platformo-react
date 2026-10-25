@@ -1,9 +1,10 @@
 import { expect } from '@playwright/test'
-import type { Browser, BrowserContext, Locator, Page, Response, TestInfo } from '@playwright/test'
+import type { Browser, BrowserContext, Locator, Page, TestInfo } from '@playwright/test'
 import { createBootstrapApiContext } from '../../support/backend/bootstrap.mjs'
 import { sendWithCsrf } from '../../support/backend/api-session.mjs'
 import { expectNoPageHorizontalOverflow, expectNoTechnicalLeakage, expectSemanticFieldControls } from '../../support/browser/runtimeUx'
 import { loginThroughUi } from '../../support/browser/auth'
+import { waitForPageResponseSnapshot } from '../../support/browser/network'
 
 export const PUBLIC_RUNTIME_PATH_PATTERN = /^\/api\/v1\/public\/applications\/[^/]+\/runtime(?:\/|$)/u
 export const PUBLIC_MULTILINE_CELL_DESCRIPTION = 'Public matrix description first line\nPublic matrix description second line'
@@ -97,14 +98,6 @@ export const openPublicSystemMatrix = async (page: Page) => {
     await expect(multilineDescription).toHaveCSS('white-space', 'pre-wrap')
     return { matrix, materialsResponse }
 }
-
-export const readPageResponseSnapshot = async (response: Response) => ({
-    status: response.status(),
-    body: await response.text()
-})
-
-export const waitForPageResponseSnapshot = (page: Page, predicate: (response: Response) => boolean) =>
-    page.waitForResponse(predicate).then(readPageResponseSnapshot)
 
 export const waitForPublicMaterialsResponse = (page: Page) =>
     waitForPageResponseSnapshot(page, (response) => {

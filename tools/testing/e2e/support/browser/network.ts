@@ -43,3 +43,23 @@ export async function waitForSettledMutationResponse(
         }
     }
 }
+
+export type PageResponseSnapshot = {
+    status: number
+    body: string
+}
+
+export async function readPageResponseSnapshot(response: Response): Promise<PageResponseSnapshot> {
+    return {
+        status: response.status(),
+        body: await response.text()
+    }
+}
+
+export function waitForPageResponseSnapshot(
+    page: Page,
+    matcher: (response: Response) => boolean,
+    options: { timeout?: number } = {}
+): Promise<PageResponseSnapshot> {
+    return page.waitForResponse(matcher, options).then(readPageResponseSnapshot)
+}

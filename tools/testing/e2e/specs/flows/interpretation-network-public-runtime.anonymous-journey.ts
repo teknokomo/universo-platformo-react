@@ -11,6 +11,7 @@ import {
 } from '../../support/backend/api-session.mjs'
 import { createBootstrapApiContext, disposeBootstrapApiContext } from '../../support/backend/bootstrap.mjs'
 import { expectDataGridHorizontalScrollConstrained, expectNoPageHorizontalOverflow } from '../../support/browser/runtimeUx'
+import { waitForPageResponseSnapshot } from '../../support/browser/network'
 import { recordCreatedApplication, recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import {
     createMaterialForCell,
@@ -34,7 +35,6 @@ import {
     expectPublicNoWorkspacesState,
     expectPublicInterpretationNetworkWorkspace,
     expectPublicMatrixReadOnly,
-    waitForPageResponseSnapshot,
     waitForPublicMaterialsResponse,
     watchPublicRuntimeServerErrors,
     watchNonGetApiRequests,

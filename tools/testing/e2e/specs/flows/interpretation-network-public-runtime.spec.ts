@@ -15,7 +15,7 @@ import {
 import { createBootstrapApiContext, disposeBootstrapApiContext } from '../../support/backend/bootstrap.mjs'
 import { expectNoPageHorizontalOverflow, expectSemanticFieldControls } from '../../support/browser/runtimeUx'
 import { recordCreatedGlobalUser } from '../../support/backend/run-manifest.mjs'
-import { waitForSettledMutationResponse } from '../../support/browser/network'
+import { readPageResponseSnapshot, waitForPageResponseSnapshot, waitForSettledMutationResponse } from '../../support/browser/network'
 import {
     ensureSystemStructure,
     expectSingleSystemMatrix,
@@ -37,9 +37,7 @@ import {
     expectPublicMatrixReadOnly,
     expectLoginScreenForUnavailablePublicReference,
     openPublicSystemMatrix,
-    readPageResponseSnapshot,
     waitForPublicMaterialsResponse,
-    waitForPageResponseSnapshot,
     setCanonicalAliasRouting,
     watchPublicRuntimeServerErrors,
     watchNonGetApiRequests,
