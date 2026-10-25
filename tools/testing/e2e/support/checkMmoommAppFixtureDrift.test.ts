@@ -5,6 +5,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import test from 'node:test'
 import { computeSnapshotHash } from '@universo-react/utils'
+import { seedSnapshotEntityUuidTokens } from './mmoommSnapshotEntityUuidTokens.ts'
 
 type FixtureRecord = Record<string, unknown>
 
@@ -96,6 +97,82 @@ const runDriftCheck = (generatedPath: string, trackedPath = fixturePath) =>
             MMOOMM_APP_FIXTURE_TRACKED_PATH: trackedPath
         }
     })
+
+test('normalizes entity UUIDs by semantic identity and preserves localized content', () => {
+    const createEntity = (id: string, kind: string, englishCodename: string, russianCodename: string, hubs: string[] = []) => ({
+        id,
+        kind,
+        codename: { locales: { en: { content: englishCodename }, ru: { content: russianCodename } } },
+        config: { parentTreeEntityId: null },
+        hubs
+    })
+    const trackedScopeA = '00000000-0000-7000-8000-000000000001'
+    const trackedScopeB = '00000000-0000-7000-8000-000000000002'
+    const trackedSetMain = '00000000-0000-7000-8000-000000000003'
+    const trackedEnumerationMain = '00000000-0000-7000-8000-000000000004'
+    const trackedItemA = '00000000-0000-7000-8000-000000000005'
+    const trackedItemB = '00000000-0000-7000-8000-000000000006'
+    const trackedEntities = {
+        [trackedScopeA]: createEntity(trackedScopeA, 'hub', 'Scope A', 'Область А'),
+        [trackedScopeB]: createEntity(trackedScopeB, 'hub', 'Scope B', 'Область Б'),
+        [trackedSetMain]: createEntity(trackedSetMain, 'set', 'Main', 'Основной'),
+        [trackedEnumerationMain]: createEntity(trackedEnumerationMain, 'enumeration', 'Main', 'Основное'),
+        [trackedItemA]: createEntity(trackedItemA, 'object', 'Item', 'Элемент', [trackedScopeA]),
+        [trackedItemB]: createEntity(trackedItemB, 'object', 'Item', 'Элемент', [trackedScopeB])
+    }
+    const generatedScopeA = 'ffffffff-ffff-7fff-8fff-ffffffffffff'
+    const generatedScopeB = 'ffffffff-ffff-7fff-8fff-fffffffffffe'
+    const generatedSetMain = 'ffffffff-ffff-7fff-8fff-fffffffffffd'
+    const generatedEnumerationMain = 'ffffffff-ffff-7fff-8fff-fffffffffffc'
+    const generatedItemA = 'ffffffff-ffff-7fff-8fff-fffffffffffb'
+    const generatedItemB = 'ffffffff-ffff-7fff-8fff-fffffffffffa'
+    const generatedEntities = {
+        [generatedScopeA]: createEntity(generatedScopeA, 'hub', 'Scope A', 'Область А'),
+        [generatedScopeB]: createEntity(generatedScopeB, 'hub', 'Scope B', 'Область Б'),
+        [generatedSetMain]: createEntity(generatedSetMain, 'set', 'Main', 'Основной'),
+        [generatedEnumerationMain]: createEntity(generatedEnumerationMain, 'enumeration', 'Main', 'Основное'),
+        [generatedItemA]: createEntity(generatedItemA, 'object', 'Item', 'Элемент', [generatedScopeA]),
+        [generatedItemB]: createEntity(generatedItemB, 'object', 'Item', 'Элемент', [generatedScopeB])
+    }
+
+    const mapEntityIds = (entities: Record<string, unknown>) => {
+        const uuidMap = new Map<string, string>()
+        seedSnapshotEntityUuidTokens(entities, uuidMap, (uuid) => {
+            uuidMap.set(uuid, `<uuid:${uuidMap.size + 1}>`)
+        })
+        return Object.fromEntries(
+            Object.entries(entities).map(([uuid, entity]) => {
+                const normalizedEntity = structuredClone(entity) as {
+                    id: string
+                    hubs: string[]
+                    config: { parentTreeEntityId: string | null }
+                }
+                normalizedEntity.id = uuidMap.get(uuid.toLowerCase()) ?? ''
+                normalizedEntity.hubs = normalizedEntity.hubs.map((hubId) => uuidMap.get(hubId.toLowerCase()) ?? hubId)
+                if (normalizedEntity.config.parentTreeEntityId) {
+                    normalizedEntity.config.parentTreeEntityId =
+                        uuidMap.get(normalizedEntity.config.parentTreeEntityId.toLowerCase()) ?? normalizedEntity.config.parentTreeEntityId
+                }
+                return [uuidMap.get(uuid.toLowerCase()), normalizedEntity]
+            })
+        )
+    }
+
+    assert.deepEqual(mapEntityIds(trackedEntities), mapEntityIds(generatedEntities))
+    const trackedUuidMap = new Map<string, string>()
+    const generatedUuidMap = new Map<string, string>()
+    seedSnapshotEntityUuidTokens(trackedEntities, trackedUuidMap, (uuid) => trackedUuidMap.set(uuid, `<uuid:${trackedUuidMap.size + 1}>`))
+    seedSnapshotEntityUuidTokens(generatedEntities, generatedUuidMap, (uuid) =>
+        generatedUuidMap.set(uuid, `<uuid:${generatedUuidMap.size + 1}>`)
+    )
+    assert.equal(trackedUuidMap.get(trackedItemA), generatedUuidMap.get(generatedItemA))
+    assert.equal(trackedUuidMap.get(trackedItemB), generatedUuidMap.get(generatedItemB))
+    assert.notEqual(trackedUuidMap.get(trackedItemA), trackedUuidMap.get(trackedItemB))
+
+    const changedTranslation = structuredClone(generatedEntities)
+    changedTranslation[generatedItemA].codename.locales.ru.content = 'Главный'
+    assert.notDeepEqual(mapEntityIds(trackedEntities), mapEntityIds(changedTranslation))
+})
 
 test('ignores only the volatile ShareDB project document revision', () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'mmoomm-drift-version-'))
