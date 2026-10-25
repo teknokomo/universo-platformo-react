@@ -580,6 +580,7 @@ describe('applicationLayoutsStore layout and scope persistence', () => {
                     _app_deleted: true
                 }
             ]) // application-owned layout tombstone
+            .mockResolvedValueOnce([{ exists: true }]) // workspace support table exists
             .mockResolvedValueOnce([]) // workspace setting tombstones
             .mockResolvedValueOnce([
                 {
@@ -603,21 +604,23 @@ describe('applicationLayoutsStore layout and scope persistence', () => {
 
         expect(deleted).toBe(true)
         expect(executor.transaction).toHaveBeenCalledTimes(1)
-        expect(txExecutor.query).toHaveBeenCalledTimes(13)
+        expect(txExecutor.query).toHaveBeenCalledTimes(14)
         expect(txExecutor.query.mock.calls[8]?.[0]).toContain('SET is_active = false')
         expect(txExecutor.query.mock.calls[8]?.[0]).toContain('is_default = false')
         expect(txExecutor.query.mock.calls[8]?.[0]).toContain('RETURNING id, is_active, is_default, _upl_deleted, _app_deleted')
         expect(txExecutor.query.mock.calls[8]?.[1]).toEqual(['0190a9b5-3cde-7abc-8def-2123456789d1', 'user-1', 4])
-        expect(txExecutor.query.mock.calls[9]?.[0]).toContain('_app_workspace_settings')
-        expect(txExecutor.query.mock.calls[9]?.[1]).toEqual(['0190a9b5-3cde-7abc-8def-2123456789d1', 'user-1', true])
-        expect(txExecutor.query.mock.calls[10]?.[0]).toContain('UPDATE')
-        expect(txExecutor.query.mock.calls[10]?.[0]).toContain('_app_widgets')
-        expect(txExecutor.query.mock.calls[10]?.[0]).toContain('_app_deleted_by = CASE WHEN $3 THEN $2::uuid ELSE NULL::uuid END')
-        expect(txExecutor.query.mock.calls[10]?.[0]).toContain('RETURNING id, layout_id, is_active, _upl_deleted, _app_deleted')
+        expect(txExecutor.query.mock.calls[9]?.[0]).toContain('information_schema.tables')
+        expect(txExecutor.query.mock.calls[9]?.[1]).toEqual(['app_018f8a787b8f7c1da111222233334444', '_app_workspace_settings'])
+        expect(txExecutor.query.mock.calls[10]?.[0]).toContain('_app_workspace_settings')
         expect(txExecutor.query.mock.calls[10]?.[1]).toEqual(['0190a9b5-3cde-7abc-8def-2123456789d1', 'user-1', true])
-        expect(txExecutor.query.mock.calls[11]?.[0]).toContain('SELECT id')
-        expect(txExecutor.query.mock.calls[12]?.[0]).toContain('CASE WHEN id = $2 THEN true ELSE false END')
-        expect(txExecutor.query.mock.calls[12]?.[1]).toEqual([null, '0190a9b5-3cde-7abc-8def-2123456789d2', 'user-1'])
+        expect(txExecutor.query.mock.calls[11]?.[0]).toContain('UPDATE')
+        expect(txExecutor.query.mock.calls[11]?.[0]).toContain('_app_widgets')
+        expect(txExecutor.query.mock.calls[11]?.[0]).toContain('_app_deleted_by = CASE WHEN $3 THEN $2::uuid ELSE NULL::uuid END')
+        expect(txExecutor.query.mock.calls[11]?.[0]).toContain('RETURNING id, layout_id, is_active, _upl_deleted, _app_deleted')
+        expect(txExecutor.query.mock.calls[11]?.[1]).toEqual(['0190a9b5-3cde-7abc-8def-2123456789d1', 'user-1', true])
+        expect(txExecutor.query.mock.calls[12]?.[0]).toContain('SELECT id')
+        expect(txExecutor.query.mock.calls[13]?.[0]).toContain('CASE WHEN id = $2 THEN true ELSE false END')
+        expect(txExecutor.query.mock.calls[13]?.[1]).toEqual([null, '0190a9b5-3cde-7abc-8def-2123456789d2', 'user-1'])
     })
 
     it('retires workspace overrides when excluding a source-owned layout', async () => {
@@ -655,6 +658,7 @@ describe('applicationLayoutsStore layout and scope persistence', () => {
             .mockResolvedValueOnce([])
             .mockResolvedValueOnce([{ count: '1' }])
             .mockResolvedValueOnce([{ id: layoutId }])
+            .mockResolvedValueOnce([{ exists: true }])
             .mockResolvedValueOnce([])
             .mockResolvedValueOnce([])
             .mockResolvedValueOnce([{ id: '0190a9b5-3cde-7abc-8def-2123456789e3' }])
@@ -662,10 +666,11 @@ describe('applicationLayoutsStore layout and scope persistence', () => {
 
         await expect(deleteApplicationLayout(executor, 'app_018f8a787b8f7c1da111222233334444', layoutId, 'user-1', 4)).resolves.toBe(true)
 
-        expect(txExecutor.query.mock.calls[9]?.[0]).toContain('_app_workspace_settings')
-        expect(txExecutor.query.mock.calls[9]?.[1]).toEqual([layoutId, 'user-1', false])
-        expect(txExecutor.query.mock.calls[10]?.[0]).toContain('_app_widgets')
+        expect(txExecutor.query.mock.calls[9]?.[0]).toContain('information_schema.tables')
+        expect(txExecutor.query.mock.calls[10]?.[0]).toContain('_app_workspace_settings')
         expect(txExecutor.query.mock.calls[10]?.[1]).toEqual([layoutId, 'user-1', false])
+        expect(txExecutor.query.mock.calls[11]?.[0]).toContain('_app_widgets')
+        expect(txExecutor.query.mock.calls[11]?.[1]).toEqual([layoutId, 'user-1', false])
     })
 
     it('fails closed when the application-owned delete does not return a valid tombstone', async () => {
@@ -777,6 +782,7 @@ describe('applicationLayoutsStore layout and scope persistence', () => {
                 }
             })
             db.txExecutor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('information_schema.tables')) return [{ exists: true }]
                 if (sql.includes('SELECT scope_entity_id')) {
                     return state.deleted ? [] : [{ scope_entity_id: null }]
                 }

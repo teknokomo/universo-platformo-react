@@ -365,10 +365,11 @@ test('@flow @combined application layout sync resolves layout conflicts, preserv
         password: runManifest.testUser.password
     })
 
-    const metahubName = `E2E ${runManifest.runId} application layout conflict metahub`
-    const metahubCodename = `${runManifest.runId}-application-layout-conflict-metahub`
-    const publicationName = `E2E ${runManifest.runId} application layout conflict publication`
-    const applicationName = `E2E ${runManifest.runId} application layout conflict app`
+    const attemptRunId = testInfo.retry > 0 ? `${runManifest.runId}-retry-${testInfo.retry}` : runManifest.runId
+    const metahubName = `E2E ${attemptRunId} application layout conflict metahub`
+    const metahubCodename = `${attemptRunId}-application-layout-conflict-metahub`
+    const publicationName = `E2E ${attemptRunId} application layout conflict publication`
+    const applicationName = `E2E ${attemptRunId} application layout conflict app`
 
     try {
         const metahub = await createMetahub(api, {
@@ -401,7 +402,7 @@ test('@flow @combined application layout sync resolves layout conflicts, preserv
         }
 
         await createPublicationVersion(api, metahub.id, publication.id, {
-            name: { en: `E2E ${runManifest.runId} application layout conflict v1` },
+            name: { en: `E2E ${attemptRunId} application layout conflict v1` },
             namePrimaryLocale: 'en'
         })
         await syncPublication(api, metahub.id, publication.id)
@@ -446,7 +447,7 @@ test('@flow @combined application layout sync resolves layout conflicts, preserv
         const independentLayoutResponse = await createApplicationLayout(api, applicationId, {
             templateKey: 'dashboard',
             scopeEntityId: null,
-            name: { en: `E2E ${runManifest.runId} independent default layout` },
+            name: { en: `E2E ${attemptRunId} independent default layout` },
             isActive: true,
             isDefault: false,
             sortOrder: 99,
@@ -493,7 +494,7 @@ test('@flow @combined application layout sync resolves layout conflicts, preserv
         }
 
         await createPublicationVersion(api, metahub.id, publication.id, {
-            name: { en: `E2E ${runManifest.runId} application layout conflict v2` },
+            name: { en: `E2E ${attemptRunId} application layout conflict v2` },
             namePrimaryLocale: 'en'
         })
         await syncPublication(api, metahub.id, publication.id)

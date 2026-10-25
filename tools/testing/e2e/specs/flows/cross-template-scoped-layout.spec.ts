@@ -664,6 +664,8 @@ const visitRuntime = async (
     if (effectivePromise) {
         const effectiveResponse = await effectivePromise
         expect(effectiveResponse.ok(), `${label} effective-layout response`).toBe(true)
+        const responseError = await effectiveResponse.finished()
+        if (responseError) throw responseError
         const effectivePayload = (await effectiveResponse.json()) as {
             effectiveHash?: unknown
             layout?: { id?: unknown; templateKey?: string; version?: unknown }
@@ -679,6 +681,8 @@ const visitRuntime = async (
     if (marketingPromise) {
         const marketingResponse = await marketingPromise
         expect(marketingResponse.ok(), `${label} marketing content response`).toBe(true)
+        const responseError = await marketingResponse.finished()
+        if (responseError) throw responseError
         const publicPayload = (await marketingResponse.json()) as {
             templateKey?: unknown
             marketingPage?: { templateKey?: unknown; widgets?: Array<{ widgetKey?: unknown }> }
@@ -747,7 +751,8 @@ test('@flow @combined @cross-template @scoped-layout covers Page/Object preceden
 }, testInfo) => {
     test.setTimeout(420_000)
     const browserIssues = watchBrowserRuntimeIssues(page)
-    const fixture = await createRuntimeFixture(runManifest)
+    const attemptRunId = testInfo.retry > 0 ? `${runManifest.runId}-retry-${testInfo.retry}` : runManifest.runId
+    const fixture = await createRuntimeFixture({ ...runManifest, runId: attemptRunId })
     const effectiveRequestKeys = new Set<string>()
     const marketingRequestKeys = new Set<string>()
     const objectTarget: RuntimeTarget = { kind: 'object', entityTypeId: fixture.objectScope.scopeEntityId }
@@ -966,7 +971,7 @@ test('@flow @combined @cross-template @authoring covers localized layout CRUD, r
     const browserIssues = watchBrowserRuntimeIssues(page)
     const fixture = await createRuntimeFixture({
         ...runManifest,
-        runId: `${runManifest.runId}-authoring`
+        runId: testInfo.retry > 0 ? `${runManifest.runId}-authoring-retry-${testInfo.retry}` : `${runManifest.runId}-authoring`
     })
     const applicationId = fixture.applicationId
     const createdName = `Authoring Object ${runManifest.runId}`

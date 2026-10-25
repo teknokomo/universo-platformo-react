@@ -17,6 +17,23 @@ export async function tombstoneApplicationLayoutWorkspaceSettings(
     applicationDeleted: boolean
 ): Promise<void> {
     const workspaceSettingsTable = qSchemaTable(schemaName, '_app_workspace_settings')
+    const tableRows = await executor.query<{ exists: boolean }>(
+        `
+        SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_schema = $1
+              AND table_name = $2
+        ) AS exists
+        `,
+        [schemaName, '_app_workspace_settings']
+    )
+    const workspaceSettingsTableExists = tableRows[0]?.exists
+    if (typeof workspaceSettingsTableExists !== 'boolean') {
+        throw new Error('APPLICATION_LAYOUT_WORKSPACE_SETTINGS_SCHEMA_LOOKUP_FAILED')
+    }
+    if (!workspaceSettingsTableExists) return
+
     const rows = await executor.query<WorkspaceSettingTombstoneRow>(
         `
         UPDATE ${workspaceSettingsTable}
