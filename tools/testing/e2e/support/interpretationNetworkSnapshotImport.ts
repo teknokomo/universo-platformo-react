@@ -6,9 +6,9 @@
 // publication so flow / smoke / visual specs navigate the real imported
 // workspace.
 
-import { createPublicationLinkedApplication, sendWithCsrf, syncApplicationSchema } from './backend/api-session.mjs'
+import { createPublicationLinkedApplication, sendWithCsrf, syncApplicationSchema, updateMetahub } from './backend/api-session.mjs'
 import type { ApiContext } from './interpretationNetworkRuntime'
-import { buildSnapshotEnvelope, validateSnapshotEnvelope } from '@universo-react/utils'
+import { buildSnapshotEnvelope, createLocalizedContent, generateUuidV7, validateSnapshotEnvelope } from '@universo-react/utils'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { repoRoot } from './env/load-e2e-env.mjs'
@@ -78,10 +78,14 @@ export async function importInterpretationNetworkSnapshot(
     const validatedFixture = validateSnapshotEnvelope(fixture)
     assertInterpretationNetworkFixtureEnvelopeContract(validatedFixture)
 
+    // Snapshot imports derive a codename from the metahub name; unique temporary names avoid parallel-worker races.
+    const importIdentity = generateUuidV7().replaceAll('-', '')
+    const canonicalMetahubName = INTERPRETATION_NETWORK_CANONICAL_METAHUB.name.en
+    const temporaryMetahubName = createLocalizedContent('en', `${canonicalMetahubName} E2E ${importIdentity}`)
     const runId = (validatedFixture.metahub as { codename?: { en?: string } }).codename?.en ?? options.label
 
     const envelope = buildSnapshotEnvelope({
-        metahub: validatedFixture.metahub,
+        metahub: { ...validatedFixture.metahub, name: temporaryMetahubName },
         publication: validatedFixture.publication,
         sourceInstance: validatedFixture.sourceInstance,
         snapshot: validatedFixture.snapshot
@@ -103,12 +107,17 @@ export async function importInterpretationNetworkSnapshot(
     if (!metahub?.id) {
         throw new Error(`Interpretation Network snapshot import did not return a metahub id for ${options.label}`)
     }
-    if (readLocalizedLabel(metahub.name) !== INTERPRETATION_NETWORK_CANONICAL_METAHUB.name.en) {
-        throw new Error('Interpretation Network snapshot import created a metahub with a non-canonical title')
+    if (readLocalizedLabel(metahub.name) !== temporaryMetahubName.locales.en.content) {
+        throw new Error('Interpretation Network snapshot import did not preserve its isolated E2E metahub name')
     }
     if (!publication || typeof publicationId !== 'string') {
         throw new Error(`Interpretation Network snapshot import did not return a publication id for ${options.label}`)
     }
+
+    await updateMetahub(api, metahub.id, {
+        name: INTERPRETATION_NETWORK_CANONICAL_METAHUB.name,
+        namePrimaryLocale: 'en'
+    })
 
     const linkedApplication = await createPublicationLinkedApplication(api, metahub.id, publication.id, {
         name: { en: `E2E ${runId} ${options.label} Interpretation Network Import App` },
@@ -136,7 +145,10 @@ export async function importInterpretationNetworkSnapshot(
     )
 
     return {
-        metahub: metahub as { id: string; codename?: string; name?: { en?: string } },
+        metahub: {
+            ...metahub,
+            name: { en: canonicalMetahubName }
+        } as { id: string; codename?: string; name?: { en?: string } },
         publication: { ...publication, id: publicationId },
         linkedApplication,
         applicationId

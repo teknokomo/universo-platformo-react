@@ -94,13 +94,9 @@ export const runAnonymousPublicViewerJourney = async (
         await expect(visibilitySwitch).toBeChecked()
         await attachRuntimeScreenshot(ownerPage, testInfo, 'interpretation-network-application-settings-public')
 
-        const aliasToken = runManifest.runId
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/gu, '-')
-            .replace(/^-+|-+$/gu, '')
-            .slice(-36)
-        const alias = `network-${aliasToken || 'playwright'}`
-        const secondaryAlias = `network-alt-${aliasToken || 'playwright'}`
+        const aliasToken = imported.applicationId.replaceAll('-', '').toLowerCase()
+        const alias = `network-${aliasToken}`
+        const secondaryAlias = `network-alt-${aliasToken}`
         const aliasResponse = await sendWithCsrf(activeBootstrapApi, 'POST', '/api/v1/application-aliases', {
             applicationId: imported.applicationId,
             alias,

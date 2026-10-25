@@ -145,12 +145,7 @@ export const preparePublicRoleScenario = async (
         expectedCellVersion: describedRootCellVersion
     })
 
-    const aliasToken = runManifest.runId
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/gu, '-')
-        .replace(/^-+|-+$/gu, '')
-        .slice(-30)
-    const aliasSuffix = aliasToken || 'playwright'
+    const aliasSuffix = imported.applicationId.replaceAll('-', '').toLowerCase()
     const alias = `network-roles-${aliasSuffix}`
     const secondaryAlias = `network-roles-alt-${aliasSuffix}`
     for (const [applicationAlias, makePrimary] of [

@@ -161,12 +161,8 @@ test('@matrix Interpretation Network locale acceptance proves public anonymous r
         )
 
         bootstrapApi = await createBootstrapApiContext()
-        const aliasToken = runManifest.runId
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/gu, '-')
-            .replace(/^-+|-+$/gu, '')
-            .slice(-36)
-        const alias = `network-${locale}-${aliasToken || 'playwright'}`
+        const aliasToken = imported.applicationId.replaceAll('-', '').toLowerCase()
+        const alias = `network-${locale}-${aliasToken}`
         const aliasResponse = await sendWithCsrf(bootstrapApi, 'POST', '/api/v1/application-aliases', {
             applicationId: imported.applicationId,
             alias,
