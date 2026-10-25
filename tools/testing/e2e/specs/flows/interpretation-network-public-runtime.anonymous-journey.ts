@@ -34,6 +34,7 @@ import {
     expectPublicNoWorkspacesState,
     expectPublicInterpretationNetworkWorkspace,
     expectPublicMatrixReadOnly,
+    waitForPageResponseSnapshot,
     waitForPublicMaterialsResponse,
     watchPublicRuntimeServerErrors,
     watchNonGetApiRequests,
@@ -310,7 +311,7 @@ export const runAnonymousPublicViewerJourney = async (
         await publicEntryWorkspaceSelector.click()
         const publicEntryWorkspaceOption = ownerPage.getByRole('option', { name: publicEntryWorkspaceLabel, exact: true })
         await expect(publicEntryWorkspaceOption).toBeVisible()
-        const publicEntryWorkspaceSavePromise = ownerPage.waitForResponse((response) => {
+        const publicEntryWorkspaceSavePromise = waitForPageResponseSnapshot(ownerPage, (response) => {
             const url = new URL(response.url())
             return (
                 response.request().method() === 'PATCH' &&
@@ -319,8 +320,8 @@ export const runAnonymousPublicViewerJourney = async (
         })
         await publicEntryWorkspaceOption.click()
         const publicEntryWorkspaceSave = await publicEntryWorkspaceSavePromise
-        expect(publicEntryWorkspaceSave.status(), 'Selecting the public entry workspace persists through the settings UI').toBe(200)
-        expect((await publicEntryWorkspaceSave.json()).workspaceId).toBe(publicEntryWorkspaceId)
+        expect(publicEntryWorkspaceSave.status, 'Selecting the public entry workspace persists through the settings UI').toBe(200)
+        expect(JSON.parse(publicEntryWorkspaceSave.body).workspaceId).toBe(publicEntryWorkspaceId)
         await attachRuntimeScreenshot(ownerPage, testInfo, 'interpretation-network-application-settings-public-entry-workspace')
         await expectNoPageHorizontalOverflow(ownerPage, 'Application Settings public entry workspace selector')
         const runtimeIds = await resolveRuntimeIds(api, imported.applicationId, publicEntryWorkspaceId)
@@ -444,7 +445,7 @@ export const runAnonymousPublicViewerJourney = async (
                 authenticatedRuntimeRequests.push(`${request.method()} ${requestUrl.pathname}`)
             }
         })
-        const startPageBootstrapPromise = page.waitForResponse((response) => {
+        const startPageBootstrapPromise = waitForPageResponseSnapshot(page, (response) => {
             const url = new URL(response.url())
             return (
                 response.request().method() === 'GET' && PUBLIC_RUNTIME_PATH_PATTERN.test(url.pathname) && url.pathname.endsWith('/runtime')
@@ -452,8 +453,8 @@ export const runAnonymousPublicViewerJourney = async (
         })
         await page.goto(`/a/${alias}?locale=en`)
         const startBootstrap = await startPageBootstrapPromise
-        expect(startBootstrap.status(), 'The default public Start page loads through the Dashboard runtime').toBe(200)
-        const startRuntime = (await startBootstrap.json()) as {
+        expect(startBootstrap.status, 'The default public Start page loads through the Dashboard runtime').toBe(200)
+        const startRuntime = JSON.parse(startBootstrap.body) as {
             templateKey?: string
             dashboard?: {
                 pageBlocks?: unknown[]
@@ -609,8 +610,8 @@ export const runAnonymousPublicViewerJourney = async (
         const matrix = page.getByTestId('interpretation-network-matrix-workspace')
         await expect(matrix).toBeVisible({ timeout: 30_000 })
         const materialsResponse = await materialsResponsePromise
-        expect(materialsResponse.status(), 'The anonymous Matrix reads cell materials from the public runtime endpoint').toBe(200)
-        const materialsPayload = (await materialsResponse.json()) as {
+        expect(materialsResponse.status, 'The anonymous Matrix reads cell materials from the public runtime endpoint').toBe(200)
+        const materialsPayload = JSON.parse(materialsResponse.body) as {
             items?: Array<{ title?: string; isPrimary?: boolean }>
         }
         expect(materialsPayload.items).toHaveLength(25)

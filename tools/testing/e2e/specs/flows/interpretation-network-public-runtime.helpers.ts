@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test'
-import type { Browser, BrowserContext, Locator, Page, TestInfo } from '@playwright/test'
+import type { Browser, BrowserContext, Locator, Page, Response, TestInfo } from '@playwright/test'
 import { createBootstrapApiContext } from '../../support/backend/bootstrap.mjs'
 import { sendWithCsrf } from '../../support/backend/api-session.mjs'
 import { expectNoPageHorizontalOverflow, expectNoTechnicalLeakage, expectSemanticFieldControls } from '../../support/browser/runtimeUx'
@@ -87,7 +87,7 @@ export const openPublicSystemMatrix = async (page: Page) => {
     await expect(rootCellButton, 'The public viewer selects the single root cell by default').toHaveAttribute('aria-pressed', 'true')
     const materialsResponse = materialsResponsePromise ? await materialsResponsePromise : null
     if (materialsResponse) {
-        expect(materialsResponse.status(), 'Selecting the public system structure loads its materials through the read endpoint').toBe(200)
+        expect(materialsResponse.status, 'Selecting the public system structure loads its materials through the read endpoint').toBe(200)
     }
     const multilineDescription = matrix
         .getByTestId('interpretation-network-cell-description')
@@ -98,8 +98,16 @@ export const openPublicSystemMatrix = async (page: Page) => {
     return { matrix, materialsResponse }
 }
 
+export const readPageResponseSnapshot = async (response: Response) => ({
+    status: response.status(),
+    body: await response.text()
+})
+
+export const waitForPageResponseSnapshot = (page: Page, predicate: (response: Response) => boolean) =>
+    page.waitForResponse(predicate).then(readPageResponseSnapshot)
+
 export const waitForPublicMaterialsResponse = (page: Page) =>
-    page.waitForResponse((response) => {
+    waitForPageResponseSnapshot(page, (response) => {
         const url = new URL(response.url())
         return (
             response.request().method() === 'GET' &&

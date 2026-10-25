@@ -37,7 +37,9 @@ import {
     expectPublicMatrixReadOnly,
     expectLoginScreenForUnavailablePublicReference,
     openPublicSystemMatrix,
+    readPageResponseSnapshot,
     waitForPublicMaterialsResponse,
+    waitForPageResponseSnapshot,
     setCanonicalAliasRouting,
     watchPublicRuntimeServerErrors,
     watchNonGetApiRequests,
@@ -209,11 +211,11 @@ test.describe.serial('Interpretation Network public runtime lifecycle', () => {
                     new URL(response.url()).pathname ===
                         `/api/v1/applications/${scenario.applicationId}/runtime/interpretation-network/matrix/cells`,
                 { label: 'Creating a Matrix cell through the canonical alias' }
-            )
+            ).then(readPageResponseSnapshot)
             await addCellDialog.getByRole('button', { name: 'Create', exact: true }).click()
             const createCellResponse = await createCellResponsePromise
-            expect(createCellResponse.status()).toBe(201)
-            const createdCellResponseBody = (await createCellResponse.json()) as {
+            expect(createCellResponse.status).toBe(201)
+            const createdCellResponseBody = JSON.parse(createCellResponse.body) as {
                 id: unknown
                 item: Record<string, unknown>
             }
@@ -258,7 +260,7 @@ test.describe.serial('Interpretation Network public runtime lifecycle', () => {
                     new URL(response.url()).pathname ===
                         `/api/v1/applications/${scenario.applicationId}/runtime/interpretation-network/matrix/cells/${createdCellId}`,
                 { label: 'Editing a Matrix cell through the canonical alias' }
-            )
+            ).then(readPageResponseSnapshot)
             await editCellDialog.getByRole('button', { name: 'Save', exact: true }).click()
             const editCellResponse = await editCellResponsePromise.catch((error: unknown) => {
                 const observedMutations = memberRuntimeMutations.map(({ method, pathname }) => {
@@ -270,8 +272,8 @@ test.describe.serial('Interpretation Network public runtime lifecycle', () => {
                 const message = error instanceof Error ? error.message : String(error)
                 throw new Error(`${message}. Observed member runtime mutations: ${observedMutations.join('; ') || 'none'}`)
             })
-            expect(editCellResponse.status()).toBe(200)
-            const editCellResponseBody = (await editCellResponse.json()) as { cellId?: unknown; version?: unknown }
+            expect(editCellResponse.status).toBe(200)
+            const editCellResponseBody = JSON.parse(editCellResponse.body) as { cellId?: unknown; version?: unknown }
             expect(editCellResponseBody).toEqual({ cellId: createdCellId, version: createdCellVersion + 1 })
             await expect(memberPage.getByRole('button', { name: 'Cell actions: Alias CRUD edited', exact: true })).toBeVisible({
                 timeout: 30_000
@@ -299,11 +301,11 @@ test.describe.serial('Interpretation Network public runtime lifecycle', () => {
                     new URL(response.url()).pathname ===
                         `/api/v1/applications/${scenario.applicationId}/runtime/interpretation-network/matrix/cells/${createdCellId}`,
                 { label: 'Deleting a Matrix cell through the canonical alias' }
-            )
+            ).then(readPageResponseSnapshot)
             await deleteCellDialog.getByRole('button', { name: 'Delete', exact: true }).click()
             const deleteCellResponse = await deleteCellResponsePromise
-            expect(deleteCellResponse.status()).toBe(200)
-            expect(await deleteCellResponse.json()).toEqual({ cellId: createdCellId, deletedMaterialCount: 0 })
+            expect(deleteCellResponse.status).toBe(200)
+            expect(JSON.parse(deleteCellResponse.body)).toEqual({ cellId: createdCellId, deletedMaterialCount: 0 })
             await expect(memberPage.getByRole('button', { name: 'Cell actions: Alias CRUD edited', exact: true })).toHaveCount(0)
             expect(
                 (await getMatrixRows(api, scenario.applicationId, runtimeIds, system.interpretationId)).some(
@@ -678,7 +680,7 @@ test.describe.serial('Interpretation Network public runtime lifecycle', () => {
                         protectedRuntimeRequests.push(`${request.method()} ${url.pathname}`)
                     }
                 })
-                const deniedResolverPromise = nonMemberSession.page.waitForResponse((response) => {
+                const deniedResolverPromise = waitForPageResponseSnapshot(nonMemberSession.page, (response) => {
                     const url = new URL(response.url())
                     return (
                         response.request().method() === 'GET' && url.pathname === `/api/v1/applications/runtime-reference/${scenario.alias}`
@@ -691,8 +693,8 @@ test.describe.serial('Interpretation Network public runtime lifecycle', () => {
                 const initialPublicMaterialsResponsePromise = waitForPublicMaterialsResponse(nonMemberSession.page)
                 await nonMemberSession.page.goto(`/a/${scenario.alias}?targetKind=object&entityTypeCodename=Structure&locale=en`)
                 const deniedResolver = await deniedResolverPromise
-                expect(deniedResolver.status(), 'An authenticated non-member receives the non-enumerating denial').toBe(404)
-                expect(await deniedResolver.json()).toEqual({ error: 'Application not found' })
+                expect(deniedResolver.status, 'An authenticated non-member receives the non-enumerating denial').toBe(404)
+                expect(JSON.parse(deniedResolver.body)).toEqual({ error: 'Application not found' })
                 expect((await publicBootstrapPromise).status(), 'The non-member can load the public bootstrap').toBe(200)
                 await expectPublicDashboardShell(nonMemberSession.page)
                 await expect(nonMemberSession.page.getByTestId('runtime-workspace-switcher')).toHaveCount(0)
@@ -722,8 +724,8 @@ test.describe.serial('Interpretation Network public runtime lifecycle', () => {
                 if (!primaryMaterialResponse) {
                     throw new Error('The public Matrix did not load materials while opening its selected root cell')
                 }
-                expect(primaryMaterialResponse.status()).toBe(200)
-                const nonMemberMaterialsPayload = (await primaryMaterialResponse.json()) as {
+                expect(primaryMaterialResponse.status).toBe(200)
+                const nonMemberMaterialsPayload = JSON.parse(primaryMaterialResponse.body) as {
                     items?: Array<{ title?: string; isPrimary?: boolean }>
                 }
                 expect(nonMemberMaterialsPayload.items?.[0]).toMatchObject({
