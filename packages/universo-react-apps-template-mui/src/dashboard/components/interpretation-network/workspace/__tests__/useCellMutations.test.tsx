@@ -9,6 +9,7 @@ import {
     deleteInterpretationNetworkMatrixCell,
     updateInterpretationNetworkMatrixCell
 } from '../../../../../api/interpretationNetwork'
+import { interpretationNetworkFavoritesQueryKeys } from '../useInterpretationNetworkFavorites'
 import { useCellMutations } from '../useCellMutations'
 
 vi.mock('../../../../../api/interpretationNetwork', () => ({
@@ -80,7 +81,7 @@ const renderUseCellMutations = (
 ) => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
     const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    return renderHook(
+    const hook = renderHook(
         () =>
             useCellMutations({
                 t,
@@ -129,6 +130,7 @@ const renderUseCellMutations = (
             }),
         { wrapper }
     )
+    return { ...hook, queryClient }
 }
 
 describe('useCellMutations', () => {
@@ -213,5 +215,47 @@ describe('useCellMutations', () => {
             })
         )
         expect(JSON.stringify(vi.mocked(deleteInterpretationNetworkMatrixCell).mock.calls[0]?.[0])).not.toContain('row-child')
+    })
+
+    it('invalidates only the matching workspace favorites list after deleting a cell', async () => {
+        const childCell: MatrixCell = {
+            ...rootCell,
+            id: '019f2000-0000-7000-8000-000000000002',
+            rawRowId: 'row-child',
+            parentCellId: rootCell.id,
+            depth: 1
+        }
+        const childRow: RuntimeRow = { ...rootRow, id: 'row-child', CellId: childCell.id, ParentCellId: rootCell.id }
+        const { result, queryClient } = renderUseCellMutations(true, vi.fn(), {
+            cells: [rootCell, childCell],
+            rawRowsByCellId: new Map([
+                [rootCell.id, rootRow],
+                [childCell.id, childRow]
+            ]),
+            deleteCell: childCell,
+            deleteRawCell: childRow,
+            cellDeleteId: childCell.id
+        })
+        const currentFavoritesKey = interpretationNetworkFavoritesQueryKeys.list({
+            apiBaseUrl: '/api/v1/',
+            applicationId: 'app-1',
+            workspaceId: 'workspace-1',
+            locale: 'en',
+            enabled: true
+        })
+        const otherWorkspaceFavoritesKey = interpretationNetworkFavoritesQueryKeys.list({
+            apiBaseUrl: '/api/v1',
+            applicationId: 'app-1',
+            workspaceId: 'workspace-2',
+            locale: 'en',
+            enabled: true
+        })
+        queryClient.setQueryData(currentFavoritesKey, { pages: [], pageParams: [] })
+        queryClient.setQueryData(otherWorkspaceFavoritesKey, { pages: [], pageParams: [] })
+
+        await result.current.deleteCellMutation.mutateAsync()
+
+        expect(queryClient.getQueryState(currentFavoritesKey)?.isInvalidated).toBe(true)
+        expect(queryClient.getQueryState(otherWorkspaceFavoritesKey)?.isInvalidated).toBe(false)
     })
 })

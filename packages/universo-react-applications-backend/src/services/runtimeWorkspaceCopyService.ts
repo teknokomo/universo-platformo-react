@@ -11,6 +11,7 @@ import {
     listWorkspaceCopyTemplateMaterialOwnerSources,
     hasValidWorkspaceCopyAccessLinkIntakePolicies,
     hasWorkspaceCopyTemplateMaterialsExcluded,
+    remapWorkspaceCopyMaterialInterpretations,
     remapWorkspaceCopyTemplateMaterialOwners,
     type WorkspaceCopyTemplateMaterialOwnerSource
 } from './runtimeWorkspaceCopyPolicy'
@@ -699,6 +700,7 @@ export async function copyWorkspaceOperation(
         }
 
         await remapWorkspaceCopyTemplateMaterialOwners(tx, input.schemaName, created.id)
+        await remapWorkspaceCopyMaterialInterpretations(tx, input.schemaName, created.id, dependencies.createError)
 
         await tx.query('DROP TABLE workspace_copy_source_rows')
 

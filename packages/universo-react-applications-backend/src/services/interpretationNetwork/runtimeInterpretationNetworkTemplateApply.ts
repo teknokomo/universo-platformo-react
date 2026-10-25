@@ -32,7 +32,13 @@ import {
 import { acquireInterpretationNetworkMatrixMembershipLock } from './runtimeInterpretationNetworkMatrixMembership'
 import { cloneMaterials, loadMaterialsByTemplateOwner } from './runtimeInterpretationNetworkMaterials'
 import { planMatrixRowsCopy } from './runtimeInterpretationNetworkMatrixCopy'
-import { resolveMatrixColumns, validateMatrixState } from './runtimeInterpretationNetworkMatrixCommandSupport'
+import {
+    hasCellStylePolicyFields,
+    resolveMatrixColumns,
+    validateMatrixState,
+    validateTouchedCellStylePolicy
+} from './runtimeInterpretationNetworkMatrixCommandSupport'
+import { resolveMatrixMutationSurface, type InterpretationNetworkMatrixMutationContext } from './runtimeInterpretationNetworkMatrixPolicy'
 import {
     assertMaterialOwnership,
     assertNoOrdinaryStructuresInSingleSystemMode,
@@ -175,7 +181,8 @@ export const applyTableTemplateToMatrix = async (
     ctx: RuntimeSchemaContext,
     surfaceInput: InterpretationNetworkRuntimeSurface,
     templateId: string,
-    input: ApplyInput
+    input: ApplyInput,
+    mutationContext?: InterpretationNetworkMatrixMutationContext
 ): Promise<z.infer<typeof interpretationNetworkTemplateApplyResponseSchema>> => {
     assertRuntimePermissions(ctx, 'createContent', 'editContent')
     const surface = assertReadySurface(surfaceInput, 'applyTemplate')
@@ -221,6 +228,7 @@ export const applyTableTemplateToMatrix = async (
         // Keep the global lock order aligned with structure-mode mutations and Matrix membership writers.
         await acquireStructureModeLock(tx, surface)
         await acquireCommandLock(tx, surface, 'apply-template')
+        const policySurface = mutationContext ? await resolveMatrixMutationSurface(tx, mutationContext, surface) : surface
 
         const observedInterpretation = await selectRowById(tx, {
             schemaName: ctx.schemaName,
@@ -402,6 +410,11 @@ export const applyTableTemplateToMatrix = async (
             cellIdMap,
             'hierarchicalCells'
         ).rows
+        for (const row of plannedRows) {
+            if (hasCellStylePolicyFields(interpretationContract, row)) {
+                validateTouchedCellStylePolicy(policySurface, interpretationContract, row)
+            }
+        }
         assertFreshCellIds(plannedRows, destinationCellIdColumn, currentRows)
         ensureCollisionFreeAxisKeys(plannedRows, templateRows, templateRowKeyColumn, destinationRowKeyColumn, currentRows, 'row')
         ensureCollisionFreeAxisKeys(plannedRows, templateRows, templateColKeyColumn, destinationColKeyColumn, currentRows, 'column')

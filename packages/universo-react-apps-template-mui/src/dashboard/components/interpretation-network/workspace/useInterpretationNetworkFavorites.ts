@@ -33,7 +33,20 @@ export const interpretationNetworkFavoritesQueryKeys = {
             options.workspaceId ?? null
         ] as const,
     list: (options: UseInterpretationNetworkFavoritesOptions) =>
-        [...interpretationNetworkFavoritesQueryKeys.scope(options), 'list', options.locale] as const
+        [...interpretationNetworkFavoritesQueryKeys.scope(options), 'list', options.locale] as const,
+    matchesScope: (
+        queryKey: readonly unknown[],
+        scope: Pick<UseInterpretationNetworkFavoritesOptions, 'apiBaseUrl' | 'applicationId' | 'workspaceId'>
+    ) => {
+        const markerIndex = queryKey.lastIndexOf('interpretation-network-favorites')
+        if (markerIndex < 0) return false
+        return (
+            queryKey[markerIndex + 1] === 'authenticated' &&
+            queryKey[markerIndex + 2] === (scope.apiBaseUrl?.replace(/\/$/, '') ?? null) &&
+            queryKey[markerIndex + 3] === (scope.applicationId ?? null) &&
+            queryKey[markerIndex + 4] === (scope.workspaceId ?? null)
+        )
+    }
 }
 
 const targetKey = (target: InterpretationNetworkFavoriteTarget): string =>

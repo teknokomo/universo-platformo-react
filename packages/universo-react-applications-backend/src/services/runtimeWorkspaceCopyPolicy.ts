@@ -28,6 +28,12 @@ type WorkspaceCopyTemplateMaterialComponentRow = {
     materialTargetObjectId: string | null
 }
 
+type WorkspaceCopyMaterialInterpretationFieldRow = {
+    materialTableName: string
+    interpretationIdColumnName: string
+    interpretationTableNames: string[] | null
+}
+
 export type WorkspaceCopyTemplateMaterialOwnerSource = {
     tableName: string
     ownerColumnName: string
@@ -148,6 +154,120 @@ export async function remapWorkspaceCopyTemplateMaterialOwners(
             `,
             [targetWorkspaceId, row.templateTableName]
         )
+    }
+}
+
+/** Remap server-owned Material.InterpretationId strings to the copied Interpretation rows. */
+export async function remapWorkspaceCopyMaterialInterpretations(
+    executor: DbExecutor,
+    schemaName: string,
+    targetWorkspaceId: string,
+    createError: (code: 'WORKSPACE_COPY_REFERENCE_UNRESOLVED', message: string) => Error
+): Promise<void> {
+    const fields = await executor.query<WorkspaceCopyMaterialInterpretationFieldRow>(
+        `
+        SELECT
+            material.table_name AS "materialTableName",
+            interpretation_id_component.column_name AS "interpretationIdColumnName",
+            COALESCE(
+                ARRAY_AGG(DISTINCT interpretation.table_name ORDER BY interpretation.table_name)
+                    FILTER (WHERE interpretation.table_name IS NOT NULL),
+                ARRAY[]::text[]
+            ) AS "interpretationTableNames"
+        FROM ${qSchemaTable(schemaName, '_app_objects')} material
+        INNER JOIN ${qSchemaTable(schemaName, '_app_components')} interpretation_id_component
+            ON interpretation_id_component.object_id = material.id
+           AND interpretation_id_component.parent_component_id IS NULL
+           AND LOWER(${runtimeCodenameTextSql('interpretation_id_component.codename')}) = 'interpretationid'
+           AND interpretation_id_component.data_type = 'STRING'
+           AND interpretation_id_component.${qColumn('_upl_deleted')} = false
+           AND interpretation_id_component.${qColumn('_app_deleted')} = false
+        LEFT JOIN ${qSchemaTable(schemaName, '_app_objects')} interpretation
+            ON LOWER(${runtimeCodenameTextSql('interpretation.codename')}) = 'interpretation'
+           AND interpretation.${qColumn('_upl_deleted')} = false
+           AND interpretation.${qColumn('_app_deleted')} = false
+        WHERE LOWER(${runtimeCodenameTextSql('material.codename')}) = 'material'
+          AND material.${qColumn('_upl_deleted')} = false
+          AND material.${qColumn('_app_deleted')} = false
+        GROUP BY material.table_name, interpretation_id_component.column_name
+        ORDER BY material.table_name ASC, interpretation_id_component.column_name ASC
+        `
+    )
+
+    for (const field of fields) {
+        const materialTable = qSchemaTable(schemaName, field.materialTableName)
+        const interpretationColumn = qColumn(field.interpretationIdColumnName)
+        const interpretationTableNames = [...new Set(field.interpretationTableNames ?? [])].sort()
+
+        if (interpretationTableNames.length !== 1) {
+            const referenceRows = await executor.query<{ hasReferences: boolean | string }>(
+                `
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM ${materialTable} material
+                    WHERE material.${qColumn('workspace_id')} = $1::uuid
+                      AND material.${qColumn('_upl_deleted')} = false
+                      AND material.${qColumn('_app_deleted')} = false
+                      AND NULLIF(BTRIM(material.${interpretationColumn}), '') IS NOT NULL
+                ) AS "hasReferences"
+                `,
+                [targetWorkspaceId]
+            )
+            const hasReferences =
+                referenceRows[0]?.hasReferences === true || String(referenceRows[0]?.hasReferences).toLowerCase() === 'true'
+            if (hasReferences) {
+                throw createError(
+                    'WORKSPACE_COPY_REFERENCE_UNRESOLVED',
+                    'Workspace copy contains a Material InterpretationId reference that cannot be resolved'
+                )
+            }
+            continue
+        }
+
+        const [interpretationTableName] = interpretationTableNames
+        await executor.query(
+            `
+            UPDATE ${materialTable} material
+            SET ${interpretationColumn} = id_map.new_id::text
+            FROM workspace_copy_id_map id_map
+            WHERE material.${qColumn('workspace_id')} = $1::uuid
+              AND material.${qColumn('_upl_deleted')} = false
+              AND material.${qColumn('_app_deleted')} = false
+              AND NULLIF(BTRIM(material.${interpretationColumn}), '') IS NOT NULL
+              AND LOWER(BTRIM(material.${interpretationColumn})) = LOWER(id_map.old_id::text)
+              AND id_map.source_table_name = $2::text
+            `,
+            [targetWorkspaceId, interpretationTableName]
+        )
+
+        const unresolvedRows = await executor.query<{ hasUnresolvedReferences: boolean | string }>(
+            `
+            SELECT EXISTS (
+                SELECT 1
+                FROM ${materialTable} material
+                WHERE material.${qColumn('workspace_id')} = $1::uuid
+                  AND material.${qColumn('_upl_deleted')} = false
+                  AND material.${qColumn('_app_deleted')} = false
+                  AND NULLIF(BTRIM(material.${interpretationColumn}), '') IS NOT NULL
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM workspace_copy_id_map id_map
+                      WHERE id_map.source_table_name = $2::text
+                        AND LOWER(id_map.new_id::text) = LOWER(BTRIM(material.${interpretationColumn}))
+                  )
+            ) AS "hasUnresolvedReferences"
+            `,
+            [targetWorkspaceId, interpretationTableName]
+        )
+        const hasUnresolvedReferences =
+            unresolvedRows[0]?.hasUnresolvedReferences === true ||
+            String(unresolvedRows[0]?.hasUnresolvedReferences).toLowerCase() === 'true'
+        if (hasUnresolvedReferences) {
+            throw createError(
+                'WORKSPACE_COPY_REFERENCE_UNRESOLVED',
+                'Workspace copy contains a Material InterpretationId reference that cannot be resolved'
+            )
+        }
     }
 }
 

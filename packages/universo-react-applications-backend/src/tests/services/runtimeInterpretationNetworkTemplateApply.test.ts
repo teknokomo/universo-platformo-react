@@ -421,4 +421,85 @@ describe('applyTableTemplateToMatrix', () => {
         ).rejects.toMatchObject({ code: 'INTERPRETATION_NETWORK_INVALID_CELL' })
         expect(malformed.committed).toEqual([])
     })
+
+    it('rejects a template color that violates the active Matrix palette policy before inserting cells', async () => {
+        const state = setup({ templateRows: makeTemplateRows().map((row) => ({ ...row, cell_fill_color: '#E53935' })) })
+        const fillColor = {
+            id: id(801),
+            codename: 'CellFillColor',
+            column_name: 'cell_fill_color',
+            data_type: 'STRING',
+            parent_component_id: null
+        }
+        state.surface.contracts.Interpretation.childFields.CellFillColor = fillColor
+        state.surface.contracts.TableTemplate.childFields.CellFillColor = fillColor
+        Object.assign(state.surface.widgetConfig, {
+            cellStylePolicy: {
+                allowedColors: ['#000000'],
+                allowCustomColors: false,
+                editable: { fillColor: true, textColor: true, borderColor: true, borderWidth: true, borderStyle: true }
+            }
+        })
+
+        await expect(
+            applyTableTemplateToMatrix(state.ctx, state.surface, templateId, interpretationNetworkTemplateApplyRequestSchema.parse(request))
+        ).rejects.toMatchObject({ code: 'INTERPRETATION_NETWORK_INVALID_CELL' })
+
+        expect(state.committed.filter((entry) => entry.table === 'interpretation_rows')).toHaveLength(0)
+    })
+
+    it('rejects template colors when the active Matrix placement disables color editing', async () => {
+        const state = setup({ templateRows: makeTemplateRows().map((row) => ({ ...row, cell_fill_color: '#000000' })) })
+        const fillColor = {
+            id: id(802),
+            codename: 'CellFillColor',
+            column_name: 'cell_fill_color',
+            data_type: 'STRING',
+            parent_component_id: null
+        }
+        state.surface.contracts.Interpretation.childFields.CellFillColor = fillColor
+        state.surface.contracts.TableTemplate.childFields.CellFillColor = fillColor
+        Object.assign(state.surface.widgetConfig, {
+            cellStylePolicy: {
+                allowedColors: ['#000000'],
+                allowCustomColors: false,
+                editable: { fillColor: false, textColor: true, borderColor: true, borderWidth: true, borderStyle: true }
+            }
+        })
+
+        await expect(
+            applyTableTemplateToMatrix(state.ctx, state.surface, templateId, interpretationNetworkTemplateApplyRequestSchema.parse(request))
+        ).rejects.toMatchObject({ statusCode: 403, code: 'INTERPRETATION_NETWORK_PERMISSION_DENIED' })
+
+        expect(state.committed.filter((entry) => entry.table === 'interpretation_rows')).toHaveLength(0)
+    })
+
+    it('allows templates with empty color defaults when the active Matrix policy disables color editing', async () => {
+        const state = setup({ templateRows: makeTemplateRows().map((row) => ({ ...row, cell_fill_color: null })) })
+        const fillColor = {
+            id: id(803),
+            codename: 'CellFillColor',
+            column_name: 'cell_fill_color',
+            data_type: 'STRING',
+            parent_component_id: null
+        }
+        state.surface.contracts.Interpretation.childFields.CellFillColor = fillColor
+        state.surface.contracts.TableTemplate.childFields.CellFillColor = fillColor
+        Object.assign(state.surface.widgetConfig, {
+            cellStylePolicy: {
+                allowedColors: ['#000000'],
+                allowCustomColors: false,
+                editable: { fillColor: false, textColor: true, borderColor: true, borderWidth: true, borderStyle: true }
+            }
+        })
+
+        await applyTableTemplateToMatrix(
+            state.ctx,
+            state.surface,
+            templateId,
+            interpretationNetworkTemplateApplyRequestSchema.parse(request)
+        )
+
+        expect(state.committed.filter((entry) => entry.table === 'interpretation_rows')).toHaveLength(2)
+    })
 })

@@ -10,18 +10,16 @@ import {
     interpretationNetworkTemplateApplyResponseSchema,
     resolveInterpretationNetworkRuntimeSurface
 } from '../services/interpretationNetwork/runtimeInterpretationNetworkService'
+import {
+    buildInterpretationNetworkRuntimeSurfaceContext,
+    parseInterpretationNetworkRuntimeSurfaceQuery
+} from '../services/interpretationNetwork/runtimeInterpretationNetworkSurfaceRequest'
+import { WorkspaceSettingsError, WORKSPACE_SETTINGS_ERROR_CODES } from '../services/workspaceSettingsService'
 
 const routeParamsSchema = z
     .object({
         applicationId: z.string().min(1),
         templateId: uuidV7Schema
-    })
-    .strict()
-
-const surfaceQuerySchema = z
-    .object({
-        widgetId: z.string().uuid().optional(),
-        layoutId: z.string().uuid().optional()
     })
     .strict()
 
@@ -57,10 +55,7 @@ export const createRuntimeInterpretationNetworkTemplateApplyController = (getDbE
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, parsedParams.data.applicationId)
         if (!ctx) return
 
-        const parsedSurfaceQuery = surfaceQuerySchema.safeParse({
-            ...(typeof req.query?.widgetId === 'string' ? { widgetId: req.query.widgetId } : {}),
-            ...(typeof req.query?.layoutId === 'string' ? { layoutId: req.query.layoutId } : {})
-        })
+        const parsedSurfaceQuery = parseInterpretationNetworkRuntimeSurfaceQuery(req.query)
         if (!parsedSurfaceQuery.success) {
             return sendValidationError(
                 res,
@@ -73,18 +68,37 @@ export const createRuntimeInterpretationNetworkTemplateApplyController = (getDbE
         if (!ensureRuntimePermission(res, ctx, 'createContent')) return
         if (!ensureRuntimePermission(res, ctx, 'editContent')) return
 
+        const surfaceContext = buildInterpretationNetworkRuntimeSurfaceContext(
+            ctx,
+            parsedParams.data.applicationId,
+            parsedSurfaceQuery.data
+        )
+        if (!surfaceContext.ok) {
+            const details = surfaceContext.reason === 'invalid-runtime-target' ? surfaceContext.details : undefined
+            const message =
+                surfaceContext.reason === 'missing-instance-key'
+                    ? 'A semantic Matrix placement is required for workspace mutations'
+                    : 'Invalid semantic Matrix runtime target'
+            return sendError(res, 400, message, 'INTERPRETATION_NETWORK_INVALID_RUNTIME_CONTEXT', details)
+        }
+
         try {
-            const surface = await resolveInterpretationNetworkRuntimeSurface(ctx.manager, {
-                applicationId: parsedParams.data.applicationId,
-                schemaName: ctx.schemaName,
-                workspaceId: ctx.currentWorkspaceId,
-                ...parsedSurfaceQuery.data
-            })
-            const result = await applyTableTemplateToMatrix(ctx, surface, parsedParams.data.templateId, parsedBody.data)
+            const surface = await resolveInterpretationNetworkRuntimeSurface(ctx.manager, surfaceContext.params)
+            const result = await applyTableTemplateToMatrix(
+                ctx,
+                surface,
+                parsedParams.data.templateId,
+                parsedBody.data,
+                surfaceContext.params
+            )
             return res.status(201).json(interpretationNetworkTemplateApplyResponseSchema.parse(result))
         } catch (error) {
             if (error instanceof InterpretationNetworkCommandError) {
                 return sendError(res, error.statusCode, error.message, error.code, error.details)
+            }
+            if (error instanceof WorkspaceSettingsError) {
+                const status = error.code === WORKSPACE_SETTINGS_ERROR_CODES.settingValueInvalid ? 409 : 404
+                return sendError(res, status, 'Workspace settings could not be resolved for the active Matrix placement', error.code)
             }
             throw error
         }

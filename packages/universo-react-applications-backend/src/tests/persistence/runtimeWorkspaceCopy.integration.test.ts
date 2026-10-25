@@ -22,6 +22,7 @@ const workspaceCopyTableComponentId = generateUuidV7()
 const workspaceCopyChildTable = generateChildTableName(workspaceCopyTableComponentId)
 const tableTemplateTable = 'obj_table_templates'
 const materialTable = 'obj_materials'
+const interpretationTable = 'obj_interpretations'
 const tableTemplateComponentId = generateUuidV7()
 const tableTemplateChildTable = generateChildTableName(tableTemplateComponentId)
 const matrixTable = workspaceCopyChildTable
@@ -187,7 +188,17 @@ describeIntegration('runtimeWorkspaceCopyService PostgreSQL integration', () => 
                 id UUID PRIMARY KEY,
                 workspace_id UUID NOT NULL,
                 body TEXT NOT NULL,
+                interpretation_id TEXT NULL,
                 template_owner_id TEXT NULL,
+                _upl_deleted BOOLEAN NOT NULL DEFAULT false,
+                _app_deleted BOOLEAN NOT NULL DEFAULT false
+            )
+        `)
+        await knex.raw(`
+            CREATE TABLE ${qSchemaTable(schemaName, interpretationTable)} (
+                id UUID PRIMARY KEY,
+                workspace_id UUID NOT NULL,
+                title TEXT NOT NULL,
                 _upl_deleted BOOLEAN NOT NULL DEFAULT false,
                 _app_deleted BOOLEAN NOT NULL DEFAULT false
             )
@@ -230,10 +241,13 @@ describeIntegration('runtimeWorkspaceCopyService PostgreSQL integration', () => 
             )}, ${qSchemaTable(schemaName, tableTemplateChildTable)}, ${qSchemaTable(schemaName, tableTemplateTable)}, ${qSchemaTable(
                 schemaName,
                 materialTable
-            )}, ${qSchemaTable(schemaName, '_app_components')}, ${qSchemaTable(schemaName, '_app_objects')}, ${qSchemaTable(
+            )}, ${qSchemaTable(schemaName, interpretationTable)}, ${qSchemaTable(schemaName, '_app_components')}, ${qSchemaTable(
                 schemaName,
-                '_app_workspaces'
-            )}, ${qSchemaTable(schemaName, '_app_workspace_settings')}, ${qSchemaTable(schemaName, '_app_workspace_user_roles')}`
+                '_app_objects'
+            )}, ${qSchemaTable(schemaName, '_app_workspaces')}, ${qSchemaTable(schemaName, '_app_workspace_settings')}, ${qSchemaTable(
+                schemaName,
+                '_app_workspace_user_roles'
+            )}`
         )
     })
 
@@ -326,6 +340,94 @@ describeIntegration('runtimeWorkspaceCopyService PostgreSQL integration', () => 
                 createError: (code, message) => Object.assign(new Error(message), { code })
             }
         )
+
+    const seedMaterialInterpretationReference = async (includeInterpretation = true) => {
+        const materialObjectId = generateUuidV7()
+        const interpretationObjectId = generateUuidV7()
+        const sourceMaterialId = generateUuidV7()
+        const sourceInterpretationId = generateUuidV7()
+
+        await knex.raw(`INSERT INTO ${qSchemaTable(schemaName, '_app_workspaces')} (id) VALUES (?)`, [workspaceId])
+        await knex.raw(
+            `INSERT INTO ${qSchemaTable(schemaName, '_app_objects')} (id, kind, codename, table_name)
+             VALUES (?, 'object', ?::jsonb, ?), (?, 'object', ?::jsonb, ?)`,
+            [
+                materialObjectId,
+                JSON.stringify('Material'),
+                materialTable,
+                interpretationObjectId,
+                JSON.stringify('Interpretation'),
+                interpretationTable
+            ]
+        )
+        await knex.raw(
+            `INSERT INTO ${qSchemaTable(schemaName, '_app_components')}
+                (id, object_id, codename, data_type, column_name)
+             VALUES (?, ?, ?::jsonb, 'STRING', 'interpretation_id')`,
+            [generateUuidV7(), materialObjectId, JSON.stringify('InterpretationId')]
+        )
+        if (includeInterpretation) {
+            await knex.raw(
+                `INSERT INTO ${qSchemaTable(schemaName, interpretationTable)} (id, workspace_id, title)
+                 VALUES (?, ?, 'Source interpretation')`,
+                [sourceInterpretationId, workspaceId]
+            )
+        }
+        await knex.raw(
+            `INSERT INTO ${qSchemaTable(schemaName, materialTable)} (id, workspace_id, body, interpretation_id)
+             VALUES (?, ?, 'Source material', ?)`,
+            [sourceMaterialId, workspaceId, sourceInterpretationId]
+        )
+
+        return { sourceMaterialId, sourceInterpretationId }
+    }
+
+    it('remaps Material.InterpretationId to the copied Interpretation record', async () => {
+        const { sourceMaterialId, sourceInterpretationId } = await seedMaterialInterpretationReference()
+        const targetWorkspaceId = generateUuidV7()
+
+        const copiedWorkspace = await executeWorkspaceCopy(targetWorkspaceId)
+        const copiedInterpretations = await knex.raw(
+            `SELECT id FROM ${qSchemaTable(schemaName, interpretationTable)} WHERE workspace_id = ?`,
+            [targetWorkspaceId]
+        )
+        const copiedMaterials = await knex.raw(
+            `SELECT id, interpretation_id FROM ${qSchemaTable(schemaName, materialTable)} WHERE workspace_id = ?`,
+            [targetWorkspaceId]
+        )
+        const sourceMaterial = await knex.raw(`SELECT interpretation_id FROM ${qSchemaTable(schemaName, materialTable)} WHERE id = ?`, [
+            sourceMaterialId
+        ])
+
+        expect(copiedWorkspace.id).toBe(targetWorkspaceId)
+        expect(copiedInterpretations.rows).toHaveLength(1)
+        expect(copiedMaterials.rows).toHaveLength(1)
+        expect(isUuidV7(copiedInterpretations.rows[0].id)).toBe(true)
+        expect(isUuidV7(copiedMaterials.rows[0].id)).toBe(true)
+        expect(copiedInterpretations.rows[0].id).not.toBe(sourceInterpretationId)
+        expect(copiedMaterials.rows[0].interpretation_id).toBe(copiedInterpretations.rows[0].id)
+        expect(copiedMaterials.rows[0].interpretation_id).not.toBe(sourceInterpretationId)
+        expect(sourceMaterial.rows).toEqual([{ interpretation_id: sourceInterpretationId }])
+    }, 30_000)
+
+    it('rejects and rolls back a copied Material with an unresolved non-empty InterpretationId', async () => {
+        await seedMaterialInterpretationReference(false)
+        const targetWorkspaceId = generateUuidV7()
+
+        await expect(executeWorkspaceCopy(targetWorkspaceId)).rejects.toMatchObject({
+            code: 'WORKSPACE_COPY_REFERENCE_UNRESOLVED',
+            message: 'Workspace copy contains a Material InterpretationId reference that cannot be resolved'
+        })
+
+        const targetWorkspace = await knex.raw(`SELECT id FROM ${qSchemaTable(schemaName, '_app_workspaces')} WHERE id = ?`, [
+            targetWorkspaceId
+        ])
+        const copiedMaterials = await knex.raw(`SELECT id FROM ${qSchemaTable(schemaName, materialTable)} WHERE workspace_id = ?`, [
+            targetWorkspaceId
+        ])
+        expect(targetWorkspace.rows).toHaveLength(0)
+        expect(copiedMaterials.rows).toHaveLength(0)
+    }, 30_000)
 
     it('remaps resetOnCopy REF defaults after later-sorting targets are copied without violating real foreign keys', async () => {
         const quizObjectId = generateUuidV7()

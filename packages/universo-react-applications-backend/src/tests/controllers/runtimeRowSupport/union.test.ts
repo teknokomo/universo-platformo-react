@@ -1,3 +1,6 @@
+import type { DbExecutor } from '@universo-react/utils'
+import { resolveApplicationLifecycleContractFromConfig } from '@universo-react/utils'
+import { buildRuntimeUnionTargetQuery, buildRuntimeUnionTargetSelect } from '../../../services/runtimeRowSupport/union/targetQuery'
 import {
     mergeRuntimeUnionColumns,
     normalizeRuntimeUnionProjectionField,
@@ -31,6 +34,101 @@ describe('remapRuntimeUnionSqlPlaceholders', () => {
     it('leaves SQL without placeholders and a zero offset unchanged', () => {
         expect(remapRuntimeUnionSqlPlaceholders('id = $1', 0)).toBe('id = $1')
         expect(remapRuntimeUnionSqlPlaceholders('deleted = false', 4)).toBe('deleted = false')
+    })
+})
+
+describe('buildRuntimeUnionTargetQuery published scope', () => {
+    it('restricts public record rows and nested child counts to published records', async () => {
+        const executor = { query: jest.fn().mockResolvedValue([]) } as unknown as DbExecutor
+        const childTableComponentId = '019f2000-0000-7000-8000-000000000103'
+        const objectCollection = {
+            id: '019f2000-0000-7000-8000-000000000101',
+            kind: 'object',
+            codename: 'PublicRecords',
+            table_name: 'public_records',
+            config: {},
+            lifecycleContract: resolveApplicationLifecycleContractFromConfig({})
+        }
+        const components = [
+            {
+                id: childTableComponentId,
+                codename: 'Children',
+                column_name: 'children',
+                data_type: 'TABLE' as const,
+                is_required: false
+            }
+        ]
+        const queryParams = {
+            manager: executor,
+            schemaIdent: '"app_test"',
+            applicationId: '019f2000-0000-7000-8000-000000000102',
+            runtimeContext: {
+                manager: executor,
+                schemaIdent: '"app_test"',
+                currentWorkspaceId: null,
+                userId: null,
+                role: null,
+                permissions: {
+                    manageMembers: false,
+                    manageApplication: false,
+                    createContent: false,
+                    editContent: false,
+                    deleteContent: false,
+                    readReports: false
+                },
+                publishedRecordsOnly: true
+            },
+            target: { objectCollectionCodename: 'PublicRecords' },
+            components,
+            physicalComponents: [],
+            targetSort: undefined,
+            targetFilters: undefined,
+            enumOptionsMap: new Map(),
+            projectionSpecs: [],
+            locale: 'en',
+            lifecycleState: 'active',
+            libraryView: 'all',
+            search: undefined,
+            shouldProjectRecentAt: false,
+            shouldProjectSharedAt: false
+        }
+        const result = await buildRuntimeUnionTargetQuery({ ...queryParams, objectCollection })
+
+        expect(result.activeObjectRowCondition).toContain('"_app_published" = true')
+        const unpublishedResult = await buildRuntimeUnionTargetQuery({
+            ...queryParams,
+            objectCollection: {
+                ...objectCollection,
+                lifecycleContract: {
+                    ...objectCollection.lifecycleContract,
+                    publish: { ...objectCollection.lifecycleContract.publish, enabled: false }
+                }
+            }
+        })
+        expect(unpublishedResult.activeObjectRowCondition).not.toContain('"_app_published"')
+        const unionSelects: string[] = []
+        buildRuntimeUnionTargetSelect({
+            schemaIdent: '"app_test"',
+            objectCollection,
+            components,
+            physicalComponents: [],
+            target: { objectCollectionCodename: 'PublicRecords' },
+            targetIndex: 0,
+            locale: 'en',
+            dataTableIdent: result.dataTableIdent,
+            activeObjectRowCondition: result.activeObjectRowCondition,
+            runtimeListClauses: result.runtimeListClauses,
+            recordAccessClause: result.recordAccessClause,
+            libraryViewClause: result.libraryViewClause,
+            effectiveProjectionSpecs: result.effectiveProjectionSpecs,
+            runtimeStarredExistsClause: null,
+            runtimeSharedExistsClause: null,
+            reorderFieldCodename: null,
+            enumOptionsMap: new Map(),
+            unionValues: [],
+            unionSelects
+        })
+        expect(unionSelects[0]?.match(/"_app_published" = true/gu)).toHaveLength(2)
     })
 })
 

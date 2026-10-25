@@ -55,7 +55,8 @@ const normalizeVolatileValues = (
     if (value && typeof value === 'object') {
         const record = value as Record<string, unknown>
         const objectSemanticIdentity = getEditorDocumentSemanticIdentity(record) ?? semanticIdentity
-        const entries = Object.entries(record)
+        // Hash tokens are assigned by first occurrence, so object insertion order must not affect normalization.
+        const entries = Object.entries(record).sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
         const normalizedEntries = entries
             .filter(
                 ([key, item]) =>

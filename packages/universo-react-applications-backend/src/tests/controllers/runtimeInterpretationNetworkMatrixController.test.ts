@@ -195,6 +195,31 @@ describe('runtimeInterpretationNetworkMatrixController', () => {
         expect(res.status).toHaveBeenCalledWith(201)
     })
 
+    it('rejects workspace mutations without a semantic widget instance key', async () => {
+        mockResolveRuntimeSchema.mockResolvedValueOnce({
+            schemaName: 'app_019f2000000070008000000000000001',
+            currentWorkspaceId: workspaceId,
+            workspacesEnabled: true,
+            manager: { query: jest.fn(), transaction: jest.fn() }
+        })
+        const controller = createRuntimeInterpretationNetworkMatrixController(() => ({} as never))
+        const res = createResponse()
+
+        await controller.createCell(
+            {
+                params: { applicationId },
+                query: { widgetId, layoutId },
+                body: { interpretationId, data: {}, placement: {} }
+            } as unknown as Request,
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.json).toHaveBeenCalledWith({ error: 'A semantic Matrix placement is required for workspace mutations' })
+        expect(mockResolveRuntimeSurface).not.toHaveBeenCalled()
+        expect(mockCreateMatrixCell).not.toHaveBeenCalled()
+    })
+
     it('returns only the stable command error contract for rejected cells', async () => {
         const controller = createRuntimeInterpretationNetworkMatrixController(() => ({} as never))
         const res = createResponse()

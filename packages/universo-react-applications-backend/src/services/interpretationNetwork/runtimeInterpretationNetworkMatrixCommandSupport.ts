@@ -179,6 +179,8 @@ export const validateTouchedCellStylePolicy = (
         if (!field || !Object.prototype.hasOwnProperty.call(values, field.column_name)) continue
         const value = values[field.column_name]
         if (previousRow && normalizeComparable(previousRow[field.column_name]) === normalizeComparable(value)) continue
+        const isEmptyStyleValue = value === null || value === undefined || value === ''
+        if (isEmptyStyleValue && !previousRow) continue
         if (!policy.editable[capability]) {
             throw new InterpretationNetworkCommandError(
                 403,
@@ -187,7 +189,7 @@ export const validateTouchedCellStylePolicy = (
                 { field: codename }
             )
         }
-        if (value === null || value === undefined || value === '') continue
+        if (isEmptyStyleValue) continue
         if (codename.endsWith('Color')) {
             const normalized = normalizeStyleColor(value)
             if (normalized === null) {

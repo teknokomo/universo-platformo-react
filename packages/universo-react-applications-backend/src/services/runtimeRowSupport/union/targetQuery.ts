@@ -58,6 +58,7 @@ export type RuntimeUnionTargetPayload = {
 export type RuntimeUnionQueryContext = Pick<RuntimeSchemaContext, 'manager' | 'schemaIdent' | 'permissions' | 'currentWorkspaceId'> & {
     userId: string | null
     role: RuntimeSchemaContext['role'] | null
+    publishedRecordsOnly?: boolean
 }
 
 export const resolveRuntimeUnionTargetContext = async (params: {
@@ -200,10 +201,18 @@ export const buildRuntimeUnionTargetQuery = async (params: {
         runtimeConfig?.enableRowReordering ? runtimeConfig.reorderPersistenceField : null
     )
     const dataTableIdent = `${schemaIdent}.${quoteIdentifier(objectCollection.table_name)}`
-    const activeObjectRowCondition =
+    const lifecycleRowCondition =
         params.lifecycleState === 'deleted'
             ? buildRuntimeDeletedRowCondition(objectCollection.lifecycleContract, objectCollection.config, undefined, currentWorkspaceId)
             : buildRuntimeActiveRowCondition(objectCollection.lifecycleContract, objectCollection.config, undefined, currentWorkspaceId)
+    const activeObjectRowCondition = [
+        lifecycleRowCondition,
+        params.runtimeContext.publishedRecordsOnly && objectCollection.lifecycleContract.publish.enabled
+            ? `${quoteIdentifier('_app_published')} = true`
+            : null
+    ]
+        .filter((condition): condition is string => Boolean(condition))
+        .join(' AND ')
     const runtimeListClauses = buildRuntimeListClauses({
         activeCondition: activeObjectRowCondition,
         attrs: params.physicalComponents,

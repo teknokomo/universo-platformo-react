@@ -24,13 +24,19 @@ const templateId = '019f2000-0000-7000-8000-000000000201'
 const interpretationId = '019f2000-0000-7000-8000-000000000203'
 const targetCellId = '019f2000-0000-7000-8000-000000000301'
 const insertedRootCellId = '019f2000-0000-7000-8000-000000000401'
+const applicationId = '019f2000-0000-7000-8000-000000000202'
 const body = {
     interpretationId,
     targetCellId,
     expectedTemplateVersion: 2,
     expectedTargetVersion: 3
 }
-const path = '/applications/app-1/runtime/interpretation-network/templates/' + templateId + '/apply'
+const path =
+    '/applications/' +
+    applicationId +
+    '/runtime/interpretation-network/templates/' +
+    templateId +
+    '/apply?widgetId=019f2000-0000-7000-8000-000000000204&layoutId=019f2000-0000-7000-8000-000000000205&instanceKey=matrix-placement'
 
 describe('apply-template HTTP boundary', () => {
     const { executor } = createMockDbExecutor()
@@ -77,7 +83,32 @@ describe('apply-template HTTP boundary', () => {
             insertedCellCount: 2,
             insertedMaterialCount: 0
         })
-        expect(mockApplyTemplate).toHaveBeenCalledWith(ctx, surface, templateId, body)
+        expect(mockResolveSurface).toHaveBeenCalledWith(
+            ctx.manager,
+            expect.objectContaining({
+                applicationId,
+                workspaceId: ctx.currentWorkspaceId,
+                widgetId: '019f2000-0000-7000-8000-000000000204',
+                layoutId: '019f2000-0000-7000-8000-000000000205',
+                workspaceSettings: expect.objectContaining({
+                    instanceKey: 'matrix-placement',
+                    authContext: expect.objectContaining({ userId: ctx.userId, role: ctx.role }),
+                    runtimeTarget: expect.objectContaining({ applicationId, workspaceId: ctx.currentWorkspaceId, targetKind: null })
+                })
+            })
+        )
+        expect(mockApplyTemplate).toHaveBeenCalledWith(
+            ctx,
+            surface,
+            templateId,
+            body,
+            expect.objectContaining({
+                applicationId,
+                schemaName: ctx.schemaName,
+                workspaceId: ctx.currentWorkspaceId,
+                workspaceSettings: expect.objectContaining({ instanceKey: 'matrix-placement' })
+            })
+        )
     })
 
     it.each([
@@ -120,6 +151,17 @@ describe('apply-template HTTP boundary', () => {
         const response = await request(app).post(path).send(body)
 
         expect(response.status).toBe(403)
+        expect(mockResolveSurface).not.toHaveBeenCalled()
+        expect(mockApplyTemplate).not.toHaveBeenCalled()
+    })
+
+    it('requires an active workspace placement before applying a template', async () => {
+        const response = await request(app)
+            .post(`/applications/${applicationId}/runtime/interpretation-network/templates/${templateId}/apply`)
+            .send(body)
+
+        expect(response.status).toBe(400)
+        expect(response.body.code).toBe('INTERPRETATION_NETWORK_INVALID_RUNTIME_CONTEXT')
         expect(mockResolveSurface).not.toHaveBeenCalled()
         expect(mockApplyTemplate).not.toHaveBeenCalled()
     })

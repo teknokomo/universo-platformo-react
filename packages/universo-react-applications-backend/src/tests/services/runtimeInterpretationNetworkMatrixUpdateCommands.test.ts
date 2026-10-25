@@ -6,7 +6,8 @@ import {
     deniedInterpretationSurface,
     interpretationId,
     makeContext,
-    matrixRowId
+    matrixRowId,
+    cellStyleSurface
 } from './runtimeInterpretationNetworkMatrixTestUtils'
 
 describe('updateInterpretationNetworkMatrixCell', () => {
@@ -87,6 +88,42 @@ describe('updateInterpretationNetworkMatrixCell', () => {
             })
         ).rejects.toMatchObject({ statusCode: 403, details: { permission: 'editContent' } })
         expect(executor.transaction).not.toHaveBeenCalled()
+    })
+
+    it('rejects clearing a saved color when the active style policy disables color editing', async () => {
+        const runtimeSurface = cellStyleSurface({
+            allowedColors: ['#112233'],
+            allowCustomColors: false,
+            editable: { fillColor: false, textColor: false, borderColor: false, borderWidth: false, borderStyle: false }
+        })
+        const rows = [
+            {
+                id: matrixRowId,
+                _upl_version: 2,
+                cell_id: cellId,
+                parent_cell_id: null,
+                row_key: 'row-a',
+                col_key: 'column-a',
+                cell_fill_color: '#112233'
+            }
+        ]
+        const { ctx, txExecutor } = makeContext()
+        txExecutor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM') && sql.includes('"interpretation"')) return [{ id: interpretationId }]
+            if (sql.includes('SELECT id') && sql.includes('"interpretation_matrix_rows"')) return rows
+            return []
+        })
+
+        await expect(
+            updateInterpretationNetworkMatrixCell(ctx, runtimeSurface, {
+                interpretationId,
+                cellId,
+                expectedCellVersion: 2,
+                data: { CellFillColor: null }
+            })
+        ).rejects.toMatchObject({ statusCode: 403, code: 'INTERPRETATION_NETWORK_PERMISSION_DENIED' })
+
+        expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).startsWith('UPDATE'))).toBe(false)
     })
 
     it('fans changed axis labels out atomically and leaves peers untouched when labels are unchanged', async () => {

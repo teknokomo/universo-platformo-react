@@ -579,6 +579,11 @@ describe('interpretation network aggregate API helpers', () => {
             expect(url.searchParams.get('workspaceId')).toBe('workspace-1')
             expect(url.searchParams.get('widgetId')).toBe('019f7f10-0000-7000-8000-000000000010')
             expect(url.searchParams.get('layoutId')).toBe('019f7f10-0000-7000-8000-000000000011')
+            expect(url.searchParams.get('instanceKey')).toBe('interpretation-network-matrix')
+            expect(url.searchParams.get('targetKind')).toBe('object')
+            expect(url.searchParams.get('entityTypeId')).toBe('019f7f10-0000-7000-8000-000000000014')
+            expect(url.searchParams.get('locale')).toBe('ru')
+            expect(url.searchParams.get('themeVariant')).toBe('dark')
             return jsonResponse(
                 {
                     templateId: '019f7f10-0000-7000-8000-000000000006',
@@ -605,7 +610,12 @@ describe('interpretation network aggregate API helpers', () => {
             expectedTemplateVersion: 2,
             expectedTargetVersion: 3,
             widgetId: '019f7f10-0000-7000-8000-000000000010',
-            layoutId: '019f7f10-0000-7000-8000-000000000011'
+            layoutId: '019f7f10-0000-7000-8000-000000000011',
+            instanceKey: 'interpretation-network-matrix',
+            targetKind: 'object',
+            entityTypeId: '019f7f10-0000-7000-8000-000000000014',
+            locale: 'ru',
+            themeVariant: 'dark'
         })
 
         expect(result.insertedCellCount).toBe(4)

@@ -425,6 +425,7 @@ export const projectPublicDashboardRuntime = async (input: {
             workspacesEnabled: input.resolved.application.workspacesEnabled,
             currentUserId: null,
             role: null,
+            publishedRecordsOnly: true,
             permissions: {
                 manageMembers: false,
                 manageApplication: false,

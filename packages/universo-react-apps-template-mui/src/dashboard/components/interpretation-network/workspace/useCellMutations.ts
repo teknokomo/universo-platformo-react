@@ -8,6 +8,7 @@ import {
     deleteInterpretationNetworkMatrixCell,
     updateInterpretationNetworkMatrixCell
 } from '../../../../api/interpretationNetwork'
+import { interpretationNetworkFavoritesQueryKeys } from './useInterpretationNetworkFavorites'
 import {
     buildCellCreateData,
     MATRIX_CELL_PLACEMENT_FIELD,
@@ -300,6 +301,10 @@ export function useCellMutations({
             setCellDeleteError(null)
             await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspaceMatrix'] })
             await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkMaterialAssociations'] })
+            await queryClient.invalidateQueries({
+                predicate: ({ queryKey }) =>
+                    interpretationNetworkFavoritesQueryKeys.matchesScope(queryKey, { apiBaseUrl, applicationId, workspaceId })
+            })
         },
         onError: (error) =>
             setCellDeleteError(

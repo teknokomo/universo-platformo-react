@@ -21,6 +21,7 @@ export interface EffectiveWidgetRuntimeReadScope {
     readonly currentUserId?: string | null
     readonly role?: ApplicationRole | null
     readonly permissions?: Record<RolePermission, boolean>
+    readonly publishedRecordsOnly?: boolean
 }
 
 export type EffectiveLayoutRuntimeDataResolver = (

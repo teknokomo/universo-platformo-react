@@ -477,6 +477,11 @@ export async function applyInterpretationNetworkTemplateToCell(options: {
     expectedTargetVersion: number
     widgetId?: string | null
     layoutId?: string | null
+    instanceKey?: string
+    targetKind?: 'page' | 'object'
+    entityTypeId?: string
+    locale?: string
+    themeVariant?: 'light' | 'dark' | 'system'
 }): Promise<InterpretationNetworkTemplateApplyResponse> {
     const {
         apiBaseUrl,
@@ -488,14 +493,24 @@ export async function applyInterpretationNetworkTemplateToCell(options: {
         expectedTemplateVersion,
         expectedTargetVersion,
         widgetId,
-        layoutId
+        layoutId,
+        instanceKey,
+        targetKind,
+        entityTypeId,
+        locale,
+        themeVariant
     } = options
     const body = { interpretationId, targetCellId, expectedTemplateVersion, expectedTargetVersion }
     const response = await fetchWithCsrf(
         apiBaseUrl,
         buildInterpretationNetworkUrl(apiBaseUrl, applicationId, `/templates/${encodeURIComponent(templateId)}/apply`, workspaceId, {
             widgetId,
-            layoutId
+            layoutId,
+            instanceKey,
+            targetKind,
+            entityTypeId,
+            locale,
+            themeVariant
         }),
         { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
     )

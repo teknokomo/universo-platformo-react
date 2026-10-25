@@ -546,6 +546,7 @@ describe('public Dashboard projection', () => {
                     workspaceId: '0190a9b5-3cde-7abc-8def-0123456789b3',
                     currentUserId: null,
                     role: null,
+                    publishedRecordsOnly: true,
                     permissions: {
                         manageMembers: false,
                         manageApplication: false,

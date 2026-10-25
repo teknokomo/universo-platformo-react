@@ -1,7 +1,8 @@
 import { copyWorkspace } from '../../services/runtimeWorkspaceService'
 import {
     hasValidWorkspaceCopyAccessLinkIntakePolicies,
-    hasWorkspaceCopyTemplateMaterialsExcluded
+    hasWorkspaceCopyTemplateMaterialsExcluded,
+    remapWorkspaceCopyMaterialInterpretations
 } from '../../services/runtimeWorkspaceCopyPolicy'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
@@ -369,5 +370,84 @@ describe('workspace copy TableTemplate aggregate integrity', () => {
             'workspace-source',
             ['obj_table_templates']
         ])
+    })
+})
+
+describe('workspace copy Material InterpretationId remapping', () => {
+    const materialTableName = 'obj_materials'
+    const interpretationTableName = 'obj_interpretations'
+    const metadataRow = {
+        materialTableName,
+        interpretationIdColumnName: 'interpretation_id',
+        interpretationTableNames: [interpretationTableName]
+    }
+
+    it('remaps the server-owned string reference through the copied Interpretation ID map', async () => {
+        const { txExecutor } = createMockDbExecutor()
+        txExecutor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('ARRAY_AGG(DISTINCT interpretation.table_name')) return [metadataRow]
+            if (sql.includes('UPDATE') && sql.includes('workspace_copy_id_map')) return []
+            if (sql.includes('hasUnresolvedReferences')) return [{ hasUnresolvedReferences: false }]
+            return []
+        })
+
+        await expect(
+            remapWorkspaceCopyMaterialInterpretations(txExecutor, schemaName, 'workspace-copy', (code, message) =>
+                Object.assign(new Error(message), { code })
+            )
+        ).resolves.toBeUndefined()
+
+        const metadataQuery = txExecutor.query.mock.calls[0]?.[0]
+        expect(metadataQuery).toContain("= 'interpretationid'")
+        expect(metadataQuery).toContain("interpretation_id_component.data_type = 'STRING'")
+        expect(metadataQuery).toContain("= 'material'")
+
+        const updateCall = txExecutor.query.mock.calls.find(([sql]) => String(sql).includes('UPDATE'))
+        expect(updateCall?.[0]).toContain('LOWER(BTRIM(material."interpretation_id")) = LOWER(id_map.old_id::text)')
+        expect(updateCall?.[0]).toContain('id_map.source_table_name = $2::text')
+        expect(updateCall?.[1]).toEqual(['workspace-copy', interpretationTableName])
+    })
+
+    it('fails closed with the structured unresolved-reference error when a non-empty string is unmapped', async () => {
+        const { txExecutor } = createMockDbExecutor()
+        txExecutor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('ARRAY_AGG(DISTINCT interpretation.table_name')) return [metadataRow]
+            if (sql.includes('UPDATE') && sql.includes('workspace_copy_id_map')) return []
+            if (sql.includes('hasUnresolvedReferences')) return [{ hasUnresolvedReferences: true }]
+            return []
+        })
+        const createError = jest.fn((code: 'WORKSPACE_COPY_REFERENCE_UNRESOLVED', message: string) =>
+            Object.assign(new Error(message), { code })
+        )
+
+        await expect(
+            remapWorkspaceCopyMaterialInterpretations(txExecutor, schemaName, 'workspace-copy', createError)
+        ).rejects.toMatchObject({
+            code: 'WORKSPACE_COPY_REFERENCE_UNRESOLVED',
+            message: 'Workspace copy contains a Material InterpretationId reference that cannot be resolved'
+        })
+
+        expect(createError).toHaveBeenCalledTimes(1)
+        expect(createError).toHaveBeenCalledWith(
+            'WORKSPACE_COPY_REFERENCE_UNRESOLVED',
+            'Workspace copy contains a Material InterpretationId reference that cannot be resolved'
+        )
+    })
+
+    it('allows empty references when Interpretation metadata is absent', async () => {
+        const { txExecutor } = createMockDbExecutor()
+        txExecutor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('ARRAY_AGG(DISTINCT interpretation.table_name')) {
+                return [{ ...metadataRow, interpretationTableNames: [] }]
+            }
+            if (sql.includes('hasReferences')) return [{ hasReferences: false }]
+            return []
+        })
+
+        await expect(
+            remapWorkspaceCopyMaterialInterpretations(txExecutor, schemaName, 'workspace-copy', (code, message) =>
+                Object.assign(new Error(message), { code })
+            )
+        ).resolves.toBeUndefined()
     })
 })

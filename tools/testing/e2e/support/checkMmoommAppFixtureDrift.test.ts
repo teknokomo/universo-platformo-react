@@ -73,6 +73,20 @@ const writeFixture = (fixture: FixtureRecord, directory: string, filename: strin
     return outputPath
 }
 
+const reorderObjectKeys = (value: unknown): unknown => {
+    if (Array.isArray(value)) {
+        return value.map(reorderObjectKeys)
+    }
+    if (!value || typeof value !== 'object') {
+        return value
+    }
+    return Object.fromEntries(
+        Object.entries(value)
+            .reverse()
+            .map(([key, item]) => [key, reorderObjectKeys(item)])
+    )
+}
+
 const runDriftCheck = (generatedPath: string, trackedPath = fixturePath) =>
     spawnSync(process.execPath, ['--disable-warning=MODULE_TYPELESS_PACKAGE_JSON', driftScriptPath, '--', generatedPath], {
         cwd: repoRoot,
@@ -118,6 +132,90 @@ test('continues to reject semantic changes inside the ShareDB project document',
 
         assert.notEqual(result.status, 0)
         assert.match(result.stderr, /playCanvasEditorRealtime\.documents\.project_<number>\.data\.width/)
+    } finally {
+        fs.rmSync(directory, { recursive: true, force: true })
+    }
+})
+
+test('ignores JSON object key order while preserving normalized value relationships', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'mmoomm-drift-key-order-'))
+    try {
+        const trackedPath = writeFixture(readFixture(), directory, 'tracked.json')
+        const trackedFixture = JSON.parse(fs.readFileSync(trackedPath, 'utf8')) as FixtureRecord
+        const generatedFixture = reorderObjectKeys(structuredClone(trackedFixture)) as FixtureRecord
+        const generatedPath = writeFixture(generatedFixture, directory, 'generated.json')
+
+        const result = runDriftCheck(generatedPath, trackedPath)
+
+        assert.equal(result.status, 0, result.stderr || result.stdout)
+    } finally {
+        fs.rmSync(directory, { recursive: true, force: true })
+    }
+})
+
+test('ignores generated module property order when normalizing checksums', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'mmoomm-drift-module-key-order-'))
+    try {
+        const trackedPath = writeFixture(readFixture(), directory, 'tracked.json')
+        const generatedFixture = structuredClone(JSON.parse(fs.readFileSync(trackedPath, 'utf8'))) as FixtureRecord
+        const snapshot = requireRecord(generatedFixture.snapshot, 'snapshot')
+        assert.ok(Array.isArray(snapshot.modules) && snapshot.modules.length > 0)
+        const firstModule = requireRecord(snapshot.modules[0], 'first module')
+        const entries = Object.entries(firstModule)
+        const checksumEntry = entries.find(([key]) => key === 'checksum')
+        const entriesWithoutChecksum = entries.filter(([key]) => key !== 'checksum')
+        const sourceStorageIndex = entriesWithoutChecksum.findIndex(([key]) => key === 'sourceStorage')
+        assert.ok(checksumEntry)
+        assert.notEqual(sourceStorageIndex, -1)
+        entriesWithoutChecksum.splice(sourceStorageIndex, 0, checksumEntry)
+        snapshot.modules[0] = Object.fromEntries(entriesWithoutChecksum)
+        const generatedPath = writeFixture(generatedFixture, directory, 'generated.json')
+
+        const result = runDriftCheck(generatedPath, trackedPath)
+
+        assert.equal(result.status, 0, result.stderr || result.stdout)
+    } finally {
+        fs.rmSync(directory, { recursive: true, force: true })
+    }
+})
+
+test('rejects changes to repeated checksums within a module', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'mmoomm-drift-checksum-relation-'))
+    try {
+        const trackedPath = writeFixture(readFixture(), directory, 'tracked.json')
+        const generatedFixture = structuredClone(JSON.parse(fs.readFileSync(trackedPath, 'utf8'))) as FixtureRecord
+        const snapshot = requireRecord(generatedFixture.snapshot, 'snapshot')
+        const modules = snapshot.modules
+        assert.ok(Array.isArray(modules) && modules.length > 0)
+        const firstModule = requireRecord(modules[0], 'first module')
+        firstModule.checksum = 'a'.repeat(64)
+        const generatedPath = writeFixture(generatedFixture, directory, 'generated.json')
+
+        const result = runDriftCheck(generatedPath, trackedPath)
+
+        assert.notEqual(result.status, 0)
+        assert.match(result.stderr, /snapshot\.modules\[0\]\.(?:checksum|manifest\.checksum)/)
+    } finally {
+        fs.rmSync(directory, { recursive: true, force: true })
+    }
+})
+
+test('continues to reject semantic array reordering', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'mmoomm-drift-array-order-'))
+    try {
+        const trackedPath = writeFixture(readFixture(), directory, 'tracked.json')
+        const generatedFixture = structuredClone(JSON.parse(fs.readFileSync(trackedPath, 'utf8'))) as FixtureRecord
+        const snapshot = requireRecord(generatedFixture.snapshot, 'snapshot')
+        assert.ok(Array.isArray(snapshot.modules) && snapshot.modules.length > 1)
+        const modules = snapshot.modules as unknown[]
+        const firstModule = modules[0]
+        modules[0] = modules[1]
+        modules[1] = firstModule
+        const generatedPath = writeFixture(generatedFixture, directory, 'generated.json')
+
+        const result = runDriftCheck(generatedPath, trackedPath)
+
+        assert.notEqual(result.status, 0)
     } finally {
         fs.rmSync(directory, { recursive: true, force: true })
     }

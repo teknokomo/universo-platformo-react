@@ -1,7 +1,6 @@
 import type { Request, Response } from 'express'
 import type { DbExecutor } from '@universo-react/utils'
-import { layoutInstanceKeySchema, runtimeTargetSchema, uuidV7Schema } from '@universo-react/types'
-import { z } from 'zod'
+import { uuidV7Schema } from '@universo-react/types'
 import { createQueryHelper, resolveRuntimeSchema } from '../shared/runtimeHelpers'
 import {
     InterpretationNetworkCommandError,
@@ -18,6 +17,10 @@ import {
 } from '../services/interpretationNetwork/runtimeInterpretationNetworkMatrixCommands'
 import { resolveInterpretationNetworkRuntimeSurface } from '../services/interpretationNetwork/runtimeInterpretationNetworkSurface'
 import type { InterpretationNetworkMatrixMutationContext } from '../services/interpretationNetwork/runtimeInterpretationNetworkMatrixPolicy'
+import {
+    buildInterpretationNetworkRuntimeSurfaceContext,
+    parseInterpretationNetworkRuntimeSurfaceQuery
+} from '../services/interpretationNetwork/runtimeInterpretationNetworkSurfaceRequest'
 import { WorkspaceSettingsError, WORKSPACE_SETTINGS_ERROR_CODES } from '../services/workspaceSettingsService'
 
 const sendCommandError = (res: Response, error: InterpretationNetworkCommandError) =>
@@ -27,94 +30,38 @@ const sendCommandError = (res: Response, error: InterpretationNetworkCommandErro
         ...(error.details === undefined ? {} : { details: error.details })
     })
 
-const runtimeSurfaceQuerySchema = z
-    .object({
-        widgetId: z.string().uuid().optional(),
-        layoutId: z.string().uuid().optional(),
-        instanceKey: layoutInstanceKeySchema.optional(),
-        targetKind: z.enum(['page', 'object']).optional(),
-        entityTypeId: uuidV7Schema.optional(),
-        locale: z.string().trim().min(1).max(32).default('en'),
-        themeVariant: z.enum(['light', 'dark', 'system']).optional()
-    })
-    .strict()
-    .superRefine((value, context) => {
-        if ((value.targetKind && !value.entityTypeId) || (!value.targetKind && value.entityTypeId)) {
-            context.addIssue({ code: z.ZodIssueCode.custom, message: 'A page or object runtime target requires an entity type ID' })
-        }
-    })
-
 export function createRuntimeInterpretationNetworkMatrixController(getDbExecutor: () => DbExecutor) {
     const query = createQueryHelper(getDbExecutor)
 
     const resolveSurface = async (req: Request, res: Response) => {
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, req.params.applicationId)
         if (!ctx) return null
-        const requestQuery = req.query ?? {}
-        const parsedSurfaceQuery = runtimeSurfaceQuerySchema.safeParse({
-            ...(typeof requestQuery.widgetId === 'string' ? { widgetId: requestQuery.widgetId } : {}),
-            ...(typeof requestQuery.layoutId === 'string' ? { layoutId: requestQuery.layoutId } : {}),
-            ...(typeof requestQuery.instanceKey === 'string' ? { instanceKey: requestQuery.instanceKey } : {}),
-            ...(typeof requestQuery.targetKind === 'string' ? { targetKind: requestQuery.targetKind } : {}),
-            ...(typeof requestQuery.entityTypeId === 'string' ? { entityTypeId: requestQuery.entityTypeId } : {}),
-            ...(typeof requestQuery.locale === 'string' ? { locale: requestQuery.locale } : {}),
-            ...(typeof requestQuery.themeVariant === 'string' ? { themeVariant: requestQuery.themeVariant } : {})
-        })
+        const parsedSurfaceQuery = parseInterpretationNetworkRuntimeSurfaceQuery(req.query)
         if (!parsedSurfaceQuery.success) {
             res.status(400).json({ error: 'Invalid runtime widget context', details: parsedSurfaceQuery.error.flatten() })
             return null
         }
-        const { targetKind, entityTypeId, instanceKey, locale, themeVariant, ...physicalScope } = parsedSurfaceQuery.data
-        let workspaceSettings: Parameters<typeof resolveInterpretationNetworkRuntimeSurface>[1]['workspaceSettings']
-        if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
-            if (!instanceKey) {
-                res.status(400).json({ error: 'A semantic Matrix placement is required for workspace mutations' })
-                return null
-            }
-            const runtimeTarget = runtimeTargetSchema.safeParse({
-                applicationId: req.params.applicationId,
-                targetKind: targetKind ?? null,
-                ...(entityTypeId ? { entityTypeId } : {}),
-                workspaceId: ctx.currentWorkspaceId,
-                locale,
-                ...(themeVariant ? { themeVariant } : {})
-            })
-            if (!runtimeTarget.success) {
-                res.status(400).json({ error: 'Invalid semantic Matrix runtime target', details: runtimeTarget.error.flatten() })
-                return null
-            }
-            workspaceSettings = {
-                applicationSettings: ctx.baseApplicationSettings,
-                authContext: { applicationId: req.params.applicationId, userId: ctx.userId, role: ctx.role },
-                runtimeTarget: runtimeTarget.data,
-                instanceKey
-            }
+        const surfaceContext = buildInterpretationNetworkRuntimeSurfaceContext(ctx, req.params.applicationId, parsedSurfaceQuery.data)
+        if (!surfaceContext.ok) {
+            const details = surfaceContext.reason === 'invalid-runtime-target' ? surfaceContext.details : undefined
+            const error =
+                surfaceContext.reason === 'missing-instance-key'
+                    ? 'A semantic Matrix placement is required for workspace mutations'
+                    : 'Invalid semantic Matrix runtime target'
+            res.status(400).json({ error, ...(details === undefined ? {} : { details }) })
+            return null
         }
 
         let surface
         try {
-            surface = await resolveInterpretationNetworkRuntimeSurface(ctx.manager, {
-                applicationId: req.params.applicationId,
-                schemaName: ctx.schemaName,
-                workspaceId: ctx.currentWorkspaceId,
-                scopeEntityId: entityTypeId ?? null,
-                ...physicalScope,
-                ...(workspaceSettings ? { workspaceSettings } : {})
-            })
+            surface = await resolveInterpretationNetworkRuntimeSurface(ctx.manager, surfaceContext.params)
         } catch (error) {
             if (!(error instanceof WorkspaceSettingsError)) throw error
             const status = error.code === WORKSPACE_SETTINGS_ERROR_CODES.settingValueInvalid ? 409 : 404
             res.status(status).json({ error: 'Workspace settings could not be resolved for the active Matrix placement', code: error.code })
             return null
         }
-        const mutationContext: InterpretationNetworkMatrixMutationContext = {
-            applicationId: req.params.applicationId,
-            schemaName: ctx.schemaName,
-            workspaceId: ctx.currentWorkspaceId,
-            scopeEntityId: entityTypeId ?? null,
-            ...physicalScope,
-            ...(workspaceSettings ? { workspaceSettings } : {})
-        }
+        const mutationContext: InterpretationNetworkMatrixMutationContext = surfaceContext.params
         return { ctx, surface, mutationContext }
     }
 

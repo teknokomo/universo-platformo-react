@@ -347,7 +347,11 @@ function AuthenticatedInterpretationNetworkWorkspaceWidget({
                 expectedTemplateVersion: template.version,
                 expectedTargetVersion,
                 widgetId,
-                layoutId
+                layoutId,
+                instanceKey,
+                targetKind: details.runtimeLayoutTarget?.targetKind,
+                entityTypeId: details.runtimeLayoutTarget?.entityTypeId,
+                locale
             })
         },
         onSuccess: async (result) => {
