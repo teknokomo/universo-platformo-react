@@ -60,6 +60,7 @@ const syncWidget = (widgetKey: string, zone: SyncZone, config: Record<string, un
 describe('applicationLayoutSyncStore canonical layout boundaries', () => {
     it('retires workspace widget overrides together with source-removed widgets', async () => {
         const queryResults: unknown[][] = [
+            [{ exists: true }],
             [],
             [
                 {
@@ -85,11 +86,13 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
             '0190a9b5-3cde-7abc-8def-2123456789d2'
         )
 
-        expect(queryCalls).toHaveLength(2)
-        expect(queryCalls[0]?.sql).toContain('_app_workspace_settings')
-        expect(queryCalls[0]?.parameters).toEqual(['0190a9b5-3cde-7abc-8def-2123456789d1', '0190a9b5-3cde-7abc-8def-2123456789d2', false])
-        expect(queryCalls[1]?.sql).toContain('_app_widgets')
-        expect(queryCalls[1]?.parameters).toEqual(['0190a9b5-3cde-7abc-8def-2123456789d1', '0190a9b5-3cde-7abc-8def-2123456789d2'])
+        expect(queryCalls).toHaveLength(3)
+        expect(queryCalls[0]?.sql).toContain('information_schema.tables')
+        expect(queryCalls[0]?.parameters).toEqual([schemaName, '_app_workspace_settings'])
+        expect(queryCalls[1]?.sql).toContain('_app_workspace_settings')
+        expect(queryCalls[1]?.parameters).toEqual(['0190a9b5-3cde-7abc-8def-2123456789d1', '0190a9b5-3cde-7abc-8def-2123456789d2', false])
+        expect(queryCalls[2]?.sql).toContain('_app_widgets')
+        expect(queryCalls[2]?.parameters).toEqual(['0190a9b5-3cde-7abc-8def-2123456789d1', '0190a9b5-3cde-7abc-8def-2123456789d2'])
     })
 
     it('syncs binding-only source changes while retaining a presentation-only baseline', () => {
