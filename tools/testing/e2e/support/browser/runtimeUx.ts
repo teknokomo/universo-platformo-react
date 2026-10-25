@@ -510,14 +510,22 @@ export async function expectNoDataGridTechnicalLeakage(surface: Locator, options
             await scroller.evaluate((node, nextScrollLeft) => {
                 ;(node as HTMLElement).scrollLeft = nextScrollLeft
             }, scrollLeft)
-            await waitForLayoutFrame(surface.page())
-            const actualScrollLeft = await scroller.evaluate((node) => (node as HTMLElement).scrollLeft)
-            expect(
-                Math.abs(actualScrollLeft - scrollLeft),
-                `${
-                    normalizedOptions.label ?? 'Runtime UX surface'
-                } DataGrid #${index} must reach scrollLeft ${scrollLeft} before its visible cells are inspected`
-            ).toBeLessThanOrEqual(1)
+            await expect
+                .poll(
+                    async () => {
+                        await waitForLayoutFrame(surface.page())
+                        const actualScrollLeft = await scroller.evaluate((node) => (node as HTMLElement).scrollLeft)
+                        return Math.abs(actualScrollLeft - scrollLeft)
+                    },
+                    {
+                        message: `${
+                            normalizedOptions.label ?? 'Runtime UX surface'
+                        } DataGrid #${index} must reach scrollLeft ${scrollLeft} before its visible cells are inspected`,
+                        timeout: 2_000,
+                        intervals: [50, 100, 250]
+                    }
+                )
+                .toBeLessThanOrEqual(1)
             const text = await readVisibleText(grid)
             const issues = collectTechnicalLeakageIssues(text, normalizedOptions)
             expect(

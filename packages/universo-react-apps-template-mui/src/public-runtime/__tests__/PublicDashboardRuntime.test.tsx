@@ -1,4 +1,4 @@
-import { beforeAll, afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { createInstance } from 'i18next'
 import { initReactI18next, I18nextProvider } from 'react-i18next'
@@ -11,13 +11,32 @@ import ru from '../../i18n/locales/ru/publicInterpretationNetwork.json'
 import { responses } from './fixtures'
 
 const i18n = createInstance()
+
+const stubIntrinsicLayout = () => {
+    const width = 640
+    const height = 480
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+        x: 0,
+        y: 0,
+        width,
+        height,
+        top: 0,
+        right: width,
+        bottom: height,
+        left: 0,
+        toJSON: () => ({})
+    } as DOMRect)
+}
+
 beforeAll(async () => {
     await i18n
         .use(initReactI18next)
         .init({ lng: 'en', resources: { en: { publicInterpretationNetwork: en }, ru: { publicInterpretationNetwork: ru } } })
 })
+beforeEach(stubIntrinsicLayout)
 afterEach(() => {
     cleanup()
+    vi.restoreAllMocks()
     vi.unstubAllGlobals()
 })
 const dashboard = {

@@ -31,6 +31,21 @@ const dataGridSxValues: unknown[] = []
 const pendingAnimationFrames = new Map<number, FrameRequestCallback>()
 let nextAnimationFrameId = 0
 
+const stubGridContainerWidth = (width: number) => {
+    const height = 320
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+        x: 0,
+        y: 0,
+        width,
+        height,
+        top: 0,
+        right: width,
+        bottom: height,
+        left: 0,
+        toJSON: () => ({})
+    } as DOMRect)
+}
+
 class MockResizeObserver {
     static instances: MockResizeObserver[] = []
 
@@ -65,9 +80,11 @@ beforeEach(() => {
     pendingAnimationFrames.clear()
     nextAnimationFrameId = 0
     gridApi.resetRowHeights.mockClear()
+    stubGridContainerWidth(640)
 })
 
 afterEach(() => {
+    vi.restoreAllMocks()
     vi.unstubAllGlobals()
 })
 
@@ -146,6 +163,7 @@ describe('CustomizedDataGrid row-height behavior', () => {
 
     it('resets dynamic row measurements when the grid container width changes', () => {
         vi.stubGlobal('ResizeObserver', MockResizeObserver)
+        stubGridContainerWidth(640)
         vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
             const frameId = ++nextAnimationFrameId
             pendingAnimationFrames.set(frameId, callback)
@@ -181,8 +199,31 @@ describe('CustomizedDataGrid row-height behavior', () => {
         expect(gridApi.resetRowHeights).toHaveBeenCalledTimes(1)
     })
 
-    it('does not observe widths when a fixed row height is configured', () => {
+    it('waits for an intrinsic container width before mounting the grid', () => {
         vi.stubGlobal('ResizeObserver', MockResizeObserver)
+        stubGridContainerWidth(0)
+
+        render(
+            <CustomizedDataGrid
+                rows={[{ id: 'row-1', description: 'A short description' }]}
+                columns={[{ field: 'description', headerName: 'Description' }]}
+            />
+        )
+
+        expect(screen.queryByTestId('mock-customized-data-grid')).not.toBeInTheDocument()
+
+        const observer = MockResizeObserver.instances[0]
+        act(() => observer?.trigger(640))
+
+        expect(screen.getByTestId('mock-customized-data-grid')).toBeInTheDocument()
+
+        act(() => observer?.trigger(0))
+        expect(screen.getByTestId('mock-customized-data-grid')).toBeInTheDocument()
+    })
+
+    it('keeps monitoring the intrinsic container size when a fixed row height is configured', () => {
+        vi.stubGlobal('ResizeObserver', MockResizeObserver)
+        stubGridContainerWidth(640)
 
         render(
             <CustomizedDataGrid
@@ -192,7 +233,7 @@ describe('CustomizedDataGrid row-height behavior', () => {
             />
         )
 
-        expect(MockResizeObserver.instances).toHaveLength(0)
+        expect(MockResizeObserver.instances).toHaveLength(1)
         expect(gridApi.resetRowHeights).not.toHaveBeenCalled()
     })
 })
