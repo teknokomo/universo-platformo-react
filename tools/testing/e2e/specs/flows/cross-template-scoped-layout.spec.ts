@@ -1,7 +1,8 @@
 import { getLayoutWidgetDefinition } from '@universo-react/types'
 import { createLocalizedContent, isUuidV7 } from '@universo-react/utils'
 import AxeBuilder from '@axe-core/playwright'
-import type { Locator, Page, Response } from '@playwright/test'
+import { request as playwrightRequest } from '@playwright/test'
+import type { APIRequestContext, APIResponse, BrowserContext, Locator, Page, Response } from '@playwright/test'
 import { expect, test } from '../../fixtures/test'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
 import {
@@ -591,19 +592,21 @@ const effectiveResponseFor = (page: Page, applicationId: string, target: Runtime
         { timeout: 60_000 }
     )
 
-const publicMarketingResponseFor = (page: Page, applicationId: string, target: RuntimeTarget | null, locale: string): Promise<Response> =>
-    page.waitForResponse(
-        (response) => {
-            if (response.request().method() !== 'GET') return false
-            const url = new URL(response.url())
-            if (url.pathname !== `/api/v1/public/applications/${applicationId}/runtime`) return false
-            if (url.searchParams.get('locale') !== locale) return false
-            return target
-                ? url.searchParams.get('targetKind') === target.kind && url.searchParams.get('entityTypeId') === target.entityTypeId
-                : !url.searchParams.has('targetKind') && !url.searchParams.has('entityTypeId')
-        },
-        { timeout: 60_000 }
-    )
+const publicMarketingResponseFor = (
+    request: APIRequestContext,
+    applicationId: string,
+    target: RuntimeTarget | null,
+    locale: string
+): Promise<APIResponse> => {
+    const query = new URLSearchParams({ locale })
+    if (target) {
+        query.set('targetKind', target.kind)
+        query.set('entityTypeId', target.entityTypeId)
+    }
+    return request.get(`/api/v1/public/applications/${encodeURIComponent(applicationId)}/runtime?${query.toString()}`, {
+        timeout: 30_000
+    })
+}
 
 const assertSurface = async (page: Page, expected: ExpectedRuntime, label: string): Promise<void> => {
     const locale = expected.locale ?? 'en'
@@ -652,13 +655,10 @@ const visitRuntime = async (
     expected: ExpectedRuntime,
     label: string,
     effectiveRequestKeys: Set<string>,
-    marketingRequestKeys: Set<string>
+    marketingRequestKeys: Set<string>,
+    publicRuntimeRequest: APIRequestContext | null = null
 ): Promise<void> => {
     const effectivePromise = expected.templateKey === 'dashboard' ? effectiveResponseFor(page, fixture.applicationId, target) : null
-    const marketingPromise =
-        expected.templateKey === 'marketing-page'
-            ? publicMarketingResponseFor(page, fixture.applicationId, target, expected.locale ?? 'en')
-            : null
     await page.goto(buildRuntimePath(fixture.applicationId, target, expected.locale ?? 'en', expected.themeVariant ?? 'light'))
 
     if (effectivePromise) {
@@ -678,11 +678,17 @@ const visitRuntime = async (
         effectiveRequestKeys.add(targetKey(target))
     }
 
-    if (marketingPromise) {
-        const marketingResponse = await marketingPromise
+    await assertSurface(page, expected, label)
+
+    if (expected.templateKey === 'marketing-page') {
+        if (!publicRuntimeRequest) throw new Error(`${label} must validate the public runtime through a cookie-free API context`)
+        const marketingResponse = await publicMarketingResponseFor(
+            publicRuntimeRequest,
+            fixture.applicationId,
+            target,
+            expected.locale ?? 'en'
+        )
         expect(marketingResponse.ok(), `${label} marketing content response`).toBe(true)
-        const responseError = await marketingResponse.finished()
-        if (responseError) throw responseError
         const publicPayload = (await marketingResponse.json()) as {
             templateKey?: unknown
             marketingPage?: { templateKey?: unknown; widgets?: Array<{ widgetKey?: unknown }> }
@@ -698,8 +704,6 @@ const visitRuntime = async (
         }
         marketingRequestKeys.add(targetKey(target))
     }
-
-    await assertSurface(page, expected, label)
 }
 
 const assertMarketingMobileDrawer = async (page: Page): Promise<void> => {
@@ -746,6 +750,7 @@ const chooseOption = async (page: Page, dialog: Locator, label: string, optionNa
 }
 
 test('@flow @combined @cross-template @scoped-layout covers Page/Object precedence in both template directions', async ({
+    browser,
     page,
     runManifest
 }, testInfo) => {
@@ -755,6 +760,10 @@ test('@flow @combined @cross-template @scoped-layout covers Page/Object preceden
     const fixture = await createRuntimeFixture({ ...runManifest, runId: attemptRunId })
     const effectiveRequestKeys = new Set<string>()
     const marketingRequestKeys = new Set<string>()
+    let anonymousContext: BrowserContext | null = null
+    let publicRuntimeRequest: APIRequestContext | null = null
+    const authenticatedRuntimeRequests: string[] = []
+    const anonymousMutationRequests: string[] = []
     const objectTarget: RuntimeTarget = { kind: 'object', entityTypeId: fixture.objectScope.scopeEntityId }
     const pageTarget: RuntimeTarget = { kind: 'page', entityTypeId: fixture.pageScope.scopeEntityId }
     const globalDashboardExpected = { templateKey: 'dashboard' as const }
@@ -823,28 +832,66 @@ test('@flow @combined @cross-template @scoped-layout covers Page/Object preceden
                 })
             }
         })
+
+        const baseURL = testInfo.project.use.baseURL
+        if (typeof baseURL !== 'string') throw new Error('The cross-template test project must define the E2E base URL')
+        anonymousContext = await browser.newContext({
+            baseURL,
+            storageState: { cookies: [], origins: [] },
+            locale: 'en-US',
+            timezoneId: 'UTC',
+            colorScheme: 'light',
+            reducedMotion: 'reduce',
+            serviceWorkers: 'block',
+            ignoreHTTPSErrors: true,
+            viewport: { width: 1440, height: 900 }
+        })
+        await anonymousContext.clearCookies()
+        expect(await anonymousContext.cookies(), 'The Marketing Page browser context must remain anonymous').toHaveLength(0)
+        publicRuntimeRequest = await playwrightRequest.newContext({
+            baseURL,
+            storageState: { cookies: [], origins: [] },
+            timeout: 30_000
+        })
+        anonymousContext.on('request', (request) => {
+            const url = new URL(request.url())
+            if (/^\/api\/v1\/applications\/[^/]+\/runtime(?:\/|$)/u.test(url.pathname)) {
+                authenticatedRuntimeRequests.push(`${request.method()} ${url.pathname}`)
+            }
+            if (url.pathname.startsWith('/api/') && request.method() !== 'GET') {
+                anonymousMutationRequests.push(`${request.method()} ${url.pathname}`)
+            }
+        })
+        const anonymousPage = await anonymousContext.newPage()
         await visitRuntime(
-            page,
+            anonymousPage,
             fixture,
             pageTarget,
             { templateKey: 'marketing-page', heroContent: false },
             'Direction one Page Marketing',
             effectiveRequestKeys,
-            marketingRequestKeys
+            marketingRequestKeys,
+            publicRuntimeRequest
         )
-        await expectRuntimeUxViewportMatrix(page, 'Direction one Page Marketing responsive', {
+        await expectRuntimeUxViewportMatrix(anonymousPage, 'Direction one Page Marketing responsive', {
             beforeEachViewport: async () => {
-                await expect(page.locator('#marketing-page-main')).toBeVisible()
+                await expect(anonymousPage.locator('#marketing-page-main')).toBeVisible()
             }
         })
+        await anonymousPage.screenshot({
+            path: testInfo.outputPath('cross-template-anonymous-scoped-marketing-page-desktop.png'),
+            fullPage: true,
+            animations: 'disabled'
+        })
         await visitRuntime(
-            page,
+            anonymousPage,
             fixture,
             objectTarget,
             { templateKey: 'marketing-page', heroContent: false },
             'Direction one Object Marketing',
             effectiveRequestKeys,
-            marketingRequestKeys
+            marketingRequestKeys,
+            publicRuntimeRequest
         )
 
         const currentSourceMarketing = await getApplicationLayout(fixture.api, fixture.applicationId, fixture.globalLayout.id)
@@ -889,30 +936,42 @@ test('@flow @combined @cross-template @scoped-layout covers Page/Object preceden
         expect(directionTwoObject.resolvedEntityTypeId).toBe(objectTarget.entityTypeId)
 
         await visitRuntime(
-            page,
+            anonymousPage,
             fixture,
             null,
             { templateKey: 'marketing-page' },
             'Direction two global Marketing',
             effectiveRequestKeys,
-            marketingRequestKeys
+            marketingRequestKeys,
+            publicRuntimeRequest
         )
-        await expectRuntimeUxViewportMatrix(page, 'Direction two global Marketing responsive', {
+        await expectRuntimeUxViewportMatrix(anonymousPage, 'Direction two global Marketing responsive', {
             beforeEachViewport: async () => {
-                await expect(page.locator('#marketing-page-main')).toBeVisible()
+                await expect(anonymousPage.locator('#marketing-page-main')).toBeVisible()
             }
         })
+        await anonymousPage.screenshot({
+            path: testInfo.outputPath('cross-template-anonymous-global-marketing-page-desktop.png'),
+            fullPage: true,
+            animations: 'disabled'
+        })
         await visitRuntime(
-            page,
+            anonymousPage,
             fixture,
             null,
             { templateKey: 'marketing-page', themeVariant: 'dark' },
             'Direction two global Marketing dark theme',
             effectiveRequestKeys,
-            marketingRequestKeys
+            marketingRequestKeys,
+            publicRuntimeRequest
         )
-        await assertMarketingMobileDrawer(page)
-        const accessibility = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
+        await assertMarketingMobileDrawer(anonymousPage)
+        await anonymousPage.screenshot({
+            path: testInfo.outputPath('cross-template-anonymous-marketing-page-mobile.png'),
+            fullPage: true,
+            animations: 'disabled'
+        })
+        const accessibility = await new AxeBuilder({ page: anonymousPage }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
         expect(accessibility.violations, JSON.stringify(accessibility.violations)).toEqual([])
 
         await visitRuntime(
@@ -954,11 +1013,15 @@ test('@flow @combined @cross-template @scoped-layout covers Page/Object preceden
         expect([...marketingRequestKeys]).toEqual(
             expect.arrayContaining(['global', `page:${pageTarget.entityTypeId}`, `object:${objectTarget.entityTypeId}`])
         )
+        expect(authenticatedRuntimeRequests, 'Anonymous Marketing Pages do not call authenticated runtime endpoints').toEqual([])
+        expect(anonymousMutationRequests, 'Anonymous Marketing Pages do not issue API mutations').toEqual([])
 
         await waitForLayoutFrame(page)
         await page.screenshot({ path: testInfo.outputPath('cross-template-scoped-layout-object-dashboard-ru-mobile.png'), fullPage: true })
         expectNoUnexpectedBrowserRuntimeIssues(browserIssues, 'Cross-template scoped-layout runtime lifecycle')
     } finally {
+        await publicRuntimeRequest?.dispose()
+        await anonymousContext?.close()
         await disposeApiContext(fixture.api)
     }
 })
