@@ -1,10 +1,23 @@
 import { describe, expect, it, vi } from 'vitest'
-import { acquireTwoKeyAdvisoryXactLock, tryWithAdvisoryLock, withAdvisoryLock, withTransactionSavepoint } from '../locks'
+import {
+    acquireAdvisoryXactSharedLock,
+    acquireTwoKeyAdvisoryXactLock,
+    tryWithAdvisoryLock,
+    withAdvisoryLock,
+    withTransactionSavepoint
+} from '../locks'
 import type { DbExecutor } from '../manager'
 
-function mockExecutor(): DbExecutor {
+type MockExecutor = Omit<DbExecutor, 'query' | 'transaction'> & {
+    query: ReturnType<typeof vi.fn>
+    transaction: ReturnType<typeof vi.fn>
+    _queries?: { sql: string; params?: unknown[] }[]
+    _txExecutor?: MockExecutor
+}
+
+function mockExecutor(): MockExecutor {
     const queries: { sql: string; params?: unknown[] }[] = []
-    const txExecutor: DbExecutor = {
+    const txExecutor: MockExecutor = {
         query: vi.fn(async (sql: string, params?: unknown[]) => {
             queries.push({ sql, params })
             if (sql.includes('pg_try_advisory_xact_lock')) {
@@ -15,7 +28,7 @@ function mockExecutor(): DbExecutor {
         transaction: vi.fn(async (cb) => cb(txExecutor)),
         isReleased: () => false
     }
-    const executor: DbExecutor = {
+    const executor: MockExecutor = {
         query: vi.fn(),
         transaction: vi.fn(async (cb) => cb(txExecutor)),
         isReleased: () => false
@@ -33,16 +46,24 @@ describe('withAdvisoryLock', () => {
 
     it('sets lock_timeout when timeoutMs is specified', async () => {
         const exec = mockExecutor()
-        const txExec = (exec as any)._txExecutor
+        const txExec = exec._txExecutor!
         await withAdvisoryLock(exec, 'test-lock', async () => 1, { timeoutMs: 5000 })
         expect(txExec.query).toHaveBeenNthCalledWith(1, "SET LOCAL lock_timeout TO '5000ms'")
     })
 
     it('calls pg_advisory_xact_lock with the shared hashtextextended space', async () => {
         const exec = mockExecutor()
-        const txExec = (exec as any)._txExecutor
+        const txExec = exec._txExecutor!
         await withAdvisoryLock(exec, 'my-key', async () => 1)
         expect(txExec.query).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))', ['my-key'])
+    })
+})
+
+describe('acquireAdvisoryXactSharedLock', () => {
+    it('uses the shared lock variant with the same hash key space', async () => {
+        const exec = mockExecutor()
+        await acquireAdvisoryXactSharedLock(exec, 'my-shared-key')
+        expect(exec.query).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock_shared(hashtextextended($1::text, 0))', ['my-shared-key'])
     })
 })
 
@@ -74,7 +95,7 @@ describe('tryWithAdvisoryLock', () => {
 
     it('returns null when lock not acquired', async () => {
         const exec = mockExecutor()
-        const txExec = (exec as any)._txExecutor
+        const txExec = exec._txExecutor!
         txExec.query = vi.fn(async (sql: string) => {
             if (sql.includes('pg_try_advisory_xact_lock')) return [{ acquired: false }]
             return []

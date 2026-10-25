@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { PUBLIC_APPLICATION_RUNTIME_ERROR_CODE } from '@universo-react/types'
+import { MAX_PUBLIC_APPLICATION_RUNTIME_RESPONSE_BYTES, PUBLIC_APPLICATION_RUNTIME_ERROR_CODE } from '@universo-react/types'
 import {
     buildCanonicalApplicationRuntimePath,
     getPublicApplicationRuntime,
@@ -11,6 +11,44 @@ import { publicApplicationRuntimeQueryKeys } from '../publicApplicationRuntimeQu
 describe('public application runtime transport', () => {
     afterEach(() => {
         vi.unstubAllGlobals()
+        vi.useRealTimers()
+    })
+
+    it('accepts the strict public Dashboard union and rejects persistence fields on placements', async () => {
+        const payload = {
+            route: {
+                matchedBy: 'alias',
+                matchedAlias: 'network',
+                routingMode: 'direct',
+                primaryAlias: 'network',
+                canonicalAlias: null
+            },
+            templateKey: 'dashboard',
+            dashboard: {
+                locale: 'en',
+                workspaceAvailability: 'available',
+                placements: [
+                    {
+                        instanceKey: 'public-network',
+                        widgetKey: 'interpretationNetworkWorkspace',
+                        zone: 'center',
+                        sortOrder: 0,
+                        parentInstanceKey: null,
+                        slotKey: null,
+                        config: {},
+                        runtimeData: { status: 'deferred' }
+                    }
+                ]
+            }
+        }
+        const fetcher = vi.fn().mockImplementation(async () => new Response(JSON.stringify(payload)))
+        vi.stubGlobal('fetch', fetcher)
+        await expect(getPublicApplicationRuntime('network', 'en')).resolves.toEqual(payload)
+        Object.assign(payload.dashboard.placements[0], { id: 'physical-widget-id' })
+        await expect(getPublicApplicationRuntime('network', 'en')).rejects.toMatchObject({
+            status: 502,
+            code: 'PUBLIC_APPLICATION_RUNTIME_RESPONSE_INVALID'
+        })
     })
 
     it('uses the anonymous public endpoint without ambient credentials or cache authority', async () => {
@@ -30,8 +68,86 @@ describe('public application runtime transport', () => {
             method: 'GET',
             credentials: 'omit',
             cache: 'no-store',
-            headers: { Accept: 'application/vnd.universo.public-runtime-probe+json' }
+            headers: { Accept: 'application/vnd.universo.public-runtime-probe+json' },
+            signal: expect.any(AbortSignal)
         })
+    })
+
+    it('bounds the anonymous bootstrap request and returns a retryable timeout error', async () => {
+        vi.useFakeTimers()
+        const fetchMock = vi.fn(
+            (_input: RequestInfo | URL, init?: RequestInit) =>
+                new Promise<Response>((_resolve, reject) => {
+                    init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true })
+                })
+        )
+        vi.stubGlobal('fetch', fetchMock)
+
+        const request = getPublicApplicationRuntime('north-route', 'en')
+        const timeoutAssertion = expect(request).rejects.toMatchObject({ status: 408, code: 'PUBLIC_APPLICATION_RUNTIME_TIMEOUT' })
+        await vi.advanceTimersByTimeAsync(15_000)
+
+        await timeoutAssertion
+        expect(fetchMock.mock.calls[0]?.[1]?.signal?.aborted).toBe(true)
+    })
+
+    it('bounds both declared and streamed anonymous response bodies', async () => {
+        const cancelDeclaredBody = vi.fn()
+        const declaredBody = new ReadableStream<Uint8Array>({ cancel: cancelDeclaredBody })
+        const fetchMock = vi
+            .fn()
+            .mockResolvedValueOnce(
+                new Response(declaredBody, {
+                    headers: { 'Content-Length': String(MAX_PUBLIC_APPLICATION_RUNTIME_RESPONSE_BYTES + 1) }
+                })
+            )
+            .mockResolvedValueOnce(
+                new Response(
+                    new ReadableStream<Uint8Array>({
+                        start(controller) {
+                            controller.enqueue(new Uint8Array(MAX_PUBLIC_APPLICATION_RUNTIME_RESPONSE_BYTES + 1))
+                            controller.close()
+                        }
+                    })
+                )
+            )
+        vi.stubGlobal('fetch', fetchMock)
+
+        await expect(getPublicApplicationRuntime('north-route', 'en')).rejects.toMatchObject({
+            status: 502,
+            code: 'PUBLIC_APPLICATION_RUNTIME_RESPONSE_TOO_LARGE'
+        })
+        expect(cancelDeclaredBody).toHaveBeenCalledTimes(1)
+        await expect(getPublicApplicationRuntime('north-route', 'en')).rejects.toMatchObject({
+            status: 502,
+            code: 'PUBLIC_APPLICATION_RUNTIME_RESPONSE_TOO_LARGE'
+        })
+    })
+
+    it('applies the anonymous bootstrap timeout while reading a stalled response body', async () => {
+        vi.useFakeTimers()
+        let streamController: ReadableStreamDefaultController<Uint8Array> | undefined
+        const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+            const body = new ReadableStream<Uint8Array>({
+                start(controller) {
+                    streamController = controller
+                }
+            })
+            init?.signal?.addEventListener(
+                'abort',
+                () => streamController?.error(init.signal?.reason ?? new DOMException('Aborted', 'AbortError')),
+                { once: true }
+            )
+            return Promise.resolve(new Response(body))
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        const request = getPublicApplicationRuntime('north-route', 'en')
+        const timeoutAssertion = expect(request).rejects.toMatchObject({ status: 408, code: 'PUBLIC_APPLICATION_RUNTIME_TIMEOUT' })
+        await vi.advanceTimersByTimeAsync(15_000)
+
+        await timeoutAssertion
+        expect(fetchMock.mock.calls[0]?.[1]?.signal?.aborted).toBe(true)
     })
 
     it('sends a scoped target through the anonymous endpoint without forwarding workspace selectors', async () => {

@@ -2,10 +2,12 @@ import { useMutation, type QueryClient } from '@tanstack/react-query'
 import type { MutableRefObject } from 'react'
 import { createLocalizedContent, normalizeLocale } from '@universo-react/utils'
 import type { TFunction } from 'i18next'
-import { batchUpdateTabularRows, deleteTabularRow } from '../../../../api/api'
 import { AppsApiError } from '../../../../api/client'
-import { createInterpretationNetworkMatrixCell } from '../../../../api/interpretationNetwork'
-import { formatRuntimeSafeValue } from '../../../../utils/displayValue'
+import {
+    createInterpretationNetworkMatrixCell,
+    deleteInterpretationNetworkMatrixCell,
+    updateInterpretationNetworkMatrixCell
+} from '../../../../api/interpretationNetwork'
 import {
     buildCellCreateData,
     MATRIX_CELL_PLACEMENT_FIELD,
@@ -33,6 +35,8 @@ export function useCellMutations({
     workspaceId,
     widgetId,
     layoutId,
+    instanceKey,
+    runtimeLayoutTarget,
     locale,
     interpretationSectionId,
     selectedInterpretationId,
@@ -68,6 +72,8 @@ export function useCellMutations({
     workspaceId?: string | null
     widgetId?: string | null
     layoutId?: string | null
+    instanceKey?: string
+    runtimeLayoutTarget?: { targetKind: 'page' | 'object'; entityTypeId: string }
     locale: string
     interpretationSectionId?: string | null
     selectedInterpretationId?: string | null
@@ -120,50 +126,38 @@ export function useCellMutations({
                 if (sourceCell && !readSubmittedText(submittedData[colLabelField], normalizedLocale)) {
                     submittedData[colLabelField] = sourceCell.colLabelValue ?? createLocalizedContent(normalizedLocale, sourceCell.colLabel)
                 }
-                const axisValueChanged = (field: string, fallbackField: string): boolean => {
-                    if (!Object.prototype.hasOwnProperty.call(submittedData, field)) return false
-                    const previousValue = sourceRawCellFromSnapshot[field] ?? sourceRawCellFromSnapshot[fallbackField]
-                    return (
-                        formatRuntimeSafeValue(submittedData[field], normalizedLocale) !==
-                        formatRuntimeSafeValue(previousValue, normalizedLocale)
-                    )
+                const protectedFieldNames = new Set(['CellId', 'ParentCellId', 'RowKey', 'ColKey', 'MaterialRef', '_tp_sort_order'])
+                for (const column of matrixColumn.childColumns ?? []) {
+                    if (column.uiConfig?.serverOwned !== true) continue
+                    if (typeof column.codename === 'string') protectedFieldNames.add(column.codename)
+                    if (typeof column.field === 'string') protectedFieldNames.add(column.field)
                 }
-                const buildAxisRows = (axis: 'row' | 'column') =>
-                    sourceCell
-                        ? matrixRowsSnapshotRef.current.cells
-                              .filter(
-                                  (cell) =>
-                                      cell.id !== sourceCell.id &&
-                                      (axis === 'row' ? cell.rowKey === sourceCell.rowKey : cell.colKey === sourceCell.colKey)
-                              )
-                              .flatMap((cell) => {
-                                  const rawCell = matrixRowsSnapshotRef.current.rawRowsByCellId.get(cell.id)
-                                  return rawCell?.id ? [{ childRowId: rawCell.id, expectedVersion: readRuntimeRowVersion(rawCell) }] : []
-                              })
-                        : []
-                const uniformUpdates = [
-                    ...(axisValueChanged(rowLabelField, 'RowLabel') && submittedData[rowLabelField] !== undefined
-                        ? [{ rows: buildAxisRows('row'), data: { [rowLabelField]: submittedData[rowLabelField] } }]
-                        : []),
-                    ...(axisValueChanged(colLabelField, 'ColLabel') && submittedData[colLabelField] !== undefined
-                        ? [{ rows: buildAxisRows('column'), data: { [colLabelField]: submittedData[colLabelField] } }]
-                        : [])
-                ].filter((group) => group.rows.length > 0)
-                const saved = await batchUpdateTabularRows({
+                const editableData = Object.fromEntries(
+                    Object.entries(submittedData).filter(
+                        ([field]) =>
+                            !protectedFieldNames.has(field) &&
+                            !field.startsWith('_tp_') &&
+                            !field.startsWith('_upl_') &&
+                            !field.startsWith('_app_')
+                    )
+                )
+                if (!sourceCellFromSnapshot) throw new Error('cell-not-selected')
+                const expectedCellVersion = readRuntimeRowVersion(sourceRawCellFromSnapshot)
+                if (expectedCellVersion === undefined) throw new Error('version-unavailable')
+                const saved = await updateInterpretationNetworkMatrixCell({
                     apiBaseUrl,
                     applicationId,
                     workspaceId,
-                    parentRecordId: selectedInterpretationId,
-                    componentId: matrixColumn.id,
-                    objectCollectionId: interpretationSectionId,
-                    updates: [
-                        {
-                            childRowId: sourceRawCellFromSnapshot.id,
-                            data: submittedData,
-                            expectedVersion: readRuntimeRowVersion(sourceRawCellFromSnapshot)
-                        }
-                    ],
-                    uniformUpdates
+                    interpretationId: selectedInterpretationId,
+                    cellId: sourceCellFromSnapshot.id,
+                    expectedCellVersion,
+                    data: editableData,
+                    widgetId,
+                    layoutId,
+                    instanceKey,
+                    targetKind: runtimeLayoutTarget?.targetKind,
+                    entityTypeId: runtimeLayoutTarget?.entityTypeId,
+                    locale
                 })
                 return { saved, selectedCellIdAfterSave: sourceCellFromSnapshot?.id ?? null }
             }
@@ -219,7 +213,11 @@ export function useCellMutations({
                     ...(typeof sortOrder === 'number' && Number.isInteger(sortOrder) && sortOrder >= 0 ? { sortOrder } : {})
                 },
                 widgetId,
-                layoutId
+                layoutId,
+                instanceKey,
+                targetKind: runtimeLayoutTarget?.targetKind,
+                entityTypeId: runtimeLayoutTarget?.entityTypeId,
+                locale
             })
             const createdRow = saved.item
             const rawPersistedCellId = readColumnValue(createdRow as Record<string, unknown>, matrixColumn.childColumns, 'CellId')
@@ -273,30 +271,27 @@ export function useCellMutations({
 
     const deleteCellMutation = useMutation({
         mutationFn: async () => {
-            if (
-                !canDeleteContent ||
-                !apiBaseUrl ||
-                !applicationId ||
-                !interpretationSectionId ||
-                !selectedInterpretationId ||
-                !matrixColumn?.id ||
-                !deleteCell ||
-                !deleteRawCell?.id
-            ) {
+            if (!canDeleteContent || !apiBaseUrl || !applicationId || !selectedInterpretationId || !deleteCell || !deleteRawCell) {
                 throw new Error('permission-denied')
             }
             if (matrixRowsSnapshotRef.current.cells.some((cell) => cell.parentCellId === deleteCell.id))
                 throw new Error('cell-has-children')
             if (widgetMatrixMode === 'hierarchicalCells' && deleteCell.id === rootCellId) throw new Error('cell-is-root')
-            return deleteTabularRow({
+            const expectedCellVersion = readRuntimeRowVersion(deleteRawCell)
+            if (expectedCellVersion === undefined) throw new Error('version-unavailable')
+            return deleteInterpretationNetworkMatrixCell({
                 apiBaseUrl,
                 applicationId,
                 workspaceId,
-                parentRecordId: selectedInterpretationId,
-                componentId: matrixColumn.id,
-                objectCollectionId: interpretationSectionId,
-                childRowId: deleteRawCell.id,
-                expectedVersion: readRuntimeRowVersion(deleteRawCell)
+                interpretationId: selectedInterpretationId,
+                cellId: deleteCell.id,
+                expectedCellVersion,
+                widgetId,
+                layoutId,
+                instanceKey,
+                targetKind: runtimeLayoutTarget?.targetKind,
+                entityTypeId: runtimeLayoutTarget?.entityTypeId,
+                locale
             })
         },
         onSuccess: async () => {
@@ -304,6 +299,7 @@ export function useCellMutations({
             setCellDeleteId(null)
             setCellDeleteError(null)
             await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspaceMatrix'] })
+            await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkMaterialAssociations'] })
         },
         onError: (error) =>
             setCellDeleteError(

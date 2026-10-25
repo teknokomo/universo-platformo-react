@@ -20,7 +20,7 @@ This page is for an editor who needs to navigate the Matrix, select cells, and s
 
 ## Workflow
 
-1. Open **Structures**. In one-system mode, the Matrix opens directly.
+1. Open **Structures**. In one-system mode, the Matrix opens directly. Inside a Structure, **Matrix**, **Favorites**, and **Templates** appear as peer tabs in one row.
 
 ![Open Matrix](../.gitbook/assets/interpretation-network/workspace-and-matrix-step-1.png)
 
@@ -32,9 +32,15 @@ This page is for an editor who needs to navigate the Matrix, select cells, and s
 
 ![Switch Matrix view](../.gitbook/assets/interpretation-network/workspace-and-matrix-step-3.png)
 
+4. Add a cell to Favorites from its actions menu, then open the **Favorites** tab to revisit it.
+
+![Populated Favorites](../.gitbook/assets/interpretation-network/workspace-and-matrix-step-4.png)
+
 ## Expected Result
 
-The selected cell remains visible, the Materials pane follows the selection, and view changes do not create separate copies of the Matrix.
+The selected cell remains visible, the Materials pane follows the selection, and view changes do not create separate copies of the Matrix. If the cell has a Primary Material, its detail opens first; return to the material list to choose another item.
+
+In the authenticated runtime, the **Favorites** tab lists this user's saved cell locations in the active Workspace. It does not expose another user's Favorites. The anonymous public view uses a server-selected entry Workspace and is read-only; it has no Workspace switcher or Favorites workflow.
 
 ## What To Check
 

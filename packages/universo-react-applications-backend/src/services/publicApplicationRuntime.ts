@@ -2,8 +2,10 @@ import {
     applicationAliasRoutingModeSchema,
     applicationPublicRouteResolutionSchema,
     normalizeApplicationAlias,
+    publicApplicationRouteResolutionSchema,
     type ApplicationAliasRoutingMode,
-    type ApplicationPublicRouteResolution
+    type ApplicationPublicRouteResolution,
+    type PublicApplicationRouteResolution
 } from '@universo-react/types'
 import { isValidSchemaName } from '@universo-react/schema-ddl'
 import { isUuidV7, type DbExecutor } from '@universo-react/utils'
@@ -63,6 +65,16 @@ export interface ResolvedPublicApplication {
     application: PublicRuntimeApplicationRow & { aliasRoutingMode: ApplicationAliasRoutingMode; schemaName: string }
     route: ApplicationPublicRouteResolution
 }
+
+/** Project internal route metadata onto the strict anonymous response contract. */
+export const toPublicApplicationRouteResolution = (route: ApplicationPublicRouteResolution): PublicApplicationRouteResolution =>
+    publicApplicationRouteResolutionSchema.parse({
+        matchedBy: route.matchedBy,
+        matchedAlias: route.matchedAlias,
+        routingMode: route.routingMode,
+        primaryAlias: route.primaryAlias,
+        canonicalAlias: route.canonicalAlias
+    })
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
 

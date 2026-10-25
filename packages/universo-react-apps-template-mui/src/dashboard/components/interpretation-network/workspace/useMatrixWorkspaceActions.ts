@@ -53,6 +53,8 @@ export function useMatrixWorkspaceActions({
     workspaceId,
     widgetId,
     layoutId,
+    instanceKey,
+    runtimeLayoutTarget,
     selectedInterpretationId,
     matrixChildColumns,
     matrixRowsSnapshotRef,
@@ -78,6 +80,8 @@ export function useMatrixWorkspaceActions({
     workspaceId?: string | null
     widgetId?: string | null
     layoutId?: string | null
+    instanceKey?: string
+    runtimeLayoutTarget?: { targetKind: 'page' | 'object'; entityTypeId: string }
     selectedInterpretationId?: string | null
     matrixChildColumns?: RuntimeColumnLike[]
     matrixRowsSnapshotRef: MatrixRowsSnapshotRef
@@ -149,6 +153,10 @@ export function useMatrixWorkspaceActions({
                 }
             }
             systemFieldNames.add('_tp_sort_order')
+            const cellIdByRawRowId = new Map<string, string>()
+            for (const [cellId, row] of currentRawMatrixRowsByCellId) {
+                if (typeof row.id === 'string' && row.id.trim()) cellIdByRawRowId.set(row.id, cellId)
+            }
             const readSystemValue = (data: Record<string, unknown>, codename: string): unknown => {
                 const physicalField = matrixChildColumns?.find((column) => column.codename === codename)?.field
                 return data[codename] ?? (physicalField ? data[physicalField] : undefined)
@@ -159,6 +167,9 @@ export function useMatrixWorkspaceActions({
                 workspaceId,
                 interpretationId: selectedInterpretationId,
                 updates: movePlan.updates.map((update) => {
+                    const cellId = cellIdByRawRowId.get(update.childRowId)
+                    if (!cellId) throw new Error('cell-not-found')
+                    if (update.expectedVersion === undefined) throw new Error('version-unavailable')
                     const parentCellId = readSystemValue(update.data, 'ParentCellId')
                     const rowKey = readSystemValue(update.data, 'RowKey')
                     const colKey = readSystemValue(update.data, 'ColKey')
@@ -171,14 +182,18 @@ export function useMatrixWorkspaceActions({
                     }
                     const data = Object.fromEntries(Object.entries(update.data).filter(([field]) => field && !systemFieldNames.has(field)))
                     return {
-                        matrixRowId: update.childRowId,
+                        cellId,
                         expectedVersion: update.expectedVersion,
                         placement,
                         ...(Object.keys(data).length > 0 ? { data } : {})
                     }
                 }),
                 widgetId,
-                layoutId
+                layoutId,
+                instanceKey,
+                targetKind: runtimeLayoutTarget?.targetKind,
+                entityTypeId: runtimeLayoutTarget?.entityTypeId,
+                locale
             })
             return { selectedCellIdAfterMove: movePlan.selectedCellIdAfterMove }
         },

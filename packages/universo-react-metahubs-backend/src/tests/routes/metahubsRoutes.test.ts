@@ -251,7 +251,7 @@ const request = require('supertest') as typeof import('supertest')
 import { createMetahubsRoutes } from '../../domains/metahubs/routes/metahubsRoutes'
 import { MetahubSchemaService } from '../../domains/metahubs/services/MetahubSchemaService'
 import { testCodenameVlc } from '../utils/codenameTestHelpers'
-import { buildSnapshotEnvelope, buildVLC } from '@universo-react/utils'
+import { buildSnapshotEnvelope, buildVLC, computeSnapshotHash } from '@universo-react/utils'
 import { createLocalizedContent } from '@universo-react/utils/vlc'
 
 describe('Metahubs Routes', () => {
@@ -1959,9 +1959,9 @@ describe('Metahubs Routes', () => {
         const makeTestEnvelope = (snapshotOverrides?: Record<string, unknown>, metahubOverrides?: Record<string, unknown>) => {
             const metahubId = '00000000-0000-0000-0000-000000000001'
             const snapshot = {
-                version: '1.0.0',
+                version: 1,
                 metahubId,
-                versionEnvelope: { structureVersion: '0.1.0', templateVersion: null, snapshotFormatVersion: 4 },
+                versionEnvelope: { structureVersion: '0.1.0', templateVersion: null, snapshotFormatVersion: 1 },
                 entities: {
                     '00000000-0000-0000-0000-000000000010': {
                         kind: 'object',
@@ -2005,6 +2005,25 @@ describe('Metahubs Routes', () => {
         it('should return 400 on invalid envelope (missing required fields)', async () => {
             const app = buildApp()
             await request(app).post('/metahubs/import').send({ kind: 'not_a_snapshot' }).expect(400)
+        })
+
+        it('rejects an unsupported structure version before creating an import target', async () => {
+            const envelope = makeTestEnvelope()
+            const snapshot = {
+                ...envelope.snapshot,
+                versionEnvelope: { ...envelope.snapshot.versionEnvelope, structureVersion: '0.2.0' }
+            }
+            const invalidEnvelope = {
+                ...envelope,
+                snapshot,
+                snapshotHash: computeSnapshotHash(snapshot as Record<string, unknown>)
+            }
+
+            const app = buildApp()
+            const response = await request(app).post('/metahubs/import').send(invalidEnvelope).expect(400)
+
+            expect(response.body.error).toBe('Invalid snapshot envelope')
+            expect(mockCreateMetahub).not.toHaveBeenCalled()
         })
 
         it('should return 400 on hash mismatch', async () => {
@@ -2319,7 +2338,7 @@ describe('Metahubs Routes', () => {
                 versionEnvelope: {
                     structureVersion: '0.1.0',
                     templateVersion: null,
-                    snapshotFormatVersion: 4
+                    snapshotFormatVersion: 1
                 }
             })
 
@@ -2709,7 +2728,7 @@ describe('Metahubs Routes', () => {
                     versionEnvelope: {
                         structureVersion: versionEnvelope?.structureVersion ?? '0.1.0',
                         templateVersion: null,
-                        snapshotFormatVersion: 4
+                        snapshotFormatVersion: 1
                     },
                     entities: {}
                 })

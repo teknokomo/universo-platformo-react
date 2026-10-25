@@ -1,5 +1,7 @@
 import type { DbExecutor } from '@universo-react/utils'
 import { qColumn, qSchemaTable } from '@universo-react/database'
+import { generateChildTableName } from '@universo-react/schema-ddl'
+import { entityRecordPolicySchema } from '@universo-react/types'
 import { runtimeCodenameTextSql } from '../shared/runtimeHelpers'
 import { resolveAccessLinkIntakePolicy, type AccessLinkIntakeFieldMetadata } from './guestAccessLinkIntakePolicy'
 
@@ -9,6 +11,295 @@ type WorkspaceCopyAccessLinkIntakeFieldRow = {
     columnName: string
     dataType: string
     uiConfig: Record<string, unknown> | null
+}
+
+type WorkspaceCopyTemplateMaterialObjectRow = {
+    objectId: string
+    codename: string
+    tableName: string
+    recordPolicyPresent: boolean | string | null
+    recordPolicyJson: string | null
+}
+
+type WorkspaceCopyTemplateMaterialComponentRow = {
+    templateTableName: string
+    tableComponentId: string
+    materialRefColumnName: string
+    materialTargetObjectId: string | null
+}
+
+export type WorkspaceCopyTemplateMaterialOwnerSource = {
+    tableName: string
+    ownerColumnName: string
+    materialIncluded: boolean
+}
+
+/** Locate every Material provenance field so the copy can validate both included and excluded sides. */
+export async function listWorkspaceCopyTemplateMaterialOwnerSources(
+    executor: DbExecutor,
+    schemaName: string,
+    discoveredTables: string[],
+    scopedTables: string[]
+): Promise<WorkspaceCopyTemplateMaterialOwnerSource[]> {
+    if (discoveredTables.length === 0) return []
+
+    const rows = await executor.query<WorkspaceCopyTemplateMaterialOwnerSource>(
+        `
+        SELECT
+            object_row.table_name AS "tableName",
+            component.column_name AS "ownerColumnName",
+            object_row.table_name = ANY($2::text[]) AS "materialIncluded"
+        FROM ${qSchemaTable(schemaName, '_app_objects')} object_row
+        INNER JOIN ${qSchemaTable(schemaName, '_app_components')} component
+            ON component.object_id = object_row.id
+           AND component.parent_component_id IS NULL
+           AND LOWER(${runtimeCodenameTextSql('component.codename')}) = 'templateownerid'
+           AND component.data_type = 'STRING'
+           AND component.${qColumn('_upl_deleted')} = false
+           AND component.${qColumn('_app_deleted')} = false
+        WHERE LOWER(${runtimeCodenameTextSql('object_row.codename')}) = 'material'
+          AND object_row.table_name = ANY($1::text[])
+          AND object_row.${qColumn('_upl_deleted')} = false
+          AND object_row.${qColumn('_app_deleted')} = false
+        ORDER BY object_row.table_name ASC, component.id ASC
+        `,
+        [discoveredTables, scopedTables]
+    )
+
+    return rows
+}
+
+/** Locate excluded TableTemplate parent tables whose IDs must share the atomic copy snapshot. */
+export async function listExcludedWorkspaceCopyTableTemplateNames(
+    executor: DbExecutor,
+    schemaName: string,
+    discoveredTables: string[],
+    scopedTables: string[]
+): Promise<string[]> {
+    if (discoveredTables.length === 0) return []
+
+    const rows = await executor.query<{ tableName: string }>(
+        `
+        SELECT DISTINCT object_row.table_name AS "tableName"
+        FROM ${qSchemaTable(schemaName, '_app_objects')} object_row
+        WHERE LOWER(${runtimeCodenameTextSql('object_row.codename')}) = 'tabletemplate'
+          AND object_row.table_name = ANY($1::text[])
+          AND NOT (object_row.table_name = ANY($2::text[]))
+          AND object_row.${qColumn('_upl_deleted')} = false
+          AND object_row.${qColumn('_app_deleted')} = false
+        ORDER BY object_row.table_name ASC
+        `,
+        [discoveredTables, scopedTables]
+    )
+
+    return rows.map(({ tableName }) => tableName)
+}
+
+/** Remap copied Materials' server-owned template provenance to the copied TableTemplate ID. */
+export async function remapWorkspaceCopyTemplateMaterialOwners(
+    executor: DbExecutor,
+    schemaName: string,
+    targetWorkspaceId: string
+): Promise<void> {
+    const ownerRows = await executor.query<{
+        materialTableName: string
+        ownerColumnName: string
+        templateTableName: string
+    }>(
+        `
+        SELECT
+            material.table_name AS "materialTableName",
+            owner_component.column_name AS "ownerColumnName",
+            template.table_name AS "templateTableName"
+        FROM ${qSchemaTable(schemaName, '_app_objects')} material
+        INNER JOIN ${qSchemaTable(schemaName, '_app_components')} owner_component
+            ON owner_component.object_id = material.id
+           AND owner_component.parent_component_id IS NULL
+           AND LOWER(${runtimeCodenameTextSql('owner_component.codename')}) = 'templateownerid'
+           AND owner_component.data_type = 'STRING'
+           AND owner_component.${qColumn('_upl_deleted')} = false
+           AND owner_component.${qColumn('_app_deleted')} = false
+        INNER JOIN ${qSchemaTable(schemaName, '_app_objects')} template
+            ON LOWER(${runtimeCodenameTextSql('template.codename')}) = 'tabletemplate'
+           AND template.${qColumn('_upl_deleted')} = false
+           AND template.${qColumn('_app_deleted')} = false
+        WHERE LOWER(${runtimeCodenameTextSql('material.codename')}) = 'material'
+          AND material.${qColumn('_upl_deleted')} = false
+          AND material.${qColumn('_app_deleted')} = false
+        ORDER BY material.table_name ASC, owner_component.id ASC, template.table_name ASC
+        `
+    )
+
+    const processedPairs = new Set<string>()
+    for (const row of ownerRows) {
+        const pair = `${row.materialTableName}\u0000${row.ownerColumnName}\u0000${row.templateTableName}`
+        if (processedPairs.has(pair)) continue
+        processedPairs.add(pair)
+
+        await executor.query(
+            `
+            UPDATE ${qSchemaTable(schemaName, row.materialTableName)} material
+            SET ${qColumn(row.ownerColumnName)} = id_map.new_id::text
+            FROM workspace_copy_id_map id_map
+            WHERE material.${qColumn('workspace_id')} = $1::uuid
+              AND material.${qColumn(row.ownerColumnName)} IS NOT NULL
+              AND LOWER(material.${qColumn(row.ownerColumnName)}) = LOWER(id_map.old_id::text)
+              AND id_map.source_table_name = $2::text
+            `,
+            [targetWorkspaceId, row.templateTableName]
+        )
+    }
+}
+
+/** Detects a copied TableTemplate whose MaterialRef rows would be orphaned by Material's exclude policy. */
+export async function hasWorkspaceCopyTemplateMaterialsExcluded(
+    executor: DbExecutor,
+    schemaName: string,
+    workspaceId: string,
+    discoveredTables: string[],
+    scopedTables: string[]
+): Promise<boolean> {
+    if (discoveredTables.length === 0 || scopedTables.length === 0) return false
+
+    const objectsQt = qSchemaTable(schemaName, '_app_objects')
+    const objectRows = await executor.query<WorkspaceCopyTemplateMaterialObjectRow>(
+        `
+        SELECT
+            object_row.id AS "objectId",
+            LOWER(${runtimeCodenameTextSql('object_row.codename')}) AS codename,
+            object_row.table_name AS "tableName",
+            jsonb_exists(object_row.config, 'recordPolicy') AS "recordPolicyPresent",
+            (object_row.config->'recordPolicy')::text AS "recordPolicyJson"
+        FROM ${objectsQt} object_row
+        WHERE object_row.table_name = ANY($1::text[])
+          AND LOWER(${runtimeCodenameTextSql('object_row.codename')}) = ANY($2::text[])
+          AND object_row.${qColumn('_upl_deleted')} = false
+          AND object_row.${qColumn('_app_deleted')} = false
+        `,
+        [discoveredTables, ['material', 'tabletemplate']]
+    )
+
+    const scopedTableSet = new Set(scopedTables)
+    const excludedMaterialObjectIds = new Set<string>()
+    const templateTableNames = new Set<string>()
+    for (const row of objectRows) {
+        const policyPresent = row.recordPolicyPresent === true || String(row.recordPolicyPresent).toLowerCase() === 'true'
+        let copyPolicy: 'include' | 'exclude' | undefined
+        if (policyPresent) {
+            let rawPolicy: unknown
+            try {
+                rawPolicy = JSON.parse(row.recordPolicyJson ?? 'null')
+            } catch {
+                throw new Error('Invalid EntityRecordPolicy metadata; workspace copy aborted')
+            }
+            const policy = entityRecordPolicySchema.safeParse(rawPolicy)
+            if (!policy.success) throw new Error('Invalid EntityRecordPolicy metadata; workspace copy aborted')
+            copyPolicy = policy.data.workspaceCopy
+        }
+
+        if (row.codename === 'tabletemplate') {
+            if (scopedTableSet.has(row.tableName) && copyPolicy !== 'exclude') {
+                templateTableNames.add(row.tableName)
+            }
+        }
+
+        if (row.codename === 'material' && (!scopedTableSet.has(row.tableName) || copyPolicy === 'exclude')) {
+            excludedMaterialObjectIds.add(row.objectId)
+        }
+    }
+
+    const ownerRows = await executor.query<{
+        hasTemplateOwnerReference: boolean | string
+        hasIncludedMaterialExcludedTemplateReference: boolean | string
+    }>(
+        `
+        SELECT
+            EXISTS (
+                SELECT 1
+                FROM workspace_copy_template_material_owners material_owner
+                INNER JOIN workspace_copy_source_rows template_row
+                    ON LOWER(template_row.id::text) = LOWER(material_owner.template_owner_id)
+                WHERE material_owner.workspace_id = $1::uuid
+                  AND material_owner.material_included = false
+                  AND template_row.source_table_name = ANY($2::text[])
+            ) AS "hasTemplateOwnerReference",
+            EXISTS (
+                SELECT 1
+                FROM workspace_copy_template_material_owners material_owner
+                INNER JOIN workspace_copy_excluded_template_ids excluded_template
+                    ON LOWER(excluded_template.template_id::text) = LOWER(material_owner.template_owner_id)
+                WHERE material_owner.workspace_id = $1::uuid
+                  AND material_owner.material_included = true
+            ) AS "hasIncludedMaterialExcludedTemplateReference"
+        `,
+        [workspaceId, [...templateTableNames]]
+    )
+    const hasTemplateOwnerReference =
+        ownerRows[0]?.hasTemplateOwnerReference === true || String(ownerRows[0]?.hasTemplateOwnerReference).toLowerCase() === 'true'
+    const hasIncludedMaterialExcludedTemplateReference =
+        ownerRows[0]?.hasIncludedMaterialExcludedTemplateReference === true ||
+        String(ownerRows[0]?.hasIncludedMaterialExcludedTemplateReference).toLowerCase() === 'true'
+    if (hasTemplateOwnerReference || hasIncludedMaterialExcludedTemplateReference) return true
+
+    if (templateTableNames.size === 0) return false
+    if (excludedMaterialObjectIds.size === 0) return false
+
+    const componentRows = await executor.query<WorkspaceCopyTemplateMaterialComponentRow>(
+        `
+        SELECT
+            object_row.table_name AS "templateTableName",
+            table_component.id AS "tableComponentId",
+            material_ref.column_name AS "materialRefColumnName",
+            material_ref.target_object_id AS "materialTargetObjectId"
+        FROM ${objectsQt} object_row
+        INNER JOIN ${qSchemaTable(schemaName, '_app_components')} table_component
+            ON table_component.object_id = object_row.id
+           AND table_component.parent_component_id IS NULL
+           AND table_component.data_type = 'TABLE'
+           AND table_component.${qColumn('_upl_deleted')} = false
+           AND table_component.${qColumn('_app_deleted')} = false
+        INNER JOIN ${qSchemaTable(schemaName, '_app_components')} material_ref
+            ON material_ref.object_id = object_row.id
+           AND material_ref.parent_component_id = table_component.id
+           AND LOWER(${runtimeCodenameTextSql('material_ref.codename')}) = 'materialref'
+           AND material_ref.${qColumn('_upl_deleted')} = false
+           AND material_ref.${qColumn('_app_deleted')} = false
+        WHERE LOWER(${runtimeCodenameTextSql('object_row.codename')}) = 'tabletemplate'
+          AND object_row.table_name = ANY($1::text[])
+          AND object_row.${qColumn('_upl_deleted')} = false
+          AND object_row.${qColumn('_app_deleted')} = false
+        ORDER BY object_row.table_name ASC, table_component.id ASC
+        `,
+        [[...templateTableNames]]
+    )
+
+    for (const component of componentRows) {
+        if (!component.materialTargetObjectId || !excludedMaterialObjectIds.has(component.materialTargetObjectId)) continue
+        const childTableName = generateChildTableName(component.tableComponentId)
+        if (!scopedTableSet.has(childTableName)) continue
+
+        const referenceRows = await executor.query<{ hasMaterialReference: boolean | string }>(
+            `
+            SELECT EXISTS (
+                SELECT 1
+                FROM workspace_copy_source_rows template_row
+                INNER JOIN workspace_copy_source_rows child_row
+                    ON child_row.source_table_name = $3
+                   AND child_row.workspace_id = template_row.workspace_id
+                   AND child_row.row_data ->> '_tp_parent_id' = template_row.id::text
+                WHERE template_row.source_table_name = $2
+                  AND template_row.workspace_id = $1::uuid
+                  AND child_row.row_data ->> $4::text IS NOT NULL
+            ) AS "hasMaterialReference"
+            `,
+            [workspaceId, component.templateTableName, childTableName, component.materialRefColumnName]
+        )
+        const hasMaterialReference =
+            referenceRows[0]?.hasMaterialReference === true || String(referenceRows[0]?.hasMaterialReference).toLowerCase() === 'true'
+        if (hasMaterialReference) return true
+    }
+
+    return false
 }
 
 /** Reject malformed resetOnCopy metadata before it can silently change copy behavior. */
@@ -52,7 +343,8 @@ export async function hasValidWorkspaceCopyAccessLinkIntakePolicies(
     schemaName: string,
     workspaceId: string,
     scopedTables: string[],
-    resetDefaultsByTable: Map<string, Map<string, string>>
+    resetDefaultsByTable: Map<string, Map<string, string>>,
+    options: { sourceSnapshot?: boolean } = {}
 ): Promise<boolean> {
     if (scopedTables.length === 0) return true
 
@@ -92,17 +384,29 @@ export async function hasValidWorkspaceCopyAccessLinkIntakePolicies(
     }
 
     for (const [tableName, fields] of fieldsByTable) {
-        const tableQt = qSchemaTable(schemaName, tableName)
-        const sourceRows = await executor.query<Record<string, unknown>>(
-            `
-            SELECT *
-            FROM ${tableQt}
-            WHERE ${qColumn('workspace_id')} = $1
-              AND ${qColumn('_upl_deleted')} = false
-              AND ${qColumn('_app_deleted')} = false
-            `,
-            [workspaceId]
-        )
+        const sourceRows = options.sourceSnapshot
+            ? (
+                  await executor.query<{ rowData: Record<string, unknown> }>(
+                      `
+                      SELECT row_data AS "rowData"
+                      FROM workspace_copy_source_rows
+                      WHERE source_table_name = $1
+                        AND workspace_id = $2::uuid
+                      ORDER BY id ASC
+                  `,
+                      [tableName, workspaceId]
+                  )
+              ).map(({ rowData }) => rowData)
+            : await executor.query<Record<string, unknown>>(
+                  `
+                  SELECT *
+                  FROM ${qSchemaTable(schemaName, tableName)}
+                  WHERE ${qColumn('workspace_id')} = $1
+                    AND ${qColumn('_upl_deleted')} = false
+                    AND ${qColumn('_app_deleted')} = false
+                  `,
+                  [workspaceId]
+              )
         for (const row of sourceRows) {
             const copiedRow = { ...row }
             for (const field of fields) {

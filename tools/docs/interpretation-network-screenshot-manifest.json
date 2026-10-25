@@ -42,7 +42,7 @@
                 "en": "Getting Started",
                 "ru": "Начало работы"
             },
-            "workflowStepIds": ["getting-started-imported-metahub", "getting-started-open-app"],
+            "workflowStepIds": ["getting-started-imported-metahub", "getting-started-open-app", "getting-started-anonymous-public-viewer"],
             "routeHint": "/metahub/:metahubId",
             "state": "imported-metahub",
             "captureMode": "viewport",
@@ -121,7 +121,12 @@
                 "en": "Workspace And Matrix",
                 "ru": "Рабочее пространство и Матрица"
             },
-            "workflowStepIds": ["workspace-and-matrix-open", "workspace-and-matrix-select-root", "workspace-and-matrix-change-view"],
+            "workflowStepIds": [
+                "workspace-and-matrix-open",
+                "workspace-and-matrix-select-root",
+                "workspace-and-matrix-change-view",
+                "workspace-and-matrix-populated-favorites"
+            ],
             "routeHint": "/a/:applicationId",
             "state": "single-system-matrix",
             "captureMode": "viewport",
@@ -131,7 +136,7 @@
             },
             "requiredVisibleText": {
                 "en": ["Matrix", "Templates", "Universe"],
-                "ru": ["Матрица", "Шаблоны", "Вселенная"]
+                "ru": ["Матрица", "Шаблоны", "Universe"]
             },
             "viewportMatrixRequired": true
         },
@@ -150,7 +155,8 @@
                 "cells-and-materials-add-cell-dialog",
                 "cells-and-materials-created-cell",
                 "cells-and-materials-add-material",
-                "cells-and-materials-material-editor"
+                "cells-and-materials-material-editor",
+                "cells-and-materials-primary-material-detail"
             ],
             "routeHint": "/a/:applicationId",
             "state": "cell-material-authoring",
@@ -160,8 +166,8 @@
                 "height": 1080
             },
             "requiredVisibleText": {
-                "en": ["Add cell", "Materials"],
-                "ru": ["Добавить ячейку", "Материалы"]
+                "en": ["Primary Material", "Guide material"],
+                "ru": ["Основной материал", "Материал руководства"]
             },
             "viewportMatrixRequired": true
         },
@@ -176,7 +182,12 @@
                 "en": "Templates",
                 "ru": "Шаблоны"
             },
-            "workflowStepIds": ["templates-save-dialog", "templates-list", "templates-create-structure"],
+            "workflowStepIds": [
+                "templates-save-dialog",
+                "templates-list",
+                "templates-create-structure",
+                "templates-selected-branch-dialog"
+            ],
             "routeHint": "/a/:applicationId",
             "state": "template-lifecycle",
             "captureMode": "viewport",
@@ -210,8 +221,8 @@
                 "height": 1080
             },
             "requiredVisibleText": {
-                "en": ["Add cell", "Materials"],
-                "ru": ["Добавить ячейку", "Материалы"]
+                "en": ["Add cell", "Primary Material"],
+                "ru": ["Добавить ячейку", "Основной материал"]
             },
             "viewportMatrixRequired": true
         }

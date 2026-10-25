@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useId, useMemo } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -33,6 +33,9 @@ export interface MatrixTableViewProps {
     dropState: MatrixDropState
     mutationDisabled: boolean
     isMovingCell: boolean
+    showCellActions: boolean
+    showDragHandles: boolean
+    showAxisActions: boolean
     addAxisDisabled: boolean
     onSelectCell: (cellId: string) => void
     onOpenCellMenu: (anchor: HTMLElement, cellId: string) => void
@@ -72,6 +75,8 @@ type MatrixTableCellProps = {
     invalidDropTarget: boolean
     mutationDisabled: boolean
     isMovingCell: boolean
+    showCellActions: boolean
+    showDragHandles: boolean
     canMoveSelectedToEmptySlot: boolean
     onSelectCell: (cellId: string) => void
     onOpenCellMenu: (anchor: HTMLElement, cellId: string) => void
@@ -88,9 +93,12 @@ function OccupiedMatrixTableCell({
     invalidDropTarget,
     mutationDisabled,
     isMovingCell,
+    showCellActions,
+    showDragHandles,
     onSelectCell,
     onOpenCellMenu
 }: MatrixTableCellProps & { slot: MatrixTableSlot & { cell: MatrixCell } }) {
+    const cellDescriptionId = useId()
     const { cell } = slot
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: cell.id,
@@ -150,38 +158,41 @@ function OccupiedMatrixTableCell({
             }}
         >
             <Stack direction='row' spacing={0} sx={{ minHeight: 54, minWidth: 0, alignItems: 'stretch' }}>
-                <Tooltip title={t('workspace.cell.drag', 'Drag cell')}>
-                    <span style={{ display: 'flex', alignSelf: 'stretch' }}>
-                        <IconButton
-                            type='button'
-                            size='small'
-                            aria-label={t('workspace.cell.drag', 'Drag cell')}
-                            disabled={mutationDisabled || isMovingCell}
-                            sx={{
-                                width: 28,
-                                height: 'auto',
-                                minHeight: 54,
-                                borderRadius: 0,
-                                alignSelf: 'stretch',
-                                color: 'text.secondary',
-                                bgcolor: 'action.hover',
-                                flexShrink: 0,
-                                cursor: mutationDisabled || isMovingCell ? 'default' : 'grab',
-                                '&:focus-visible': {
-                                    outline: '2px solid',
-                                    outlineColor: 'primary.main',
-                                    outlineOffset: -3
-                                }
-                            }}
-                            {...attributes}
-                            {...listeners}
-                        >
-                            <DragIndicatorRoundedIcon fontSize='small' />
-                        </IconButton>
-                    </span>
-                </Tooltip>
+                {showDragHandles ? (
+                    <Tooltip title={t('workspace.cell.drag', 'Drag cell')}>
+                        <span style={{ display: 'flex', alignSelf: 'stretch' }}>
+                            <IconButton
+                                type='button'
+                                size='small'
+                                aria-label={t('workspace.cell.drag', 'Drag cell')}
+                                disabled={mutationDisabled || isMovingCell}
+                                sx={{
+                                    width: 28,
+                                    height: 'auto',
+                                    minHeight: 54,
+                                    borderRadius: 0,
+                                    alignSelf: 'stretch',
+                                    color: 'text.secondary',
+                                    bgcolor: 'action.hover',
+                                    flexShrink: 0,
+                                    cursor: mutationDisabled || isMovingCell ? 'default' : 'grab',
+                                    '&:focus-visible': {
+                                        outline: '2px solid',
+                                        outlineColor: 'primary.main',
+                                        outlineOffset: -3
+                                    }
+                                }}
+                                {...attributes}
+                                {...listeners}
+                            >
+                                <DragIndicatorRoundedIcon fontSize='small' />
+                            </IconButton>
+                        </span>
+                    </Tooltip>
+                ) : null}
                 <ButtonBase
                     aria-label={accessibleName}
+                    aria-describedby={cell.description.trim() ? cellDescriptionId : undefined}
                     aria-pressed={selected}
                     disabled={isMovingCell}
                     onClick={() => onSelectCell(cell.id)}
@@ -204,7 +215,13 @@ function OccupiedMatrixTableCell({
                     }}
                 >
                     <Stack spacing={0.25} sx={{ minWidth: 0, width: '100%', justifyContent: 'center' }}>
-                        <MatrixCellContent positionLabel={positionLabel} textColor={cell.style.text} compact>
+                        <MatrixCellContent
+                            positionLabel={positionLabel}
+                            textColor={cell.style.text}
+                            compact
+                            description={cell.description}
+                            descriptionId={cellDescriptionId}
+                        >
                             {title}
                         </MatrixCellContent>
                         {materialCount > 0 ? (
@@ -217,22 +234,24 @@ function OccupiedMatrixTableCell({
                         ) : null}
                     </Stack>
                 </ButtonBase>
-                <IconButton
-                    type='button'
-                    size='small'
-                    aria-label={t('workspace.cell.actionsFor', {
-                        defaultValue: 'Cell actions: {{title}}',
-                        title
-                    })}
-                    disabled={isMovingCell}
-                    onClick={(event) => {
-                        event.stopPropagation()
-                        onOpenCellMenu(event.currentTarget, cell.id)
-                    }}
-                    sx={{ position: 'absolute', top: 4, right: 4, width: 28, height: 28, p: 0.25 }}
-                >
-                    <MoreVertRoundedIcon sx={{ fontSize: 18 }} />
-                </IconButton>
+                {showCellActions ? (
+                    <IconButton
+                        type='button'
+                        size='small'
+                        aria-label={t('workspace.cell.actionsFor', {
+                            defaultValue: 'Cell actions: {{title}}',
+                            title
+                        })}
+                        disabled={isMovingCell}
+                        onClick={(event) => {
+                            event.stopPropagation()
+                            onOpenCellMenu(event.currentTarget, cell.id)
+                        }}
+                        sx={{ position: 'absolute', top: 4, right: 4, width: 28, height: 28, p: 0.25 }}
+                    >
+                        <MoreVertRoundedIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                ) : null}
             </Stack>
         </TableCell>
     )
@@ -343,6 +362,9 @@ export function MatrixTableView({
     dropState,
     mutationDisabled,
     isMovingCell,
+    showCellActions,
+    showDragHandles,
+    showAxisActions,
     addAxisDisabled,
     onSelectCell,
     onOpenCellMenu,
@@ -352,7 +374,7 @@ export function MatrixTableView({
 }: MatrixTableViewProps) {
     const table = useMemo(() => buildMatrixTableModel(cells), [cells])
     const dropTargetCellId = dropState.destination?.targetCellId ?? dropState.overCellId
-    const minimumWidth = Math.max(408, 160 + table.columns.length * 196 + 48)
+    const minimumWidth = Math.max(408, 160 + table.columns.length * 196 + (showAxisActions ? 48 : 0))
     const axisActionsDisabled = addAxisDisabled || cells.length === 0
     const addColumnTooltip =
         axisActionsDisabled && !isMovingCell
@@ -388,19 +410,21 @@ export function MatrixTableView({
             <Table size='small' sx={{ minWidth: minimumWidth }} aria-label={t('workspace.table.label', 'Matrix table')}>
                 <TableHead>
                     <TableRow>
-                        <TableCell
-                            component='th'
-                            scope='col'
-                            sx={{
-                                width: 160,
-                                minWidth: 160,
-                                color: 'text.secondary',
-                                fontWeight: 600,
-                                bgcolor: 'background.paper'
-                            }}
-                        >
-                            {t('workspace.table.rowHeader', 'Rows')}
-                        </TableCell>
+                        {showAxisActions ? (
+                            <TableCell
+                                component='th'
+                                scope='col'
+                                sx={{
+                                    width: 160,
+                                    minWidth: 160,
+                                    color: 'text.secondary',
+                                    fontWeight: 600,
+                                    bgcolor: 'background.paper'
+                                }}
+                            >
+                                {t('workspace.table.rowHeader', 'Rows')}
+                            </TableCell>
+                        ) : null}
                         {table.columns.map((column) => (
                             <TableCell
                                 key={column.key}
@@ -412,26 +436,28 @@ export function MatrixTableView({
                                 {column.label}
                             </TableCell>
                         ))}
-                        <TableCell
-                            component='th'
-                            scope='col'
-                            align='center'
-                            sx={{ width: 48, minWidth: 48, bgcolor: 'background.paper', p: 0.5 }}
-                        >
-                            <Tooltip title={addColumnTooltip}>
-                                <span>
-                                    <IconButton
-                                        type='button'
-                                        size='small'
-                                        aria-label={t('workspace.table.addColumn', 'Add column')}
-                                        disabled={axisActionsDisabled || isMovingCell}
-                                        onClick={onAddColumn}
-                                    >
-                                        <AddRoundedIcon fontSize='small' />
-                                    </IconButton>
-                                </span>
-                            </Tooltip>
-                        </TableCell>
+                        {showAxisActions ? (
+                            <TableCell
+                                component='th'
+                                scope='col'
+                                align='center'
+                                sx={{ width: 48, minWidth: 48, bgcolor: 'background.paper', p: 0.5 }}
+                            >
+                                <Tooltip title={addColumnTooltip}>
+                                    <span>
+                                        <IconButton
+                                            type='button'
+                                            size='small'
+                                            aria-label={t('workspace.table.addColumn', 'Add column')}
+                                            disabled={axisActionsDisabled || isMovingCell}
+                                            onClick={onAddColumn}
+                                        >
+                                            <AddRoundedIcon fontSize='small' />
+                                        </IconButton>
+                                    </span>
+                                </Tooltip>
+                            </TableCell>
+                        ) : null}
                     </TableRow>
                 </TableHead>
                 <TableBody>
@@ -463,7 +489,7 @@ export function MatrixTableView({
                                     key={`${slot.row.key}:${slot.column.key}`}
                                     t={t}
                                     slot={slot}
-                                    allowEmptyDrop={slot.row.acceptsEmptyDrop !== false}
+                                    allowEmptyDrop={showDragHandles && slot.row.acceptsEmptyDrop !== false}
                                     selected={Boolean(slot.cell && slot.cell.id === selectedCellId)}
                                     positionLabel={slot.cell ? positionLabels.get(slot.cell.id) : undefined}
                                     materialCount={slot.cell ? materialCountByCellId.get(slot.cell.id) ?? 0 : 0}
@@ -471,17 +497,21 @@ export function MatrixTableView({
                                     invalidDropTarget={Boolean(slot.cell && dropTargetCellId === slot.cell.id && !dropState.isValid)}
                                     mutationDisabled={mutationDisabled}
                                     isMovingCell={isMovingCell}
+                                    showCellActions={showCellActions}
+                                    showDragHandles={showDragHandles}
                                     canMoveSelectedToEmptySlot={Boolean(selectedCellId)}
                                     onSelectCell={onSelectCell}
                                     onOpenCellMenu={onOpenCellMenu}
                                     onMoveSelectedToSlot={onMoveSelectedToSlot}
                                 />
                             ))}
-                            <TableCell component='td' sx={{ width: 48, minWidth: 48, p: 0, bgcolor: 'background.paper' }} />
+                            {showAxisActions ? (
+                                <TableCell component='td' sx={{ width: 48, minWidth: 48, p: 0, bgcolor: 'background.paper' }} />
+                            ) : null}
                         </TableRow>
                     ))}
                 </TableBody>
-                {table.rows.length > 0 ? (
+                {showAxisActions && table.rows.length > 0 ? (
                     <TableFooter>
                         <TableRow>
                             <TableCell

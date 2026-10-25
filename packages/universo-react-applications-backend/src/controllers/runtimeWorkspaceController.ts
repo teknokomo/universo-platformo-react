@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
-import { LocalizedStringAllowEmptySchema, LocalizedStringSchema, workspaceSettingBatchUpdateSchema } from '@universo-react/types'
+import { LocalizedStringAllowEmptySchema, LocalizedStringSchema, runtimeTargetSchema } from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
 import { createQueryHelper, ensureRuntimePermission, resolveRuntimeSchema } from '../shared/runtimeHelpers'
 import { findApplicationMemberByUserId, findAuthUserByEmail } from '../persistence/applicationsStore'
@@ -19,6 +19,7 @@ import {
     removeWorkspaceMember,
     listWorkspaceMembers,
     getWorkspaceMembership,
+    lockWorkspaceMembershipForMutation,
     assertRuntimeWorkspaceExists,
     RuntimeWorkspaceError,
     RUNTIME_WORKSPACE_ERROR_CODES
@@ -26,6 +27,7 @@ import {
 import {
     listRuntimeWorkspaceSettings,
     updateWorkspaceSettingOverrides,
+    workspaceSettingBatchUpdateSchema,
     WorkspaceSettingsError,
     WORKSPACE_SETTINGS_ERROR_CODES
 } from '../services/workspaceSettingsService'
@@ -52,6 +54,45 @@ const workspaceParamSchema = z.object({
 const workspaceMemberParamSchema = workspaceParamSchema.extend({
     userId: z.string().uuid()
 })
+
+const workspaceSettingsRuntimeTargetQuerySchema = z
+    .object({
+        targetKind: z.enum(['page', 'object']).optional(),
+        entityTypeId: z.string().uuid().optional(),
+        entityTypeCodename: z
+            .string()
+            .trim()
+            .min(1)
+            .max(128)
+            .regex(/^[A-Za-z][A-Za-z0-9._-]*$/u)
+            .optional(),
+        locale: z.string().trim().min(1).max(32).default('en'),
+        themeVariant: z.enum(['light', 'dark', 'system']).optional()
+    })
+    .strict()
+    .superRefine((value, context) => {
+        const hasSelector = Boolean(value.entityTypeId) !== Boolean(value.entityTypeCodename)
+        if ((!value.targetKind && (value.entityTypeId || value.entityTypeCodename)) || (value.targetKind && !hasSelector)) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'A page or object runtime target requires exactly one entity selector'
+            })
+        }
+    })
+
+const parseWorkspaceSettingsRuntimeTarget = (applicationId: string, workspaceId: string, query: unknown) => {
+    const parsedQuery = workspaceSettingsRuntimeTargetQuerySchema.safeParse(query)
+    if (!parsedQuery.success) return parsedQuery
+    return runtimeTargetSchema.safeParse({
+        applicationId,
+        targetKind: parsedQuery.data.targetKind ?? null,
+        ...(parsedQuery.data.entityTypeId ? { entityTypeId: parsedQuery.data.entityTypeId } : {}),
+        ...(parsedQuery.data.entityTypeCodename ? { entityTypeCodename: parsedQuery.data.entityTypeCodename } : {}),
+        workspaceId,
+        locale: parsedQuery.data.locale,
+        ...(parsedQuery.data.themeVariant ? { themeVariant: parsedQuery.data.themeVariant } : {})
+    })
+}
 
 const defaultWorkspaceDescription = {
     _schema: '1' as const,
@@ -134,6 +175,11 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             return true
         }
 
+        if (error.code === WORKSPACE_SETTINGS_ERROR_CODES.settingValueInvalid) {
+            sendRuntimeWorkspaceError(res, 400, error, error.code)
+            return true
+        }
+
         sendRuntimeWorkspaceError(res, 404, error, error.code)
         return true
     }
@@ -157,6 +203,10 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             return true
         }
         if (code === RUNTIME_WORKSPACE_ERROR_CODES.workspaceCopyAccessLinkIntakeInvalid) {
+            sendRuntimeWorkspaceError(res, 409, error, code)
+            return true
+        }
+        if (code === RUNTIME_WORKSPACE_ERROR_CODES.workspaceCopyTemplateMaterialsExcluded) {
             sendRuntimeWorkspaceError(res, 409, error, code)
             return true
         }
@@ -187,15 +237,26 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
     const requireWorkspaceMembership = async (
         ctx: Awaited<ReturnType<typeof resolveRuntimeSchema>>,
         workspaceId: string,
-        options: { requireOwner?: boolean } = {}
+        options: { requireOwner?: boolean; lockForMutation?: boolean; applicationId?: string } = {}
     ) => {
         if (!ctx) return null
 
-        const membership = await getWorkspaceMembership(ctx.manager, {
-            schemaName: ctx.schemaName,
-            workspaceId,
-            userId: ctx.userId
-        })
+        const lockForMutation = options.lockForMutation ?? options.requireOwner === true
+        if (lockForMutation && !options.applicationId) {
+            throw new Error('Application ID is required to lock workspace mutation authorization')
+        }
+        const membership = lockForMutation
+            ? await lockWorkspaceMembershipForMutation(ctx.manager, {
+                  schemaName: ctx.schemaName,
+                  applicationId: options.applicationId!,
+                  workspaceId,
+                  userId: ctx.userId
+              })
+            : await getWorkspaceMembership(ctx.manager, {
+                  schemaName: ctx.schemaName,
+                  workspaceId,
+                  userId: ctx.userId
+              })
 
         if (!membership) {
             return {
@@ -221,9 +282,10 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
 
     const requireWorkspaceSettingsAccess = async (
         ctx: NonNullable<Awaited<ReturnType<typeof resolveRuntimeSchema>>>,
-        workspaceId: string
+        workspaceId: string,
+        options: { lockForMutation?: boolean; applicationId?: string } = {}
     ) => {
-        const membershipState = await requireWorkspaceMembership(ctx, workspaceId)
+        const membershipState = await requireWorkspaceMembership(ctx, workspaceId, options)
         if (membershipState?.membership) {
             return {
                 error: null,
@@ -320,7 +382,9 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             return sendError(res, 400, 'Invalid request body', RUNTIME_WORKSPACE_API_ERROR_CODES.invalidRequestBody, parsed.error.flatten())
         }
 
-        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
+        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId, undefined, {
+            workspaceLockStrategy: 'validate-only'
+        })
         if (!ctx) return
 
         if (!ctx.workspacesEnabled) {
@@ -332,14 +396,22 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         // intentionally protected here as well as by the database executor.
         if (!ensureRuntimePermission(res, ctx, 'manageApplication')) return
 
-        const workspace = await createSharedWorkspace(ctx.manager, {
-            schemaName: ctx.schemaName,
-            applicationId,
-            name: parsed.data.name,
-            description: parsed.data.description,
-            userId: ctx.userId,
-            actorUserId: ctx.userId
-        })
+        let workspace: { id: string }
+        try {
+            workspace = await createSharedWorkspace(ctx.manager, {
+                schemaName: ctx.schemaName,
+                applicationId,
+                name: parsed.data.name,
+                description: parsed.data.description,
+                userId: ctx.userId,
+                actorUserId: ctx.userId
+            })
+        } catch (error) {
+            if (getRuntimeWorkspaceErrorCode(error) === RUNTIME_WORKSPACE_ERROR_CODES.userNotMember) {
+                return sendRuntimeWorkspaceError(res, 403, error, RUNTIME_WORKSPACE_API_ERROR_CODES.applicationMemberRequired)
+            }
+            throw error
+        }
 
         return res.status(201).json({ id: workspace.id })
     }
@@ -384,14 +456,16 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             return sendError(res, 400, 'Invalid request body', RUNTIME_WORKSPACE_API_ERROR_CODES.invalidRequestBody, parsed.error.flatten())
         }
 
-        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId, workspaceId)
+        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId, workspaceId, {
+            workspaceLockStrategy: 'validate-only'
+        })
         if (!ctx) return
 
         if (!ctx.workspacesEnabled) {
             return sendWorkspacesDisabled(res)
         }
 
-        const membershipState = await requireWorkspaceMembership(ctx, workspaceId, { requireOwner: true })
+        const membershipState = await requireWorkspaceMembership(ctx, workspaceId, { requireOwner: true, applicationId })
         if (membershipState?.error) {
             return sendMembershipStateError(res, membershipState.error)
         }
@@ -399,6 +473,7 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         try {
             await updateWorkspace(ctx.manager, {
                 schemaName: ctx.schemaName,
+                applicationId,
                 workspaceId,
                 name: parsed.data.name,
                 description: parsed.data.description,
@@ -424,14 +499,20 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             return sendError(res, 400, 'Invalid request body', RUNTIME_WORKSPACE_API_ERROR_CODES.invalidRequestBody, parsed.error.flatten())
         }
 
-        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId, workspaceId)
+        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId, workspaceId, {
+            workspaceLockStrategy: 'schema-first-copy'
+        })
         if (!ctx) return
 
         if (!ctx.workspacesEnabled) {
             return sendWorkspacesDisabled(res)
         }
 
-        const membershipState = await requireWorkspaceMembership(ctx, workspaceId, { requireOwner: true })
+        const membershipState = await requireWorkspaceMembership(ctx, workspaceId, {
+            requireOwner: true,
+            lockForMutation: false,
+            applicationId
+        })
         if (membershipState?.error) {
             return sendMembershipStateError(res, membershipState.error)
         }
@@ -474,14 +555,16 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             )
         }
         const { workspaceId } = params.data
-        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId, workspaceId)
+        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId, workspaceId, {
+            workspaceLockStrategy: 'validate-only'
+        })
         if (!ctx) return
 
         if (!ctx.workspacesEnabled) {
             return sendWorkspacesDisabled(res)
         }
 
-        const membershipState = await requireWorkspaceMembership(ctx, workspaceId, { requireOwner: true })
+        const membershipState = await requireWorkspaceMembership(ctx, workspaceId, { requireOwner: true, applicationId })
         if (membershipState?.error) {
             const { status, code } = membershipState.error
             // The membership gate uses the generic member-management copy; the
@@ -519,14 +602,16 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             return sendInvalidParams(res, params.error)
         }
         const { workspaceId } = params.data
-        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId, workspaceId)
+        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId, workspaceId, {
+            workspaceLockStrategy: 'validate-only'
+        })
         if (!ctx) return
 
         if (!ctx.workspacesEnabled) {
             return sendWorkspacesDisabled(res)
         }
 
-        const membershipState = await requireWorkspaceMembership(ctx, workspaceId, { requireOwner: true })
+        const membershipState = await requireWorkspaceMembership(ctx, workspaceId, { requireOwner: true, applicationId })
         if (membershipState?.error) {
             return sendMembershipStateError(res, membershipState.error)
         }
@@ -590,14 +675,16 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             return sendError(res, 400, 'Invalid request body', RUNTIME_WORKSPACE_API_ERROR_CODES.invalidRequestBody, parsed.error.flatten())
         }
 
-        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId, workspaceId)
+        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId, workspaceId, {
+            workspaceLockStrategy: 'validate-only'
+        })
         if (!ctx) return
 
         if (!ctx.workspacesEnabled) {
             return sendWorkspacesDisabled(res)
         }
 
-        const membershipState = await requireWorkspaceMembership(ctx, workspaceId, { requireOwner: true })
+        const membershipState = await requireWorkspaceMembership(ctx, workspaceId, { requireOwner: true, applicationId })
         if (membershipState?.error) {
             return sendMembershipStateError(res, membershipState.error)
         }
@@ -653,14 +740,16 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             return sendInvalidParams(res, params.error)
         }
         const { workspaceId, userId: targetUserId } = params.data
-        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId, workspaceId)
+        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId, workspaceId, {
+            workspaceLockStrategy: 'validate-only'
+        })
         if (!ctx) return
 
         if (!ctx.workspacesEnabled) {
             return sendWorkspacesDisabled(res)
         }
 
-        const membershipState = await requireWorkspaceMembership(ctx, workspaceId, { requireOwner: true })
+        const membershipState = await requireWorkspaceMembership(ctx, workspaceId, { requireOwner: true, applicationId })
         if (membershipState?.error) {
             return sendMembershipStateError(res, membershipState.error)
         }
@@ -701,9 +790,9 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             return sendWorkspacesDisabled(res)
         }
 
-        const membershipState = await requireWorkspaceMembership(ctx, workspaceId)
-        if (membershipState?.error) {
-            return sendMembershipStateError(res, membershipState.error)
+        const accessState = await requireWorkspaceSettingsAccess(ctx, workspaceId)
+        if (accessState.error) {
+            return sendMembershipStateError(res, accessState.error)
         }
 
         let validatedQuery
@@ -721,7 +810,8 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             workspaceId,
             limit: validatedQuery.limit,
             offset: validatedQuery.offset,
-            search: validatedQuery.search ? escapeLikeWildcards(validatedQuery.search) : undefined
+            search: validatedQuery.search ? escapeLikeWildcards(validatedQuery.search) : undefined,
+            canViewEmails: accessState.canManage
         })
 
         return res.json({
@@ -751,16 +841,28 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             return sendMembershipStateError(res, accessState.error)
         }
 
-        const items = await listRuntimeWorkspaceSettings(ctx.manager, {
-            schemaName: ctx.schemaName,
-            workspaceId,
-            applicationSettings: ctx.baseApplicationSettings
-        })
+        const runtimeTarget = parseWorkspaceSettingsRuntimeTarget(applicationId, workspaceId, req.query ?? {})
+        if (!runtimeTarget.success) {
+            return sendError(res, 400, 'Invalid query', RUNTIME_WORKSPACE_API_ERROR_CODES.invalidQuery, runtimeTarget.error.flatten())
+        }
 
-        return res.json({
-            items,
-            canManage: accessState.canManage
-        })
+        try {
+            const snapshot = await listRuntimeWorkspaceSettings(ctx.manager, {
+                schemaName: ctx.schemaName,
+                workspaceId,
+                applicationSettings: ctx.baseApplicationSettings,
+                authContext: { applicationId, userId: ctx.userId, role: ctx.role },
+                runtimeTarget: runtimeTarget.data
+            })
+
+            return res.json({
+                ...snapshot,
+                canManage: accessState.canManage
+            })
+        } catch (error) {
+            if (sendWorkspaceSettingsError(res, error)) return
+            throw error
+        }
     }
 
     const updateSettings = async (req: Request, res: Response) => {
@@ -775,14 +877,16 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             return sendError(res, 400, 'Invalid request body', RUNTIME_WORKSPACE_API_ERROR_CODES.invalidRequestBody, parsed.error.flatten())
         }
 
-        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId, workspaceId)
+        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId, workspaceId, {
+            workspaceLockStrategy: 'validate-only'
+        })
         if (!ctx) return
 
         if (!ctx.workspacesEnabled) {
             return sendWorkspacesDisabled(res)
         }
 
-        const accessState = await requireWorkspaceSettingsAccess(ctx, workspaceId)
+        const accessState = await requireWorkspaceSettingsAccess(ctx, workspaceId, { lockForMutation: true, applicationId })
         if (accessState.error) {
             return sendMembershipStateError(res, accessState.error)
         }
@@ -796,25 +900,24 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             )
         }
 
+        const runtimeTarget = parseWorkspaceSettingsRuntimeTarget(applicationId, workspaceId, req.query ?? {})
+        if (!runtimeTarget.success) {
+            return sendError(res, 400, 'Invalid query', RUNTIME_WORKSPACE_API_ERROR_CODES.invalidQuery, runtimeTarget.error.flatten())
+        }
+
         try {
-            const settings = parsed.data.settings.map((setting) => ({
-                key: setting.key,
-                value: setting.value as unknown,
-                expectedVersion: setting.expectedVersion
-            }))
-            const items = await updateWorkspaceSettingOverrides(ctx.manager, {
+            const snapshot = await updateWorkspaceSettingOverrides(ctx.manager, {
                 schemaName: ctx.schemaName,
                 workspaceId,
                 applicationSettings: ctx.baseApplicationSettings,
-                settings,
-                resetKeys: [
-                    ...parsed.data.resetKeys.map((key) => ({ key })),
-                    ...parsed.data.resets.map((reset) => ({ key: reset.key, expectedVersion: reset.expectedVersion }))
-                ],
+                settings: parsed.data.settings,
+                resets: [...parsed.data.resetKeys.map((key) => ({ key, target: { kind: 'global' as const } })), ...parsed.data.resets],
+                authContext: { applicationId, userId: ctx.userId, role: ctx.role },
+                runtimeTarget: runtimeTarget.data,
                 actorUserId: ctx.userId
             })
 
-            return res.json({ items, canManage: true })
+            return res.json({ ...snapshot, canManage: true })
         } catch (error) {
             if (sendWorkspaceSettingsError(res, error)) return
             throw error
@@ -828,14 +931,16 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             return sendInvalidParams(res, params.error)
         }
         const { workspaceId } = params.data
-        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId, workspaceId)
+        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId, workspaceId, {
+            workspaceLockStrategy: 'validate-only'
+        })
         if (!ctx) return
 
         if (!ctx.workspacesEnabled) {
             return sendWorkspacesDisabled(res)
         }
 
-        const accessState = await requireWorkspaceSettingsAccess(ctx, workspaceId)
+        const accessState = await requireWorkspaceSettingsAccess(ctx, workspaceId, { lockForMutation: true, applicationId })
         if (accessState.error) {
             return sendMembershipStateError(res, accessState.error)
         }

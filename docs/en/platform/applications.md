@@ -52,6 +52,12 @@ Application dialog settings affect the application control panel under `/a/:appl
 They do not change the public runtime on `/a/:applicationId`.
 They also do not replace metahub authoring settings or the global `/admin` dialog settings.
 
+## Public And Authenticated Runtime
+
+Application visibility controls whether anonymous public runtime resolution is available. For a public application, the backend exposes a bounded, read-only Dashboard projection and resolves its configured entry Workspace on the server. The public viewer cannot submit content mutations or choose an arbitrary Workspace. It does not receive authenticated authoring actions, templates, or personal Favorites.
+
+Application members use the authenticated runtime and its authorized Workspace selection. Their read and write actions are checked against application membership and the active Workspace. Use the public view for anonymous reading and the authenticated runtime for editing or personal Workspace features. This describes the repository runtime contract; it does not assert that a particular production host is configured or reachable.
+
 ## Application-Level Widget Customization
 
 Application layouts are materialized from the linked metahub publication.
@@ -63,6 +69,8 @@ After a widget is customized, published runtime behavior uses the application-le
 
 Workspace override policy is configured at the application layer.
 Only settings allowed by that policy are visible and mutable inside individual runtime workspaces; locked settings continue to use the application value.
+
+Interpretation Network cell-style settings can target the global Workspace or one widget instance. The runtime resolves an instance target against the active application layout and applies only the policy allowed for that exact target. A policy for one Matrix widget does not grant style overrides to another widget instance.
 
 ## Dashboard Data and Widget Placement
 

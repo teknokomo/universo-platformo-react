@@ -15,7 +15,7 @@ For the entity-backed LMS assessment flow, including anonymous access and questi
 
 -   Use an environment where metahubs, publications, and applications are already available.
 -   Sign in with a user that can manage the target metahub and the linked application.
--   Keep the current modules contract in mind: only embedded modules and `sdkApiVersion = 1.0.0` are supported.
+-   Keep the current modules contract in mind: only embedded modules and `sdkApiVersion = 0.1.0` are supported.
 
 ## Step 1: Open Or Create The Metahub
 

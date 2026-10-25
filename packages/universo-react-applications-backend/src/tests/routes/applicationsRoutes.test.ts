@@ -328,7 +328,7 @@ describe('Applications Routes', () => {
         })
 
         ;(executor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('FROM applications.rel_application_users')) {
+            if (sql.includes('FROM applications.rel_application_users') || sql.includes('FROM "applications"."rel_application_users"')) {
                 const membership = normalizeMembershipRow(
                     await applicationUserRepo.findOne({
                         where: {
@@ -338,6 +338,10 @@ describe('Applications Routes', () => {
                     })
                 )
                 return membership ? [membership] : []
+            }
+
+            if (sql.includes('pg_advisory_xact_lock_shared')) {
+                return []
             }
 
             if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.obj_applications')) {
@@ -2649,10 +2653,10 @@ describe('Applications Routes', () => {
                             attached_to_id: runtimeLinkedCollectionId,
                             module_role: 'widget',
                             source_kind: 'embedded',
-                            sdk_api_version: '1.0.0',
+                            sdk_api_version: '0.1.0',
                             manifest: {
                                 className: 'QuizWidgetModule',
-                                sdkApiVersion: '1.0.0',
+                                sdkApiVersion: '0.1.0',
                                 moduleRole: 'widget',
                                 sourceKind: 'embedded',
                                 capabilities: ['rpc.client'],
@@ -2677,10 +2681,10 @@ describe('Applications Routes', () => {
                             attached_to_id: null,
                             module_role: 'widget',
                             source_kind: 'embedded',
-                            sdk_api_version: '1.0.0',
+                            sdk_api_version: '0.1.0',
                             manifest: {
                                 className: 'MetahubWidgetModule',
-                                sdkApiVersion: '1.0.0',
+                                sdkApiVersion: '0.1.0',
                                 moduleRole: 'widget',
                                 sourceKind: 'embedded',
                                 capabilities: ['rpc.client'],
@@ -2705,10 +2709,10 @@ describe('Applications Routes', () => {
                             attached_to_id: runtimeLinkedCollectionId,
                             module_role: 'widget',
                             source_kind: 'embedded',
-                            sdk_api_version: '1.0.0',
+                            sdk_api_version: '0.1.0',
                             manifest: {
                                 className: 'ServerOnlyWidgetModule',
-                                sdkApiVersion: '1.0.0',
+                                sdkApiVersion: '0.1.0',
                                 moduleRole: 'widget',
                                 sourceKind: 'embedded',
                                 capabilities: ['rpc.client'],
@@ -2733,10 +2737,10 @@ describe('Applications Routes', () => {
                             attached_to_id: otherLinkedCollectionId,
                             module_role: 'widget',
                             source_kind: 'embedded',
-                            sdk_api_version: '1.0.0',
+                            sdk_api_version: '0.1.0',
                             manifest: {
                                 className: 'OtherObjectWidgetModule',
-                                sdkApiVersion: '1.0.0',
+                                sdkApiVersion: '0.1.0',
                                 moduleRole: 'widget',
                                 sourceKind: 'embedded',
                                 capabilities: ['rpc.client'],
@@ -2774,10 +2778,10 @@ describe('Applications Routes', () => {
                             attached_to_id: runtimeLinkedCollectionId,
                             module_role: 'module',
                             source_kind: 'embedded',
-                            sdk_api_version: '1.0.0',
+                            sdk_api_version: '0.1.0',
                             manifest: {
                                 className: 'ServerOnlyWidgetModule',
-                                sdkApiVersion: '1.0.0',
+                                sdkApiVersion: '0.1.0',
                                 moduleRole: 'module',
                                 sourceKind: 'embedded',
                                 capabilities: [],
@@ -3216,10 +3220,10 @@ describe('Applications Routes', () => {
                 attached_to_id: runtimeLinkedCollectionId,
                 module_role: 'module',
                 source_kind: 'embedded',
-                sdk_api_version: '1.0.0',
+                sdk_api_version: '0.1.0',
                 manifest: {
                     className: 'ServerOnlyWidgetModule',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'module',
                     sourceKind: 'embedded',
                     capabilities: [],
@@ -3257,10 +3261,10 @@ describe('Applications Routes', () => {
                 attached_to_id: runtimeLinkedCollectionId,
                 module_role: 'lifecycle',
                 source_kind: 'embedded',
-                sdk_api_version: '1.0.0',
+                sdk_api_version: '0.1.0',
                 manifest: {
                     className: 'CatalogLifecycleModule',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'lifecycle',
                     sourceKind: 'embedded',
                     capabilities: ['lifecycle'],
@@ -3674,6 +3678,12 @@ describe('Applications Routes', () => {
                     id: 'application-1',
                     name: 'Test Application',
                     description: 'Description',
+                    settings: {
+                        workspaceOverrides: {
+                            allowedAddresses: [{ key: 'sectionLinksEnabled', target: { kind: 'global' } }],
+                            lockedAddresses: []
+                        }
+                    },
                     isPublic: false,
                     schemaName: 'app_123',
                     schemaStatus: 'draft',
@@ -3694,7 +3704,13 @@ describe('Applications Routes', () => {
 
             expect(response.body).toMatchObject({
                 id: 'application-1',
-                name: 'Test Application'
+                name: 'Test Application',
+                settings: {
+                    workspaceOverrides: {
+                        allowedAddresses: [{ key: 'sectionLinksEnabled', target: { kind: 'global' } }],
+                        lockedAddresses: []
+                    }
+                }
             })
         })
     })
@@ -4067,7 +4083,7 @@ describe('Applications Routes', () => {
                             locales: { en: { content: 'Existing App' } }
                         },
                         description: null,
-                        settings: {},
+                        settings: settingsCapture.saved ?? {},
                         isPublic: false,
                         workspacesEnabled: false,
                         schemaName: 'app_123',
@@ -4193,7 +4209,7 @@ describe('Applications Routes', () => {
                             locales: { en: { content: 'Existing App' } }
                         },
                         description: null,
-                        settings: {},
+                        settings: settingsCapture.saved ?? {},
                         isPublic: false,
                         workspacesEnabled: true,
                         schemaName: 'app_123',
@@ -4217,16 +4233,67 @@ describe('Applications Routes', () => {
                 .send({
                     settings: {
                         workspaceOverrides: {
-                            allowedKeys: ['sectionLinksEnabled', 'sectionLinksEnabled', 'unknownSetting', 'dashboardDefaultMode'],
-                            lockedKeys: ['dashboardDefaultMode', 'unknownLocked']
+                            allowedAddresses: [
+                                { key: 'sectionLinksEnabled', target: { kind: 'global' } },
+                                { key: 'sectionLinksEnabled', target: { kind: 'global' } },
+                                { key: 'unknownSetting', target: { kind: 'global' } },
+                                { key: 'dashboardDefaultMode', target: { kind: 'global' } }
+                            ],
+                            lockedAddresses: [
+                                { key: 'dashboardDefaultMode', target: { kind: 'global' } },
+                                { key: 'unknownLocked', target: { kind: 'global' } }
+                            ]
                         }
                     }
                 })
                 .expect(200)
 
             expect(settingsCapture.saved?.workspaceOverrides).toEqual({
-                allowedKeys: ['sectionLinksEnabled'],
-                lockedKeys: ['dashboardDefaultMode']
+                allowedAddresses: [{ key: 'sectionLinksEnabled', target: { kind: 'global' } }],
+                lockedAddresses: [{ key: 'dashboardDefaultMode', target: { kind: 'global' } }]
+            })
+
+            const readResponse = await request(app).get('/applications/application-1').expect(200)
+            expect(readResponse.body.settings.workspaceOverrides).toEqual({
+                allowedAddresses: [{ key: 'sectionLinksEnabled', target: { kind: 'global' } }],
+                lockedAddresses: [{ key: 'dashboardDefaultMode', target: { kind: 'global' } }]
+            })
+
+            await request(app)
+                .patch('/applications/application-1')
+                .send({ settings: { workspaceOverrides: readResponse.body.settings.workspaceOverrides } })
+                .expect(200)
+            expect(settingsCapture.saved?.workspaceOverrides).toEqual({
+                allowedAddresses: [{ key: 'sectionLinksEnabled', target: { kind: 'global' } }],
+                lockedAddresses: [{ key: 'dashboardDefaultMode', target: { kind: 'global' } }]
+            })
+
+            await request(app)
+                .patch('/applications/application-1')
+                .send({
+                    settings: {
+                        workspaceOverrides: {
+                            ...readResponse.body.settings.workspaceOverrides,
+                            allowedKeys: ['dashboardDefaultMode']
+                        }
+                    }
+                })
+                .expect(400)
+
+            await request(app)
+                .patch('/applications/application-1')
+                .send({
+                    settings: {
+                        workspaceOverrides: {
+                            allowedKeys: ['sectionLinksEnabled'],
+                            lockedKeys: ['dashboardDefaultMode']
+                        }
+                    }
+                })
+                .expect(400)
+            expect(settingsCapture.saved?.workspaceOverrides).toEqual({
+                allowedAddresses: [{ key: 'sectionLinksEnabled', target: { kind: 'global' } }],
+                lockedAddresses: [{ key: 'dashboardDefaultMode', target: { kind: 'global' } }]
             })
         })
 
@@ -7371,6 +7438,13 @@ describe('Applications Routes', () => {
                 if (sql.includes('set_config(')) {
                     return []
                 }
+                if (
+                    sql.includes(`FROM ${runtimeSchemaIdent}."_app_workspaces"`) &&
+                    sql.includes('COALESCE(status,') &&
+                    sql.includes('FOR SHARE')
+                ) {
+                    return [{ id: workspaceId }]
+                }
                 if (sql.includes(`FROM ${runtimeSchemaIdent}."_app_workspaces"`) && sql.includes("workspace_type = 'personal'")) {
                     return [{ id: workspaceId }]
                 }
@@ -8280,6 +8354,7 @@ describe('Applications Routes', () => {
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes("child.ui_config->'siblingRowSelect'->>'tableCodename'")) return []
                 if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
@@ -14096,6 +14171,48 @@ describe('Applications Routes', () => {
             expect(executor.transaction).toHaveBeenCalledTimes(1)
         })
 
+        it('rejects generic root TABLE replacement of Matrix cells for an editor before any row replacement', async () => {
+            const { dataSource, executor, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'editor')
+
+            const objectRow = { id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }
+            const matrixAttr = {
+                id: runtimeComponentId,
+                codename: 'InterpretationMatrix',
+                column_name: 'interpretation_matrix',
+                data_type: 'TABLE',
+                validation_rules: { matrixUniqueCoordinates: true },
+                ui_config: {}
+            }
+            const respondToRuntimeQuery = async (sql: string) => {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) return [objectRow]
+                if (sql.includes('FROM "app_deadbeef"._app_components') && sql.includes('parent_component_id = $1')) return []
+                if (sql.includes('FROM "app_deadbeef"._app_components')) return [matrixAttr]
+                if (sql.includes('FROM "app_deadbeef"."orders"')) {
+                    return [{ id: runtimeRecordId, _upl_locked: false, _upl_version: 1, title: 'Matrix owner row' }]
+                }
+                return []
+            }
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(respondToRuntimeQuery)
+            ;(txExecutor.query as jest.Mock).mockImplementation(respondToRuntimeQuery)
+
+            const response = await request(buildApp(dataSource))
+                .patch(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}`)
+                .send({ objectCollectionId: runtimeLinkedCollectionId, data: { InterpretationMatrix: [] } })
+
+            expect(response.status).toBe(409)
+            expect(response.body).toEqual({
+                error: 'Matrix cells must be changed through aggregate Matrix commands so associated Materials remain consistent',
+                code: 'INTERPRETATION_NETWORK_MATRIX_AGGREGATE_COMMAND_REQUIRED'
+            })
+            expect(executor.transaction).toHaveBeenCalled()
+            expect(
+                (txExecutor.query as jest.Mock).mock.calls.some(
+                    ([sql]) => /\b(?:DELETE|UPDATE|INSERT)\b/iu.test(String(sql)) && /interpretation_matrix|material/iu.test(String(sql))
+                )
+            ).toBe(false)
+        })
+
         it('rejects batch updates that would move a tabular row into an occupied coordinate', async () => {
             const movingChildRowId = '018f8a78-7b8f-7c1d-a111-222233334568'
             const occupiedChildRowId = '018f8a78-7b8f-7c1d-a111-222233334569'
@@ -14453,7 +14570,7 @@ describe('Applications Routes', () => {
             ).toHaveLength(1)
         })
 
-        it('updates more than 25 Matrix axis labels inside the atomic batch transaction', async () => {
+        it('rejects generic Matrix axis-label updates and requires the aggregate cell command', async () => {
             const sourceChildRowId = '018f8a78-7b8f-7c1d-a111-222233334699'
             const axisChildRowIds = Array.from(
                 { length: 26 },
@@ -14462,7 +14579,7 @@ describe('Applications Routes', () => {
             const requestedChildRowIds = [sourceChildRowId, ...axisChildRowIds]
             const { dataSource, executor, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
 
-            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'editor')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
                 if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
@@ -14500,6 +14617,14 @@ describe('Applications Routes', () => {
                             id: 'child-row-label',
                             codename: 'RowLabel',
                             column_name: 'row_label',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {}
+                        },
+                        {
+                            id: 'child-col-label',
+                            codename: 'ColLabel',
+                            column_name: 'col_label',
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {}
@@ -14548,6 +14673,14 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {}
+                        },
+                        {
+                            id: 'child-col-label',
+                            codename: 'ColLabel',
+                            column_name: 'col_label',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {}
                         }
                     ]
                 }
@@ -14573,11 +14706,26 @@ describe('Applications Routes', () => {
                 return []
             })
 
-            const response = await request(buildApp(dataSource))
+            const app = buildApp(dataSource)
+            const individualUpdate = await request(app)
+                .patch(
+                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/${sourceChildRowId}`
+                )
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .send({ data: { RowLabel: 'Edited source' } })
+
+            const batchUpdate = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/batch`)
                 .query({ objectCollectionId: runtimeLinkedCollectionId })
                 .send({
-                    updates: [{ childRowId: sourceChildRowId, data: { RowLabel: 'Edited source' }, expectedVersion: 1 }],
+                    updates: [{ childRowId: sourceChildRowId, data: { ColLabel: 'Edited source' }, expectedVersion: 1 }]
+                })
+
+            const uniformUpdate = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/batch`)
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .send({
+                    updates: [{ childRowId: sourceChildRowId, data: { RowKey: 'updated-row' }, expectedVersion: 1 }],
                     uniformUpdates: [
                         {
                             rows: axisChildRowIds.map((childRowId) => ({ childRowId, expectedVersion: 1 })),
@@ -14586,12 +14734,17 @@ describe('Applications Routes', () => {
                     ]
                 })
 
-            expect(response.status).toBe(200)
-            expect(response.body).toEqual({ status: 'ok', updated: requestedChildRowIds })
-            expect(executor.transaction).toHaveBeenCalledTimes(1)
-            expect(
-                (txExecutor.query as jest.Mock).mock.calls.filter(([sql]) => String(sql).includes('FROM UNNEST($3::uuid[], $4::integer[])'))
-            ).toHaveLength(1)
+            for (const response of [individualUpdate, batchUpdate, uniformUpdate]) {
+                expect(response.status).toBe(409)
+                expect(response.body).toEqual({
+                    error: 'Matrix axis labels must be changed through the aggregate Matrix cell command',
+                    code: 'INTERPRETATION_NETWORK_MATRIX_AGGREGATE_COMMAND_REQUIRED'
+                })
+            }
+            expect(executor.transaction).not.toHaveBeenCalled()
+            expect((txExecutor.query as jest.Mock).mock.calls.some(([sql]) => /\b(?:DELETE|UPDATE|INSERT)\b/iu.test(String(sql)))).toBe(
+                false
+            )
         })
 
         it('rejects uniform batch updates for arbitrary tabular fields before opening a transaction', async () => {

@@ -174,7 +174,7 @@ describe('SnapshotRestoreService', () => {
             }
         })
         return {
-            version: '1.0.0',
+            version: 1,
             metahubId: '00000000-0000-0000-0000-000000000001',
             entities: {
                 'old-object-id': {
@@ -1050,10 +1050,10 @@ describe('SnapshotRestoreService', () => {
                     attachedToId: null,
                     moduleRole: 'module',
                     sourceKind: 'embedded',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     manifest: {
                         className: 'ModuleHook',
-                        sdkApiVersion: '1.0.0',
+                        sdkApiVersion: '0.1.0',
                         moduleRole: 'module',
                         sourceKind: 'embedded',
                         capabilities: ['records.read', 'metadata.read'],
@@ -1520,10 +1520,10 @@ describe('SnapshotRestoreService', () => {
                     attachedToId: null,
                     moduleRole: 'widget',
                     sourceKind: 'embedded',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     manifest: {
                         className: 'QuizWidget',
-                        sdkApiVersion: '1.0.0',
+                        sdkApiVersion: '0.1.0',
                         moduleRole: 'widget',
                         sourceKind: 'embedded',
                         capabilities: ['metadata.read', 'rpc.client'],
@@ -1545,10 +1545,10 @@ describe('SnapshotRestoreService', () => {
                     attachedToId: 'old-field-id',
                     moduleRole: 'lifecycle',
                     sourceKind: 'embedded',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     manifest: {
                         className: 'ComponentHook',
-                        sdkApiVersion: '1.0.0',
+                        sdkApiVersion: '0.1.0',
                         moduleRole: 'lifecycle',
                         sourceKind: 'embedded',
                         capabilities: ['records.read', 'records.write', 'metadata.read', 'lifecycle'],
@@ -1602,10 +1602,10 @@ describe('SnapshotRestoreService', () => {
                     attachedToId: null,
                     moduleRole: 'library',
                     sourceKind: 'embedded',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     manifest: {
                         className: 'QuizLibrary',
-                        sdkApiVersion: '1.0.0',
+                        sdkApiVersion: '0.1.0',
                         moduleRole: 'library',
                         sourceKind: 'embedded',
                         capabilities: ['metadata.read'],
@@ -1645,9 +1645,38 @@ describe('SnapshotRestoreService', () => {
             'legacy shared role',
             {
                 moduleRole: 'shared',
-                manifest: { moduleRole: 'shared', sourceKind: 'embedded', sdkApiVersion: '1.0.0', capabilities: [], methods: [] }
+                manifest: { moduleRole: 'shared', sourceKind: 'embedded', sdkApiVersion: '0.1.0', capabilities: [], methods: [] }
             },
             'Snapshot module role is not supported'
+        ],
+        ['missing SDK API version', { sdkApiVersion: undefined }, 'Snapshot module SDK API version is required'],
+        ['blank SDK API version', { sdkApiVersion: '   ' }, 'Snapshot module SDK API version is required'],
+        [
+            'missing manifest SDK API version',
+            {
+                manifest: {
+                    className: 'InvalidModule',
+                    moduleRole: 'module',
+                    sourceKind: 'embedded',
+                    capabilities: ['records.read', 'metadata.read'],
+                    methods: []
+                }
+            },
+            'Snapshot module manifest SDK API version is required'
+        ],
+        [
+            'blank manifest SDK API version',
+            {
+                manifest: {
+                    className: 'InvalidModule',
+                    sdkApiVersion: '   ',
+                    moduleRole: 'module',
+                    sourceKind: 'embedded',
+                    capabilities: ['records.read', 'metadata.read'],
+                    methods: []
+                }
+            },
+            'Snapshot module manifest SDK API version is required'
         ],
         [
             'general non-library role',
@@ -1670,10 +1699,10 @@ describe('SnapshotRestoreService', () => {
             attachedToId: null,
             moduleRole: 'module',
             sourceKind: 'embedded',
-            sdkApiVersion: '1.0.0',
+            sdkApiVersion: '0.1.0',
             manifest: {
                 className: 'InvalidModule',
-                sdkApiVersion: '1.0.0',
+                sdkApiVersion: '0.1.0',
                 moduleRole: 'module',
                 sourceKind: 'embedded',
                 capabilities: ['records.read', 'metadata.read'],
@@ -1699,7 +1728,7 @@ describe('SnapshotRestoreService', () => {
         expect(insertedRows['_mhb_modules']).toBeUndefined()
     })
 
-    it('restores snapshot v3 custom entity definitions with remapped actions and event bindings', async () => {
+    it('restores snapshot v1 custom entity definitions with remapped actions and event bindings', async () => {
         const snapshot = makeMinimalSnapshot({
             entities: {
                 'old-custom-object-id': {
@@ -1775,10 +1804,10 @@ describe('SnapshotRestoreService', () => {
                     attachedToId: null,
                     moduleRole: 'lifecycle',
                     sourceKind: 'embedded',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     manifest: {
                         className: 'CustomerHook',
-                        sdkApiVersion: '1.0.0',
+                        sdkApiVersion: '0.1.0',
                         moduleRole: 'lifecycle',
                         sourceKind: 'embedded',
                         capabilities: ['records.read', 'records.write', 'metadata.read', 'lifecycle'],
@@ -2466,7 +2495,7 @@ describe('SnapshotRestoreService', () => {
                     attachedToId: null,
                     moduleRole: 'library',
                     sourceKind: 'embedded',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     sourceStorage: {
                         mode: 'file',
                         path: 'modules/general/new-shared.ts',
@@ -2474,7 +2503,7 @@ describe('SnapshotRestoreService', () => {
                     },
                     manifest: {
                         className: 'SharedLibrary',
-                        sdkApiVersion: '1.0.0',
+                        sdkApiVersion: '0.1.0',
                         moduleRole: 'library',
                         sourceKind: 'embedded',
                         capabilities: [],
@@ -2531,7 +2560,7 @@ describe('SnapshotRestoreService', () => {
                     attachedToId: null,
                     moduleRole: 'library',
                     sourceKind: 'embedded',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     sourceStorage: {
                         mode: 'file',
                         path: ' modules\\general\\new-shared.ts ',
@@ -2540,7 +2569,7 @@ describe('SnapshotRestoreService', () => {
                     },
                     manifest: {
                         className: 'SharedLibrary',
-                        sdkApiVersion: '1.0.0',
+                        sdkApiVersion: '0.1.0',
                         moduleRole: 'library',
                         sourceKind: 'embedded',
                         capabilities: [],
@@ -2588,7 +2617,7 @@ describe('SnapshotRestoreService', () => {
                     attachedToId: null,
                     moduleRole: 'library',
                     sourceKind: 'embedded',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     sourceStorage: {
                         mode: 'file',
                         path: 'modules/general/new-shared.ts',
@@ -2597,7 +2626,7 @@ describe('SnapshotRestoreService', () => {
                     },
                     manifest: {
                         className: 'SharedLibrary',
-                        sdkApiVersion: '1.0.0',
+                        sdkApiVersion: '0.1.0',
                         moduleRole: 'library',
                         sourceKind: 'embedded',
                         capabilities: [],
@@ -2642,7 +2671,7 @@ describe('SnapshotRestoreService', () => {
                     attachedToId: null,
                     moduleRole: 'library',
                     sourceKind: 'embedded',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     sourceStorage: {
                         mode: 'file',
                         path: 'modules/general/new-shared.ts',
@@ -2650,7 +2679,7 @@ describe('SnapshotRestoreService', () => {
                     },
                     manifest: {
                         className: 'SharedLibrary',
-                        sdkApiVersion: '1.0.0',
+                        sdkApiVersion: '0.1.0',
                         moduleRole: 'library',
                         sourceKind: 'embedded',
                         capabilities: [],
@@ -2694,7 +2723,7 @@ describe('SnapshotRestoreService', () => {
                     attachedToId: null,
                     moduleRole: 'library',
                     sourceKind: 'embedded',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     sourceStorage: {
                         mode: 'file',
                         path: 'modules/general/first.ts',
@@ -2702,7 +2731,7 @@ describe('SnapshotRestoreService', () => {
                     },
                     manifest: {
                         className: 'FirstLibrary',
-                        sdkApiVersion: '1.0.0',
+                        sdkApiVersion: '0.1.0',
                         moduleRole: 'library',
                         sourceKind: 'embedded',
                         capabilities: [],
@@ -2722,7 +2751,7 @@ describe('SnapshotRestoreService', () => {
                     attachedToId: null,
                     moduleRole: 'library',
                     sourceKind: 'embedded',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     sourceStorage: {
                         mode: 'file',
                         path: 'modules/general/second.ts',
@@ -2730,7 +2759,7 @@ describe('SnapshotRestoreService', () => {
                     },
                     manifest: {
                         className: 'SecondLibrary',
-                        sdkApiVersion: '1.0.0',
+                        sdkApiVersion: '0.1.0',
                         moduleRole: 'library',
                         sourceKind: 'embedded',
                         capabilities: [],
@@ -2790,7 +2819,7 @@ describe('SnapshotRestoreService', () => {
                     attachedToId: null,
                     moduleRole: 'library',
                     sourceKind: 'embedded',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     sourceStorage: {
                         mode: 'file',
                         path: 'modules/general/first.ts',
@@ -2798,7 +2827,7 @@ describe('SnapshotRestoreService', () => {
                     },
                     manifest: {
                         className: 'FirstLibrary',
-                        sdkApiVersion: '1.0.0',
+                        sdkApiVersion: '0.1.0',
                         moduleRole: 'library',
                         sourceKind: 'embedded',
                         capabilities: [],
@@ -2818,7 +2847,7 @@ describe('SnapshotRestoreService', () => {
                     attachedToId: null,
                     moduleRole: 'library',
                     sourceKind: 'embedded',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     sourceStorage: {
                         mode: 'file',
                         path: 'modules/general/second.ts',
@@ -2826,7 +2855,7 @@ describe('SnapshotRestoreService', () => {
                     },
                     manifest: {
                         className: 'SecondLibrary',
-                        sdkApiVersion: '1.0.0',
+                        sdkApiVersion: '0.1.0',
                         moduleRole: 'library',
                         sourceKind: 'embedded',
                         capabilities: [],

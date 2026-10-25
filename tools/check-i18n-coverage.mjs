@@ -82,6 +82,10 @@ const TARGETS = [
             interpretationNetwork: {
                 en: ['packages/universo-react-apps-template-mui/src/i18n/locales/en/interpretationNetwork.json'],
                 ru: ['packages/universo-react-apps-template-mui/src/i18n/locales/ru/interpretationNetwork.json']
+            },
+            publicInterpretationNetwork: {
+                en: ['packages/universo-react-apps-template-mui/src/i18n/locales/en/publicInterpretationNetwork.json'],
+                ru: ['packages/universo-react-apps-template-mui/src/i18n/locales/ru/publicInterpretationNetwork.json']
             }
         }
     },

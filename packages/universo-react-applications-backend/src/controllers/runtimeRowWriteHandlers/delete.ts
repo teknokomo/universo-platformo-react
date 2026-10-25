@@ -43,6 +43,7 @@ import type { RuntimeRowWriteDeps } from './types'
 import { isRuntimeRecordReference, resolveRuntimeRecordReference } from '../../services/runtimeRecordHandle'
 import { lockGuestAccessLinkWorkspace, revokeGuestSessionsForAccessLink } from '../../services/guestAccessLinkRevocation'
 import { releaseActiveGlobalShortLinksForAccessLink } from '../../persistence/globalShortLinksStore'
+import { getRuntimeTableTemplateGenericMutationFailure } from '../runtimeChildRowsInterpretationNetworkGuard'
 
 export const createDeleteRowHandler = ({ getDbExecutor, query }: RuntimeRowWriteDeps) => {
     const deleteRow = async (req: Request, res: Response) => {
@@ -93,6 +94,8 @@ export const createDeleteRowHandler = ({ getDbExecutor, query }: RuntimeRowWrite
         } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, objectCollectionId)
         if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
         if (denyRuntimeEntityMutation(res, objectCollection.config)) return
+        const templateAggregateFailure = getRuntimeTableTemplateGenericMutationFailure(objectCollection.codename, 'parent-delete')
+        if (templateAggregateFailure) return res.status(templateAggregateFailure.statusCode).json(templateAggregateFailure.body)
         const resolvedReference = resolveRuntimeRecordReference(rowReference, {
             applicationId,
             workspaceId: ctx.currentWorkspaceId,

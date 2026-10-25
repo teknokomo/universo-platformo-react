@@ -207,6 +207,25 @@ describe('EditorJsBlockEditor', () => {
         )
     })
 
+    it('does not expose the JSON recovery field when the visual editor fails in read-only mode', async () => {
+        vi.mocked(loadEditorJsToolBundle).mockRejectedValueOnce(new Error('tools unavailable'))
+        const onChange = vi.fn()
+
+        render(
+            <EditorJsBlockEditor
+                value={makeContent('Private editor data')}
+                readOnly
+                onChange={onChange}
+                labels={{ fallbackLabel: 'Fallback JSON', loadError: 'Cannot load editor' }}
+            />
+        )
+
+        expect(await screen.findByText('Cannot load editor')).toBeInTheDocument()
+        expect(screen.queryByRole('textbox', { name: 'Fallback JSON' })).not.toBeInTheDocument()
+        expect(screen.queryByText(/Private editor data|"blocks"/u)).not.toBeInTheDocument()
+        expect(onChange).not.toHaveBeenCalled()
+    })
+
     it('initializes Editor.js with the selected content locale and a complete Russian menu dictionary', async () => {
         const onChange = vi.fn()
 

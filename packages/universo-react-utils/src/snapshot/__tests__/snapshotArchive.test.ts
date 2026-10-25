@@ -14,9 +14,9 @@ const createCodenameVlc = (primary: string, secondary?: string) => ({
 
 function makeMinimalSnapshot(): MetahubSnapshotTransportEnvelope['snapshot'] {
     return {
-        version: '1.0.0',
+        version: 1,
         metahubId: '00000000-0000-0000-0000-000000000001',
-        versionEnvelope: { structureVersion: '1.0.0', templateVersion: null, snapshotFormatVersion: 4 },
+        versionEnvelope: { structureVersion: '0.1.0', templateVersion: null, snapshotFormatVersion: 1 },
         entities: {
             'ent-1': {
                 id: 'ent-1',
@@ -48,11 +48,11 @@ function makeSnapshotWithExtendedSections(): Record<string, unknown> {
                 attachedToId: null,
                 moduleRole: 'widget',
                 sourceKind: 'embedded',
-                sdkApiVersion: '1.0.0',
+                sdkApiVersion: '0.1.0',
                 sourceCode: 'export const value = 1',
                 manifest: {
                     className: 'QuizModule',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'widget',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read', 'rpc.client'],
@@ -214,7 +214,7 @@ describe('validateSnapshotEnvelope', () => {
         const legacySnapshot = {
             ...envelope.snapshot,
             versionEnvelope: {
-                structureVersion: '1.0.0',
+                structureVersion: '0.1.0',
                 templateVersion: null,
                 snapshotFormatVersion: 3
             }
@@ -234,6 +234,33 @@ describe('validateSnapshotEnvelope', () => {
             snapshotHash: computeSnapshotHash(snapshotWithoutVersion)
         }
         expect(() => validateSnapshotEnvelope(missingVersionEnvelope)).toThrow()
+    })
+
+    it('rejects unsupported structure versions even when the envelope hash is valid', () => {
+        const envelope = makeMinimalEnvelope()
+        const snapshot = {
+            ...envelope.snapshot,
+            versionEnvelope: { ...envelope.snapshot.versionEnvelope, structureVersion: '0.2.0' }
+        }
+        const invalidEnvelope = {
+            ...envelope,
+            snapshot,
+            snapshotHash: computeSnapshotHash(snapshot as Record<string, unknown>)
+        }
+
+        expect(() => validateSnapshotEnvelope(invalidEnvelope)).toThrow()
+    })
+
+    it('rejects snapshot schema versions other than 1', () => {
+        const envelope = makeMinimalEnvelope()
+        const incompatibleSnapshot = { ...envelope.snapshot, version: 2 }
+        const incompatibleEnvelope = {
+            ...envelope,
+            snapshot: incompatibleSnapshot,
+            snapshotHash: computeSnapshotHash(incompatibleSnapshot)
+        }
+
+        expect(() => validateSnapshotEnvelope(incompatibleEnvelope)).toThrow()
     })
 
     it('rejects non-object input', () => {

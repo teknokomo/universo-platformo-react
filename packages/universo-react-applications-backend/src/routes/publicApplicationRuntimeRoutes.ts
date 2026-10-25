@@ -15,6 +15,11 @@ export function createPublicApplicationRuntimeRoutes(
     // (one full readiness transaction per request), so it uses its own stricter
     // limiter instead of sharing the authenticated read budget.
     router.get('/public/applications/:applicationRef/runtime', publicRuntimeLimiter, asyncHandler(controller.getRuntime))
+    router.get(
+        '/public/applications/:applicationRef/runtime/widgets/:instanceKey/interpretation-network',
+        publicRuntimeLimiter,
+        asyncHandler(controller.getInterpretationNetwork)
+    )
 
     return router
 }

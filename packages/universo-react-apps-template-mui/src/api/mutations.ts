@@ -24,8 +24,13 @@ export const workspaceQueryKeys = {
     detail: (applicationId: string, workspaceId: string) => [...workspaceQueryKeys.all(applicationId), 'detail', workspaceId] as const,
     members: (applicationId: string, workspaceId: string, params?: RuntimeWorkspaceMemberListParams) =>
         [...workspaceQueryKeys.detail(applicationId, workspaceId), 'members', normalizeWorkspaceParams(params)] as const,
-    settings: (applicationId: string, workspaceId: string) =>
-        [...workspaceQueryKeys.detail(applicationId, workspaceId), 'settings'] as const
+    settings: (applicationId: string, workspaceId: string, target?: { targetKind?: string; entityTypeId?: string }) =>
+        [
+            ...workspaceQueryKeys.detail(applicationId, workspaceId),
+            'settings',
+            target?.targetKind ?? null,
+            target?.entityTypeId ?? null
+        ] as const
 }
 
 /** @deprecated Use appQueryKeys instead */

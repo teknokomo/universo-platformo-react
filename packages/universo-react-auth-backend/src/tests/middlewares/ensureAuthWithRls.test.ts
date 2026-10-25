@@ -95,6 +95,22 @@ describe('createEnsureAuthWithRls', () => {
         expect(getKnex).not.toHaveBeenCalled()
     })
 
+    it('skips auth and RLS for the exact public Interpretation Network data endpoint', async () => {
+        const next = jest.fn()
+        const getKnex = jest.fn()
+        const middleware = createEnsureAuthWithRls({ getKnex: getKnex as never })
+        const originalUrl =
+            '/api/v1/public/applications/suzdal/runtime/widgets/interpretation-workspace/interpretation-network?locale=ru&view=structures'
+        const req = { originalUrl, url: originalUrl, path: originalUrl.split('?')[0], method: 'GET' } as unknown as Request
+        const res = createResponse()
+
+        await middleware(req, res, next)
+
+        expect(next).toHaveBeenCalledTimes(1)
+        expect(mockedEnsureAuth).not.toHaveBeenCalled()
+        expect(getKnex).not.toHaveBeenCalled()
+    })
+
     it('does not include signed public route tokens in RLS debug logs', async () => {
         const previousDebugSetting = process.env.AUTH_RLS_DEBUG
         process.env.AUTH_RLS_DEBUG = 'true'

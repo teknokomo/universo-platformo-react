@@ -1,18 +1,19 @@
 import { ConfirmDeleteDialog } from '../../../../components/dialogs/ConfirmDeleteDialog'
 import { FormDialog } from '../../../../components/dialogs/FormDialog'
 import type { FieldConfig } from '../../../../components/dialogs/FormDialog'
+import { StandardDialog } from '../../../../components/dialogs/StandardDialog'
 import { useEffect, useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
-import Dialog from '@mui/material/Dialog'
-import DialogActions from '@mui/material/DialogActions'
-import DialogContent from '@mui/material/DialogContent'
-import DialogTitle from '@mui/material/DialogTitle'
 import FormControl from '@mui/material/FormControl'
+import FormControlLabel from '@mui/material/FormControlLabel'
+import FormHelperText from '@mui/material/FormHelperText'
 import InputLabel from '@mui/material/InputLabel'
 import MenuItem from '@mui/material/MenuItem'
 import Select from '@mui/material/Select'
+import Radio from '@mui/material/Radio'
+import RadioGroup from '@mui/material/RadioGroup'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Tab from '@mui/material/Tab'
@@ -23,14 +24,17 @@ import TableCell from '@mui/material/TableCell'
 import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
+import Typography from '@mui/material/Typography'
 import type { TFunction } from 'i18next'
 import { CellEditDialog } from '../CellEditDialog'
 import type { InterpretationNetworkTemplateSummary } from '../../../../api/interpretationNetwork'
 import type { MatrixAxisOptions, MatrixCell } from '../model'
 import type { MatrixCellPlacement } from '../matrixCellData'
+import type { InterpretationNetworkCellStylePolicy } from '@universo-react/types'
 import type { StructureSummary } from './StructurePane'
 import type { MatrixAxisDialogKind } from './workspaceState'
 import { readInterpretationNetworkTemplateLabel } from './templateDisplay'
+import type { TemplateSaveScopeKind } from './templateSaveScope'
 
 type CellDialogMode = 'create-child' | 'create-cell' | 'create-row' | 'edit'
 type MaterialDialogMode = 'create' | 'edit'
@@ -68,46 +72,52 @@ function MatrixAxisDialog({
     const fieldLabel = axis === 'column' ? t('workspace.axis.columnNameField', 'Column name') : t('workspace.axis.rowNameField', 'Row name')
 
     return (
-        <Dialog open={open} onClose={isSubmitting ? undefined : onClose} maxWidth='xs' fullWidth>
-            <DialogTitle>{title}</DialogTitle>
-            <DialogContent sx={{ overflowY: 'visible', overflowX: 'visible', pt: 2 }}>
-                <Stack spacing={2} sx={{ pt: 1 }}>
-                    {error ? <Alert severity='error'>{error}</Alert> : null}
-                    <TextField
-                        fullWidth
-                        required
-                        label={fieldLabel}
-                        value={name}
-                        error={Boolean(validationError)}
-                        helperText={validationError ?? ' '}
+        <StandardDialog
+            open={open}
+            onClose={onClose}
+            maxWidth='xs'
+            fullWidth
+            isBusy={isSubmitting}
+            title={title}
+            actions={
+                <>
+                    <Button onClick={onClose} disabled={isSubmitting}>
+                        {t('workspace.actions.cancel', 'Cancel')}
+                    </Button>
+                    <Button
+                        variant='contained'
                         disabled={isSubmitting}
-                        onChange={(event) => {
-                            setName(event.target.value)
-                            if (validationError) setValidationError(null)
+                        onClick={async () => {
+                            const trimmedName = name.trim()
+                            if (!trimmedName) {
+                                setValidationError(t('workspace.axis.requiredName', 'Enter a name.'))
+                                return
+                            }
+                            await onSubmit(trimmedName)
                         }}
-                    />
-                </Stack>
-            </DialogContent>
-            <DialogActions sx={{ px: 3, pb: 2 }}>
-                <Button onClick={onClose} disabled={isSubmitting}>
-                    {t('workspace.actions.cancel', 'Cancel')}
-                </Button>
-                <Button
-                    variant='contained'
+                    >
+                        {t('workspace.actions.create', 'Create')}
+                    </Button>
+                </>
+            }
+        >
+            <Stack spacing={2} sx={{ pt: 1 }}>
+                {error ? <Alert severity='error'>{error}</Alert> : null}
+                <TextField
+                    fullWidth
+                    required
+                    label={fieldLabel}
+                    value={name}
+                    error={Boolean(validationError)}
+                    helperText={validationError ?? ' '}
                     disabled={isSubmitting}
-                    onClick={async () => {
-                        const trimmedName = name.trim()
-                        if (!trimmedName) {
-                            setValidationError(t('workspace.axis.requiredName', 'Enter a name.'))
-                            return
-                        }
-                        await onSubmit(trimmedName)
+                    onChange={(event) => {
+                        setName(event.target.value)
+                        if (validationError) setValidationError(null)
                     }}
-                >
-                    {t('workspace.actions.create', 'Create')}
-                </Button>
-            </DialogActions>
-        </Dialog>
+                />
+            </Stack>
+        </StandardDialog>
     )
 }
 
@@ -181,6 +191,50 @@ const templateCopyScopeTable = (t: TFunction<'interpretationNetwork'>) => (
     </TableContainer>
 )
 
+const templateSaveScopeContent = (
+    t: TFunction<'interpretationNetwork'>,
+    a11yIdPrefix: string,
+    scopeKind: TemplateSaveScopeKind,
+    branchPath: string[],
+    canSaveSelectedBranch: boolean,
+    onScopeKindChange: (scope: TemplateSaveScopeKind) => void
+) => (
+    <Stack spacing={2}>
+        <FormControl component='fieldset'>
+            <Typography component='legend' id={`${a11yIdPrefix}-template-save-scope-label`} variant='subtitle2'>
+                {t('workspace.template.saveScope', 'Structure to save')}
+            </Typography>
+            <RadioGroup
+                aria-labelledby={`${a11yIdPrefix}-template-save-scope-label`}
+                name={`${a11yIdPrefix}-template-save-scope`}
+                value={scopeKind}
+                onChange={(event) => onScopeKindChange(event.target.value as TemplateSaveScopeKind)}
+            >
+                <FormControlLabel
+                    value='wholeStructure'
+                    control={<Radio />}
+                    label={t('workspace.template.wholeStructure', 'Whole structure')}
+                />
+                <FormControlLabel
+                    value='selectedBranch'
+                    control={<Radio />}
+                    disabled={!canSaveSelectedBranch}
+                    label={t('workspace.template.selectedBranch', 'Selected branch')}
+                />
+            </RadioGroup>
+            <FormHelperText>
+                {canSaveSelectedBranch
+                    ? t('workspace.template.selectedBranchPath', {
+                          defaultValue: 'Selected path: {{path}}',
+                          path: branchPath.join(' › ')
+                      })
+                    : t('workspace.template.selectCellForBranch', 'Select a cell in a hierarchical matrix to save its branch.')}
+            </FormHelperText>
+        </FormControl>
+        {templateCopyScopeTable(t)}
+    </Stack>
+)
+
 const createFromTemplateHintTable = (
     t: TFunction<'interpretationNetwork'>,
     locale: string,
@@ -243,6 +297,10 @@ export interface WorkspaceDialogsProps {
     onConfirmDeleteStructure: () => Promise<void>
     templateDialogMode?: TemplateDialogMode | null
     templateInitialData?: Record<string, unknown>
+    templateSaveScopeKind?: TemplateSaveScopeKind
+    templateSaveBranchPath?: string[]
+    canSaveSelectedBranch?: boolean
+    onTemplateSaveScopeKindChange?: (scope: TemplateSaveScopeKind) => void
     templateDeleteId?: string | null
     deleteTemplate?: InterpretationNetworkTemplateSummary | undefined
     isSavingTemplate?: boolean
@@ -264,6 +322,7 @@ export interface WorkspaceDialogsProps {
     axisDialogKind: MatrixAxisDialogKind | null
     cellMetadataFields: FieldConfig[]
     styleFields: FieldConfig[]
+    cellStylePolicy?: InterpretationNetworkCellStylePolicy
     cellDialogInitialData: Record<string, unknown>
     matrixAxisOptions: MatrixAxisOptions
     cellDialogPlacement: MatrixCellPlacement | null
@@ -308,6 +367,10 @@ export function WorkspaceDialogs({
     onConfirmDeleteStructure,
     templateDialogMode = null,
     templateInitialData = {},
+    templateSaveScopeKind = 'wholeStructure',
+    templateSaveBranchPath = [],
+    canSaveSelectedBranch = false,
+    onTemplateSaveScopeKindChange = () => undefined,
     templateDeleteId = null,
     deleteTemplate,
     isSavingTemplate = false,
@@ -329,6 +392,7 @@ export function WorkspaceDialogs({
     axisDialogKind,
     cellMetadataFields,
     styleFields,
+    cellStylePolicy,
     cellDialogInitialData,
     matrixAxisOptions,
     cellDialogPlacement,
@@ -490,7 +554,18 @@ export function WorkspaceDialogs({
                 isSubmitting={isSavingTemplate || isUpdatingTemplate}
                 error={templateDialogError}
                 contentHeaderId={templateDialogMode === 'save' ? templateCopyScopeDescriptionId : undefined}
-                contentHeader={templateDialogMode === 'save' ? templateCopyScopeTable(t) : undefined}
+                contentHeader={
+                    templateDialogMode === 'save'
+                        ? templateSaveScopeContent(
+                              t,
+                              a11yIdPrefix,
+                              templateSaveScopeKind,
+                              templateSaveBranchPath,
+                              canSaveSelectedBranch,
+                              onTemplateSaveScopeKindChange
+                          )
+                        : undefined
+                }
                 saveButtonText={templateDialogMode === 'edit' ? t('workspace.actions.save', 'Save') : t('workspace.actions.save', 'Save')}
                 onClose={onCloseTemplateDialog}
                 onSubmit={onSubmitTemplate}
@@ -537,6 +612,7 @@ export function WorkspaceDialogs({
                 locale={locale}
                 fields={cellMetadataFields}
                 styleFields={styleFields}
+                cellStylePolicy={cellStylePolicy}
                 initialData={cellDialogInitialData}
                 axisOptions={matrixAxisOptions}
                 initialPlacement={cellDialogPlacement ?? undefined}

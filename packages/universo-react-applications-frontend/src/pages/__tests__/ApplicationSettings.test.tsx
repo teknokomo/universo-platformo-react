@@ -272,6 +272,11 @@ describe('ApplicationSettings', () => {
         )
 
         expect(screen.getByText('Application Settings')).toBeInTheDocument()
+        expect(screen.getByRole('tablist', { name: 'Application settings sections' })).toBeInTheDocument()
+        const selectedTab = screen.getByRole('tab', { selected: true })
+        const activePanel = screen.getByRole('tabpanel')
+        expect(selectedTab).toHaveAttribute('aria-controls', activePanel.id)
+        expect(activePanel).toHaveAttribute('aria-labelledby', selectedTab.id)
         expect(screen.queryByText('Workspace Demo')).not.toBeInTheDocument()
         expect(screen.getByTestId('application-setting-dialogSizePreset')).toBeInTheDocument()
         expect(screen.queryByRole('tab', { name: 'Matrix' })).not.toBeInTheDocument()
@@ -963,8 +968,11 @@ describe('ApplicationSettings', () => {
                     workspaceOpenBehavior: 'last-used',
                     schemaDiffLocalizedLabels: true,
                     workspaceOverrides: {
-                        allowedKeys: ['sectionLinksEnabled', 'dashboardDefaultMode'],
-                        lockedKeys: []
+                        allowedAddresses: [
+                            { key: 'sectionLinksEnabled', target: { kind: 'global' } },
+                            { key: 'dashboardDefaultMode', target: { kind: 'global' } }
+                        ],
+                        lockedAddresses: []
                     }
                 }
             }),
@@ -976,6 +984,7 @@ describe('ApplicationSettings', () => {
 
         await userEvent.click(screen.getByRole('tab', { name: 'Access' }))
         const sectionLinksOverride = screen.getByTestId('application-settings-workspace-override-sectionLinksEnabled')
+        expect(sectionLinksOverride).toHaveAccessibleName('Allow workspace overrides for Section-specific links')
         expect(sectionLinksOverride).toBeChecked()
 
         await userEvent.click(sectionLinksOverride)
@@ -987,9 +996,78 @@ describe('ApplicationSettings', () => {
                 expect.objectContaining({
                     settings: expect.objectContaining({
                         workspaceOverrides: {
-                            allowedKeys: ['dashboardDefaultMode'],
-                            lockedKeys: []
+                            allowedAddresses: [{ key: 'dashboardDefaultMode', target: { kind: 'global' } }],
+                            lockedAddresses: []
                         }
+                    })
+                })
+            )
+        })
+    })
+
+    it('exposes delegated controls only for active Interpretation Network widgets and saves semantic addresses', async () => {
+        mockedListApplicationLayouts.mockResolvedValue({
+            items: [
+                {
+                    id: 'layout-1',
+                    scopeId: null,
+                    scopeKind: 'global',
+                    scopeEntityId: null,
+                    templateKey: 'dashboard',
+                    name: { en: 'Dashboard' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    sourceKind: 'application',
+                    syncState: 'in_sync',
+                    isSourceExcluded: false,
+                    version: 3
+                }
+            ],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        } as never)
+        mockedListApplicationLayoutWidgets.mockResolvedValue([
+            {
+                id: 'widget-physical-id',
+                layoutId: 'layout-1',
+                instanceKey: 'matrix-main',
+                zone: 'center',
+                widgetKey: 'interpretationNetworkWorkspace',
+                sortOrder: 0,
+                config: { cellStylePolicy: { editable: { fillColor: true } } },
+                isActive: true,
+                version: 1
+            }
+        ] as never)
+
+        renderSettings()
+        await userEvent.click(await screen.findByRole('tab', { name: 'Access' }))
+
+        const delegatedSetting = await screen.findByTestId('application-settings-workspace-widget-override-0-fillColor')
+        expect(delegatedSetting).not.toBeChecked()
+        expect(screen.getByText('Interpretation Network widget 1 — Center zone')).toBeInTheDocument()
+        expect(screen.queryByText('matrix-main')).not.toBeInTheDocument()
+        expect(screen.queryByText('widget-physical-id')).not.toBeInTheDocument()
+        expect(delegatedSetting).toHaveAccessibleName(/^Allow workspace overrides for /u)
+
+        await userEvent.click(delegatedSetting)
+        await userEvent.click(screen.getByTestId('application-settings-access-save'))
+
+        await waitFor(() => {
+            expect(mockedUpdateApplication).toHaveBeenCalledWith(
+                'app-1',
+                expect.objectContaining({
+                    settings: expect.objectContaining({
+                        workspaceOverrides: expect.objectContaining({
+                            allowedAddresses: expect.arrayContaining([
+                                {
+                                    key: 'interpretationNetwork.cellStylePolicy.editable.fillColor',
+                                    target: { kind: 'widget', instanceKey: 'matrix-main' }
+                                }
+                            ])
+                        })
                     })
                 })
             )
@@ -1357,11 +1435,13 @@ describe('ApplicationSettings', () => {
         expect(mockedListApplicationLayouts).toHaveBeenCalledWith('app-1', {
             limit: 100,
             offset: 0,
+            sortOrder: 'asc',
             scopeEntityId: null
         })
         expect(mockedListApplicationLayouts).toHaveBeenCalledWith('app-1', {
             limit: 100,
             offset: 1,
+            sortOrder: 'asc',
             scopeEntityId: null
         })
         expect(mockedListApplicationLayouts).not.toHaveBeenCalledWith(
@@ -1434,6 +1514,7 @@ describe('ApplicationSettings', () => {
         expect(mockedListApplicationLayouts).toHaveBeenCalledWith('app-1', {
             limit: 100,
             offset: 0,
+            sortOrder: 'asc',
             scopeEntityId: 'object-structure'
         })
         expect(mockedListApplicationLayoutWidgets).toHaveBeenCalledWith('app-1', '018f8a78-7b8f-7c1d-a111-2222333345b2')

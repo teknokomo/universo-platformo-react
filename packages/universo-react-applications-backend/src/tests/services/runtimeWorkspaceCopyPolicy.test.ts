@@ -1,5 +1,8 @@
 import { copyWorkspace } from '../../services/runtimeWorkspaceService'
-import { hasValidWorkspaceCopyAccessLinkIntakePolicies } from '../../services/runtimeWorkspaceCopyPolicy'
+import {
+    hasValidWorkspaceCopyAccessLinkIntakePolicies,
+    hasWorkspaceCopyTemplateMaterialsExcluded
+} from '../../services/runtimeWorkspaceCopyPolicy'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
 const schemaName = 'app_018f8a787b8f7c1da111222233334441'
@@ -67,6 +70,7 @@ function createAccessLinkCopyExecutor(input: {
                 : []
         }
         if (sql.includes('component.column_name AS "columnName"') && sql.includes('LOWER(')) return fields
+        if (sql.includes('FROM workspace_copy_source_rows')) return [{ rowData: input.sourceRow }]
         if (sql.includes('SELECT *') && sql.includes(`FROM "${schemaName}"."obj_access_links"`)) return [input.sourceRow]
         return []
     })
@@ -92,6 +96,26 @@ describe('workspace copy AccessLinks intake validation', () => {
         expect(txExecutor.query).toHaveBeenCalledWith(expect.stringContaining(`FROM "${schemaName}"."obj_access_links"`), [
             'workspace-source'
         ])
+    })
+
+    it('validates AccessLinks rows from the materialized workspace copy snapshot', async () => {
+        const sourceRow = policyCodenames.reduce<Record<string, boolean>>((row, _codename, index) => {
+            row[`col_policy_${index}`] = index === 0 || index === 1
+            return row
+        }, {})
+        const { txExecutor } = createAccessLinkCopyExecutor({ defaultCount: 0, sourceRow })
+
+        await expect(
+            hasValidWorkspaceCopyAccessLinkIntakePolicies(txExecutor, schemaName, 'workspace-source', ['obj_access_links'], new Map(), {
+                sourceSnapshot: true
+            })
+        ).resolves.toBe(true)
+
+        expect(txExecutor.query).toHaveBeenCalledWith(expect.stringContaining('FROM workspace_copy_source_rows'), [
+            'obj_access_links',
+            'workspace-source'
+        ])
+        expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).includes(`FROM "${schemaName}"."obj_access_links"`))).toBe(false)
     })
 
     it('rejects invalid source intake before allocating the copy id map', async () => {
@@ -186,4 +210,164 @@ describe('workspace copy AccessLinks intake validation', () => {
             )
         }
     )
+})
+
+describe('workspace copy TableTemplate aggregate integrity', () => {
+    const tableComponentId = '018f8a78-7b8f-7c1d-a111-222233334471'
+    const childTableName = `tbl_${tableComponentId.replaceAll('-', '')}`
+    const discoveredTables = ['obj_materials', 'obj_table_templates', childTableName]
+    const scopedTables = ['obj_table_templates', childTableName]
+
+    it('detects included TableTemplate Materials when Material is excluded from workspace copy', async () => {
+        const { txExecutor } = createMockDbExecutor()
+        txExecutor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM') && sql.includes('"_app_objects"') && sql.includes('ANY($2::text[])')) {
+                return [
+                    {
+                        objectId: 'template-object',
+                        codename: 'tabletemplate',
+                        tableName: 'obj_table_templates',
+                        recordPolicyPresent: false,
+                        recordPolicyJson: null
+                    },
+                    {
+                        objectId: 'material-object',
+                        codename: 'material',
+                        tableName: 'obj_materials',
+                        recordPolicyPresent: true,
+                        recordPolicyJson: JSON.stringify({ version: 1, runtimeMutation: 'deny', workspaceCopy: 'exclude' })
+                    }
+                ]
+            }
+            if (sql.includes('materialRefColumnName')) {
+                return [
+                    {
+                        templateTableName: 'obj_table_templates',
+                        tableComponentId,
+                        materialRefColumnName: 'material_ref',
+                        materialTargetObjectId: 'material-object'
+                    }
+                ]
+            }
+            if (sql.includes('child_row.row_data ->>')) return [{ hasMaterialReference: true }]
+            return []
+        })
+
+        await expect(
+            hasWorkspaceCopyTemplateMaterialsExcluded(txExecutor, schemaName, 'workspace-source', discoveredTables, scopedTables)
+        ).resolves.toBe(true)
+
+        expect(txExecutor.query).toHaveBeenCalledWith(expect.stringContaining('object_row.table_name = ANY($1::text[])'), [
+            discoveredTables,
+            ['material', 'tabletemplate']
+        ])
+        expect(txExecutor.query).toHaveBeenCalledWith(expect.stringContaining('object_row.table_name = ANY($1::text[])'), [
+            ['obj_table_templates']
+        ])
+        expect(txExecutor.query).toHaveBeenCalledWith(expect.stringContaining('child_row.row_data ->> $4::text IS NOT NULL'), [
+            'workspace-source',
+            'obj_table_templates',
+            childTableName,
+            'material_ref'
+        ])
+    })
+
+    it('allows the copy policy check when Material remains in the copy scope', async () => {
+        const { txExecutor } = createMockDbExecutor()
+        txExecutor.query.mockResolvedValue([
+            {
+                objectId: 'material-object',
+                codename: 'material',
+                tableName: 'obj_materials',
+                recordPolicyPresent: true,
+                recordPolicyJson: JSON.stringify({ version: 1, runtimeMutation: 'deny', workspaceCopy: 'exclude' })
+            },
+            {
+                objectId: 'template-object',
+                codename: 'tabletemplate',
+                tableName: 'obj_table_templates',
+                recordPolicyPresent: false,
+                recordPolicyJson: null
+            }
+        ])
+
+        await expect(
+            hasWorkspaceCopyTemplateMaterialsExcluded(txExecutor, schemaName, 'workspace-source', discoveredTables, discoveredTables)
+        ).resolves.toBe(false)
+        expect(txExecutor.query).toHaveBeenCalledTimes(3)
+    })
+
+    it('rejects an included Material whose TemplateOwnerId points to an excluded TableTemplate', async () => {
+        const { txExecutor } = createMockDbExecutor()
+        txExecutor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM') && sql.includes('"_app_objects"') && sql.includes('ANY($2::text[])')) {
+                return [
+                    {
+                        objectId: 'template-object',
+                        codename: 'tabletemplate',
+                        tableName: 'obj_table_templates',
+                        recordPolicyPresent: true,
+                        recordPolicyJson: JSON.stringify({ version: 1, runtimeMutation: 'deny', workspaceCopy: 'exclude' })
+                    },
+                    {
+                        objectId: 'material-object',
+                        codename: 'material',
+                        tableName: 'obj_materials',
+                        recordPolicyPresent: false,
+                        recordPolicyJson: null
+                    }
+                ]
+            }
+            if (sql.includes('workspace_copy_template_material_owners')) {
+                return [{ hasTemplateOwnerReference: false, hasIncludedMaterialExcludedTemplateReference: true }]
+            }
+            return []
+        })
+
+        await expect(
+            hasWorkspaceCopyTemplateMaterialsExcluded(txExecutor, schemaName, 'workspace-source', discoveredTables, ['obj_materials'])
+        ).resolves.toBe(true)
+
+        expect(txExecutor.query).toHaveBeenCalledWith(expect.stringContaining('workspace_copy_excluded_template_ids'), [
+            'workspace-source',
+            []
+        ])
+    })
+
+    it('rejects an excluded Material whose TemplateOwnerId points to a copied TableTemplate', async () => {
+        const { txExecutor } = createMockDbExecutor()
+        txExecutor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM') && sql.includes('"_app_objects"') && sql.includes('ANY($2::text[])')) {
+                return [
+                    {
+                        objectId: 'template-object',
+                        codename: 'tabletemplate',
+                        tableName: 'obj_table_templates',
+                        recordPolicyPresent: false,
+                        recordPolicyJson: null
+                    },
+                    {
+                        objectId: 'material-object',
+                        codename: 'material',
+                        tableName: 'obj_materials',
+                        recordPolicyPresent: true,
+                        recordPolicyJson: JSON.stringify({ version: 1, runtimeMutation: 'deny', workspaceCopy: 'exclude' })
+                    }
+                ]
+            }
+            if (sql.includes('workspace_copy_template_material_owners')) {
+                return [{ hasTemplateOwnerReference: true, hasIncludedMaterialExcludedTemplateReference: false }]
+            }
+            return []
+        })
+
+        await expect(
+            hasWorkspaceCopyTemplateMaterialsExcluded(txExecutor, schemaName, 'workspace-source', discoveredTables, ['obj_table_templates'])
+        ).resolves.toBe(true)
+
+        expect(txExecutor.query).toHaveBeenCalledWith(expect.stringContaining('material_owner.material_included = false'), [
+            'workspace-source',
+            ['obj_table_templates']
+        ])
+    })
 })

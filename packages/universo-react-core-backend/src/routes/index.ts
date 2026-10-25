@@ -40,6 +40,7 @@ import {
 } from '@universo-react/utils'
 import helmet from 'helmet'
 import { createSupabaseAdminClient } from '../utils/supabaseAdmin'
+import { isResponseClosedBeforeFinish } from '../middlewares/errors/responseState'
 
 const router: ExpressRouter = express.Router()
 let apiRouteCsrfProtection: RequestHandler | null = null
@@ -231,6 +232,8 @@ function isOptimisticLockError(err: unknown): err is OptimisticLockError {
 }
 
 router.use(async (err: Error & { statusCode?: number }, req: Request, res: Response, next: NextFunction) => {
+    if (isResponseClosedBeforeFinish(res)) return
+
     if (isOptimisticLockError(err)) {
         const conflict = err.conflict
         let updatedByEmail = conflict?.updatedByEmail ?? null

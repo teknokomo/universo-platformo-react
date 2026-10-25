@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { moduleBackedWidgetConfigSchema } from './moduleBackedWidgetConfig'
+import { WORKSPACE_WIDGET_SETTING_REGISTRY } from './workspaceWidgetSettingRegistry'
 
 export const INTERPRETATION_NETWORK_SPLIT_PANE_DEFAULT = 50
 export const INTERPRETATION_NETWORK_SPLIT_PANE_MIN_PERCENT = 25
@@ -66,6 +67,79 @@ export interface InterpretationNetworkSplitPaneSettings {
 export interface InterpretationNetworkTemplatePanelSettings {
     showInStructureList: boolean
     showInMatrix: boolean
+}
+
+export const INTERPRETATION_NETWORK_DEFAULT_CELL_STYLE_COLORS = [
+    '#000000',
+    '#FFFFFF',
+    '#E53935',
+    '#FB8C00',
+    '#FDD835',
+    '#43A047',
+    '#00897B',
+    '#1E88E5',
+    '#3949AB',
+    '#8E24AA'
+] as const
+
+const interpretationNetworkStyleColorSchema = z
+    .string()
+    .trim()
+    .regex(/^#(?:[0-9A-F]{3}|[0-9A-F]{6})$/iu)
+    .transform((color) => {
+        const normalized = color.toUpperCase()
+        if (normalized.length === 4) {
+            return `#${normalized
+                .slice(1)
+                .split('')
+                .map((digit) => `${digit}${digit}`)
+                .join('')}`
+        }
+        return normalized
+    })
+
+export const interpretationNetworkCellStylePolicySchema = z
+    .object({
+        allowedColors: z.array(interpretationNetworkStyleColorSchema),
+        allowCustomColors: z.boolean(),
+        editable: z
+            .object({
+                fillColor: z.boolean(),
+                textColor: z.boolean(),
+                borderColor: z.boolean(),
+                borderWidth: z.boolean(),
+                borderStyle: z.boolean()
+            })
+            .strict()
+    })
+    .strict()
+    .superRefine((policy, context) => {
+        const colors = policy.allowedColors
+        if (new Set(colors).size !== colors.length) {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['allowedColors'], message: 'Allowed colors must be unique.' })
+        }
+    })
+    .default({
+        allowedColors: [...INTERPRETATION_NETWORK_DEFAULT_CELL_STYLE_COLORS],
+        allowCustomColors: true,
+        editable: { fillColor: true, textColor: true, borderColor: true, borderWidth: true, borderStyle: true }
+    })
+
+export type InterpretationNetworkCellStylePolicy = z.infer<typeof interpretationNetworkCellStylePolicySchema>
+
+export const INTERPRETATION_NETWORK_CELL_STYLE_WORKSPACE_SETTING_PATHS =
+    WORKSPACE_WIDGET_SETTING_REGISTRY.interpretationNetwork.settingPaths
+
+export type InterpretationNetworkCellStyleWorkspaceSettingKey = keyof typeof INTERPRETATION_NETWORK_CELL_STYLE_WORKSPACE_SETTING_PATHS
+
+export const isInterpretationNetworkCellStyleWorkspaceSettingKey = (
+    key: string
+): key is InterpretationNetworkCellStyleWorkspaceSettingKey =>
+    Object.prototype.hasOwnProperty.call(INTERPRETATION_NETWORK_CELL_STYLE_WORKSPACE_SETTING_PATHS, key)
+
+export const normalizeInterpretationNetworkCellStylePolicy = (value: unknown): InterpretationNetworkCellStylePolicy => {
+    const parsed = interpretationNetworkCellStylePolicySchema.safeParse(value)
+    return parsed.success ? parsed.data : interpretationNetworkCellStylePolicySchema.parse(undefined)
 }
 
 export const interpretationNetworkSplitPaneSettingsSchema = z
@@ -175,6 +249,7 @@ const interpretationNetworkWorkspaceWidgetConfigObjectSchema = moduleBackedWidge
         showHierarchicalTableHeaderCard: z.boolean().optional(),
         showMatrixTreeTotalCells: z.boolean().optional(),
         colorBreadcrumbsByCell: z.boolean().optional(),
+        cellStylePolicy: interpretationNetworkCellStylePolicySchema.optional(),
         splitPane: interpretationNetworkSplitPaneSettingsSchema.optional(),
         templatePanel: interpretationNetworkTemplatePanelSettingsSchema.optional(),
         hierarchyRowMode: z.enum(interpretationNetworkHierarchyRowModes).optional(),

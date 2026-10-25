@@ -1,18 +1,23 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { useTheme } from '@mui/material/styles'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { normalizeLocale } from '@universo-react/utils'
-import { fetchAppData, fetchAppRow, updateAppRow } from '../../api/api'
+import { fetchAppRow } from '../../api/api'
 import {
-    createInterpretationNetworkMaterial,
+    applyInterpretationNetworkTemplateToCell,
     deleteInterpretationNetworkStructure,
     ensureInterpretationNetworkSystemStructure
 } from '../../api/interpretationNetwork'
 import '../../i18n/interpretationNetwork'
 import { useDashboardDetails } from '../DashboardDetailsContext'
+import { useAuthenticatedRuntimePlacementScope } from '../AuthenticatedRuntimePlacementScopeContext'
+import { PublicInterpretationNetworkViewer } from '../../public-runtime/PublicInterpretationNetworkViewer'
+import { InterpretationNetworkFavoritesProvider } from './interpretation-network/workspace/InterpretationNetworkFavoritesContext'
+import type { AvailableInterpretationNetworkFavorite } from './interpretation-network/workspace/runtimeInterpretationNetworkFavoritesApi'
 import { type MatrixDropState } from './interpretation-network/matrixDrag'
+import type { MatrixWorkspaceTab } from './interpretation-network/workspace/MatrixWorkspace'
 import { type StructureViewMode } from './interpretation-network/workspace/StructurePane'
 import { RuntimeContextMissing, WorkspaceError, WorkspaceLoading } from './interpretation-network/workspace/WorkspaceStatus'
 import { buildMatrixMenuMoves } from './interpretation-network/workspace/matrixMenuMoves'
@@ -27,6 +32,9 @@ import { useMatrixRouteSelectionSync } from './interpretation-network/workspace/
 import { useMatrixWorkspaceActions } from './interpretation-network/workspace/useMatrixWorkspaceActions'
 import { useStructureRoute } from './interpretation-network/workspace/useStructureRoute'
 import { useInterpretationNetworkTemplateCommands } from './interpretation-network/workspace/useInterpretationNetworkTemplateCommands'
+import { useMaterialMutations } from './interpretation-network/workspace/useMaterialMutations'
+import { useInterpretationNetworkWorkspaceSettings } from './interpretation-network/workspace/useInterpretationNetworkWorkspaceSettings'
+import { useInterpretationNetworkWorkspaceData } from './interpretation-network/workspace/useInterpretationNetworkWorkspaceData'
 import { useRuntimeSelectionActions } from './interpretation-network/workspace/useRuntimeSelectionActions'
 import { useStructureMutations } from './interpretation-network/workspace/useStructureMutations'
 import {
@@ -36,85 +44,64 @@ import {
     type MaterialDialogMode,
     type StructureDialogMode
 } from './interpretation-network/workspace/workspaceState'
-import {
-    fetchAllWorkspaceData,
-    fetchSingleWorkspaceRowData,
-    readRuntimeRowVersion,
-    readSubmittedText
-} from './interpretation-network/workspace/workspaceRuntime'
+import { readRuntimeRowVersion, readSubmittedText } from './interpretation-network/workspace/workspaceRuntime'
 import { hasRouteStructureId } from './interpretation-network/workspace/workspaceRuntime'
 import { type MatrixCellPlacement } from './interpretation-network/matrixCellData'
 import { getSectionId, toConfig, type MatrixView } from './interpretation-network/model'
 
 export default function InterpretationNetworkWorkspaceWidget({
     config,
-    widgetId,
-    layoutId
+    instanceKey
 }: {
     config?: Record<string, unknown>
-    widgetId?: string | null
-    layoutId?: string | null
+    instanceKey: string
+}) {
+    const details = useDashboardDetails()
+    if (details?.runtimeAccessMode === 'public') {
+        return (
+            <PublicInterpretationNetworkViewer
+                key={JSON.stringify([details.applicationId, details.locale, details.runtimeTarget ?? null, instanceKey])}
+                applicationRef={details.applicationId ?? ''}
+                locale={details.locale ?? 'en'}
+                target={details.runtimeTarget}
+                instanceKey={instanceKey}
+                config={config}
+                workspaceAvailable={details.publicWorkspaceAvailable === true}
+            />
+        )
+    }
+
+    return <AuthenticatedInterpretationNetworkWorkspaceWidget config={config} instanceKey={instanceKey} />
+}
+
+function AuthenticatedInterpretationNetworkWorkspaceWidget({
+    config,
+    instanceKey
+}: {
+    config?: Record<string, unknown>
+    instanceKey: string
 }) {
     const widgetConfig = useMemo(() => toConfig(config), [config])
     const singleSystemMode = widgetConfig.structureMode === 'singleSystem'
-    const fallbackInstanceId = useId()
+    const placementScope = useAuthenticatedRuntimePlacementScope(instanceKey)
+    const widgetId = placementScope?.widgetId
+    const layoutId = placementScope?.layoutId
     const a11yIdPrefix = useMemo(() => {
-        const instanceKey = [layoutId, widgetId]
-            .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-            .join('-')
-        const safeInstanceKey = (instanceKey || fallbackInstanceId).replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '')
+        const safeInstanceKey = instanceKey.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '')
         return `interpretation-network-${safeInstanceKey || 'workspace'}`
-    }, [fallbackInstanceId, layoutId, widgetId])
+    }, [instanceKey])
     const theme = useTheme()
     const details = useDashboardDetails()
     const { t, i18n } = useTranslation('interpretationNetwork')
     const queryClient = useQueryClient()
     const locale = normalizeLocale(details?.locale ?? i18n.language ?? 'en')
     const enabled = Boolean(details?.apiBaseUrl && details.applicationId)
-
-    const query = useQuery({
-        queryKey: ['interpretationNetworkWorkspace', details?.applicationId, details?.currentWorkspaceId, locale, widgetConfig],
-        enabled,
-        queryFn: async () => {
-            const base = {
-                apiBaseUrl: details!.apiBaseUrl!,
-                applicationId: details!.applicationId!,
-                workspaceId: details?.currentWorkspaceId,
-                locale,
-                widgetId,
-                layoutId
-            }
-            const [concepts, interpretations, materials] = singleSystemMode
-                ? await (async () => {
-                      const systemConcepts = await fetchSingleWorkspaceRowData(
-                          fetchAppData,
-                          { ...base, objectCollectionCodename: widgetConfig.conceptCodename },
-                          [{ field: 'SystemKey', operator: 'equals', value: 'primary' }]
-                      )
-                      const systemStructureId = systemConcepts.rows[0]?.id
-                      const [systemInterpretations, systemMaterials] = await Promise.all([
-                          fetchSingleWorkspaceRowData(
-                              fetchAppData,
-                              { ...base, objectCollectionCodename: widgetConfig.interpretationCodename },
-                              [
-                                  {
-                                      field: widgetConfig.interpretationParentField,
-                                      operator: 'equals',
-                                      value: systemStructureId ?? '00000000-0000-0000-0000-000000000000'
-                                  }
-                              ]
-                          ),
-                          fetchAllWorkspaceData(fetchAppData, { ...base, objectCollectionCodename: widgetConfig.materialCodename })
-                      ])
-                      return [systemConcepts, systemInterpretations, systemMaterials] as const
-                  })()
-                : await Promise.all([
-                      fetchAllWorkspaceData(fetchAppData, { ...base, objectCollectionCodename: widgetConfig.conceptCodename }),
-                      fetchAllWorkspaceData(fetchAppData, { ...base, objectCollectionCodename: widgetConfig.interpretationCodename }),
-                      fetchAllWorkspaceData(fetchAppData, { ...base, objectCollectionCodename: widgetConfig.materialCodename })
-                  ])
-            return { concepts, interpretations, materials }
-        }
+    const query = useInterpretationNetworkWorkspaceData({ details, locale, widgetConfig, widgetId, layoutId })
+    const { effectiveCellStylePolicy } = useInterpretationNetworkWorkspaceSettings({
+        details,
+        instanceKey,
+        locale,
+        applicationCellStylePolicy: widgetConfig.cellStylePolicy
     })
     const [structureDialogMode, setStructureDialogMode] = useState<StructureDialogMode | null>(null)
     const [selectedInterpretationId, setSelectedInterpretationId] = useState<string | null>(null)
@@ -154,9 +141,13 @@ export default function InterpretationNetworkWorkspaceWidget({
     const [matrixDropState, setMatrixDropState] = useState<MatrixDropState>(EMPTY_MATRIX_DROP_STATE)
     const [structureDialogError, setStructureDialogError] = useState<string | null>(null)
     const [structureListTab, setStructureListTab] = useState<'structures' | 'templates'>('structures')
-    const [structureDetailTab, setStructureDetailTab] = useState<'matrix' | 'templates'>('matrix')
+    const [matrixWorkspaceTab, setMatrixWorkspaceTab] = useState<MatrixWorkspaceTab>('matrix')
+    const [templateApplyTargetCellId, setTemplateApplyTargetCellId] = useState<string | null>(null)
+    const [templateApplyError, setTemplateApplyError] = useState(false)
     const [structureDeleteError, setStructureDeleteError] = useState<string | null>(null)
     const [materialDialogError, setMaterialDialogError] = useState<string | null>(null)
+    const [primaryActionError, setPrimaryActionError] = useState<string | null>(null)
+    const [deleteMaterialError, setDeleteMaterialError] = useState<string | null>(null)
     const [cellDialogError, setCellDialogError] = useState<string | null>(null)
     const [cellDeleteError, setCellDeleteError] = useState<string | null>(null)
     const [structureReturnFocusId, setStructureReturnFocusId] = useState<string | null>(null)
@@ -171,9 +162,6 @@ export default function InterpretationNetworkWorkspaceWidget({
     useEffect(() => {
         if (!widgetConfig.templatePanel.showInStructureList) {
             setStructureListTab((current) => (current === 'templates' ? 'structures' : current))
-        }
-        if (!widgetConfig.templatePanel.showInMatrix) {
-            setStructureDetailTab((current) => (current === 'templates' ? 'matrix' : current))
         }
     }, [widgetConfig.templatePanel.showInMatrix, widgetConfig.templatePanel.showInStructureList])
 
@@ -224,7 +212,7 @@ export default function InterpretationNetworkWorkspaceWidget({
     }, [ensureSystemStructureMutation.mutate])
     const workspaceState = useInterpretationNetworkWorkspaceState({
         data: query.data,
-        details,
+        details: details ? { ...details, widgetId, layoutId } : details,
         locale,
         themeBackground: theme.palette.background.paper,
         widgetConfig,
@@ -262,6 +250,7 @@ export default function InterpretationNetworkWorkspaceWidget({
         selectedConcept,
         editingStructure,
         matrixRowsQuery,
+        materialAssociationsQuery,
         matrixCells,
         matrixAxisOptions,
         hierarchicalMatrixRows,
@@ -309,6 +298,10 @@ export default function InterpretationNetworkWorkspaceWidget({
         deleteTemplateMutation,
         closeTemplateDialog,
         openSaveTemplateDialog,
+        saveTemplateBranchPath,
+        canSaveSelectedBranch,
+        saveTemplateScopeKind,
+        setSaveTemplateScopeKind,
         openEditTemplateDialog,
         requestDeleteTemplate,
         templateDetailQuery,
@@ -326,26 +319,72 @@ export default function InterpretationNetworkWorkspaceWidget({
         canEditContent,
         canDeleteContent,
         selectedConcept,
+        matrixCells,
+        matrixMode: widgetConfig.matrixMode,
         structureSummaries,
         closeStructureMenu,
         t
+    })
+    const applyTemplateMutation = useMutation({
+        mutationFn: async ({ templateId, targetCellId }: { templateId: string; targetCellId: string }) => {
+            if (!canCreateContent || !canEditContent || widgetConfig.matrixMode !== 'hierarchicalCells') {
+                throw new Error('permission-denied')
+            }
+            if (!details?.apiBaseUrl || !details.applicationId || !selectedInterpretation?.id) {
+                throw new Error('runtime-context-missing')
+            }
+            const template = templatesQuery.data?.items.find((item) => item.id === templateId)
+            const targetRawCell = matrixRowsSnapshotRef.current.rawRowsByCellId.get(targetCellId)
+            const expectedTargetVersion = readRuntimeRowVersion(targetRawCell)
+            if (!template || expectedTargetVersion === undefined) throw new Error('template-target-version-unavailable')
+            return applyInterpretationNetworkTemplateToCell({
+                apiBaseUrl: details.apiBaseUrl,
+                applicationId: details.applicationId,
+                workspaceId: details.currentWorkspaceId,
+                templateId,
+                interpretationId: selectedInterpretation.id,
+                targetCellId,
+                expectedTemplateVersion: template.version,
+                expectedTargetVersion,
+                widgetId,
+                layoutId
+            })
+        },
+        onSuccess: async (result) => {
+            setTemplateApplyError(false)
+            closeTemplateDetail()
+            setTemplateApplyTargetCellId(null)
+            setMatrixWorkspaceTab('matrix')
+            setPendingSelectedCellId(result.insertedRootCellId)
+            selectMatrixCell(result.insertedRootCellId)
+            await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspaceMatrix'] })
+            await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspace'] })
+        },
+        onError: () => setTemplateApplyError(true)
     })
     const clearMaterialSelection = useCallback(() => {
         setSelectedMaterialId(null)
         setOpenedMaterialId(null)
         setEditingMaterialId(null)
         setMaterialDialogMode(null)
+        setPrimaryActionError(null)
+        setDeleteMaterialError(null)
     }, [])
 
     const selectMatrixCell = useCallback(
         (cellId: string | null, options: { replace?: boolean; updateRoute?: boolean } = {}) => {
             setSelectedCellId(cellId)
             clearMaterialSelection()
+            const primaryMaterialId = matrixCells.find((cell) => cell.id === cellId)?.materialRef ?? null
+            if (primaryMaterialId) {
+                setSelectedMaterialId(primaryMaterialId)
+                setOpenedMaterialId(primaryMaterialId)
+            }
             if (options.updateRoute !== false && (singleSystemMode || routeStructureId)) {
                 navigateToCell(cellId, options)
             }
         },
-        [clearMaterialSelection, navigateToCell, routeStructureId, singleSystemMode]
+        [clearMaterialSelection, matrixCells, navigateToCell, routeStructureId, singleSystemMode]
     )
     const syncRouteCell = useCallback(
         (cellId: string | null, options: { replace?: boolean } = {}) => {
@@ -511,6 +550,8 @@ export default function InterpretationNetworkWorkspaceWidget({
         workspaceId: details?.currentWorkspaceId,
         widgetId,
         layoutId,
+        instanceKey,
+        runtimeLayoutTarget: details?.runtimeLayoutTarget,
         selectedInterpretationId: selectedInterpretation?.id,
         matrixChildColumns: matrixColumn?.childColumns,
         matrixRowsSnapshotRef,
@@ -543,82 +584,36 @@ export default function InterpretationNetworkWorkspaceWidget({
         setCellDialogMode,
         setAxisDialogKind
     })
-    const saveMaterialMetadataMutation = useMutation({
-        mutationFn: async (data: Record<string, unknown>) => {
-            if (!details?.apiBaseUrl || !details.applicationId || !materialSectionId) return null
-            if (!selectedInterpretation?.id || !matrixColumn?.id || !selectedRawCell?.id || !selectedCell?.id || !interpretationSectionId) {
-                throw new Error('cell-not-selected')
-            }
-
-            if (materialDialogMode === 'edit') {
-                const targetMaterialId = editingMaterialId
-                if (!canEditContent || !targetMaterialId) throw new Error('permission-denied')
-                const targetMaterial =
-                    cellMaterials.find((material) => material.id === targetMaterialId) ??
-                    materials.find((material) => material.id === targetMaterialId)
-                return updateAppRow({
-                    apiBaseUrl: details.apiBaseUrl,
-                    applicationId: details.applicationId,
-                    workspaceId: details.currentWorkspaceId,
-                    objectCollectionId: materialSectionId,
-                    rowId: targetMaterialId,
-                    data,
-                    expectedVersion: readRuntimeRowVersion(targetMaterial)
-                })
-            }
-
-            if (!canCreateContent || !canEditContent) throw new Error('permission-denied')
-            const material = await createInterpretationNetworkMaterial({
-                apiBaseUrl: details.apiBaseUrl,
-                applicationId: details.applicationId,
-                workspaceId: details.currentWorkspaceId,
-                interpretationId: selectedInterpretation.id,
-                matrixRowId: selectedRawCell.id,
-                cellId: selectedCell.id,
-                data,
-                expectedVersion: readRuntimeRowVersion(selectedRawCell),
-                widgetId,
-                layoutId
-            })
-            return material
-        },
-        onSuccess: async (saved) => {
-            setMaterialDialogMode(null)
-            setEditingMaterialId(null)
-            setMaterialDialogError(null)
-            if (saved && typeof saved.id === 'string') {
-                setSelectedMaterialId(saved.id)
-            }
-            await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspace'] })
-            await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspaceMatrix'] })
-        },
-        onError: () => {
-            setMaterialDialogError(t('workspace.material.error', 'Failed to save material'))
-        }
-    })
-
-    const saveMaterialBodyMutation = useMutation({
-        mutationFn: async (data: Record<string, unknown>) => {
-            if (!details?.apiBaseUrl || !details.applicationId || !materialSectionId || !openedMaterialId) return null
-            if (!canEditContent) throw new Error('permission-denied')
-            return updateAppRow({
-                apiBaseUrl: details.apiBaseUrl,
-                applicationId: details.applicationId,
-                workspaceId: details.currentWorkspaceId,
-                objectCollectionId: materialSectionId,
-                rowId: openedMaterialId,
-                data,
-                expectedVersion: readRuntimeRowVersion(selectedMaterial)
-            })
-        },
-        onSuccess: async () => {
-            setMaterialDialogError(null)
-            await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspace'] })
-        },
-        onError: () => {
-            setMaterialDialogError(t('workspace.material.error', 'Failed to save material'))
-        }
-    })
+    const { saveMaterialMetadataMutation, saveMaterialBodyMutation, setPrimaryMaterialMutation, deleteMaterialMutation } =
+        useMaterialMutations({
+            t,
+            queryClient,
+            details,
+            canCreateContent,
+            canEditContent,
+            canDeleteContent,
+            widgetId,
+            layoutId,
+            materialSectionId,
+            interpretationSectionId,
+            interpretationId: selectedInterpretation?.id,
+            matrixColumnId: matrixColumn?.id,
+            selectedCell: selectedCell ?? undefined,
+            selectedRawCell: selectedRawCell ?? undefined,
+            selectedMaterial: selectedMaterial ?? undefined,
+            cellMaterials,
+            materials,
+            materialDialogMode,
+            editingMaterialId,
+            openedMaterialId,
+            setMaterialDialogMode,
+            setEditingMaterialId,
+            setSelectedMaterialId,
+            setOpenedMaterialId,
+            setMaterialDialogError,
+            setPrimaryActionError,
+            setDeleteMaterialError
+        })
     const { saveCellMutation, deleteCellMutation } = useCellMutations({
         t,
         queryClient,
@@ -628,6 +623,10 @@ export default function InterpretationNetworkWorkspaceWidget({
         apiBaseUrl: details?.apiBaseUrl,
         applicationId: details?.applicationId,
         workspaceId: details?.currentWorkspaceId,
+        widgetId,
+        layoutId,
+        instanceKey,
+        runtimeLayoutTarget: details?.runtimeLayoutTarget,
         locale,
         interpretationSectionId,
         selectedInterpretationId: selectedInterpretation?.id,
@@ -670,6 +669,17 @@ export default function InterpretationNetworkWorkspaceWidget({
         selectMatrixCell,
         navigateToStructure
     })
+    const navigateToFavorite = useCallback(
+        (favorite: AvailableInterpretationNetworkFavorite) => {
+            if (singleSystemMode) {
+                setPendingSelectedCellId(favorite.target.cellId)
+                navigateToCell(favorite.target.cellId)
+                return
+            }
+            navigateToStructure(favorite.structureId, { focusedCellId: favorite.target.cellId })
+        },
+        [navigateToCell, navigateToStructure, singleSystemMode]
+    )
 
     if (!enabled) {
         return <RuntimeContextMissing message={t('workspace.missingRuntimeContext', 'Runtime context is not available yet.')} />
@@ -709,6 +719,12 @@ export default function InterpretationNetworkWorkspaceWidget({
             handleMoveCell(menuCell.id, target.id, placement)
         }
     })
+    const templateApplyTargetCell = templateApplyTargetCellId
+        ? matrixCells.find((cell) => cell.id === templateApplyTargetCellId)
+        : undefined
+    const templateApplyTargetRawRow = templateApplyTargetCellId
+        ? matrixRowsSnapshotRef.current.rawRowsByCellId.get(templateApplyTargetCellId)
+        : undefined
     const viewProps: InterpretationNetworkWorkspaceViewProps = {
         matrix: selectedInterpretation
             ? {
@@ -744,9 +760,17 @@ export default function InterpretationNetworkWorkspaceWidget({
                   menu: { anchor: cellMenuAnchor, cell: menuCell, moves: menuMoves },
                   deletingCell: deleteCellMutation.isPending,
                   sensors,
+                  selectedWorkspaceTab: matrixWorkspaceTab,
+                  onWorkspaceTabChange: setMatrixWorkspaceTab,
                   onChangeMatrixView: setMatrixViewOverride,
                   canSaveTemplate: canCreateContent && canEditContent && Boolean(selectedConcept),
-                  onOpenSaveTemplate: () => openSaveTemplateDialog(selectedConcept?.id),
+                  hasTemplates: Boolean(templatesQuery.data?.items.length),
+                  canInsertTemplate: canCreateContent && canEditContent && !applyTemplateMutation.isPending,
+                  onOpenSaveTemplate: () => openSaveTemplateDialog(selectedConcept?.id, selectedCell?.id),
+                  onOpenTemplateInsert: (targetCellId) => {
+                      setTemplateApplyError(false)
+                      setTemplateApplyTargetCellId(targetCellId)
+                  },
                   actions: {
                       openCellDialog,
                       addTableRow: () => openTableAxisDialog('row'),
@@ -782,9 +806,8 @@ export default function InterpretationNetworkWorkspaceWidget({
             filteredStructures,
             templates: templatesQuery.data?.items ?? [],
             structureListTab,
-            structureDetailTab,
             showTemplatesInStructureList: widgetConfig.templatePanel.showInStructureList,
-            showTemplatesInMatrix: widgetConfig.templatePanel.showInMatrix,
+            showTemplatesInMatrix: widgetConfig.templatePanel.showInMatrix || Boolean(templateApplyTargetCellId),
             dataGridLocaleText,
             canCreateStructure: !singleSystemMode && canCreateContent && canEditContent,
             canSaveTemplate: canCreateContent && canEditContent,
@@ -793,6 +816,28 @@ export default function InterpretationNetworkWorkspaceWidget({
             templateDetailLoading: templateDetailQuery.isLoading || templateDetailQuery.isFetching,
             templateDetailError: templateDetailQuery.isError,
             templateDetail: templateDetailQuery.data,
+            templateApplyTargetLabel: templateApplyTargetCell
+                ? templateApplyTargetCell.title || t('workspace.emptyCell', 'Empty cell')
+                : undefined,
+            canInsertTemplate:
+                Boolean(templateApplyTargetCellId && selectedInterpretation?.id) &&
+                widgetConfig.matrixMode === 'hierarchicalCells' &&
+                canCreateContent &&
+                canEditContent &&
+                readRuntimeRowVersion(templateApplyTargetRawRow) !== undefined &&
+                !applyTemplateMutation.isPending,
+            insertingTemplate: applyTemplateMutation.isPending,
+            templateApplyError,
+            onInsertTemplate: async (templateId) => {
+                if (!templateApplyTargetCellId) return false
+                setTemplateApplyError(false)
+                try {
+                    await applyTemplateMutation.mutateAsync({ templateId, targetCellId: templateApplyTargetCellId })
+                    return true
+                } catch {
+                    return false
+                }
+            },
             structureFieldsReady: structureFields.length > 0,
             createStructureError: Boolean(createStructureMutation.error),
             normalizedStructureFilter,
@@ -808,7 +853,6 @@ export default function InterpretationNetworkWorkspaceWidget({
                 setStructureViewMode(viewMode)
             },
             onStructureListTabChange: setStructureListTab,
-            onStructureDetailTabChange: setStructureDetailTab,
             onOpenCreateStructure: openCreateStructureDialog,
             onOpenSaveTemplateForStructure: openSaveTemplateDialog,
             onEditTemplate: openEditTemplateDialog,
@@ -867,13 +911,24 @@ export default function InterpretationNetworkWorkspaceWidget({
             dataGridLocaleText,
             canCreateContent,
             canEditContent,
+            canDeleteContent,
             materialSectionId,
             isSavingMaterial: saveMaterialMetadataMutation.isPending || saveMaterialBodyMutation.isPending,
+            isUpdatingPrimary: setPrimaryMaterialMutation.isPending,
+            isDeletingMaterial: deleteMaterialMutation.isPending,
+            isLoadingMaterialAssociations: materialAssociationsQuery.isLoading,
+            materialAssociationsError: materialAssociationsQuery.isError
+                ? t('workspace.material.associationsLoadError', 'Could not load attached materials. Reload the workspace and try again.')
+                : null,
             materialEditorError: materialDialogError,
+            primaryActionError,
+            deleteMaterialError,
             materials,
             materialColumns: query.data?.materials.columns,
             materialTitleField: widgetConfig.materialTitleField,
             saveMaterialBodyMutation,
+            setPrimaryMaterialMutation,
+            deleteMaterialMutation,
             actions: {
                 setMaterialDialogError,
                 setEditingMaterialId,
@@ -909,6 +964,10 @@ export default function InterpretationNetworkWorkspaceWidget({
                               templatePolicy: selectedTemplateForDialog.includesMaterials ? 'withMaterials' : 'structureOnly'
                           }
                         : { templatePolicy: 'structureOnly' },
+                saveScopeKind: saveTemplateScopeKind,
+                saveBranchPath: saveTemplateBranchPath,
+                canSaveSelectedBranch,
+                onSaveScopeKindChange: setSaveTemplateScopeKind,
                 deleteId: templateActionId && templateDialogMode === null ? templateActionId : null,
                 deleteTemplate: templateActionId && templateDialogMode === null ? selectedTemplateForDialog : undefined
             },
@@ -923,6 +982,7 @@ export default function InterpretationNetworkWorkspaceWidget({
                 axisDialogKind,
                 fields: cellMetadataFields,
                 styleFields,
+                cellStylePolicy: effectiveCellStylePolicy,
                 initialData: cellDialogInitialData,
                 axisOptions: matrixAxisOptions,
                 placement: activeCellDialogPlacement,
@@ -968,5 +1028,19 @@ export default function InterpretationNetworkWorkspaceWidget({
             }
         }
     }
-    return <InterpretationNetworkWorkspaceView {...viewProps} />
+    return (
+        <InterpretationNetworkFavoritesProvider
+            apiBaseUrl={details?.apiBaseUrl}
+            applicationId={details?.applicationId}
+            workspaceId={details?.currentWorkspaceId}
+            locale={locale}
+            queryKeyPrefix={details?.runtimeQueryKeyPrefix}
+            enabled={details?.runtimeAccessMode !== 'public'}
+            selectedInterpretationId={selectedInterpretation?.id ?? null}
+            localeText={dataGridLocaleText}
+            onNavigateFavorite={navigateToFavorite}
+        >
+            <InterpretationNetworkWorkspaceView {...viewProps} />
+        </InterpretationNetworkFavoritesProvider>
+    )
 }

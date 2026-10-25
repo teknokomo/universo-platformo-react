@@ -7,6 +7,7 @@ export { buildSetLocalStatementTimeoutSql, formatStatementTimeoutLiteral } from 
 export { queryMany, queryOne, queryOneOrThrow, executeCount, NotFoundError } from './query'
 export {
     acquireAdvisoryXactLock,
+    acquireAdvisoryXactSharedLock,
     acquireTwoKeyAdvisoryXactLock,
     tryWithAdvisoryLock,
     withAdvisoryLock,

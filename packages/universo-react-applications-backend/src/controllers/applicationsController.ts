@@ -218,6 +218,20 @@ const sanitizeApplicationSettingsUpdate = (
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
+const serializeApplicationSettings = (settings: Record<string, unknown> | null | undefined): Record<string, unknown> => {
+    const safeSettings = settings ?? {}
+    const workspaceOverrides = safeSettings.workspaceOverrides
+    if (!isRecord(workspaceOverrides)) return safeSettings
+
+    const parsedPolicy = applicationWorkspaceOverridePolicySchema.safeParse(workspaceOverrides)
+    if (!parsedPolicy.success) return safeSettings
+
+    return {
+        ...safeSettings,
+        workspaceOverrides: parsedPolicy.data
+    }
+}
+
 const mergeApplicationSettingsForUpdate = (
     currentSettings: Record<string, unknown> | null | undefined,
     requestedSettings: Record<string, unknown>
@@ -308,7 +322,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
                 id: a.id,
                 name: a.name,
                 description: a.description,
-                settings: a.settings ?? {},
+                settings: serializeApplicationSettings(a.settings),
                 isPublic: a.isPublic,
                 workspacesEnabled: a.workspacesEnabled,
                 version: a.version || 1,
@@ -353,7 +367,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             id: application.id,
             name: application.name,
             description: application.description,
-            settings: application.settings ?? {},
+            settings: serializeApplicationSettings(application.settings),
             isPublic: application.isPublic,
             workspacesEnabled: application.workspacesEnabled,
             version: application.version || 1,
@@ -438,7 +452,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             id: saved.id,
             name: saved.name,
             description: saved.description,
-            settings: saved.settings ?? {},
+            settings: serializeApplicationSettings(saved.settings),
             isPublic: saved.isPublic,
             workspacesEnabled: saved.workspacesEnabled,
             version: saved.version || 1,
@@ -555,7 +569,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             id: copied.id,
             name: copied.name,
             description: copied.description,
-            settings: copied.settings ?? {},
+            settings: serializeApplicationSettings(copied.settings),
             isPublic: copied.isPublic,
             workspacesEnabled: copied.workspacesEnabled,
             version: copied.version || 1,
@@ -780,7 +794,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             id: saved.id,
             name: saved.name,
             description: saved.description,
-            settings: saved.settings ?? {},
+            settings: serializeApplicationSettings(saved.settings),
             isPublic: saved.isPublic,
             workspacesEnabled: saved.workspacesEnabled,
             version: saved.version || 1,

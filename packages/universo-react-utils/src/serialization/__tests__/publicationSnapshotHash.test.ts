@@ -105,11 +105,11 @@ describe('normalizePublicationSnapshotForHash', () => {
                     attachedToId: null,
                     moduleRole: 'widget',
                     sourceKind: 'embedded',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     sourceCode: 'export const z = 2',
                     manifest: {
                         className: 'ZetaModule',
-                        sdkApiVersion: '1.0.0',
+                        sdkApiVersion: '0.1.0',
                         moduleRole: 'widget',
                         sourceKind: 'embedded',
                         capabilities: ['metadata.read', 'rpc.client'],
@@ -133,11 +133,11 @@ describe('normalizePublicationSnapshotForHash', () => {
                     attachedToId: null,
                     moduleRole: 'widget',
                     sourceKind: 'embedded',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     sourceCode: 'export const a = 1',
                     manifest: {
                         className: 'AlphaModule',
-                        sdkApiVersion: '1.0.0',
+                        sdkApiVersion: '0.1.0',
                         moduleRole: 'widget',
                         sourceKind: 'embedded',
                         capabilities: ['metadata.read', 'rpc.client'],
@@ -313,7 +313,7 @@ describe('normalizePublicationSnapshotForHash', () => {
                 isActive: false,
                 manifest: {
                     className: 'AlphaModule',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'widget',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read', 'rpc.client'],
@@ -330,7 +330,7 @@ describe('normalizePublicationSnapshotForHash', () => {
                 isActive: true,
                 manifest: {
                     className: 'ZetaModule',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'widget',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read', 'rpc.client'],
@@ -386,17 +386,17 @@ describe('normalizePublicationSnapshotForHash', () => {
             },
             {
                 defaultVersionEnvelope: {
-                    structureVersion: '53.0.0',
+                    structureVersion: '0.1.0',
                     templateVersion: null,
-                    snapshotFormatVersion: 4
+                    snapshotFormatVersion: 1
                 }
             }
         )
 
         expect(normalized.versionEnvelope).toEqual({
-            structureVersion: '53.0.0',
+            structureVersion: '0.1.0',
             templateVersion: null,
-            snapshotFormatVersion: 4
+            snapshotFormatVersion: 1
         })
         expect(normalized.layoutConfig).toEqual({})
         expect(normalized.entities).toEqual([])
@@ -471,7 +471,7 @@ describe('normalizePublicationSnapshotForHash', () => {
             attachedToId: null,
             moduleRole: 'library',
             sourceKind: 'embedded',
-            sdkApiVersion: '1.0.0',
+            sdkApiVersion: '0.1.0',
             sourceCode: null,
             sourceStorage: {
                 mode: 'file',
@@ -481,7 +481,7 @@ describe('normalizePublicationSnapshotForHash', () => {
             },
             manifest: {
                 className: 'SharedLibrary',
-                sdkApiVersion: '1.0.0',
+                sdkApiVersion: '0.1.0',
                 moduleRole: 'library',
                 sourceKind: 'embedded',
                 capabilities: [],

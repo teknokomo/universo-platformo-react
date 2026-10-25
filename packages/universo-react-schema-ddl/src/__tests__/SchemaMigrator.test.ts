@@ -155,7 +155,7 @@ describe('SchemaMigrator', () => {
         const generator = {
             syncSystemMetadata: jest.fn().mockResolvedValue(undefined),
             generateSnapshot: jest.fn().mockReturnValue({
-                version: 3,
+                version: 1,
                 generatedAt: '2026-03-09T00:00:00.000Z',
                 hasSystemTables: true,
                 entities: {}
@@ -207,7 +207,7 @@ describe('SchemaMigrator', () => {
                 migrationName: expect.stringMatching(/^\d{8}_\d{6}_schema_sync$/),
                 migrationId: 'migration-id',
                 snapshotAfter: expect.objectContaining({
-                    version: 3,
+                    version: 1,
                     entities: {}
                 }),
                 diff: expect.objectContaining({

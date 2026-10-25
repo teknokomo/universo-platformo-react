@@ -23,6 +23,7 @@ import type { ApplicationRuntimeTargetKind, ApplicationRuntimeThemeVariant } fro
 import { DashboardApplicationRuntime } from './application-runtime/DashboardApplicationRuntime'
 import { normalizeRuntimeLocale, UUID_PATH_SEGMENT_REGEX } from './application-runtime/runtimeLayout'
 import { usePublicApplicationRuntimeQuery } from './application-runtime/usePublicApplicationRuntimeQuery'
+import { PublicDashboardApplicationRuntime } from './application-runtime/PublicDashboardApplicationRuntime'
 
 type MarketingRuntimeContentProps = ComponentProps<typeof MarketingRuntimeContent>
 
@@ -42,7 +43,9 @@ export const PublicApplicationRuntime = () => {
     const { t } = useTranslation('applications')
     // The route entry performs the first anonymous bootstrap fetch; this page
     // reuses that shared result instead of re-requesting the same payload.
-    const { requestedLocale, publicRuntimeQuery } = usePublicApplicationRuntimeQuery(applicationRef, { refetchOnMount: false })
+    const { requestedLocale, requestedTarget, publicRuntimeQuery } = usePublicApplicationRuntimeQuery(applicationRef, {
+        refetchOnMount: false
+    })
     const remainingPath = publicRuntimeRemainingPath(location.pathname, applicationRef, routeParams['*'])
 
     if (!applicationRef) {
@@ -97,6 +100,17 @@ export const PublicApplicationRuntime = () => {
     })
     if (canonicalPath) return <Navigate to={canonicalPath} replace />
 
+    if (publicRuntime.templateKey === 'dashboard')
+        return (
+            <PublicDashboardApplicationRuntime
+                applicationRef={applicationRef}
+                locale={requestedLocale}
+                target={requestedTarget}
+                dashboard={publicRuntime.dashboard}
+                onNavigate={navigate}
+            />
+        )
+
     const runtimePayload = {
         templateKey: publicRuntime.templateKey,
         marketingPage: publicRuntime.marketingPage
@@ -123,7 +137,9 @@ export const PublicApplicationRuntime = () => {
             loadingLabel={t('app.runtime.loading', 'Loading application')}
             errorLabel={t('app.errors.loadFailed', 'Failed to load runtime data')}
             retryLabel={t('common.retry', 'Retry')}
-            runtimePayload={runtimePayload}
+            // The shared public contract types atomic header records more broadly.
+            // MarketingRuntimeContent revalidates injected data with its strict renderer schema.
+            runtimePayload={runtimePayload as MarketingRuntimeContentProps['runtimePayload']}
             onAction={(action) => {
                 if (action.actionKind === 'internal') navigate(action.href)
             }}
@@ -283,6 +299,7 @@ const ApplicationRuntime = ({ applicationIdOverride }: ApplicationRuntimeProps =
     return (
         <DashboardWidgetSelectionProvider>
             <DashboardApplicationRuntime
+                applicationIdOverride={applicationId}
                 effectiveLayout={effectiveLayoutQuery.data}
                 locale={requestedLocale}
                 footerMetadata={dashboardSiteName ? { siteName: dashboardSiteName } : undefined}

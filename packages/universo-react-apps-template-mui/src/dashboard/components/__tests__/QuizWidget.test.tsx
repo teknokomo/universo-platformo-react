@@ -80,7 +80,7 @@ describe('QuizWidget', () => {
                                     attachedToId: 'object-1',
                                     moduleRole: 'widget',
                                     sourceKind: 'embedded',
-                                    sdkApiVersion: '1.0.0',
+                                    sdkApiVersion: '0.1.0',
                                     isActive: true,
                                     checksum: 'checksum-1',
                                     presentation: {
@@ -244,7 +244,7 @@ describe('QuizWidget', () => {
                                 attachedToId: 'object-1',
                                 moduleRole: 'widget',
                                 sourceKind: 'embedded',
-                                sdkApiVersion: '1.0.0',
+                                sdkApiVersion: '0.1.0',
                                 isActive: true,
                                 checksum: 'checksum-1',
                                 presentation: {

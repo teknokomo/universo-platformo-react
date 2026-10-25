@@ -2,15 +2,18 @@
 
 > Current-focus memory only. Completed implementation history lives in [progress.md](progress.md); actionable checklists live in [tasks.md](tasks.md).
 
-## Current Focus: PR #918 LMS QA and CI Remediation (2026-10-15)
+## Current Focus: Interpretation Network public runtime and advanced workspace closeout (2026-10-24)
 
--   The PR #918 review remediation is complete and locally validated on branch `fix/gh917-lms-runtime-stability`. The previously failing CI causes have matching source/test/provenance fixes; commit and push these changes to the existing PR, then distinguish fresh checks from the old red runs on `fbf8bc0`.
--   Preserve the clean-cutover constraints: no legacy quiz path, no database-schema or metahub-template version bump, and no `pnpm dev`.
--   Entity Types own durable content/domain data; persisted widget placements own composition/presentation and semantic `instanceKey`; registry metadata owns binding/authoring/runtime contracts. Nested Dashboard composition uses first-class parent/slot placement relationships.
--   The clean cutover is preserved: no supported Dashboard legacy reader, dual write, embedded child-widget array, schema-version bump, built-in template-version bump, or `pnpm dev` dependency was introduced.
--   Canonical minimal-Supabase Dashboard acceptance passed all seven selected specs / 11 Playwright tests in `tools/testing/e2e/.artifacts/dashboard-entity-backed/2026-10-06T21-47-30-457Z/`, covering nested authoring, application layout sync, Dashboard runtime, cross-template runtime/scoped precedence/concurrency and LMS snapshot runtime.
--   Final focused reruns passed Types 31 files / 268 tests, Metahubs backend 4 suites / 14 tests, Applications backend 4 suites / 63 tests, Apps Template MUI 4 files / 60 tests, the MMOOMM ShareDB metadata contract, all six tracked snapshot contracts, catalog-version validation, GitBook EN/RU parity and screenshot-asset checks, plus `git diff --check`.
--   Autoreview/Thermos was attempted on an isolated 20-file critical subset and ended `UNAVAILABLE` because the local Codex CLI is missing `@openai/codex-linux-x64`. OntoIndex sees the committed HEAD but reports degraded authority over the accumulated 701-file dirty/untracked overlay; these are recorded tooling limitations, not clean review verdicts.
+-   Implementation phases IN-00–IN-14 and QA remediation items IN-QA2-01–IN-QA2-09 are complete; the current checklist and final evidence are recorded at the top of `tasks.md` and in the latest dated entry in `progress.md`.
+-   Public applications render through the canonical shared Dashboard and Interpretation Network runtime in explicit read-only mode, including empty-workspace states. The runtime does not substitute a separate anonymous shell or expose authoring mutations.
+-   Saved structures can be inserted beneath a selected cell. The aggregate copy path remaps UUID v7 identities, parent links, coordinates, and material references while preserving source immutability and enforcing authorization/version checks.
+-   Generic parent/child deletion cannot orphan template materials; workspace copying preserves the complete template/material aggregate or fails closed. PostgreSQL integration tests cover these integrity and concurrency contracts.
+-   The HEX color picker uses the existing MUI control primitives with aligned field geometry. Desktop and mobile screenshots were inspected, and browser assertions cover responsive geometry.
+-   Final minimal-Supabase gate passed at `tools/testing/e2e/.artifacts/interpretation-network-verification/2026-10-24T15-24-45-650Z/manifest.json`: build 36/36, backend Jest 27 suites / 470 tests, browser suites 2 + 2 + 21 + 3 EN + 3 RU + 2 GitBook, PostgreSQL integration 36/36 with zero skipped, and fixture/docs/isolation/drift checks passed.
+-   `CURRENT_SCHEMA_SNAPSHOT_VERSION` remains `2`; the Interpretation Network seed remains `2.29.0`; the metahub template version remains `0.1.0`. No legacy adapter or version increase was introduced.
+-   Screenshot drift was verified with a temporary isolated Git index, preserving the user's real staged set. No staging or commit was performed; the checkout still contains extensive unrelated dirty work.
+-   Scoped OntoIndex verification passed for its explicit five-file/six-test inventory; commit-based graph data and its 200-file scan cap do not provide full impact coverage for this dirty tree. Thermos Autoreview ended `UNAVAILABLE/ENGINE_TRANSPORT_ERROR` after three attempts, so no automated clean-review verdict is claimed.
+-   The new response-close guard and its focused core-backend tests address a possible post-disconnect RLS lease query. The final full gate had no recurrence, but the original log did not prove a user-visible failure.
 
 ## Preserved platform/runtime baseline
 
@@ -32,9 +35,8 @@
 
 ## Immediate Next Step / Blocker
 
--   Create one Conventional Commit for the validated LMS PR follow-up and push it to `fix/gh917-lms-runtime-stability`; monitor Actions and the external Kilo review on the new commit SHA.
--   Local Thermos passed with no actionable findings, OntoIndex file/test verification passed, and two independent read-only reviewers found no actionable issue. The previous failed Actions belong to the older PR head and are not evidence about the new source until fresh runs complete.
--   Preserve the clean cutover: no legacy quiz path, schema-version bump, metahub-template version bump, or `pnpm dev` dependency.
+-   No implementation blocker remains for the current Interpretation Network task. Wait for the next user instruction; preserve the existing staged and unrelated dirty worktree state.
+-   Do not claim a successful automated Thermos verdict or complete graph-backed impact analysis: both limitations are recorded above and in `progress.md`.
 
 ## Runtime / Layout Contracts To Preserve
 
@@ -147,3 +149,13 @@
 -   [plan/unified-application-template-widgets-scoped-layouts-plan-2026-09-07.md](plan/unified-application-template-widgets-scoped-layouts-plan-2026-09-07.md) — unified widget/layout plan.
 -   [plan/marketing-header-widget-zone-settings-plan-2026-09-12.md](plan/marketing-header-widget-zone-settings-plan-2026-09-12.md) — current marketing-header contract/evidence plan.
 -   [plan/playcanvas-editor-assets-and-mmoomm-script-assets-plan-2026-08-25.md](plan/playcanvas-editor-assets-and-mmoomm-script-assets-plan-2026-08-25.md) — PlayCanvas asset/script implementation detail.
+
+# Completed Implementation: Interpretation Network Public Runtime And Workspace Capabilities (2026-10-23)
+
+-   Completed the approved plan in `memory-bank/plan/interpretation-network-public-runtime-advanced-workspace-plan-2026-10-22.md` across Phases 0-14. The user explicitly authorized full implementation.
+-   Preserve unrelated dirty files present at start: `.agents/skills/autoreview/scripts/autoreview`, `.agents/skills/autoreview/scripts/test-autoreview-reliability.py`, `AGENTS.md`, `CLAUDE.md`, `README.md`, `README-RU.md`, `memory-bank/currentResearch.md`, and `package.json`.
+-   Clean-break constraint: test DB is disposable; no compatibility shims and no platform schema snapshot or Interpretation Network metahub-template version bump.
+-   Baseline captured: `CURRENT_SCHEMA_SNAPSHOT_VERSION = 2`; Interpretation Network template seed `version = '2.29.0'`; canonical fixture SHA-256 `2dd642c215337fa33c802b7b708fd681ed5618a42b769dbb6bf6af2ee920e090`.
+-   OntoIndex HEAD matches `767b0644879a78691a21892bf84a6e82da93e21b`; semantic search is degraded and some symbols fail name resolution, so verify every indexed claim against current source and capture exact impacts before edits.
+-   Current UI contract: reuse public runtime transport/resolver and apps-template MUI primitives; no user-facing IDs/JSON, mutation controls are absent from anonymous DOM, EN/RU localized, keyboard and 1920x1080 / 768x1024 / 390x844 UX evidence required.
+-   Implementation checklist is at the top of `memory-bank/tasks.md` under `Interpretation Network Public Runtime And Advanced Workspace — IMPLEMENT (2026-10-22)`; terminal evidence and limitations are in `progress.md`.

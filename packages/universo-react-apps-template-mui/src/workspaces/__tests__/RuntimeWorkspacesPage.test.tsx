@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import RuntimeWorkspacesPage from '../RuntimeWorkspacesPage'
+import enApps from '../../i18n/locales/en/apps.json'
+import { DashboardDetailsProvider } from '../../dashboard/DashboardDetailsContext'
 import ruApps from '../../i18n/locales/ru/apps.json'
 
 const visibleAnchorRect = {
@@ -44,6 +46,10 @@ const i18nState = vi.hoisted(() => ({
     language: 'en',
     translations: {
         en: {
+            'workspace.widgetSettings.widgetTitle': '{{widget}} — {{location}} (widget {{number}})',
+            'workspace.widgetSettings.widgetName': 'Interpretation Network',
+            'workspace.widgetSettings.locations.center': 'Center zone',
+            'workspace.widgetSettings.duplicateColor': 'This color is already in the allowed list.',
             'workspace.settingKeys.sectionLinksEnabled': 'Section-specific links',
             'workspace.settingKeys.sectionLinksEnabled.description': 'Generate a separate URL for each application menu section.',
             'workspace.settingKeys.dashboardDefaultMode': 'Runtime start dashboard',
@@ -51,13 +57,21 @@ const i18nState = vi.hoisted(() => ({
                 'Controls which dashboard section opens first in the published application.',
             'workspace.errors.copyReferenceUnresolved': 'A required workspace reference could not be copied.',
             'workspace.errors.copyAccessLinkIntakeInvalid': 'This workspace has invalid guest intake settings and could not be copied.',
+            'workspace.errors.copyTemplateMaterialsExcluded':
+                'Some materials are linked to templates that are not included in the copy, so the workspace cannot be copied.',
             'workspace.errors.seedResetFailed': 'Seeded workspace content could not be reset.'
         },
         ru: {
+            'workspace.widgetSettings.widgetTitle': '{{widget}} — {{location}} (виджет {{number}})',
+            'workspace.widgetSettings.widgetName': 'Трактовочная сеть',
+            'workspace.widgetSettings.locations.center': 'Центральная зона',
+            'workspace.widgetSettings.duplicateColor': 'Этот цвет уже есть в списке разрешённых.',
             'workspace.errors.userNotFound': 'Пользователь не найден',
             'workspace.errors.copyReferenceUnresolved': 'Не удалось скопировать обязательную связь рабочего пространства.',
             'workspace.errors.copyAccessLinkIntakeInvalid':
                 'В рабочем пространстве настроена некорректная гостевая анкета, поэтому его нельзя скопировать.',
+            'workspace.errors.copyTemplateMaterialsExcluded':
+                'Некоторые материалы связаны с шаблонами, которые не входят в копию, поэтому рабочее пространство нельзя скопировать.',
             'workspace.errors.seedResetFailed': 'Не удалось сбросить исходные данные рабочего пространства.'
         }
     } as Record<string, string>
@@ -68,14 +82,14 @@ vi.mock('react-i18next', () => ({
         i18n: { language: i18nState.language },
         t: (_key: string, fallbackOrOptions?: string | Record<string, unknown>) => {
             const language = i18nState.language.split(/[-_]/)[0]?.toLowerCase() || 'en'
-            if (i18nState.translations[language]?.[_key]) {
-                return i18nState.translations[language][_key]
-            }
-            return typeof fallbackOrOptions === 'string'
-                ? fallbackOrOptions
-                : typeof fallbackOrOptions?.defaultValue === 'string'
-                ? fallbackOrOptions.defaultValue
-                : _key
+            const template =
+                i18nState.translations[language]?.[_key] ??
+                (typeof fallbackOrOptions === 'string'
+                    ? fallbackOrOptions
+                    : typeof fallbackOrOptions?.defaultValue === 'string'
+                    ? fallbackOrOptions.defaultValue
+                    : _key)
+            return template.replace(/\{\{(\w+)\}\}/gu, (_match, key: string) => String(fallbackOrOptions?.[key] ?? `{{${key}}}`))
         }
     })
 }))
@@ -306,11 +320,16 @@ const createQueryClient = () =>
         }
     })
 
-const renderPage = (props: Partial<Parameters<typeof RuntimeWorkspacesPage>[0]> = {}) =>
+const renderPage = (
+    props: Partial<Parameters<typeof RuntimeWorkspacesPage>[0]> = {},
+    runtimeLayoutTarget?: { targetKind: 'page' | 'object'; entityTypeId: string }
+) =>
     render(
-        <QueryClientProvider client={createQueryClient()}>
-            <RuntimeWorkspacesPage applicationId='app-1' apiBaseUrl='/api/v1' locale='en' {...props} />
-        </QueryClientProvider>
+        <DashboardDetailsProvider value={{ title: 'Runtime', ...(runtimeLayoutTarget ? { runtimeLayoutTarget } : {}) }}>
+            <QueryClientProvider client={createQueryClient()}>
+                <RuntimeWorkspacesPage applicationId='app-1' apiBaseUrl='/api/v1' locale='en' {...props} />
+            </QueryClientProvider>
+        </DashboardDetailsProvider>
     )
 
 describe('RuntimeWorkspacesPage', () => {
@@ -453,7 +472,8 @@ describe('RuntimeWorkspacesPage', () => {
                         options: ['layout-default', 'first-menu-item']
                     }
                 }
-            ]
+            ],
+            widgetSettings: []
         })
         apiMocks.updateRuntimeWorkspaceSettings.mockResolvedValue({
             canManage: true,
@@ -491,7 +511,8 @@ describe('RuntimeWorkspacesPage', () => {
                         options: ['layout-default', 'first-menu-item']
                     }
                 }
-            ]
+            ],
+            widgetSettings: []
         })
     })
 
@@ -676,6 +697,43 @@ describe('RuntimeWorkspacesPage', () => {
             'В рабочем пространстве настроена некорректная гостевая анкета, поэтому его нельзя скопировать.'
         )
         expect(within(dialog).queryByText('Backend copy details')).not.toBeInTheDocument()
+    })
+
+    it.each([
+        {
+            locale: 'en',
+            language: 'en',
+            localizedMessage: 'Some materials are linked to templates that are not included in the copy, so the workspace cannot be copied.'
+        },
+        {
+            locale: 'ru',
+            language: 'ru',
+            localizedMessage:
+                'Некоторые материалы связаны с шаблонами, которые не входят в копию, поэтому рабочее пространство нельзя скопировать.'
+        }
+    ])('shows the $language copy error without exposing backend message or details', async ({ locale, language, localizedMessage }) => {
+        const backendMessage = 'Workspace copy cannot preserve TableTemplate Material relationships across excluded records'
+        const backendDetails = 'MaterialRef references excluded TableTemplate row "table-template-42"'
+        i18nState.language = language
+        apiMocks.copyRuntimeWorkspace.mockRejectedValueOnce(
+            Object.assign(new Error(backendMessage), {
+                code: 'WORKSPACE_COPY_TEMPLATE_MATERIALS_EXCLUDED',
+                details: backendDetails
+            })
+        )
+
+        renderPage({ locale })
+        await screen.findByRole('button', { name: 'Class A' })
+
+        fireEvent.click(screen.getAllByRole('button', { name: 'Workspace actions' })[1])
+        fireEvent.click(await screen.findByRole('menuitem', { name: 'Copy' }))
+        const dialog = await screen.findByRole('dialog')
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Copy' }))
+
+        const alert = await within(dialog).findByRole('alert')
+        expect(alert).toHaveTextContent(localizedMessage)
+        expect(within(dialog).queryByText(backendMessage, { exact: false })).not.toBeInTheDocument()
+        expect(within(dialog).queryByText(backendDetails, { exact: false })).not.toBeInTheDocument()
     })
 
     it('renders the selected workspace dashboard on the workspace detail route', async () => {
@@ -947,7 +1005,7 @@ describe('RuntimeWorkspacesPage', () => {
     })
 
     it('renders workspace setting controls and updates allowed overrides', async () => {
-        renderPage({ routeWorkspaceId: 'ws-shared', routeSection: 'settings' })
+        renderPage({ routeWorkspaceId: 'ws-shared', routeSection: 'settings' }, { targetKind: 'page', entityTypeId: 'page-type-1' })
 
         expect(await screen.findByRole('heading', { name: 'Class A: Settings' })).toBeInTheDocument()
         expect(screen.getByText('Section-specific links')).toBeInTheDocument()
@@ -963,7 +1021,102 @@ describe('RuntimeWorkspacesPage', () => {
                     apiBaseUrl: '/api/v1',
                     applicationId: 'app-1',
                     workspaceId: 'ws-shared',
+                    targetKind: 'page',
+                    entityTypeId: 'page-type-1',
                     settings: [expect.objectContaining({ key: 'sectionLinksEnabled', value: false })],
+                    resets: []
+                })
+            )
+        })
+    })
+
+    it('shows only delegated widget settings and sends semantic targets for workspace color overrides', async () => {
+        const instanceKey = 'matrix-main'
+        apiMocks.fetchRuntimeWorkspaceSettings.mockResolvedValue({
+            canManage: true,
+            items: [],
+            widgetSettings: [
+                {
+                    key: 'interpretationNetwork.cellStylePolicy.allowedColors',
+                    target: { kind: 'widget', instanceKey },
+                    value: ['#000000'],
+                    source: 'application',
+                    isInherited: true,
+                    allowed: true,
+                    version: null
+                }
+            ],
+            effectiveWidgetConfigs: [
+                {
+                    target: { kind: 'widget', instanceKey },
+                    widgetKey: 'interpretationNetworkWorkspace',
+                    zone: 'center',
+                    semanticRegion: 'main',
+                    config: { cellStylePolicy: { allowedColors: ['#000000'] } },
+                    cellStylePolicy: { allowedColors: ['#000000'] },
+                    layoutToken: 'test-layout-token'
+                }
+            ]
+        })
+
+        renderPage({ routeWorkspaceId: 'ws-shared', routeSection: 'settings' }, { targetKind: 'page', entityTypeId: 'page-type-1' })
+
+        expect(await screen.findByRole('heading', { name: 'Interpretation Network — Center zone (widget 1)' })).toBeInTheDocument()
+        expect(screen.getByText('Allowed colors')).toBeInTheDocument()
+        expect(screen.getByLabelText('Color 1 (HEX)')).toHaveValue('#000000')
+        expect(screen.queryByText(instanceKey)).not.toBeInTheDocument()
+        await waitFor(() => {
+            expect(apiMocks.fetchRuntimeWorkspaceSettings).toHaveBeenCalledWith(
+                expect.objectContaining({ targetKind: 'page', entityTypeId: 'page-type-1' })
+            )
+        })
+
+        const newColorInput = screen.getByLabelText('New allowed color (HEX)') as HTMLInputElement
+        expect(newColorInput.type).toBe('text')
+        const pickerButton = screen.getByRole('button', { name: 'Choose color for New allowed color (HEX)' })
+        expect(pickerButton).toHaveStyle({ width: '32px', height: '32px' })
+        const inputFrame = newColorInput.closest('.MuiOutlinedInput-root')
+        const adornment = inputFrame?.querySelector('.MuiInputAdornment-positionEnd')
+        expect(inputFrame).not.toBeNull()
+        expect(adornment?.parentElement).toBe(inputFrame)
+        expect(pickerButton.parentElement).toBe(adornment)
+        expect(inputFrame).toHaveStyle({ height: '40px', alignItems: 'center' })
+        expect(adornment).toHaveStyle({ height: '32px', maxHeight: '32px', alignSelf: 'center', marginRight: '0px' })
+        expect(pickerButton).toHaveStyle({ width: '32px', height: '32px', margin: '0px' })
+        fireEvent.change(newColorInput, { target: { value: '#000000' } })
+        expect(screen.getByRole('status')).toHaveTextContent('This color is already in the allowed list.')
+        expect(screen.getByRole('button', { name: 'Add color' })).toBeDisabled()
+        fireEvent.change(newColorInput, { target: { value: '#607D8B' } })
+        await userEvent.click(pickerButton)
+        const pickerDialog = screen.getByRole('dialog', { name: 'Choose color for New allowed color (HEX)' })
+        const hexPicker = pickerDialog.querySelector('.react-colorful') as HTMLElement | null
+        expect(hexPicker).not.toBeNull()
+        expect(hexPicker).toHaveStyle({ width: '240px', height: '160px' })
+        expect(pickerDialog).not.toHaveTextContent('RGB')
+        await userEvent.keyboard('{Escape}')
+        expect(screen.queryByRole('status')).not.toBeInTheDocument()
+
+        await userEvent.click(screen.getByRole('button', { name: 'Add color' }))
+        const secondColorInput = screen.getByLabelText('Color 2 (HEX)') as HTMLInputElement
+        expect(secondColorInput.type).toBe('text')
+        expect(secondColorInput).toHaveValue('#607D8B')
+        await userEvent.click(screen.getByRole('button', { name: 'Save colors' }))
+
+        await waitFor(() => {
+            expect(apiMocks.updateRuntimeWorkspaceSettings).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    apiBaseUrl: '/api/v1',
+                    applicationId: 'app-1',
+                    workspaceId: 'ws-shared',
+                    targetKind: 'page',
+                    entityTypeId: 'page-type-1',
+                    settings: [
+                        {
+                            key: 'interpretationNetwork.cellStylePolicy.allowedColors',
+                            target: { kind: 'widget', instanceKey },
+                            value: ['#000000', '#607D8B']
+                        }
+                    ],
                     resets: []
                 })
             )
@@ -1028,8 +1181,14 @@ describe('RuntimeWorkspacesPage', () => {
         expect(apiMocks.fetchRuntimeWorkspaceMembers).not.toHaveBeenCalled()
     })
 
-    it('ships the Russian runtime workspace title used by published applications', () => {
+    it('ships localized runtime workspace resources', () => {
+        expect(enApps.workspace.errors.copyTemplateMaterialsExcluded).toBe(
+            'Some materials are linked to templates that are not included in the copy, so the workspace cannot be copied.'
+        )
         expect(ruApps.workspace.title).toBe('Рабочие пространства')
+        expect(ruApps.workspace.errors.copyTemplateMaterialsExcluded).toBe(
+            'Некоторые материалы связаны с шаблонами, которые не входят в копию, поэтому рабочее пространство нельзя скопировать.'
+        )
         expect(ruApps.workspace.settingKeys.sectionLinksEnabled).toBe('Индивидуальные ссылки разделов')
         expect(ruApps.workspace.settingKeys['learningContent.defaultView']).toBe('Вид контента по умолчанию')
         expect(ruApps.workspace.errors.userNotFound).toBe('Пользователь не найден')

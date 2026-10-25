@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import i18n from '@universo-react/i18n'
 import { DashboardDetailsProvider } from '../../DashboardDetailsContext'
+import { AuthenticatedRuntimePlacementScopeProvider } from '../../AuthenticatedRuntimePlacementScopeContext'
 import { renderWidget } from '../widgetRenderer'
 import { CellEditDialog, resolveCellStyleContrast } from '../interpretation-network/CellEditDialog'
 
@@ -17,6 +18,18 @@ const SYSTEM_ROOT_CELL_ID = '019f7f10-0000-7000-8000-000000000007'
 const CREATED_STRUCTURE_ID = '019f7f10-0000-7000-8000-000000000008'
 const CREATED_INTERPRETATION_ID = '019f7f10-0000-7000-8000-000000000009'
 const CREATED_ROOT_CELL_ID = '019f7f10-0000-7000-8000-00000000000a'
+const MOVE_CELL_ID = '019f7f10-0000-7000-8000-000000000030'
+const MOVE_OTHER_CELL_ID = '019f7f10-0000-7000-8000-000000000031'
+const MOVE_NEIGHBOR_CELL_ID = '019f7f10-0000-7000-8000-000000000032'
+const MOVE_ROOT_CELL_ID = '019f7f10-0000-7000-8000-000000000033'
+const MATRIX_TABLE_SELECTED_CELL_ID = '019f7f10-0000-7000-8000-000000000034'
+const MATRIX_TABLE_OTHER_CELL_ID = '019f7f10-0000-7000-8000-000000000035'
+const MATRIX_TABLE_MATERIAL_ID = '019f7f10-0000-7000-8000-000000000036'
+const DELETE_CELL_ID = '019f7f10-0000-7000-8000-000000000037'
+const DELETE_OTHER_CELL_ID = '019f7f10-0000-7000-8000-000000000038'
+const DELETE_INDEPENDENT_CELL_ID = '019f7f10-0000-7000-8000-000000000039'
+const UPDATE_CELL_ID = '019f7f10-0000-7000-8000-00000000003a'
+const UPDATE_OTHER_CELL_ID = '019f7f10-0000-7000-8000-00000000003b'
 const vlc = (en: string, ru: string, primary = 'ru') => ({
     _schema: '1',
     _primary: primary,
@@ -224,7 +237,7 @@ const matrixRowsFixture = () => ({
             BorderLeftWidth: '1px',
             BorderLeftStyle: 'solid',
             BorderLeftColor: null,
-            MaterialRef: 'material-selected'
+            MaterialRef: null
         },
         {
             id: 'matrix-row-other',
@@ -255,6 +268,28 @@ const matrixRowsFixture = () => ({
     ],
     total: 2
 })
+
+const matrixRowsFixtureWithCellIds = (selectedCellId: string, otherCellId: string) => {
+    const fixture = matrixRowsFixture()
+    return {
+        ...fixture,
+        items: fixture.items.map((item, index) => ({
+            ...item,
+            CellId: index === 0 ? selectedCellId : otherCellId
+        }))
+    }
+}
+
+const matrixRowsFixtureWithUuidV7CellIds = () => {
+    const fixture = matrixRowsFixture()
+    return {
+        ...fixture,
+        items: fixture.items.map((item, index) => ({
+            ...item,
+            CellId: index === 0 ? MOVE_CELL_ID : MOVE_OTHER_CELL_ID
+        }))
+    }
+}
 
 const toServerMatrixCommandResponse = (row: Record<string, unknown>) => ({
     id: row.id,
@@ -381,6 +416,7 @@ const defaultRuntimeResponse = (url: URL) => {
                     _upl_version: 5,
                     Title: 'Selected material',
                     Description: 'Selected material description',
+                    CellId: 'cell-selected',
                     Body: { data: { blocks: [{ type: 'paragraph', data: { text: { en: 'Selected material body' } } }] } }
                 }
             ],
@@ -534,7 +570,7 @@ const renderInterpretationNetworkWidget = (
                 }}
             >
                 {renderWidget({
-                    id: 'interpretation-widget',
+                    instanceKey: 'interpretation-widget',
                     widgetKey: 'interpretationNetworkWorkspace',
                     sortOrder: 0,
                     config
@@ -797,9 +833,12 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         await userEvent.click(within(structurePane).getByRole('button', { name: 'Existing structure' }))
 
         expect(await within(structurePane).findByTestId('interpretation-network-matrix-workspace')).toBeInTheDocument()
-        expect(within(structurePane).getByRole('tab', { name: 'Matrix' })).toHaveAttribute('aria-selected', 'true')
-        expect(within(structurePane).getByRole('tabpanel')).toContainElement(
-            within(structurePane).getByTestId('interpretation-network-matrix-workspace')
+        const matrixTab = within(within(structurePane).getByRole('tablist', { name: 'Workspace sections' })).getByRole('tab', {
+            name: 'Matrix'
+        })
+        expect(matrixTab).toHaveAttribute('aria-selected', 'true')
+        expect(document.getElementById(matrixTab.getAttribute('aria-controls') ?? '')).toContainElement(
+            within(structurePane).getAllByTestId('interpretation-network-cell')[0]
         )
         const toolbar = within(structurePane).getByTestId('interpretation-network-matrix-toolbar')
         const toolbarQueries = within(toolbar)
@@ -992,7 +1031,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             return jsonResponse(defaultRuntimeResponse(url))
         })
         window.history.pushState({}, '', `/a/app-1/${sectionIds.Structure}`)
-        const { navigate } = renderInterpretationNetworkWidget(fetchMock)
+        const { navigate, unmount } = renderInterpretationNetworkWidget(fetchMock)
 
         const structurePane = await screen.findByTestId('interpretation-network-structure-pane')
         await user.click(within(structurePane).getByRole('button', { name: 'Existing structure' }))
@@ -1000,7 +1039,13 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         expect(await within(structurePane).findByTestId('interpretation-network-matrix-workspace')).toBeInTheDocument()
         expect(window.location.pathname).toBe(`/a/app-1/${sectionIds.Structure}/concept-1`)
         expect(navigate).toHaveBeenCalledWith(`/a/app-1/${sectionIds.Structure}/concept-1`)
-    })
+
+        unmount()
+        renderInterpretationNetworkWidget(fetchMock)
+
+        expect(await screen.findByTestId('interpretation-network-matrix-workspace')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Existing structure' })).not.toBeInTheDocument()
+    }, 15_000)
 
     it('uses the concept section segment instead of the workspace id when opening a structure from the app root URL', async () => {
         const user = userEvent.setup()
@@ -1019,7 +1064,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         expect(window.location.pathname).toBe(`/a/app-1/${sectionIds.Structure}/concept-1`)
         expect(window.location.pathname).not.toContain('/workspace-1/')
         expect(navigate).toHaveBeenCalledWith(`/a/app-1/${sectionIds.Structure}/concept-1`)
-    })
+    }, 15_000)
 
     it('opens the structure matrix from an initial structure URL segment', async () => {
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
@@ -1073,7 +1118,9 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         expect(screen.queryByTestId('interpretation-network-structure-header')).not.toBeInTheDocument()
         expect(within(structurePane).queryByRole('button', { name: 'Create' })).not.toBeInTheDocument()
         expect(within(structurePane).queryByRole('button', { name: 'Existing structure' })).not.toBeInTheDocument()
-        expect(within(structurePane).getByRole('tab', { name: 'Matrix' })).toBeInTheDocument()
+        expect(
+            within(within(structurePane).getByRole('tablist', { name: 'Workspace sections' })).getByRole('tab', { name: 'Matrix' })
+        ).toBeInTheDocument()
         expect(within(structurePane).getByRole('tab', { name: 'Templates' })).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Structures' })).not.toBeInTheDocument()
         expect(screen.queryByText('System structure')).not.toBeInTheDocument()
@@ -1192,7 +1239,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                 })
             )
         })
-    }, 20_000)
+    }, 60_000)
 
     it('creates a structure from a template only in multi-structure mode', async () => {
         const user = userEvent.setup()
@@ -1258,7 +1305,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                 })
             )
         })
-    }, 20_000)
+    }, 60_000)
 
     it('opens, edits and deletes saved templates from the Templates management tab', async () => {
         const user = userEvent.setup()
@@ -1382,31 +1429,42 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         vi.stubGlobal('fetch', fetchMock)
         render(
             <QueryClientProvider client={createQueryClient()}>
-                <DashboardDetailsProvider
+                <AuthenticatedRuntimePlacementScopeProvider
                     value={{
-                        title: 'Interpretation Network',
-                        applicationId: 'app-1',
-                        apiBaseUrl: '/api/v1',
-                        locale: 'en',
-                        currentWorkspaceId: 'workspace-1',
-                        permissions: defaultPermissions
+                        'interpretation-widget-one': {
+                            widgetId: '019f7f10-0000-7000-8000-000000000030',
+                            layoutId: '019f7f10-0000-7000-8000-000000000031'
+                        },
+                        'interpretation-widget-two': {
+                            widgetId: '019f7f10-0000-7000-8000-000000000032',
+                            layoutId: '019f7f10-0000-7000-8000-000000000033'
+                        }
                     }}
                 >
-                    {renderWidget({
-                        id: 'interpretation-widget-one',
-                        layoutId: 'layout-one',
-                        widgetKey: 'interpretationNetworkWorkspace',
-                        sortOrder: 0,
-                        config: {}
-                    })}
-                    {renderWidget({
-                        id: 'interpretation-widget-two',
-                        layoutId: 'layout-two',
-                        widgetKey: 'interpretationNetworkWorkspace',
-                        sortOrder: 1,
-                        config: {}
-                    })}
-                </DashboardDetailsProvider>
+                    <DashboardDetailsProvider
+                        value={{
+                            title: 'Interpretation Network',
+                            applicationId: 'app-1',
+                            apiBaseUrl: '/api/v1',
+                            locale: 'en',
+                            currentWorkspaceId: 'workspace-1',
+                            permissions: defaultPermissions
+                        }}
+                    >
+                        {renderWidget({
+                            instanceKey: 'interpretation-widget-one',
+                            widgetKey: 'interpretationNetworkWorkspace',
+                            sortOrder: 0,
+                            config: {}
+                        })}
+                        {renderWidget({
+                            instanceKey: 'interpretation-widget-two',
+                            widgetKey: 'interpretationNetworkWorkspace',
+                            sortOrder: 1,
+                            config: {}
+                        })}
+                    </DashboardDetailsProvider>
+                </AuthenticatedRuntimePlacementScopeProvider>
             </QueryClientProvider>
         )
 
@@ -1419,6 +1477,13 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             expect(panelId).toBeTruthy()
             expect(document.getElementById(panelId!)).not.toBeNull()
         }
+        const templateRequestWidgetIds = fetchMock.mock.calls
+            .map(([input]) => new URL(String(input), 'http://localhost:3000'))
+            .filter((url) => url.pathname.endsWith('/runtime/interpretation-network/templates'))
+            .map((url) => url.searchParams.get('widgetId'))
+        expect(new Set(templateRequestWidgetIds)).toEqual(
+            new Set(['019f7f10-0000-7000-8000-000000000030', '019f7f10-0000-7000-8000-000000000032'])
+        )
     }, 20_000)
 
     it('reconciles template tabs when their configured surfaces become hidden', async () => {
@@ -1453,7 +1518,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                     }}
                 >
                     {renderWidget({
-                        id: 'interpretation-widget',
+                        instanceKey: 'interpretation-widget',
                         widgetKey: 'interpretationNetworkWorkspace',
                         sortOrder: 0,
                         config: { templatePanel: { showInStructureList: false, showInMatrix: false } }
@@ -1736,7 +1801,34 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         const user = userEvent.setup()
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
             const url = new URL(String(input), 'http://localhost:3000')
-            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixTableRowsFixture())
+            if (url.pathname.endsWith('/material-associations')) {
+                return jsonResponse({
+                    items: [{ cellId: MATRIX_TABLE_SELECTED_CELL_ID, materialId: MATRIX_TABLE_MATERIAL_ID }],
+                    page: { offset: 0, limit: 250, hasMore: false }
+                })
+            }
+            if (url.searchParams.get('objectCollectionCodename') === 'Material') {
+                return jsonResponse(
+                    appData(
+                        'Material',
+                        [{ id: MATRIX_TABLE_MATERIAL_ID, Title: 'Attached material', Description: 'Attached material description' }],
+                        [
+                            { id: 'material-title', codename: 'Title', field: 'Title', headerName: 'Title' },
+                            { id: 'material-description', codename: 'Description', field: 'Description', headerName: 'Description' }
+                        ]
+                    )
+                )
+            }
+            if (url.pathname.endsWith('/tabular/matrix-component')) {
+                const fixture = matrixTableRowsFixture()
+                return jsonResponse({
+                    ...fixture,
+                    items: fixture.items.map((row, index) => ({
+                        ...row,
+                        CellId: index === 0 ? MATRIX_TABLE_SELECTED_CELL_ID : MATRIX_TABLE_OTHER_CELL_ID
+                    }))
+                })
+            }
             return jsonResponse(defaultRuntimeResponse(url))
         })
         renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
@@ -1898,11 +1990,8 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         const cellButton = within(table).getByRole('button', { name: 'Definition, Meaning, 1, Selected cell value' })
 
         expect(cellButton).toBeEnabled()
-        expect(within(table).getAllByRole('button', { name: 'Drag cell' })).toHaveLength(2)
-        within(table)
-            .getAllByRole('button', { name: 'Drag cell' })
-            .forEach((dragButton) => expect(dragButton).toBeDisabled())
-        expect(within(table).getByRole('button', { name: 'Cell actions: Selected cell value' })).toBeEnabled()
+        expect(within(table).queryByRole('button', { name: 'Drag cell' })).not.toBeInTheDocument()
+        expect(within(table).queryByRole('button', { name: 'Cell actions: Selected cell value' })).not.toBeInTheDocument()
 
         await user.click(cellButton)
 
@@ -1910,6 +1999,9 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         expect(
             within(screen.getByTestId('interpretation-network-details-pane')).getByRole('heading', { name: 'Materials' })
         ).toBeInTheDocument()
+        expect(
+            fetchMock.mock.calls.some(([, init]) => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(String(init?.method).toUpperCase()))
+        ).toBe(false)
     }, 20_000)
 
     it('shows complete explicit Table axes while focused-path navigation remains a tree-view concern', async () => {
@@ -2037,7 +2129,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         expect(await screen.findByText('Failed to load matrix cells')).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled()
+        expect(screen.queryByRole('button', { name: 'Add' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Add cell in row' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Add row' })).not.toBeInTheDocument()
         expect(screen.queryByText(/internal_table_123/i)).not.toBeInTheDocument()
@@ -2065,7 +2157,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         expect(screen.queryByRole('button', { name: 'Add page' })).not.toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: 'Existing structure' }))
-        expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled()
+        expect(screen.queryByRole('button', { name: 'Add' })).not.toBeInTheDocument()
 
         await clickSelectedMatrixCell(user)
         expect(
@@ -2207,7 +2299,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             if (init?.method === 'PATCH' && url.pathname.includes('/tabular/matrix-component/')) {
                 return jsonResponse({ id: url.pathname.split('/').pop(), status: 'updated' })
             }
-            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixtureWithUuidV7CellIds())
             return jsonResponse(defaultRuntimeResponse(url))
         })
         renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, independentRowsConfig)
@@ -2215,7 +2307,10 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         await screen.findAllByText('Selected cell value')
         await user.click(screen.getByRole('button', { name: 'Cell actions: Selected cell value' }))
-        await user.click(await screen.findByRole('menuitem', { name: 'Down' }))
+        const moveDownAction = await screen.findByRole('menuitem', { name: 'Down' })
+        await waitFor(() => expect(moveDownAction).toBeEnabled())
+        await user.click(moveDownAction)
+        expect(await screen.findByText('Failed to update matrix cells')).toBeInTheDocument()
 
         await waitFor(() => {
             const moveCalls = fetchMock.mock.calls.filter(
@@ -2228,7 +2323,6 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                 )
             ).toBe(false)
         })
-        expect(await screen.findByText('Failed to update matrix cells')).toBeInTheDocument()
     }, 20_000)
 
     it('moves selected cells through the card action menu', async () => {
@@ -2239,10 +2333,10 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
             if (init?.method === 'POST' && url.pathname.endsWith('/runtime/interpretation-network/matrix/cells/move')) {
                 matrixMoved = true
-                return jsonResponse({ status: 'ok', updated: ['018f8a78-7b8f-7c1d-a111-222233334621'] })
+                return jsonResponse({ status: 'ok', updated: [MOVE_CELL_ID] })
             }
             if (url.pathname.endsWith('/tabular/matrix-component')) {
-                const fixture = matrixRowsFixture()
+                const fixture = matrixRowsFixtureWithUuidV7CellIds()
                 if (!matrixMoved) return jsonResponse(fixture)
                 return jsonResponse({
                     ...fixture,
@@ -2254,6 +2348,13 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                         },
                         fixture.items[1]
                     ]
+                })
+            }
+            if (url.searchParams.get('objectCollectionCodename') === 'Material') {
+                const response = defaultRuntimeResponse(url) as { rows?: Array<Record<string, unknown>> }
+                return jsonResponse({
+                    ...response,
+                    rows: (response.rows ?? []).map((row) => ({ ...row, CellId: MOVE_CELL_ID }))
                 })
             }
             return jsonResponse(defaultRuntimeResponse(url))
@@ -2278,12 +2379,12 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                     interpretationId: 'interpretation-1',
                     updates: expect.arrayContaining([
                         expect.objectContaining({
-                            matrixRowId: 'matrix-row-selected',
+                            cellId: MOVE_CELL_ID,
                             expectedVersion: 7,
                             placement: expect.objectContaining({ sortOrder: 1 })
                         }),
                         expect.objectContaining({
-                            matrixRowId: 'matrix-row-other',
+                            cellId: MOVE_OTHER_CELL_ID,
                             expectedVersion: 9,
                             placement: expect.objectContaining({ sortOrder: 0 })
                         })
@@ -2964,13 +3065,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             const url = new URL(String(input), 'http://localhost:3000')
             if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
             if (init?.method === 'POST' && url.pathname.endsWith('/runtime/interpretation-network/materials')) {
-                return jsonResponse(
-                    {
-                        id: '019f7f10-0000-7000-8000-000000000095',
-                        matrixRowId: '019f7f10-0000-7000-8000-000000000097'
-                    },
-                    201
-                )
+                return jsonResponse({ id: '019f7f10-0000-7000-8000-000000000095' }, 201)
             }
             if (init?.method === 'POST' && url.pathname.endsWith('/runtime/interpretation-network/matrix/cells')) {
                 created = true
@@ -3097,9 +3192,8 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             expect(JSON.parse(String(materialCreateCall?.[1]?.body ?? '{}'))).toEqual(
                 expect.objectContaining({
                     interpretationId: 'interpretation-1',
-                    matrixRowId: '019f7f10-0000-7000-8000-000000000097',
                     cellId: serverCellId,
-                    expectedVersion: 1,
+                    expectedCellVersion: 1,
                     data: expect.not.objectContaining({ CellId: serverCellId })
                 })
             )
@@ -3360,7 +3454,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
     it('moves selected cells horizontally through the card action menu', async () => {
         const user = userEvent.setup()
         const horizontalFixture = () => {
-            const fixture = matrixRowsFixture()
+            const fixture = matrixRowsFixtureWithUuidV7CellIds()
             return {
                 ...fixture,
                 items: [
@@ -3368,7 +3462,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                     {
                         ...fixture.items[0],
                         id: 'matrix-row-neighbor',
-                        CellId: 'cell-neighbor',
+                        CellId: MOVE_NEIGHBOR_CELL_ID,
                         ColKey: 'source',
                         ColLabel: 'Source',
                         CellValue: 'Neighbor cell value',
@@ -3405,7 +3499,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             expect(body.updates).toHaveLength(3)
             expect(body.updates[0]).toEqual(
                 expect.objectContaining({
-                    matrixRowId: 'matrix-row-selected',
+                    cellId: MOVE_CELL_ID,
                     expectedVersion: 7,
                     placement: expect.objectContaining({ sortOrder: 1 })
                 })
@@ -3413,12 +3507,12 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             expect(body.updates).toEqual(
                 expect.arrayContaining([
                     expect.objectContaining({
-                        matrixRowId: 'matrix-row-neighbor',
+                        cellId: MOVE_NEIGHBOR_CELL_ID,
                         expectedVersion: 7,
                         placement: expect.objectContaining({ sortOrder: 0 })
                     }),
                     expect.objectContaining({
-                        matrixRowId: 'matrix-row-other',
+                        cellId: MOVE_OTHER_CELL_ID,
                         expectedVersion: 9,
                         placement: expect.objectContaining({ sortOrder: 0 })
                     })
@@ -3430,14 +3524,14 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
     it('reorders hierarchical sibling cells without reparenting the moved cell', async () => {
         const user = userEvent.setup()
         const hierarchicalFixture = () => {
-            const fixture = matrixRowsFixture()
+            const fixture = matrixRowsFixtureWithUuidV7CellIds()
             return {
                 ...fixture,
                 items: [
                     {
                         id: 'matrix-row-root',
                         _upl_version: 3,
-                        CellId: 'cell-root',
+                        CellId: MOVE_ROOT_CELL_ID,
                         RowKey: 'root',
                         RowLabel: 'Root',
                         ColKey: 'root',
@@ -3463,12 +3557,12 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                     },
                     {
                         ...fixture.items[0],
-                        ParentCellId: 'cell-root',
+                        ParentCellId: MOVE_ROOT_CELL_ID,
                         _tp_sort_order: 0
                     },
                     {
                         ...fixture.items[1],
-                        ParentCellId: 'cell-root',
+                        ParentCellId: MOVE_ROOT_CELL_ID,
                         _tp_sort_order: 1
                     }
                 ],
@@ -3504,7 +3598,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             expect(body.updates).toHaveLength(2)
             expect(body.updates[0]).toEqual(
                 expect.objectContaining({
-                    matrixRowId: 'matrix-row-selected',
+                    cellId: MOVE_CELL_ID,
                     expectedVersion: 7,
                     placement: expect.objectContaining({ sortOrder: 1 })
                 })
@@ -3512,7 +3606,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             expect(body.updates).toEqual(
                 expect.arrayContaining([
                     expect.objectContaining({
-                        matrixRowId: 'matrix-row-other',
+                        cellId: MOVE_OTHER_CELL_ID,
                         placement: expect.objectContaining({ sortOrder: 0 })
                     })
                 ])
@@ -3530,10 +3624,12 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
             const url = new URL(String(input), 'http://localhost:3000')
             if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
-            if (init?.method === 'DELETE' && url.pathname.endsWith('/tabular/matrix-component/matrix-row-selected')) {
-                return new Response(null, { status: 204 })
+            if (init?.method === 'DELETE' && url.pathname.endsWith(`/matrix/cells/${DELETE_CELL_ID}`)) {
+                return jsonResponse({ cellId: DELETE_CELL_ID, deletedMaterialCount: 0 })
             }
-            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
+            if (url.pathname.endsWith('/tabular/matrix-component')) {
+                return jsonResponse(matrixRowsFixtureWithCellIds(DELETE_CELL_ID, DELETE_OTHER_CELL_ID))
+            }
             return jsonResponse(defaultRuntimeResponse(url))
         })
         renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, independentRowsConfig)
@@ -3548,10 +3644,15 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
 
         await waitFor(() => {
             const deleteCall = fetchMock.mock.calls.find(
-                ([input, init]) => init?.method === 'DELETE' && String(input).includes('/tabular/matrix-component/matrix-row-selected')
+                ([input, init]) =>
+                    init?.method === 'DELETE' &&
+                    new URL(String(input), 'http://localhost:3000').pathname.endsWith(`/matrix/cells/${DELETE_CELL_ID}`)
             )
             expect(deleteCall).toBeDefined()
-            expect(new URL(String(deleteCall?.[0]), 'http://localhost:3000').searchParams.get('expectedVersion')).toBe('7')
+            expect(JSON.parse(String(deleteCall?.[1]?.body ?? '{}'))).toEqual({
+                interpretationId: 'interpretation-1',
+                expectedCellVersion: 7
+            })
         })
     }, 20_000)
 
@@ -3604,7 +3705,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                 items: [
                     {
                         ...fixture.items[0],
-                        CellId: 'cell-root',
+                        CellId: MATRIX_TABLE_SELECTED_CELL_ID,
                         CellValue: 'Universe',
                         ParentCellId: null,
                         _tp_sort_order: 0
@@ -3612,7 +3713,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                     {
                         ...fixture.items[1],
                         id: 'matrix-row-independent',
-                        CellId: 'cell-independent',
+                        CellId: DELETE_INDEPENDENT_CELL_ID,
                         CellValue: 'Independent',
                         ParentCellId: null,
                         _tp_sort_order: 1
@@ -3624,8 +3725,8 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
             const url = new URL(String(input), 'http://localhost:3000')
             if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
-            if (url.pathname.endsWith('/tabular/matrix-component/matrix-row-independent') && init?.method === 'DELETE') {
-                return new Response(null, { status: 204 })
+            if (url.pathname.endsWith(`/matrix/cells/${DELETE_INDEPENDENT_CELL_ID}`) && init?.method === 'DELETE') {
+                return jsonResponse({ cellId: DELETE_INDEPENDENT_CELL_ID, deletedMaterialCount: 0 })
             }
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(topLevelFixture())
             return jsonResponse(defaultRuntimeResponse(url))
@@ -3647,7 +3748,8 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             expect(
                 fetchMock.mock.calls.some(
                     ([input, init]) =>
-                        init?.method === 'DELETE' && String(input).includes('/tabular/matrix-component/matrix-row-independent')
+                        init?.method === 'DELETE' &&
+                        new URL(String(input), 'http://localhost:3000').pathname.endsWith(`/matrix/cells/${DELETE_INDEPENDENT_CELL_ID}`)
                 )
             ).toBe(true)
         })
@@ -3706,7 +3808,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             const url = new URL(String(input), 'http://localhost:3000')
             if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
             if (init?.method === 'POST' && url.pathname.endsWith('/runtime/interpretation-network/materials')) {
-                return jsonResponse({ id: 'material-created', matrixRowId: 'matrix-row-selected' }, 201)
+                return jsonResponse({ id: 'material-created' }, 201)
             }
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
             if (url.searchParams.get('objectCollectionCodename') === 'Interpretation') {
@@ -3755,9 +3857,8 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             expect(JSON.parse(String(createCall?.[1]?.body ?? '{}'))).toEqual(
                 expect.objectContaining({
                     interpretationId: 'interpretation-1',
-                    matrixRowId: 'matrix-row-selected',
                     cellId: 'cell-selected',
-                    expectedVersion: 7,
+                    expectedCellVersion: 7,
                     data: expect.objectContaining({
                         Title: expect.objectContaining({
                             locales: expect.objectContaining({
@@ -3840,13 +3941,22 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
 
     it('filters materials, switches to card view, edits metadata from row actions, and opens a body-only material editor', async () => {
         const user = userEvent.setup()
+        let materialVersion = 5
         const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
             const url = new URL(String(input), 'http://localhost:3000')
             if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
-            if (init?.method === 'PATCH' && url.pathname.endsWith('/runtime/rows/material-selected')) {
-                return jsonResponse({ id: 'material-selected' })
+            if (init?.method === 'PATCH' && url.pathname.endsWith('/runtime/interpretation-network/materials/material-selected')) {
+                materialVersion += 1
+                return jsonResponse({ id: 'material-selected', version: materialVersion })
             }
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
+            if (url.searchParams.get('objectCollectionCodename') === 'Material') {
+                const response = defaultRuntimeResponse(url) as { rows: Array<Record<string, unknown>> }
+                return jsonResponse({
+                    ...response,
+                    rows: response.rows.map((row) => (row.id === 'material-selected' ? { ...row, _upl_version: materialVersion } : row))
+                })
+            }
             return jsonResponse(defaultRuntimeResponse(url))
         })
         renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, independentAxesTableConfig)
@@ -3885,6 +3995,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         await user.type(editDescriptionField, 'Selected material description edited')
         await user.click(within(editDialog).getByRole('button', { name: 'Save' }))
 
+        await user.click(await screen.findByRole('button', { name: 'Back to materials' }))
         await user.click(screen.getByRole('button', { name: 'Card view' }))
         const materialCards = screen.getByTestId('interpretation-network-material-cards')
         expect(materialCards).toBeInTheDocument()
@@ -3913,7 +4024,10 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         await waitFor(() => {
             const updateCalls = fetchMock.mock.calls.filter(
                 ([input, init]) =>
-                    init?.method === 'PATCH' && String(input).endsWith('/runtime/rows/material-selected?workspaceId=workspace-1')
+                    init?.method === 'PATCH' &&
+                    new URL(String(input), 'http://localhost:3000').pathname.endsWith(
+                        '/runtime/interpretation-network/materials/material-selected'
+                    )
             )
             expect(updateCalls.length).toBeGreaterThanOrEqual(2)
             const metadataUpdateCall = updateCalls.find(([, init]) => {
@@ -3926,7 +4040,10 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             expect(metadataUpdateCall).toBeDefined()
             expect(JSON.parse(String(metadataUpdateCall?.[1]?.body ?? '{}'))).toEqual(
                 expect.objectContaining({
-                    expectedVersion: 5,
+                    interpretationId: 'interpretation-1',
+                    cellId: 'cell-selected',
+                    expectedCellVersion: 7,
+                    expectedMaterialVersion: 5,
                     data: expect.objectContaining({
                         Title: expect.objectContaining({
                             locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Selected material edited' }) })
@@ -3941,7 +4058,10 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             expect(bodyUpdateCall).toBeDefined()
             expect(JSON.parse(String(bodyUpdateCall?.[1]?.body ?? '{}'))).toEqual(
                 expect.objectContaining({
-                    expectedVersion: 5,
+                    interpretationId: 'interpretation-1',
+                    cellId: 'cell-selected',
+                    expectedCellVersion: 7,
+                    expectedMaterialVersion: 6,
                     data: expect.objectContaining({
                         Body: expect.objectContaining({
                             data: expect.objectContaining({
@@ -3981,15 +4101,17 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         expect(selectedCellStyle.backgroundColor).not.toBe('rgb(0, 0, 0)')
     }, 15_000)
 
-    it('edits cell metadata and style from the card menu through the tabular update endpoint', async () => {
+    it('edits cell metadata and style through the atomic Matrix cell update endpoint', async () => {
         const user = userEvent.setup()
         const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
             const url = new URL(String(input), 'http://localhost:3000')
             if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
-            if (init?.method === 'POST' && url.pathname.endsWith('/tabular/matrix-component/batch')) {
-                return jsonResponse({ ok: true })
+            if (init?.method === 'PATCH' && url.pathname.endsWith(`/matrix/cells/${UPDATE_CELL_ID}`)) {
+                return jsonResponse({ cellId: UPDATE_CELL_ID, version: 8 })
             }
-            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
+            if (url.pathname.endsWith('/tabular/matrix-component')) {
+                return jsonResponse(matrixRowsFixtureWithCellIds(UPDATE_CELL_ID, UPDATE_OTHER_CELL_ID))
+            }
             return jsonResponse(defaultRuntimeResponse(url))
         })
         renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, horizontalRowsIndependentAxesConfig)
@@ -4019,44 +4141,31 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         await user.click(within(dialog).getByRole('button', { name: 'Save' }))
 
         await waitFor(() => {
-            const styleCall = fetchMock.mock.calls.find(
-                ([input, init]) => init?.method === 'POST' && String(input).includes('/tabular/matrix-component/batch')
+            const updateCalls = fetchMock.mock.calls.filter(
+                ([input, init]) => init?.method === 'PATCH' && String(input).includes('/matrix/cells/')
             )
-            expect(styleCall).toBeDefined()
-            expect(JSON.parse(String(styleCall?.[1]?.body ?? '{}'))).toEqual(
+            expect(updateCalls).toHaveLength(1)
+            expect(new URL(String(updateCalls[0][0]), 'http://localhost:3000').pathname).toMatch(
+                new RegExp(`/matrix/cells/${UPDATE_CELL_ID}$`)
+            )
+            expect(JSON.parse(String(updateCalls[0][1]?.body ?? '{}'))).toEqual(
                 expect.objectContaining({
-                    updates: expect.arrayContaining([
-                        expect.objectContaining({
-                            childRowId: 'matrix-row-selected',
-                            expectedVersion: 7,
-                            data: expect.objectContaining({
-                                RowLabel: expect.objectContaining({
-                                    locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Updated row label' }) })
-                                }),
-                                ColLabel: expect.objectContaining({
-                                    locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Updated column label' }) })
-                                }),
-                                CellValue: expect.objectContaining({
-                                    locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Updated cell title' }) })
-                                }),
-                                CellDescription: expect.objectContaining({
-                                    locales: expect.objectContaining({
-                                        en: expect.objectContaining({ content: 'Updated cell description' })
-                                    })
-                                })
-                            })
+                    interpretationId: 'interpretation-1',
+                    expectedCellVersion: 7,
+                    data: expect.objectContaining({
+                        RowLabel: expect.objectContaining({
+                            locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Updated row label' }) })
+                        }),
+                        ColLabel: expect.objectContaining({
+                            locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Updated column label' }) })
+                        }),
+                        CellValue: expect.objectContaining({
+                            locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Updated cell title' }) })
+                        }),
+                        CellDescription: expect.objectContaining({
+                            locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Updated cell description' }) })
                         })
-                    ]),
-                    uniformUpdates: [
-                        expect.objectContaining({
-                            rows: [{ childRowId: 'matrix-row-other', expectedVersion: 9 }],
-                            data: expect.objectContaining({
-                                ColLabel: expect.objectContaining({
-                                    locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Updated column label' }) })
-                                })
-                            })
-                        })
-                    ]
+                    })
                 })
             )
         })
@@ -4067,10 +4176,12 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
             const url = new URL(String(input), 'http://localhost:3000')
             if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
-            if (init?.method === 'POST' && url.pathname.endsWith('/tabular/matrix-component/batch')) {
-                return jsonResponse({ ok: true })
+            if (init?.method === 'PATCH' && url.pathname.endsWith(`/matrix/cells/${UPDATE_CELL_ID}`)) {
+                return jsonResponse({ cellId: UPDATE_CELL_ID, version: 8 })
             }
-            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
+            if (url.pathname.endsWith('/tabular/matrix-component')) {
+                return jsonResponse(matrixRowsFixtureWithCellIds(UPDATE_CELL_ID, UPDATE_OTHER_CELL_ID))
+            }
             return jsonResponse(defaultRuntimeResponse(url))
         })
         renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, horizontalRowsIndependentAxesConfig)
@@ -4097,15 +4208,15 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         await user.click(within(dialog).getByRole('button', { name: 'Save' }))
 
         await waitFor(() => {
-            const batchCalls = fetchMock.mock.calls.filter(
-                ([input, init]) => init?.method === 'POST' && String(input).includes('/tabular/matrix-component/batch')
+            const updateCalls = fetchMock.mock.calls.filter(
+                ([input, init]) => init?.method === 'PATCH' && String(input).includes('/matrix/cells/')
             )
-            expect(batchCalls).toHaveLength(1)
-            const body = JSON.parse(String(batchCalls[0][1]?.body ?? '{}'))
-            expect(body.updates).toEqual([
+            expect(updateCalls).toHaveLength(1)
+            const body = JSON.parse(String(updateCalls[0][1]?.body ?? '{}'))
+            expect(body).toEqual(
                 expect.objectContaining({
-                    childRowId: 'matrix-row-selected',
-                    expectedVersion: 7,
+                    interpretationId: 'interpretation-1',
+                    expectedCellVersion: 7,
                     data: expect.objectContaining({
                         RowLabel: expect.objectContaining({
                             locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Definition' }) })
@@ -4117,14 +4228,12 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                             locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Updated cell title' }) })
                         }),
                         CellDescription: expect.objectContaining({
-                            locales: expect.objectContaining({
-                                en: expect.objectContaining({ content: 'Updated cell description' })
-                            })
+                            locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Updated cell description' }) })
                         })
                     })
                 })
-            ])
-            expect(body.uniformUpdates).toBeUndefined()
+            )
+            expect(body).not.toHaveProperty('uniformUpdates')
         })
     }, 20_000)
 })

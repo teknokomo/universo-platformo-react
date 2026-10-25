@@ -9,12 +9,13 @@ const uuidV7 = '019f2000-0000-7000-8000-000000000011'
 const uuidV7Upper = uuidV7.toUpperCase()
 const secondUuidV7 = '019f2000-0000-7000-8000-000000000012'
 
-const tableAttr = {
+const tableAttrValues = {
     id: 'blocks-table',
     codename: 'Blocks',
     column_name: 'blocks_rows',
     validation_rules: { minRows: 0 }
-} as never
+}
+const tableAttr = tableAttrValues as never
 
 const generatedKeyAttr = {
     id: 'block-key',
@@ -70,7 +71,7 @@ describe('runtime TABLE child UUID v7 identity', () => {
             manager: executor,
             schemaIdent: 'runtime_schema',
             tableFieldPath: 'Questions',
-            tableAttr: { ...tableAttr, codename: 'Questions' } as never,
+            tableAttr: { ...tableAttrValues, codename: 'Questions' } as never,
             childRows: [{ BlockKey: { $rowRef: 'block-one' } }],
             childAttrs: [selectedKeyAttr] as never,
             siblingRowAliases: aliases
@@ -108,7 +109,7 @@ describe('runtime TABLE child UUID v7 identity', () => {
             manager: executor,
             schemaIdent: 'runtime_schema',
             tableFieldPath: 'Questions',
-            tableAttr: { ...tableAttr, codename: 'Questions' } as never,
+            tableAttr: { ...tableAttrValues, codename: 'Questions' } as never,
             childRows: [{ BlockKey: uuidV7Upper }],
             childAttrs: [selectorAttr] as never
         })

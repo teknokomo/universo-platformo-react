@@ -41,6 +41,7 @@ const runtimeMocks = vi.hoisted(() => ({
     capturedDashboardProps: null as {
         layoutConfig?: Record<string, unknown>
         zoneWidgets?: unknown
+        placementScopes?: Record<string, { widgetId: string; layoutId: string }>
         details?: {
             locale?: string
             workspacesEnabled?: boolean
@@ -151,6 +152,7 @@ vi.mock('@tanstack/react-query', async () => {
                         {
                             id: 'effective-widget-1',
                             layoutId: 'effective-layout-1',
+                            instanceKey: 'menu-main',
                             zone:
                                 runtimeMocks.effectiveLayoutZone ??
                                 (runtimeMocks.templateKey === 'marketing-page' ? 'marketing-header' : 'left'),
@@ -256,7 +258,8 @@ vi.mock('@universo-react/apps-template-mui', async (importOriginal) => {
         AppsDashboard: ({
             details,
             layoutConfig,
-            zoneWidgets
+            zoneWidgets,
+            placementScopes
         }: {
             details?: {
                 title?: string
@@ -309,11 +312,13 @@ vi.mock('@universo-react/apps-template-mui', async (importOriginal) => {
             }
             layoutConfig?: Record<string, unknown>
             zoneWidgets?: unknown
+            placementScopes?: Record<string, { widgetId: string; layoutId: string }>
         }) => {
             const widgetSelection = actual.useDashboardWidgetSelection()
-            runtimeMocks.capturedDashboardProps = { layoutConfig, zoneWidgets, details }
+            runtimeMocks.capturedDashboardProps = { layoutConfig, zoneWidgets, placementScopes, details }
             return (
                 <div data-testid='apps-dashboard'>
+                    <div data-testid='apps-dashboard-placement-scopes'>{JSON.stringify(placementScopes ?? {})}</div>
                     <div data-testid='runtime-selected-details-tab'>
                         {widgetSelection?.selectedDetailsTabs['test-details-widget'] ?? ''}
                     </div>
@@ -727,8 +732,20 @@ describe('ApplicationRuntime pending interaction safety', () => {
         renderRuntimePageAt('/applications/app-1/runtime')
 
         expect(screen.getByTestId('apps-dashboard-layout')).toHaveTextContent('"primaryMode":"compact"')
-        expect(screen.getByTestId('apps-dashboard-zone-widgets')).toHaveTextContent('effective-widget-1')
+        expect(screen.getByTestId('apps-dashboard-zone-widgets')).toHaveTextContent('menu-main')
+        expect(screen.getByTestId('apps-dashboard-zone-widgets')).not.toHaveTextContent('effective-widget-1')
         expect(runtimeMocks.capturedDashboardProps?.details?.footerMetadata).toEqual({ siteName: 'Test application' })
+    })
+
+    it('keeps persistence placement IDs in the authenticated scope prop and out of renderer configuration', () => {
+        renderRuntimePageAt('/applications/app-1/runtime')
+
+        expect(runtimeMocks.capturedDashboardProps?.placementScopes).toEqual({
+            'menu-main': { widgetId: 'effective-widget-1', layoutId: 'effective-layout-1' }
+        })
+        expect(runtimeMocks.capturedDashboardProps?.layoutConfig).not.toHaveProperty('effective-widget-1')
+        expect(JSON.stringify(runtimeMocks.capturedDashboardProps?.zoneWidgets)).not.toContain('effective-widget-1')
+        expect(JSON.stringify(runtimeMocks.capturedDashboardProps?.zoneWidgets)).not.toContain('effective-layout-1')
     })
 
     it('preserves hosted dashboard tab selection while runtime content temporarily unmounts', async () => {

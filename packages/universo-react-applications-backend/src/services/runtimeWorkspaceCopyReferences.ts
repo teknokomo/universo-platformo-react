@@ -18,6 +18,7 @@ export type WorkspaceCopyReference = {
     tableName: string
     columnName: string
     isRequired: boolean
+    isWorkspaceLocal?: boolean
     targetTableName?: string
     isResetOnCopy?: boolean
     defaultValueJson?: string | null
@@ -42,7 +43,8 @@ type WorkspaceCopyPhysicalColumnRow = {
 export async function loadWorkspaceCopyReferences(
     executor: DbExecutor,
     schemaName: string,
-    scopedTables: string[]
+    scopedTables: string[],
+    parentTablesByChildTable: ReadonlyMap<string, string> = new Map()
 ): Promise<WorkspaceCopyReference[]> {
     if (scopedTables.length === 0) {
         return []
@@ -132,7 +134,6 @@ export async function loadWorkspaceCopyReferences(
             !tableName ||
             !row.targetTableName ||
             !scopedTables.includes(tableName) ||
-            !targetIsWorkspaceScoped ||
             !physicalUuidColumns.has(`${tableName}.${row.columnName}`)
         ) {
             return []
@@ -148,7 +149,10 @@ export async function loadWorkspaceCopyReferences(
             {
                 tableName,
                 columnName: row.columnName,
-                isRequired: metadataRequired || physicalRequired,
+                // Keep external REF metadata so the generic UUID pass can
+                // preserve it even if its UUID collides with a copied row ID.
+                isRequired: targetIsWorkspaceScoped && (metadataRequired || physicalRequired),
+                isWorkspaceLocal: targetIsWorkspaceScoped,
                 targetTableName: row.targetTableName,
                 isResetOnCopy,
                 defaultValueJson: isResetOnCopy ? row.defaultValueJson : null
@@ -170,7 +174,14 @@ export async function loadWorkspaceCopyReferences(
         .map((column) => ({
             tableName: column.tableName,
             columnName: column.columnName,
-            isRequired: column.columnName === '_tp_parent_id'
+            isRequired: column.columnName === '_tp_parent_id',
+            isWorkspaceLocal: true,
+            targetTableName:
+                column.columnName === '_tp_parent_id'
+                    ? parentTablesByChildTable.get(column.tableName)
+                    : column.columnName === '_app_reversal_of_fact_id'
+                    ? column.tableName
+                    : undefined
         }))
 
     const referencesByColumn = new Map<string, WorkspaceCopyReference>()
@@ -183,6 +194,7 @@ export async function loadWorkspaceCopyReferences(
                 ? {
                       ...existing,
                       isRequired: existing.isRequired || reference.isRequired,
+                      isWorkspaceLocal: existing.isWorkspaceLocal === true || reference.isWorkspaceLocal === true,
                       targetTableName: reference.targetTableName ?? existing.targetTableName,
                       isResetOnCopy: existing.isResetOnCopy || reference.isResetOnCopy,
                       defaultValueJson: reference.isResetOnCopy ? reference.defaultValueJson : existing.defaultValueJson
@@ -195,9 +207,9 @@ export async function loadWorkspaceCopyReferences(
 }
 
 /**
- * Required workspace-local references must resolve to a copied row. Running
- * this check both before and after inserts keeps copy fail-closed if source
- * data changes between the map build and the row insert statements.
+ * Required workspace-local references must resolve to a copied row. Source
+ * checks use the materialized copy snapshot; destination checks run against
+ * the inserted rows and their completed ID map.
  */
 export async function assertWorkspaceCopyReferencesResolve(
     executor: DbExecutor,
@@ -205,10 +217,10 @@ export async function assertWorkspaceCopyReferencesResolve(
     workspaceId: string,
     references: WorkspaceCopyReference[],
     createError: WorkspaceCopyReferenceErrorFactory,
-    options: { acceptMappedIds?: boolean } = {}
+    options: { acceptMappedIds?: boolean; sourceSnapshot?: boolean } = {}
 ): Promise<void> {
     for (const reference of references) {
-        if (!reference.isRequired) {
+        if (!reference.isRequired || reference.isWorkspaceLocal === false) {
             continue
         }
 
@@ -253,30 +265,47 @@ export async function assertWorkspaceCopyReferencesResolve(
             continue
         }
 
+        if (!reference.targetTableName) {
+            throw createError(
+                'WORKSPACE_COPY_REFERENCE_UNRESOLVED',
+                'Workspace copy contains a required reference without a resolvable target table'
+            )
+        }
+
         const tableIdent = qSchemaTable(schemaName, reference.tableName)
         const columnIdent = qColumn(reference.columnName)
-        const mapMatchSql = options.acceptMappedIds
-            ? reference.isResetOnCopy
-                ? `id_map.new_id = source.${columnIdent} AND id_map.source_table_name = $2`
-                : `(id_map.old_id = source.${columnIdent} OR id_map.new_id = source.${columnIdent})`
-            : `id_map.old_id = source.${columnIdent}`
+        const mapMatchSql = options.acceptMappedIds ? `id_map.new_id = source.${columnIdent}` : `id_map.old_id = source.${columnIdent}`
+        const sourceFromSql = options.sourceSnapshot
+            ? `
+                FROM workspace_copy_source_rows source_snapshot
+                CROSS JOIN LATERAL jsonb_populate_record(NULL::${tableIdent}, source_snapshot.row_data) AS source
+            `
+            : `FROM ${tableIdent} source`
+        const sourceTablePredicate = options.sourceSnapshot ? 'AND source_snapshot.source_table_name = $2' : ''
+        const mapTargetParameter = options.sourceSnapshot ? '$3' : '$2'
+        const mapTargetPredicate = `AND id_map.source_table_name = ${mapTargetParameter}`
+        const queryParameters = options.sourceSnapshot
+            ? [workspaceId, reference.tableName, reference.targetTableName]
+            : [workspaceId, reference.targetTableName]
         const rows = await executor.query<{ unresolvedCount: string | number }>(
             `
             SELECT COUNT(*)::text AS "unresolvedCount"
-            FROM ${tableIdent} source
-            WHERE source.${qColumn('workspace_id')} = $1
+            ${sourceFromSql}
+            WHERE ${options.sourceSnapshot ? 'source_snapshot.workspace_id' : `source.${qColumn('workspace_id')}`} = $1::uuid
               AND source.${qColumn('_upl_deleted')} = false
               AND source.${qColumn('_app_deleted')} = false
+              ${sourceTablePredicate}
               AND (
                   source.${columnIdent} IS NULL
                   OR NOT EXISTS (
                       SELECT 1
                       FROM workspace_copy_id_map id_map
                       WHERE ${mapMatchSql}
+                        ${mapTargetPredicate}
                   )
               )
             `,
-            options.acceptMappedIds && reference.isResetOnCopy ? [workspaceId, reference.targetTableName] : [workspaceId]
+            queryParameters
         )
         const unresolvedCount = Number(rows[0]?.unresolvedCount)
         if (!Number.isFinite(unresolvedCount) || unresolvedCount < 0) {
@@ -303,13 +332,15 @@ export async function clearUnresolvedOptionalWorkspaceCopyReferences(
     references: WorkspaceCopyReference[]
 ): Promise<void> {
     for (const reference of references) {
-        if (reference.isRequired) {
+        if (reference.isRequired || reference.isWorkspaceLocal === false) {
             continue
         }
 
         const tableIdent = qSchemaTable(schemaName, reference.tableName)
         const columnIdent = qColumn(reference.columnName)
-        const targetTablePredicate = reference.isResetOnCopy ? 'AND id_map.source_table_name = $2' : ''
+        if (!reference.targetTableName) {
+            continue
+        }
         await executor.query(
             `
             UPDATE ${tableIdent} target
@@ -321,12 +352,11 @@ export async function clearUnresolvedOptionalWorkspaceCopyReferences(
               AND NOT EXISTS (
                 SELECT 1
                 FROM workspace_copy_id_map id_map
-                WHERE (id_map.old_id = target.${columnIdent}
-                   OR id_map.new_id = target.${columnIdent})
-                  ${targetTablePredicate}
+                WHERE id_map.new_id = target.${columnIdent}
+                  AND id_map.source_table_name = $2
             )
             `,
-            reference.isResetOnCopy ? [workspaceId, reference.targetTableName] : [workspaceId]
+            [workspaceId, reference.targetTableName]
         )
     }
 }

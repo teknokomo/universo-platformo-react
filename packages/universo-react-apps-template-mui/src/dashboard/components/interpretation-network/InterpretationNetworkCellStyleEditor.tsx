@@ -7,21 +7,33 @@ import InputLabel from '@mui/material/InputLabel'
 import MenuItem from '@mui/material/MenuItem'
 import Select from '@mui/material/Select'
 import Stack from '@mui/material/Stack'
-import TextField from '@mui/material/TextField'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import type { TFunction } from 'i18next'
 import {
     calculateInterpretationNetworkContrastRatio,
+    normalizeInterpretationNetworkCellStylePolicy,
     parseInterpretationNetworkHexColor,
     resolveInterpretationNetworkMaximumContrastForeground
 } from '@universo-react/types'
+import type { InterpretationNetworkCellStylePolicy } from '@universo-react/types'
 import type { FieldConfig } from '../../../components/dialogs/FormDialog'
+import { HexColorField } from '../../../components/forms/HexColorField'
 
 const SIDES = ['Top', 'Right', 'Bottom', 'Left'] as const
-const PRESET_COLORS = ['#000000', '#FFFFFF', '#E53935', '#FB8C00', '#FDD835', '#43A047', '#00897B', '#1E88E5', '#3949AB', '#8E24AA']
-const PRESET_COLOR_KEYS = ['black', 'white', 'red', 'orange', 'yellow', 'green', 'teal', 'blue', 'indigo', 'purple'] as const
+const PRESET_COLOR_KEYS: Record<string, string> = {
+    '#000000': 'black',
+    '#FFFFFF': 'white',
+    '#E53935': 'red',
+    '#FB8C00': 'orange',
+    '#FDD835': 'yellow',
+    '#43A047': 'green',
+    '#00897B': 'teal',
+    '#1E88E5': 'blue',
+    '#3949AB': 'indigo',
+    '#8E24AA': 'purple'
+}
 const BORDER_WIDTHS = ['0', '1px', '2px', '3px', '4px']
 const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'none']
 
@@ -102,6 +114,7 @@ export function InterpretationNetworkCellStyleEditor({
     fields,
     draft,
     disabled,
+    policy: policyInput,
     resetKey = 0,
     validationErrors = {},
     themePaper = '#FFFFFF',
@@ -111,11 +124,13 @@ export function InterpretationNetworkCellStyleEditor({
     fields: FieldConfig[]
     draft: Record<string, unknown>
     disabled: boolean
+    policy?: InterpretationNetworkCellStylePolicy
     resetKey?: string | number
     validationErrors?: Record<string, string>
     themePaper?: string
     onChange: (field: FieldConfig, value: unknown) => void
 }) {
+    const policy = normalizeInterpretationNetworkCellStylePolicy(policyInput)
     const fieldMap = useMemo(() => toFieldMap(fields), [fields])
     const hasBorderFields = SIDES.some(
         (side) => fieldMap[keyFor(side, 'Color')] || fieldMap[keyFor(side, 'Width')] || fieldMap[keyFor(side, 'Style')]
@@ -165,6 +180,13 @@ export function InterpretationNetworkCellStyleEditor({
             }))
             return
         }
+        if (!policy.allowCustomColors && !policy.allowedColors.includes(color)) {
+            setColorErrors((current) => ({
+                ...current,
+                [field.id]: t('cellStyle.colorNotAllowed', 'Choose one of the allowed colors.')
+            }))
+            return
+        }
         onChange(field, color)
         targets.forEach((target) => onChange(target, color))
         setColorErrors((current) => {
@@ -194,92 +216,81 @@ export function InterpretationNetworkCellStyleEditor({
     const contrastError = Boolean(text && contrast !== null && contrast < 4.5)
     const styleErrors = Object.values(validationErrors).filter(Boolean)
 
-    const renderColorControl = (label: string, field: FieldConfig | undefined, targets: FieldConfig[] = []) => {
+    const renderColorControl = (
+        label: string,
+        field: FieldConfig | undefined,
+        targets: FieldConfig[] = [],
+        category: keyof InterpretationNetworkCellStylePolicy['editable']
+    ) => {
         if (!field) return null
         const current = parseInterpretationNetworkHexColor(fieldValue(draft, field))
+        const colorError = colorErrors[field.id] || validationErrors[field.id]
+        const fieldDisabled = disabled || !policy.editable[category]
         return (
             <Stack spacing={0.75} key={field.id}>
                 <Typography component='label' htmlFor={`${field.id}-hex`} variant='subtitle2'>
                     {label}
                 </Typography>
                 <Stack direction='row' spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                    <Box
-                        component='input'
-                        id={`${field.id}-picker`}
-                        type='color'
-                        aria-label={t('cellStyle.colorPicker', { defaultValue: '{{label}} color picker', label })}
-                        value={current ?? '#000000'}
-                        disabled={disabled}
-                        onChange={(event) => updateColor(field, event.target.value, targets)}
-                        sx={{ width: 36, height: 36, p: 0, border: 0, bgcolor: 'transparent', cursor: disabled ? 'default' : 'pointer' }}
-                    />
-                    <TextField
-                        id={`${field.id}-hex`}
-                        value={typeof fieldValue(draft, field) === 'string' ? fieldValue(draft, field) : ''}
-                        label={t('cellStyle.hex', 'Hex color')}
-                        slotProps={{
-                            htmlInput: {
-                                maxLength: 7,
-                                spellCheck: false,
-                                'aria-describedby': colorErrors[field.id] || validationErrors[field.id] ? `${field.id}-error` : undefined
-                            }
-                        }}
-                        size='small'
-                        disabled={disabled}
-                        error={Boolean(colorErrors[field.id] || validationErrors[field.id])}
-                        onChange={(event) => {
-                            const value = event.target.value
-                            onChange(field, value)
-                            targets.forEach((target) => onChange(target, value))
-                        }}
-                        onBlur={(event) => updateColor(field, event.target.value, targets)}
-                    />
+                    {policy.allowCustomColors ? (
+                        <HexColorField
+                            id={`${field.id}-hex`}
+                            label={t('cellStyle.hexColorField', {
+                                defaultValue: '{{label}} Hex color',
+                                label
+                            })}
+                            pickerLabel={t('cellStyle.colorPicker', { defaultValue: '{{label}} color picker', label })}
+                            value={typeof fieldValue(draft, field) === 'string' ? String(fieldValue(draft, field)) : ''}
+                            disabled={fieldDisabled}
+                            error={Boolean(colorError)}
+                            helperText={colorError}
+                            onChange={(value) => updateColor(field, value, targets)}
+                        />
+                    ) : null}
                     <Button
                         type='button'
                         size='small'
                         color='inherit'
-                        disabled={disabled}
+                        disabled={fieldDisabled}
                         onClick={() => updateColor(field, null, targets)}
                     >
                         {t('cellStyle.clear', 'Clear')}
                     </Button>
                 </Stack>
-                <ToggleButtonGroup
-                    exclusive
-                    size='small'
-                    value={current ?? ''}
-                    aria-label={t('cellStyle.presetColors', { defaultValue: '{{label}} preset colors', label })}
-                    onChange={(_event, next: string | null) => {
-                        if (next) updateColor(field, next, targets)
-                    }}
-                    sx={{ flexWrap: 'wrap', '& .MuiToggleButton-root': { minWidth: 32, width: 32, height: 32, p: 0 } }}
-                >
-                    {PRESET_COLORS.map((color, index) => (
-                        <ToggleButton
-                            key={color}
-                            value={color}
-                            aria-label={t(`cellStyle.colors.${PRESET_COLOR_KEYS[index]}`, PRESET_COLOR_KEYS[index])}
-                            disabled={disabled}
-                        >
-                            <Box
-                                aria-hidden
-                                sx={{ width: 16, height: 16, borderRadius: '50%', bgcolor: color, border: 1, borderColor: 'divider' }}
-                            />
-                        </ToggleButton>
-                    ))}
-                </ToggleButtonGroup>
-                {colorErrors[field.id] || validationErrors[field.id] ? (
-                    <Typography
-                        id={`${field.id}-error`}
-                        role='alert'
-                        variant='caption'
-                        sx={{
-                            color: 'error.main'
+                {policy.allowedColors.length > 0 ? (
+                    <ToggleButtonGroup
+                        exclusive
+                        size='small'
+                        value={current ?? ''}
+                        aria-label={t('cellStyle.presetColors', { defaultValue: '{{label}} preset colors', label })}
+                        onChange={(_event, next: string | null) => {
+                            if (next) updateColor(field, next, targets)
                         }}
+                        sx={{ flexWrap: 'wrap', '& .MuiToggleButton-root': { minWidth: 32, width: 32, height: 32, p: 0 } }}
                     >
-                        {colorErrors[field.id] ?? validationErrors[field.id]}
+                        {policy.allowedColors.map((color) => (
+                            <ToggleButton
+                                key={color}
+                                value={color}
+                                aria-label={
+                                    PRESET_COLOR_KEYS[color]
+                                        ? t(`cellStyle.colors.${PRESET_COLOR_KEYS[color]}`, PRESET_COLOR_KEYS[color])
+                                        : t('cellStyle.allowedColor', { defaultValue: '{{color}}', color })
+                                }
+                                disabled={fieldDisabled}
+                            >
+                                <Box
+                                    aria-hidden
+                                    sx={{ width: 16, height: 16, borderRadius: '50%', bgcolor: color, border: 1, borderColor: 'divider' }}
+                                />
+                            </ToggleButton>
+                        ))}
+                    </ToggleButtonGroup>
+                ) : (
+                    <Typography variant='caption' sx={{ color: 'text.secondary' }}>
+                        {t('cellStyle.noAllowedColors', 'No preset colors are available.')}
                     </Typography>
-                ) : null}
+                )}
             </Stack>
         )
     }
@@ -295,7 +306,7 @@ export function InterpretationNetworkCellStyleEditor({
         const style = fieldValue(draft, fieldMap[side ? keyFor(side, 'Style') : keyFor(firstSide, 'Style')])
         return (
             <Stack key={side ?? 'all'} spacing={1} sx={{ minWidth: 0 }}>
-                {renderColorControl(label, colorField, allOtherColorFields)}
+                {renderColorControl(label, colorField, allOtherColorFields, 'borderColor')}
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
                     <FormControl size='small' fullWidth>
                         <InputLabel id={`${fieldId(colorField)}-${side ?? 'all'}-width-label`}>{t('cellStyle.width', 'Width')}</InputLabel>
@@ -303,7 +314,7 @@ export function InterpretationNetworkCellStyleEditor({
                             labelId={`${fieldId(colorField)}-${side ?? 'all'}-width-label`}
                             label={t('cellStyle.width', 'Width')}
                             value={isValidBorderWidth(width) ? width : '1px'}
-                            disabled={disabled}
+                            disabled={disabled || !policy.editable.borderWidth}
                             onChange={(event) => updateBorderValue('Width', event.target.value, side)}
                         >
                             {BORDER_WIDTHS.map((value) => (
@@ -319,7 +330,7 @@ export function InterpretationNetworkCellStyleEditor({
                             labelId={`${fieldId(colorField)}-${side ?? 'all'}-style-label`}
                             label={t('cellStyle.style', 'Style')}
                             value={isValidBorderStyle(style) ? style : 'solid'}
-                            disabled={disabled}
+                            disabled={disabled || !policy.editable.borderStyle}
                             onChange={(event) => updateBorderValue('Style', event.target.value, side)}
                         >
                             {BORDER_STYLES.map((value) => (
@@ -336,8 +347,8 @@ export function InterpretationNetworkCellStyleEditor({
 
     return (
         <Stack spacing={2} data-testid='interpretation-network-cell-style-editor'>
-            {renderColorControl(t('cellStyle.fill', 'Fill'), fieldMap.fill)}
-            {renderColorControl(t('cellStyle.textColor', 'Text color'), fieldMap.text)}
+            {renderColorControl(t('cellStyle.fill', 'Fill'), fieldMap.fill, [], 'fillColor')}
+            {renderColorControl(t('cellStyle.textColor', 'Text color'), fieldMap.text, [], 'textColor')}
             {contrastError && styleErrors.length === 0 ? (
                 <Typography
                     role='status'

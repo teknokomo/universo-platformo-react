@@ -8,6 +8,7 @@ Shared Editor.js authoring primitives for Universo frontend packages.
 -   Provide one reusable block-content editor plus locale-aware content helpers.
 -   Reuse canonical block contracts from `@universo-react/types` instead of defining package-local storage formats.
 -   Keep Editor.js tool loading, validation fallback behavior, and localized content operations consistent across consumers.
+-   Show the raw JSON recovery field only in editable contexts; read-only consumers never expose that editing surface when Editor.js tools fail to load.
 
 ## Public API
 

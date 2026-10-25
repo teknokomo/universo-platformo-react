@@ -3,15 +3,76 @@ import {
     ensureApplicationRuntimeWorkspaceSchema,
     ensurePersonalWorkspaceForUser,
     ensureSharedWorkspaceBaselineMembership,
+    ensureSharedWorkspaceBaselineMembershipUnderHeldBaselineLock,
     removeSharedWorkspaceBaselineMembership,
     resetWorkspaceSeededElements,
+    resolvePublicDashboardWorkspace,
     resolveRuntimeWorkspaceAccess
 } from '../../services/applicationWorkspaces'
 import { assertUserIsNotLastSharedWorkspaceOwner } from '../../services/runtimeWorkspaceService'
-import { lockActiveRuntimeWorkspaceContext } from '../../services/runtimeWorkspaceContext'
+import { lockActiveRuntimeWorkspaceContext, validateActiveRuntimeWorkspaceContext } from '../../services/runtimeWorkspaceContext'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
 describe('applicationWorkspaces access and schema behavior', () => {
+    it('uses an explicitly designated public-entry workspace before shared-workspace fallback', async () => {
+        const { executor } = createMockDbExecutor()
+        const workspaceId = '018f8a78-7b8f-7c1d-a111-222233334481'
+        executor.query.mockResolvedValue([{ workspaceId }])
+
+        await expect(resolvePublicDashboardWorkspace(executor, 'app_018f8a787b8f7c1da111222233334480')).resolves.toEqual({ workspaceId })
+
+        expect(executor.query).toHaveBeenCalledTimes(1)
+        expect(String(executor.query.mock.calls[0][0])).toContain('is_public_entry = true')
+    })
+
+    it('resolves only one active shared workspace when no public-entry marker is configured', async () => {
+        const { executor } = createMockDbExecutor()
+        const workspaceId = '018f8a78-7b8f-7c1d-a111-222233334481'
+        executor.query.mockImplementation(async (sql: string) => {
+            if (String(sql).includes('is_public_entry = true')) return []
+            if (String(sql).includes("workspace_type = 'shared'")) return [{ workspaceId }]
+            return []
+        })
+
+        await expect(resolvePublicDashboardWorkspace(executor, 'app_018f8a787b8f7c1da111222233334480')).resolves.toEqual({ workspaceId })
+
+        expect(executor.query).toHaveBeenCalledTimes(3)
+        const [sharedWorkspaceSql] = executor.query.mock.calls[2]
+        expect(String(sharedWorkspaceSql)).toContain("workspace_type = 'shared'")
+        expect(String(sharedWorkspaceSql)).toContain('personal_user_id IS NULL')
+        expect(String(sharedWorkspaceSql)).toContain("status = 'active'")
+    })
+
+    it('fails closed when no shared workspace or multiple shared workspaces exist', async () => {
+        const { executor } = createMockDbExecutor()
+        executor.query.mockResolvedValue([])
+        await expect(resolvePublicDashboardWorkspace(executor, 'app_018f8a787b8f7c1da111222233334480')).resolves.toBeNull()
+
+        executor.query.mockReset()
+        executor.query.mockImplementation(async (sql: string) => {
+            if (String(sql).includes('is_public_entry = true')) return []
+            if (String(sql).includes("workspace_type = 'shared'")) {
+                return [{ workspaceId: '018f8a78-7b8f-7c1d-a111-222233334481' }, { workspaceId: '018f8a78-7b8f-7c1d-a111-222233334482' }]
+            }
+            return []
+        })
+        await expect(resolvePublicDashboardWorkspace(executor, 'app_018f8a787b8f7c1da111222233334480')).resolves.toBeNull()
+    })
+
+    it('does not select a fallback shared workspace when an inactive public-entry marker remains', async () => {
+        const { executor } = createMockDbExecutor()
+        const calls: string[] = []
+        executor.query.mockImplementation(async (sql: string) => {
+            calls.push(String(sql))
+            if (calls.length === 1) return []
+            if (calls.length === 2) return [{ exists: true }]
+            return [{ workspaceId: '018f8a78-7b8f-7c1d-a111-222233334481' }]
+        })
+
+        await expect(resolvePublicDashboardWorkspace(executor, 'app_018f8a787b8f7c1da111222233334480')).resolves.toBeNull()
+        expect(executor.query).toHaveBeenCalledTimes(2)
+    })
+
     it('locks an active personal workspace for authenticated scoped reports', async () => {
         const { executor } = createMockDbExecutor()
         const schemaName = 'app_018f8a787b8f7c1da111222233334480'
@@ -38,6 +99,35 @@ describe('applicationWorkspaces access and schema behavior', () => {
 
         await expect(
             lockActiveRuntimeWorkspaceContext(executor, 'app_018f8a787b8f7c1da111222233334480', '018f8a78-7b8f-7c1d-a111-222233334481')
+        ).resolves.toBe(false)
+        expect(executor.query).toHaveBeenCalledTimes(1)
+    })
+
+    it('validates lifecycle workspace context without retaining a row lock', async () => {
+        const { executor } = createMockDbExecutor()
+        const schemaName = 'app_018f8a787b8f7c1da111222233334480'
+        const workspaceId = '018f8a78-7b8f-7c1d-a111-222233334481'
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) return [{ id: workspaceId }]
+            return []
+        })
+
+        await expect(validateActiveRuntimeWorkspaceContext(executor, schemaName, workspaceId)).resolves.toBe(true)
+
+        const [lookupSql, lookupParams] = executor.query.mock.calls[0]
+        expect(String(lookupSql)).toContain("COALESCE(status, 'active') = 'active'")
+        expect(String(lookupSql)).not.toMatch(/FOR\s+(?:SHARE|UPDATE)/i)
+        expect(lookupParams).toEqual([workspaceId])
+        expect(executor.query.mock.calls[1][0]).toContain("set_config('app.current_workspace_id'")
+        expect(executor.query.mock.calls[1][1]).toEqual([workspaceId])
+    })
+
+    it('does not bind an inactive workspace during lifecycle preflight', async () => {
+        const { executor } = createMockDbExecutor()
+        executor.query.mockResolvedValue([])
+
+        await expect(
+            validateActiveRuntimeWorkspaceContext(executor, 'app_018f8a787b8f7c1da111222233334480', '018f8a78-7b8f-7c1d-a111-222233334481')
         ).resolves.toBe(false)
         expect(executor.query).toHaveBeenCalledTimes(1)
     })
@@ -168,7 +258,7 @@ describe('applicationWorkspaces access and schema behavior', () => {
         const schemaName = 'app_018f8a787b8f7c1da111222233334480'
         const sharedWorkspaceId = '018f8a78-7b8f-7c1d-a111-222233334483'
 
-        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+        executor.query.mockImplementation(async (sql: string) => {
             if (sql.includes('FROM information_schema.tables')) {
                 return [{ exists: true }]
             }
@@ -206,7 +296,7 @@ describe('applicationWorkspaces access and schema behavior', () => {
         const invitedPersonalWorkspaceId = '018f8a78-7b8f-7c1d-a111-222233334484'
         const sharedWorkspaceId = '018f8a78-7b8f-7c1d-a111-222233334483'
 
-        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+        executor.query.mockImplementation(async (sql: string) => {
             if (sql.includes('FROM information_schema.tables')) {
                 return [{ exists: true }]
             }
@@ -339,7 +429,10 @@ describe('applicationWorkspaces access and schema behavior', () => {
         expect(executedSql).toContain("operation_kind IN ('seed_reset', 'personal_to_shared_conversion')")
         expect(executedSql).toContain(`CREATE INDEX IF NOT EXISTS "_app_workspace_operation_audit_workspace_created_idx"`)
         expect(executedSql).toContain('_upl_locked BOOLEAN NOT NULL DEFAULT false')
-        expect(executedSql).toContain(`CREATE UNIQUE INDEX IF NOT EXISTS "_app_workspace_settings_workspace_key_active_uidx"`)
+        expect(executedSql).toContain(`CREATE UNIQUE INDEX IF NOT EXISTS "_app_workspace_settings_target_active_uidx"`)
+        expect(executedSql).toContain(
+            'ON "' + schemaName + '"."_app_workspace_settings"(workspace_id, target_kind, target_owner_id, target_key, key)'
+        )
         expect(executedSql).not.toContain('DO $$')
         expect(executedSql).toContain('ADD COLUMN IF NOT EXISTS "_seed_source_key" TEXT NULL')
         expect(executedSql).toContain('ADD COLUMN IF NOT EXISTS "_seed_source_owned" BOOLEAN NOT NULL DEFAULT true')
@@ -404,12 +497,12 @@ describe('applicationWorkspaces access and schema behavior', () => {
             const { executor } = createMockDbExecutor()
 
             executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes(`INSERT INTO "${SCHEMA_NAME}"."_app_workspaces"`)) {
+                    return [{ id: '018f8a78-7b8f-7c1d-a111-222233334403' }]
+                }
                 if (sql.includes(`WHERE workspace_type = 'personal'`)) return []
                 if (markerSelectSql(sql)) return []
                 if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
-                    return [{ id: '018f8a78-7b8f-7c1d-a111-222233334403' }]
-                }
-                if (sql.includes(`INSERT INTO "${SCHEMA_NAME}"."_app_workspaces"`)) {
                     return [{ id: '018f8a78-7b8f-7c1d-a111-222233334403' }]
                 }
                 if (sql.includes(`INSERT INTO "${SCHEMA_NAME}"."_app_workspace_roles"`)) {
@@ -482,6 +575,22 @@ describe('applicationWorkspaces access and schema behavior', () => {
                 })
             ).toBe(0)
             expect(String(executor.query.mock.calls[1]?.[0])).not.toContain('is_public')
+        })
+
+        it('enrolls baseline members without upgrading a caller-held shared lock', async () => {
+            const { executor } = createMockDbExecutor()
+            executor.query.mockResolvedValue([{ inserted: 1 }])
+
+            await expect(
+                ensureSharedWorkspaceBaselineMembershipUnderHeldBaselineLock(executor, {
+                    schemaName: SCHEMA_NAME,
+                    applicationId: '018f8a78-7b8f-7c1d-a111-222233334401'
+                })
+            ).resolves.toBe(1)
+
+            expect(executor.query).toHaveBeenCalledTimes(1)
+            expect(String(executor.query.mock.calls[0]?.[0])).toContain('WITH activeMembers')
+            expect(String(executor.query.mock.calls[0]?.[0])).not.toContain('pg_advisory_xact_lock')
         })
     })
 

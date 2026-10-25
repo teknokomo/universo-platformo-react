@@ -7,7 +7,8 @@ import { PUBLIC_APPLICATION_RUNTIME_ERROR_CODE } from '@universo-react/types'
 const publicRuntimeMocks = vi.hoisted(() => ({
     getPublicApplicationRuntime: vi.fn(),
     getApplicationEffectiveLayout: vi.fn(),
-    marketingProps: null as Record<string, unknown> | null
+    marketingProps: null as Record<string, unknown> | null,
+    dashboardProps: null as Record<string, unknown> | null
 }))
 
 vi.mock('../../api/publicApplicationRuntime', async () => {
@@ -46,7 +47,11 @@ vi.mock('@universo-react/apps-template-mui', () => ({
         publicRuntimeMocks.marketingProps = props
         return <div data-testid='public-marketing-runtime'>marketing</div>
     },
-    RuntimeWorkspacesPage: () => <div data-testid='runtime-workspaces-page' />
+    RuntimeWorkspacesPage: () => <div data-testid='runtime-workspaces-page' />,
+    PublicDashboardRuntime: (props: Record<string, unknown>) => {
+        publicRuntimeMocks.dashboardProps = props
+        return <div data-testid='public-dashboard-runtime' />
+    }
 }))
 
 import { PublicApplicationRuntimeError } from '../../api/publicApplicationRuntime'
@@ -134,6 +139,28 @@ describe('PublicApplicationRuntime', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         publicRuntimeMocks.marketingProps = null
+        publicRuntimeMocks.dashboardProps = null
+    })
+
+    it('dispatches the Dashboard union to the dedicated public host without authenticated runtime or marketing', async () => {
+        const payload = {
+            route: publicPayload('secondary').route,
+            templateKey: 'dashboard',
+            dashboard: { locale: 'ru', workspaceAvailability: 'none', placements: [] }
+        }
+        publicRuntimeMocks.getPublicApplicationRuntime.mockResolvedValue(payload)
+        renderPublicRuntime('/a/secondary?locale=ru&targetKind=page&entityTypeCodename=Overview')
+        expect(await screen.findByTestId('public-dashboard-runtime')).toBeInTheDocument()
+        expect(screen.queryByTestId('dashboard-runtime')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('public-marketing-runtime')).not.toBeInTheDocument()
+        expect(publicRuntimeMocks.getApplicationEffectiveLayout).not.toHaveBeenCalled()
+        expect(publicRuntimeMocks.dashboardProps).toMatchObject({
+            applicationRef: 'secondary',
+            locale: 'ru',
+            dashboard: payload.dashboard,
+            target: { targetKind: 'page', entityTypeCodename: 'Overview' }
+        })
+        expect(publicRuntimeMocks.dashboardProps).not.toHaveProperty('applicationId')
     })
 
     it('renders a direct alias through the injected public payload without authenticated layout transport', async () => {
@@ -142,7 +169,7 @@ describe('PublicApplicationRuntime', () => {
         renderPublicRuntime('/a/secondary?locale=ru')
 
         expect(await screen.findByTestId('public-marketing-runtime')).toBeInTheDocument()
-        expect(publicRuntimeMocks.getPublicApplicationRuntime).toHaveBeenCalledWith('secondary', 'ru', undefined)
+        expect(publicRuntimeMocks.getPublicApplicationRuntime).toHaveBeenCalledWith('secondary', 'ru', undefined, expect.any(AbortSignal))
         expect(publicRuntimeMocks.getApplicationEffectiveLayout).not.toHaveBeenCalled()
         expect(publicRuntimeMocks.marketingProps?.effectiveLayoutWidgets).toEqual([])
         expect(publicRuntimeMocks.marketingProps).toMatchObject({
@@ -185,10 +212,15 @@ describe('PublicApplicationRuntime', () => {
         renderPublicRuntime(`/a/secondary?targetKind=object&entityTypeId=${entityTypeId}&locale=en`)
 
         expect(await screen.findByTestId('public-marketing-runtime')).toBeInTheDocument()
-        expect(publicRuntimeMocks.getPublicApplicationRuntime).toHaveBeenCalledWith('secondary', 'en', {
-            targetKind: 'object',
-            entityTypeId
-        })
+        expect(publicRuntimeMocks.getPublicApplicationRuntime).toHaveBeenCalledWith(
+            'secondary',
+            'en',
+            {
+                targetKind: 'object',
+                entityTypeId
+            },
+            expect.any(AbortSignal)
+        )
     })
 
     it('sends a fail-closed target when a visitor URL repeats an entity selector', async () => {
@@ -199,10 +231,15 @@ describe('PublicApplicationRuntime', () => {
         )
 
         expect(await screen.findByTestId('public-marketing-runtime')).toBeInTheDocument()
-        expect(publicRuntimeMocks.getPublicApplicationRuntime).toHaveBeenCalledWith('secondary', 'en', {
-            targetKind: 'object',
-            entityTypeId: ''
-        })
+        expect(publicRuntimeMocks.getPublicApplicationRuntime).toHaveBeenCalledWith(
+            'secondary',
+            'en',
+            {
+                targetKind: 'object',
+                entityTypeId: ''
+            },
+            expect.any(AbortSignal)
+        )
     })
 
     it('replaces a canonical secondary alias while preserving the remaining path and query', async () => {

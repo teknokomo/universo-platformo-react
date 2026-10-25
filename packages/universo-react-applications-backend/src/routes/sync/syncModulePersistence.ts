@@ -2,6 +2,7 @@ import stableStringify from 'json-stable-stringify'
 import { qSchemaTable, qTable } from '@universo-react/database'
 import {
     assertSupportedModuleSdkApiVersion,
+    DEFAULT_MODULE_SDK_API_VERSION,
     DEFAULT_MODULE_ROLE,
     DEFAULT_MODULE_SOURCE_KIND,
     normalizeModuleCapabilities,
@@ -98,7 +99,7 @@ const normalizeManifest = (value: unknown): ModuleManifest => {
     if (!value || typeof value !== 'object') {
         return {
             className: 'ExtensionModuleModule',
-            sdkApiVersion: '1.0.0',
+            sdkApiVersion: DEFAULT_MODULE_SDK_API_VERSION,
             moduleRole: DEFAULT_MODULE_ROLE,
             sourceKind: DEFAULT_MODULE_SOURCE_KIND,
             capabilities: [],

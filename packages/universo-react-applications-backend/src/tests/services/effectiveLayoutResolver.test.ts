@@ -16,7 +16,10 @@ import {
     validateWidgetBindings
 } from '@universo-react/types'
 import { resolveEffectiveLayoutForPublicTransaction, resolveEffectiveLayoutForRequest } from '../../services/effectiveLayoutResolver'
-import { resolveEffectiveLayoutStructureForRequest } from '../../services/effectiveLayoutResolverCore'
+import {
+    resolveEffectiveLayoutForPublicTransactionWithRuntimeData,
+    resolveEffectiveLayoutStructureForRequest
+} from '../../services/effectiveLayoutResolverCore'
 import type { EffectiveLayoutWidget } from '../../services/effectiveLayoutContract'
 import { EffectiveLayoutError } from '../../services/effectiveLayoutContract'
 import { createMockDbExecutor } from '../utils/dbMocks'
@@ -391,6 +394,50 @@ describe('effectiveLayoutResolver', () => {
             'en'
         )
         runtimeDataSpy.mockRestore()
+    })
+
+    it('allows only explicit workspace-free public layout discovery while keeping the default fail-closed', async () => {
+        mockFindApplication.mockResolvedValue({ ...application, workspacesEnabled: true } as never)
+
+        await expect(
+            resolveEffectiveLayoutForPublicTransactionWithRuntimeData(executor, resolverInput(), null, async () => new Map())
+        ).rejects.toMatchObject<Partial<EffectiveLayoutError>>({ code: 'LAYOUT_TARGET_NOT_FOUND', httpStatus: 404 })
+        expect(mockSetWorkspaceContext).not.toHaveBeenCalled()
+
+        mockListCandidates.mockResolvedValue([layoutRow()])
+        mockListWidgets.mockResolvedValue([widgetRow()])
+        const runtimeScopes: Array<{
+            workspaceId: string | null
+            workspacesEnabled: boolean
+            currentUserId: string | null
+            role: unknown
+            permissions: unknown
+        }> = []
+        const result = await resolveEffectiveLayoutForPublicTransactionWithRuntimeData(
+            executor,
+            resolverInput(),
+            null,
+            async (_tx, scope) => {
+                runtimeScopes.push(scope)
+                return new Map()
+            },
+            { allowMissingWorkspace: true }
+        )
+
+        expect(result.scope).toBe('global')
+        expect(runtimeScopes).toHaveLength(1)
+        expect(runtimeScopes[0]).toEqual(
+            expect.objectContaining({ workspaceId: null, workspacesEnabled: true, currentUserId: null, role: null })
+        )
+        expect(runtimeScopes[0]?.permissions).toEqual({
+            manageMembers: false,
+            manageApplication: false,
+            createContent: false,
+            editContent: false,
+            deleteContent: false,
+            readReports: false
+        })
+        expect(mockSetWorkspaceContext).toHaveBeenCalledWith(expect.anything(), null)
     })
 
     it('establishes workspace access before entity lookup and hides entity existence for forbidden workspaces', async () => {

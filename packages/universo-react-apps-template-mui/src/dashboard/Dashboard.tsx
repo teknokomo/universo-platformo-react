@@ -11,6 +11,7 @@ import SideMenu from './components/SideMenu'
 import SideMenuRight from './components/SideMenuRight'
 import { renderWidget } from './components/widgetRenderer'
 import { DashboardDetailsProvider } from './DashboardDetailsContext'
+import { AuthenticatedRuntimePlacementScopeProvider } from './AuthenticatedRuntimePlacementScopeContext'
 import { rootPlacements } from './runtime/widgetPlacementGraph'
 import type { DashboardProps, ZoneWidgetItem } from './contracts'
 
@@ -19,6 +20,8 @@ export type {
     DashboardDetailsSlot,
     DashboardLayoutConfig,
     DashboardProps,
+    AuthenticatedRuntimePlacementScope,
+    AuthenticatedRuntimePlacementScopes,
     DashboardRowActionTarget,
     DashboardRowTarget,
     DashboardRowTargetAction,
@@ -136,9 +139,9 @@ export default function Dashboard(props: DashboardProps) {
     const canToggleOverlaySideMenuMode = canOpenOverlaySideMenu && dockedSideMenuModes.length > 0
     const headerLeadingWidgets = showHeader ? activeTopWidgets.filter((widget) => HEADER_LEADING_WIDGET_KEYS.has(widget.widgetKey)) : []
     const headerActionWidgets = showHeader ? activeTopWidgets.filter((widget) => HEADER_ACTION_WIDGET_KEYS.has(widget.widgetKey)) : []
-    const headerManagedWidgetIds = new Set([...headerLeadingWidgets, ...headerActionWidgets].map((widget) => widget.id))
+    const headerManagedWidgetKeys = new Set([...headerLeadingWidgets, ...headerActionWidgets].map((widget) => widget.instanceKey))
     const visibleTopWidgets = activeTopWidgets.filter(
-        (widget) => !SHELL_TOP_WIDGET_KEYS.has(widget.widgetKey) && !headerManagedWidgetIds.has(widget.id)
+        (widget) => !SHELL_TOP_WIDGET_KEYS.has(widget.widgetKey) && !headerManagedWidgetKeys.has(widget.instanceKey)
     )
     const lastDockedSideMenuModeRef = useRef<DashboardSideMenuMode>(
         primarySideMenuMode === 'overlay' ? dockedSideMenuModes[0] ?? 'wide' : primarySideMenuMode
@@ -220,97 +223,99 @@ export default function Dashboard(props: DashboardProps) {
 
     return (
         <DashboardDetailsProvider value={props.details}>
-            <Box sx={{ display: 'flex', minWidth: 0, width: '100%', maxWidth: '100vw', overflowX: 'hidden' }}>
-                {sideMenuEnabled && sideMenuMode !== 'overlay' && (
-                    <SideMenu
-                        zoneWidgets={rootZoneWidgets}
-                        placements={placements}
-                        mode={sideMenuMode}
-                        availableModes={availableSideMenuModes}
-                        onToggleDockedMode={canToggleDockedSideMenuMode ? toggleDockedSideMenuMode : undefined}
-                        onToggleOverlayMode={canToggleOverlaySideMenuMode ? toggleOverlaySideMenuMode : undefined}
-                        open={overlayOpen}
-                        onClose={() => setOverlayOpen(false)}
-                    />
-                )}
-                {sideMenuEnabled && canOpenOverlaySideMenu && sideMenuMode === 'overlay' && (
-                    <SideMenu
-                        zoneWidgets={rootZoneWidgets}
-                        placements={placements}
-                        mode='overlay'
-                        availableModes={availableSideMenuModes}
-                        onToggleOverlayMode={canToggleOverlaySideMenuMode ? toggleOverlaySideMenuMode : undefined}
-                        open={overlayOpen}
-                        onClose={() => setOverlayOpen(false)}
-                    />
-                )}
-                {showAppNavbar && (
-                    <AppNavbar
-                        rightWidgets={rightWidgets}
-                        zoneWidgets={rootZoneWidgets}
-                        placements={placements}
-                        sideMenuMode={sideMenuMode}
-                        availableSideMenuModes={availableSideMenuModes}
-                        reserveDockedSideMenuWidth={sideMenuMode !== 'overlay'}
-                        onToggleDockedSideMenuMode={canToggleDockedSideMenuMode ? toggleDockedSideMenuMode : undefined}
-                        onOpenSideMenu={openOverlaySideMenu}
-                    />
-                )}
-                {/* Main content */}
-                <Box
-                    component='main'
-                    sx={(theme) => ({
-                        flex: '1 1 0%',
-                        minWidth: 0,
-                        width: '100%',
-                        maxWidth: '100%',
-                        backgroundColor: theme.vars
-                            ? `rgba(${theme.vars.palette.background.defaultChannel} / 1)`
-                            : alpha(theme.palette.background.default, 1),
-                        overflowX: 'hidden',
-                        overflowY: 'auto'
-                    })}
-                >
-                    <Stack
-                        data-testid='runtime-main-content'
-                        spacing={1}
-                        sx={{
-                            alignItems: 'center',
+            <AuthenticatedRuntimePlacementScopeProvider value={props.placementScopes}>
+                <Box sx={{ display: 'flex', minWidth: 0, width: '100%', maxWidth: '100vw', overflowX: 'hidden' }}>
+                    {sideMenuEnabled && sideMenuMode !== 'overlay' && (
+                        <SideMenu
+                            zoneWidgets={rootZoneWidgets}
+                            placements={placements}
+                            mode={sideMenuMode}
+                            availableModes={availableSideMenuModes}
+                            onToggleDockedMode={canToggleDockedSideMenuMode ? toggleDockedSideMenuMode : undefined}
+                            onToggleOverlayMode={canToggleOverlaySideMenuMode ? toggleOverlaySideMenuMode : undefined}
+                            open={overlayOpen}
+                            onClose={() => setOverlayOpen(false)}
+                        />
+                    )}
+                    {sideMenuEnabled && canOpenOverlaySideMenu && sideMenuMode === 'overlay' && (
+                        <SideMenu
+                            zoneWidgets={rootZoneWidgets}
+                            placements={placements}
+                            mode='overlay'
+                            availableModes={availableSideMenuModes}
+                            onToggleOverlayMode={canToggleOverlaySideMenuMode ? toggleOverlaySideMenuMode : undefined}
+                            open={overlayOpen}
+                            onClose={() => setOverlayOpen(false)}
+                        />
+                    )}
+                    {showAppNavbar && (
+                        <AppNavbar
+                            rightWidgets={rightWidgets}
+                            zoneWidgets={rootZoneWidgets}
+                            placements={placements}
+                            sideMenuMode={sideMenuMode}
+                            availableSideMenuModes={availableSideMenuModes}
+                            reserveDockedSideMenuWidth={sideMenuMode !== 'overlay'}
+                            onToggleDockedSideMenuMode={canToggleDockedSideMenuMode ? toggleDockedSideMenuMode : undefined}
+                            onOpenSideMenu={openOverlaySideMenu}
+                        />
+                    )}
+                    {/* Main content */}
+                    <Box
+                        component='main'
+                        sx={(theme) => ({
+                            flex: '1 1 0%',
                             minWidth: 0,
                             width: '100%',
                             maxWidth: '100%',
-                            boxSizing: 'border-box',
-                            px: { xs: 2, sm: 3 },
-                            pb: hasViewportBoundedCanvas ? { xs: 2, sm: 3 } : 5,
-                            mt: {
-                                xs: showAppNavbar ? 8 : 0,
-                                md: showAppNavbarOnDesktop ? 8 : 0
-                            }
-                        }}
+                            backgroundColor: theme.vars
+                                ? `rgba(${theme.vars.palette.background.defaultChannel} / 1)`
+                                : alpha(theme.palette.background.default, 1),
+                            overflowX: 'hidden',
+                            overflowY: 'auto'
+                        })}
                     >
-                        {visibleTopWidgets.map((widget) => (
-                            <Box
-                                key={widget.id}
-                                data-testid={`top-zone-widget-${widget.widgetKey}`}
-                                sx={{
-                                    width: '100%',
-                                    minWidth: 0
-                                }}
-                            >
-                                {renderWidget(widget, { placements })}
-                            </Box>
-                        ))}
-                        {showHeader && (
-                            <Header
-                                leading={headerLeadingWidgets.map((widget) => renderWidget(widget, { placements }))}
-                                actions={headerActionWidgets.map((widget) => renderWidget(widget, { placements }))}
-                            />
-                        )}
-                        <MainGrid placements={placements} fullWidth={sideMenuMode === 'overlay' || sideMenuMode === 'compact'} />
-                    </Stack>
+                        <Stack
+                            data-testid='runtime-main-content'
+                            spacing={1}
+                            sx={{
+                                alignItems: 'center',
+                                minWidth: 0,
+                                width: '100%',
+                                maxWidth: '100%',
+                                boxSizing: 'border-box',
+                                px: { xs: 2, sm: 3 },
+                                pb: hasViewportBoundedCanvas ? { xs: 2, sm: 3 } : 5,
+                                mt: {
+                                    xs: showAppNavbar ? 8 : 0,
+                                    md: showAppNavbarOnDesktop ? 8 : 0
+                                }
+                            }}
+                        >
+                            {visibleTopWidgets.map((widget) => (
+                                <Box
+                                    key={widget.instanceKey}
+                                    data-testid={`top-zone-widget-${widget.widgetKey}`}
+                                    sx={{
+                                        width: '100%',
+                                        minWidth: 0
+                                    }}
+                                >
+                                    {renderWidget(widget, { placements })}
+                                </Box>
+                            ))}
+                            {showHeader && (
+                                <Header
+                                    leading={headerLeadingWidgets.map((widget) => renderWidget(widget, { placements }))}
+                                    actions={headerActionWidgets.map((widget) => renderWidget(widget, { placements }))}
+                                />
+                            )}
+                            <MainGrid placements={placements} fullWidth={sideMenuMode === 'overlay' || sideMenuMode === 'compact'} />
+                        </Stack>
+                    </Box>
+                    {showRightSideMenu && <SideMenuRight widgets={rightWidgets} placements={placements} />}
                 </Box>
-                {showRightSideMenu && <SideMenuRight widgets={rightWidgets} placements={placements} />}
-            </Box>
+            </AuthenticatedRuntimePlacementScopeProvider>
         </DashboardDetailsProvider>
     )
 }

@@ -123,13 +123,30 @@ describe('readRuntimeRecordAccessConfig', () => {
         })
     })
 
+    it('parses strict owner-only access with either supported owner field selector', () => {
+        expect(readRuntimeRecordAccessConfig({ runtimeRecordAccess: { mode: 'ownerOnly', ownerFieldCodename: 'owner' } })).toEqual({
+            mode: 'ownerOnly',
+            ownerFieldCodename: 'owner',
+            sharedRelationKey: 'shared'
+        })
+        expect(readRuntimeRecordAccessConfig({ runtimeRecordAccess: { mode: 'ownerOnly', ownerColumnName: 'owner_id' } })).toEqual({
+            mode: 'ownerOnly',
+            ownerColumnName: 'owner_id',
+            sharedRelationKey: 'shared'
+        })
+    })
+
     it('returns null for missing, ownerless, wrong-mode and unknown-key configs', () => {
         expect(readRuntimeRecordAccessConfig(null)).toBeNull()
         expect(readRuntimeRecordAccessConfig({})).toBeNull()
         expect(readRuntimeRecordAccessConfig({ runtimeRecordAccess: { mode: 'ownerOrShared' } })).toBeNull()
+        expect(readRuntimeRecordAccessConfig({ runtimeRecordAccess: { mode: 'ownerOnly' } })).toBeNull()
         expect(readRuntimeRecordAccessConfig({ runtimeRecordAccess: { mode: 'parentRecord', ownerColumnName: 'owner_id' } })).toBeNull()
         expect(
             readRuntimeRecordAccessConfig({ runtimeRecordAccess: { mode: 'ownerOrShared', ownerColumnName: 'owner_id', extra: 1 } })
+        ).toBeNull()
+        expect(
+            readRuntimeRecordAccessConfig({ runtimeRecordAccess: { mode: 'ownerOnly', ownerColumnName: 'owner_id', extra: 1 } })
         ).toBeNull()
     })
 })

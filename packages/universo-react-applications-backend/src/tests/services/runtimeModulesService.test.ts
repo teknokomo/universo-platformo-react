@@ -63,10 +63,10 @@ const createModuleDefinition = (overrides: Partial<ApplicationModuleDefinition> 
     attachedToId: overrides.attachedToId ?? 'object-1',
     moduleRole: overrides.moduleRole ?? 'widget',
     sourceKind: overrides.sourceKind ?? 'embedded',
-    sdkApiVersion: overrides.sdkApiVersion ?? '1.0.0',
+    sdkApiVersion: overrides.sdkApiVersion ?? '0.1.0',
     manifest: overrides.manifest ?? {
         className: 'QuizWidgetModule',
-        sdkApiVersion: '1.0.0',
+        sdkApiVersion: '0.1.0',
         moduleRole: 'widget',
         sourceKind: 'embedded',
         capabilities: ['metadata.read', 'rpc.client'],
@@ -171,10 +171,10 @@ describe('RuntimeModulesService', () => {
                 attached_to_id: 'object-1',
                 module_role: 'widget',
                 source_kind: 'embedded',
-                sdk_api_version: '1.0.0',
+                sdk_api_version: '0.1.0',
                 manifest: {
                     className: 'QuizWidgetModule',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'widget',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read', 'rpc.client', 'records.read'],
@@ -227,10 +227,10 @@ describe('RuntimeModulesService', () => {
                 attached_to_id: null,
                 module_role: 'module',
                 source_kind: 'embedded',
-                sdk_api_version: '1.0.0',
+                sdk_api_version: '0.1.0',
                 manifest: {
                     className: 'FixedTickFlightRuntime',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'module',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read'],
@@ -274,10 +274,10 @@ describe('RuntimeModulesService', () => {
                 attached_to_id: null,
                 module_role: 'module',
                 source_kind: 'embedded',
-                sdk_api_version: '1.0.0',
+                sdk_api_version: '0.1.0',
                 manifest: {
                     className: 'FixedTickFlightRuntime',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'module',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read'],
@@ -330,10 +330,10 @@ describe('RuntimeModulesService', () => {
                 attached_to_id: 'object-1',
                 module_role: 'widget',
                 source_kind: 'embedded',
-                sdk_api_version: '1.0.0',
+                sdk_api_version: '0.1.0',
                 manifest: {
                     className: 'QuizWidgetModule',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'widget',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read', 'rpc.client'],
@@ -370,7 +370,7 @@ describe('RuntimeModulesService', () => {
             createModuleDefinition({
                 manifest: {
                     className: 'ServerOnlyModule',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'module',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read'],
@@ -401,7 +401,7 @@ describe('RuntimeModulesService', () => {
             createModuleDefinition({
                 manifest: {
                     className: 'QuizWidgetModule',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'widget',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read', 'rpc.client'],
@@ -438,7 +438,7 @@ describe('RuntimeModulesService', () => {
             module: createModuleDefinition({
                 manifest: {
                     className: 'QuizWidgetModule',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'widget',
                     sourceKind: 'embedded',
                     capabilities: [],
@@ -487,7 +487,7 @@ describe('RuntimeModulesService', () => {
             module: createModuleDefinition({
                 manifest: {
                     className: 'PostingModule',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'lifecycle',
                     sourceKind: 'embedded',
                     capabilities: ['ledger.write'],
@@ -536,7 +536,7 @@ describe('RuntimeModulesService', () => {
             createModuleDefinition({
                 manifest: {
                     className: 'ServerOnlyModule',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'module',
                     sourceKind: 'embedded',
                     capabilities: [],
@@ -577,7 +577,7 @@ describe('RuntimeModulesService', () => {
                 moduleRole: 'lifecycle',
                 manifest: {
                     className: 'LifecycleModule',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'lifecycle',
                     sourceKind: 'embedded',
                     capabilities: ['lifecycle'],
@@ -617,7 +617,7 @@ describe('RuntimeModulesService', () => {
             createModuleDefinition({
                 manifest: {
                     className: 'SharedModule',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'widget',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read', 'rpc.client'],
@@ -706,7 +706,7 @@ describe('RuntimeModulesService', () => {
                     args: []
                 }
             })
-        ).rejects.toThrow('Unsupported module sdkApiVersion "2.0.0". Supported versions: 1.0.0')
+        ).rejects.toThrow('Unsupported module sdkApiVersion "2.0.0". Supported versions: 0.1.0')
 
         expect(engine.callMethod).not.toHaveBeenCalled()
     })
@@ -726,7 +726,7 @@ describe('RuntimeModulesService', () => {
                 attachedToId: 'object-1',
                 manifest: {
                     className: 'LifecycleModule',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'lifecycle',
                     sourceKind: 'embedded',
                     capabilities: ['lifecycle'],
@@ -740,7 +740,7 @@ describe('RuntimeModulesService', () => {
                 attachedToId: 'object-1',
                 manifest: {
                     className: 'LifecycleModuleWithoutCapability',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'lifecycle',
                     sourceKind: 'embedded',
                     capabilities: [],

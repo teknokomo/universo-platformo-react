@@ -1,30 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
+import { useEffect, useMemo, useState, type MouseEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import {
-    Alert,
-    Box,
-    Button,
-    Card,
-    CardContent,
-    Chip,
-    CircularProgress,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    Divider,
-    FormControlLabel,
-    IconButton,
-    Menu,
-    MenuItem,
-    Switch,
-    Stack,
-    TextField,
-    Tooltip,
-    Typography
-} from '@mui/material'
-import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import { Alert, Box, Chip, CircularProgress, Divider, IconButton, Menu, MenuItem, Stack, Tooltip, Typography } from '@mui/material'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
@@ -32,22 +9,17 @@ import FolderSharedRoundedIcon from '@mui/icons-material/FolderSharedRounded'
 import GroupAddRoundedIcon from '@mui/icons-material/GroupAddRounded'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
-import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
-import { emailSchema } from '@universo-react/types'
-import { createLocalizedContent, updateLocalizedContentLocale } from '@universo-react/utils'
 import {
     FlowListTable,
     ItemCard,
     PaginationControls,
     ToolbarControls,
     ViewHeaderMUI as ViewHeader,
-    type FlowListTableData,
     type TableColumn
 } from '../components/runtime-ui'
 import { FormDialog, type FieldConfig } from '../components/dialogs/FormDialog'
 import { ConfirmDeleteDialog } from '../components/dialogs/ConfirmDeleteDialog'
-import { StandardDialog } from '../components/dialogs/StandardDialog'
 import { extractRuntimeErrorMessage } from '../utils/runtimeErrors'
 import {
     createRuntimeWorkspace,
@@ -56,20 +28,30 @@ import {
     convertRuntimeWorkspaceToShared,
     fetchRuntimeWorkspace,
     fetchRuntimeWorkspaceMembers,
-    fetchRuntimeWorkspaceSettings,
     fetchRuntimeWorkspaces,
     inviteRuntimeWorkspaceMember,
     removeRuntimeWorkspaceMember,
     resetRuntimeWorkspaceSeededContent,
     updateRuntimeWorkspace,
     updateDefaultRuntimeWorkspace,
-    updateRuntimeWorkspaceSettings,
     RuntimeWorkspaceApiError,
-    type RuntimeWorkspace,
-    type RuntimeWorkspaceMember,
-    type RuntimeWorkspaceSetting
+    type RuntimeWorkspaceMember
 } from '../api/workspaces'
 import { appQueryKeys, workspaceQueryKeys } from '../api/mutations'
+import { RuntimeWorkspaceSettingsPanel } from './RuntimeWorkspaceSettingsPanel'
+import { RuntimeWorkspaceList } from './RuntimeWorkspaceList'
+import { ConvertToSharedDialog, InviteMemberDialog, WorkspaceMetricCard } from './RuntimeWorkspaceDialogs'
+import {
+    PAGE_SIZE_OPTIONS,
+    appendCopySuffixToLocalizedValue,
+    ensureLocalizedString,
+    readInputChangeValue,
+    readName,
+    resolveWorkspaceRoleLabel,
+    toPagination,
+    toPaginationActions
+} from './runtimeWorkspaceHelpers'
+import type { MemberViewRow, WorkspaceFormPayload, WorkspaceViewMode, WorkspaceViewRow } from './runtimeWorkspaceTypes'
 
 interface RuntimeWorkspacesPageProps {
     applicationId: string
@@ -82,18 +64,7 @@ interface RuntimeWorkspacesPageProps {
     onNavigate?: (href: string) => void
 }
 
-type WorkspaceViewRow = FlowListTableData &
-    RuntimeWorkspace & {
-        displayName: string
-        rawName: unknown
-        rawDescription: unknown
-        description: string
-    }
-type MemberViewRow = FlowListTableData & RuntimeWorkspaceMember & { name: string; description: string }
-type ViewMode = 'card' | 'list'
-type WorkspaceFormPayload = { name: unknown; description: unknown }
 type WorkspaceErrorTranslation = { key: string; fallback: string }
-type SettingValueOption = { value: string; label: string }
 
 const WORKSPACE_ERROR_TRANSLATIONS: Record<string, WorkspaceErrorTranslation> = {
     USER_NOT_FOUND: { key: 'workspace.errors.userNotFound', fallback: 'User not found' },
@@ -131,6 +102,10 @@ const WORKSPACE_ERROR_TRANSLATIONS: Record<string, WorkspaceErrorTranslation> = 
         key: 'workspace.errors.copyAccessLinkIntakeInvalid',
         fallback: 'This workspace has invalid guest intake settings and could not be copied.'
     },
+    WORKSPACE_COPY_TEMPLATE_MATERIALS_EXCLUDED: {
+        key: 'workspace.errors.copyTemplateMaterialsExcluded',
+        fallback: 'Some materials are linked to templates that are not included in the copy, so the workspace cannot be copied.'
+    },
     PERSONAL_WORKSPACE_MUTATION_BLOCKED: {
         key: 'workspace.errors.personalMutationBlocked',
         fallback: 'Personal workspace cannot be changed'
@@ -156,170 +131,6 @@ const LEGACY_WORKSPACE_ERROR_TRANSLATIONS: Array<[string, WorkspaceErrorTranslat
     ['Personal workspace cannot be deleted', WORKSPACE_ERROR_TRANSLATIONS.PERSONAL_WORKSPACE_MUTATION_BLOCKED]
 ]
 
-const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
-
-const SETTING_OPTION_LABELS: Record<string, WorkspaceErrorTranslation> = {
-    'dashboardDefaultMode.layout-default': {
-        key: 'workspace.settingOptions.dashboardDefaultMode.layoutDefault',
-        fallback: 'Layout default'
-    },
-    'dashboardDefaultMode.first-menu-item': {
-        key: 'workspace.settingOptions.dashboardDefaultMode.firstMenuItem',
-        fallback: 'First menu item'
-    },
-    'workspaceOpenBehavior.last-used': {
-        key: 'workspace.settingOptions.workspaceOpenBehavior.lastUsed',
-        fallback: 'Last used workspace'
-    },
-    'workspaceOpenBehavior.default-workspace': {
-        key: 'workspace.settingOptions.workspaceOpenBehavior.defaultWorkspace',
-        fallback: 'Default workspace'
-    },
-    'learningContent.defaultView.table': {
-        key: 'workspace.settingOptions.learningContent.defaultView.table',
-        fallback: 'Table'
-    },
-    'learningContent.defaultView.cards': {
-        key: 'workspace.settingOptions.learningContent.defaultView.cards',
-        fallback: 'Cards'
-    },
-    'learningContent.playerPreset.completeButtonMode.manual': {
-        key: 'workspace.settingOptions.learningContent.completeButtonMode.manual',
-        fallback: 'Manual'
-    },
-    'learningContent.playerPreset.completeButtonMode.autoAfterOpen': {
-        key: 'workspace.settingOptions.learningContent.completeButtonMode.autoAfterOpen',
-        fallback: 'Automatically after opening'
-    },
-    'learningContent.playerPreset.completeButtonMode.hidden': {
-        key: 'workspace.settingOptions.learningContent.completeButtonMode.hidden',
-        fallback: 'Hidden'
-    }
-}
-
-const readName = (value: unknown, locale: string): string => {
-    if (typeof value === 'string') return value
-    if (!value || typeof value !== 'object') return ''
-    const record = value as Record<string, unknown>
-    const locales = record.locales
-    if (!locales || typeof locales !== 'object') return ''
-    const normalizedLocale = locale.split(/[-_]/)[0]?.toLowerCase() || 'en'
-    const primary = typeof record._primary === 'string' ? record._primary : normalizedLocale
-    const entries = locales as Record<string, { content?: unknown }>
-    const candidates = [normalizedLocale, primary, 'en']
-    for (const candidate of candidates) {
-        const content = entries[candidate]?.content
-        if (typeof content === 'string' && content.trim()) return content
-    }
-    for (const entry of Object.values(entries)) {
-        if (typeof entry?.content === 'string' && entry.content.trim()) return entry.content
-    }
-    return ''
-}
-
-const normalizeLocale = (locale: string): 'en' | 'ru' => (locale.split(/[-_]/)[0]?.toLowerCase() === 'ru' ? 'ru' : 'en')
-
-const isLocalizedRecord = (
-    value: unknown
-): value is {
-    _schema?: unknown
-    _primary?: unknown
-    locales?: Record<string, { content?: unknown }>
-} => Boolean(value && typeof value === 'object' && 'locales' in (value as Record<string, unknown>))
-
-const ensureLocalizedString = (value: unknown, locale: string) => {
-    if (isLocalizedRecord(value) && value._schema === '1') return value
-    return createLocalizedContent(normalizeLocale(locale), typeof value === 'string' ? value : readName(value, locale))
-}
-
-const appendCopySuffixToLocalizedValue = (value: unknown, fallback: string, locale: string): unknown => {
-    const suffixForLocale = (localeCode: string) => (localeCode.toLowerCase().startsWith('ru') ? ' (копия)' : ' (copy)')
-    if (!isLocalizedRecord(value) || value._schema !== '1') {
-        return createLocalizedContent(normalizeLocale(locale), `${fallback}${appendCopySuffix('', locale)}`)
-    }
-
-    const primary = typeof value._primary === 'string' ? value._primary : normalizeLocale(locale)
-    let next = value as ReturnType<typeof createLocalizedContent>
-    const locales = value.locales ?? {}
-    for (const [localeCode, entry] of Object.entries(locales)) {
-        const content = typeof entry?.content === 'string' ? entry.content : ''
-        next = updateLocalizedContentLocale(next, localeCode as 'en' | 'ru', `${content}${suffixForLocale(localeCode)}`)
-    }
-
-    if (Object.keys(locales).length === 0) {
-        return createLocalizedContent(normalizeLocale(locale), `${fallback}${appendCopySuffix('', locale)}`)
-    }
-
-    return {
-        ...next,
-        _primary: primary
-    }
-}
-
-const readInputChangeValue = (value: unknown): string => {
-    if (typeof value === 'string') return value
-    if (!value || typeof value !== 'object') return ''
-    const target = (value as { target?: { value?: unknown } }).target
-    return typeof target?.value === 'string' ? target.value : ''
-}
-
-const readWorkspaceRoleChangeValue = (value: unknown): 'owner' | 'member' => {
-    const role = readInputChangeValue(value)
-    return role === 'owner' ? 'owner' : 'member'
-}
-
-const resolveWorkspaceRoleLabel = (roleCodename: string, translate: (key: string, fallback: string) => string): string => {
-    if (roleCodename === 'owner') return translate('workspace.roleOwner', 'Owner')
-    if (roleCodename === 'admin') return translate('workspace.roleAdmin', 'Application administrator')
-    return translate('workspace.roleMember', 'Member')
-}
-
-const appendCopySuffix = (value: string, locale: string): string => `${value} ${locale.startsWith('ru') ? '(копия)' : '(copy)'}`
-
-const readCheckboxChangeValue = (value: unknown): boolean => {
-    if (typeof value === 'boolean') return value
-    if (!value || typeof value !== 'object') return false
-    const target = (value as { target?: { checked?: unknown } }).target
-    return target?.checked === true
-}
-
-const readNumericInputValue = (value: unknown): number => {
-    const rawValue = readInputChangeValue(value)
-    const parsed = Number(rawValue)
-    return Number.isFinite(parsed) ? parsed : 0
-}
-
-const toPagination = (limit: number, offset: number, total: number) => {
-    const currentPage = Math.floor(offset / limit) + 1
-    const totalPages = Math.max(1, Math.ceil(total / limit))
-    return {
-        currentPage,
-        pageSize: limit,
-        totalItems: total,
-        totalPages,
-        hasNextPage: currentPage < totalPages,
-        hasPreviousPage: currentPage > 1
-    }
-}
-
-const toPaginationActions = (
-    limit: number,
-    offset: number,
-    setLimit: (limit: number) => void,
-    setOffset: (offset: number) => void,
-    setSearch: (search: string) => void
-) => ({
-    goToPage: (page: number) => setOffset((page - 1) * limit),
-    nextPage: () => setOffset(offset + limit),
-    previousPage: () => setOffset(Math.max(0, offset - limit)),
-    setSearch,
-    setSort: () => undefined,
-    setPageSize: (pageSize: number) => {
-        setLimit(pageSize)
-        setOffset(0)
-    }
-})
-
 export function RuntimeWorkspacesPage({
     applicationId,
     apiBaseUrl,
@@ -331,8 +142,8 @@ export function RuntimeWorkspacesPage({
 }: RuntimeWorkspacesPageProps) {
     const { t } = useTranslation('apps')
     const queryClient = useQueryClient()
-    const [viewMode, setViewMode] = useState<ViewMode>('card')
-    const [memberViewMode, setMemberViewMode] = useState<ViewMode>('card')
+    const [viewMode, setViewMode] = useState<WorkspaceViewMode>('card')
+    const [memberViewMode, setMemberViewMode] = useState<WorkspaceViewMode>('card')
     const [workspaceSearch, setWorkspaceSearch] = useState('')
     const [workspaceLimit, setWorkspaceLimit] = useState(20)
     const [workspaceOffset, setWorkspaceOffset] = useState(0)
@@ -397,19 +208,6 @@ export function RuntimeWorkspacesPage({
                 params: memberParams
             })
     })
-    const settingsQuery = useQuery({
-        queryKey: routeWorkspaceId
-            ? workspaceQueryKeys.settings(applicationId, routeWorkspaceId)
-            : ['runtime-workspace-settings', applicationId, 'none'],
-        enabled: Boolean(routeWorkspaceId) && routeSection === 'settings',
-        queryFn: () =>
-            fetchRuntimeWorkspaceSettings({
-                apiBaseUrl,
-                applicationId,
-                workspaceId: routeWorkspaceId!
-            })
-    })
-
     const invalidateWorkspaceData = async () => {
         await Promise.all([
             queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.all(applicationId) }),
@@ -509,42 +307,6 @@ export function RuntimeWorkspacesPage({
     const defaultMutation = useMutation({
         mutationFn: (workspaceId: string) => updateDefaultRuntimeWorkspace({ apiBaseUrl, applicationId, workspaceId }),
         onSuccess: invalidateWorkspaceData
-    })
-
-    const settingsMutation = useMutation({
-        mutationFn: (input: { setting?: RuntimeWorkspaceSetting; reset?: RuntimeWorkspaceSetting; value?: unknown }) =>
-            updateRuntimeWorkspaceSettings({
-                apiBaseUrl,
-                applicationId,
-                workspaceId: routeWorkspaceId!,
-                settings: input.setting
-                    ? [
-                          {
-                              key: input.setting.key,
-                              value: input.value,
-                              ...(input.setting.version ? { expectedVersion: input.setting.version } : {})
-                          }
-                      ]
-                    : [],
-                resets: input.reset
-                    ? [
-                          {
-                              key: input.reset.key,
-                              ...(input.reset.version ? { expectedVersion: input.reset.version } : {})
-                          }
-                      ]
-                    : []
-            }),
-        onSuccess: async (data) => {
-            if (routeWorkspaceId) {
-                queryClient.setQueryData(workspaceQueryKeys.settings(applicationId, routeWorkspaceId), data)
-            }
-            await Promise.all([
-                queryClient.invalidateQueries({ queryKey: ['runtime', applicationId] }),
-                queryClient.invalidateQueries({ queryKey: appQueryKeys.list(applicationId) })
-            ])
-        },
-        onError: (error: Error) => setFormError(translateWorkspaceError(error))
     })
 
     const resetSeededContentMutation = useMutation({
@@ -748,125 +510,6 @@ export function RuntimeWorkspacesPage({
         currentUserId != null &&
         (workspaceMenuTarget?.personalUserId == null || workspaceMenuTarget?.personalUserId === currentUserId)
 
-    const renderWorkspaceList = () => (
-        <>
-            <ViewHeader
-                title={t('workspace.title', 'Workspaces')}
-                search
-                searchValue={workspaceSearch}
-                searchPlaceholder={t('workspace.searchPlaceholder', 'Search workspaces')}
-                onSearchChange={(event) => {
-                    setWorkspaceSearch(readInputChangeValue(event))
-                    setWorkspaceOffset(0)
-                }}
-                controlsWrap
-            >
-                <ToolbarControls
-                    viewToggleEnabled
-                    viewMode={viewMode}
-                    onViewModeChange={setViewMode}
-                    cardViewTitle={t('toolbar.cardView', 'Card view')}
-                    listViewTitle={t('toolbar.tableView', 'Table view')}
-                    primaryAction={
-                        canCreateSharedWorkspace
-                            ? {
-                                  label: t('app.create', 'Create'),
-                                  startIcon: <AddRoundedIcon />,
-                                  onClick: () => {
-                                      setFormError(null)
-                                      setCreateOpen(true)
-                                  }
-                              }
-                            : undefined
-                    }
-                />
-            </ViewHeader>
-
-            <Box sx={{ mt: 3 }}>
-                {workspacesQuery.isError ? (
-                    <Alert severity='error'>{t('workspace.errorLoad', 'Failed to load workspaces')}</Alert>
-                ) : workspacesQuery.isLoading ? (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                        <CircularProgress />
-                    </Box>
-                ) : (
-                    <Stack spacing={3}>
-                        {workspaceRows.length === 0 ? <Alert severity='info'>{t('workspace.noWorkspaces')}</Alert> : null}
-                        {viewMode === 'card' ? (
-                            <Box
-                                data-testid='runtime-workspaces-card-view'
-                                sx={{
-                                    display: 'grid',
-                                    gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(3, minmax(0, 1fr))' },
-                                    gap: 2
-                                }}
-                            >
-                                {workspaceRows.map((workspace) => (
-                                    <Box
-                                        key={workspace.id}
-                                        data-testid='runtime-workspace-card'
-                                        data-workspace-id={workspace.id}
-                                        sx={{ minWidth: 0 }}
-                                    >
-                                        <ItemCard
-                                            data={workspace}
-                                            allowStretch
-                                            onClick={() => navigateTo(buildWorkspaceHref(applicationId, workspace.id))}
-                                            headerAction={renderWorkspaceActions(workspace)}
-                                            titleEndContent={
-                                                workspace.isDefault ? (
-                                                    <Tooltip title={t('workspace.default', 'Default')}>
-                                                        <StarRoundedIcon
-                                                            fontSize='small'
-                                                            color='primary'
-                                                            aria-label={t('workspace.default', 'Default')}
-                                                        />
-                                                    </Tooltip>
-                                                ) : null
-                                            }
-                                            footerStartContent={
-                                                <Chip
-                                                    size='small'
-                                                    variant='outlined'
-                                                    label={resolveWorkspaceRoleLabel(workspace.roleCodename, t)}
-                                                />
-                                            }
-                                        />
-                                    </Box>
-                                ))}
-                            </Box>
-                        ) : (
-                            <FlowListTable
-                                data={workspaceRows}
-                                customColumns={workspaceColumns}
-                                isLoading={workspacesQuery.isFetching}
-                                renderActions={(row) => (
-                                    <Stack direction='row' spacing={1} sx={{ justifyContent: 'flex-end' }}>
-                                        {renderWorkspaceActions(row)}
-                                    </Stack>
-                                )}
-                            />
-                        )}
-
-                        <PaginationControls
-                            namespace='apps'
-                            rowsPerPageOptions={PAGE_SIZE_OPTIONS}
-                            pagination={toPagination(workspaceLimit, workspaceOffset, workspacesQuery.data?.total ?? 0)}
-                            actions={toPaginationActions(
-                                workspaceLimit,
-                                workspaceOffset,
-                                setWorkspaceLimit,
-                                setWorkspaceOffset,
-                                setWorkspaceSearch
-                            )}
-                            isLoading={workspacesQuery.isFetching}
-                        />
-                    </Stack>
-                )}
-            </Box>
-        </>
-    )
-
     const renderWorkspaceDashboard = () => (
         <>
             <ViewHeader
@@ -1005,84 +648,58 @@ export function RuntimeWorkspacesPage({
         </>
     )
 
-    const renderWorkspaceSettings = () => (
-        <>
-            <ViewHeader
-                title={workspaceName ? `${workspaceName}: ${t('workspace.settings', 'Settings')}` : t('workspace.settings', 'Settings')}
-                description={t('workspace.settingsDescription', 'Workspace-level overrides for application settings.')}
-                controlsWrap
-            >
-                <Button
-                    variant='outlined'
-                    color='warning'
-                    startIcon={<RestartAltRoundedIcon />}
-                    disabled={settingsQuery.data?.canManage !== true || resetSeededContentMutation.isPending}
-                    onClick={() => {
-                        setFormError(null)
-                        setResetSeededContentOpen(true)
-                    }}
-                >
-                    {t('workspace.resetSeededContent', 'Reset seeded content')}
-                </Button>
-            </ViewHeader>
-
-            {!selectedWorkspace && !selectedWorkspaceIsLoading && selectedWorkspaceLoadFailed ? (
-                <Alert severity='error'>{t('workspace.errorLoad', 'Failed to load workspaces')}</Alert>
-            ) : !selectedWorkspace && !selectedWorkspaceIsLoading ? (
-                <Alert severity='warning'>{t('workspace.notFound', 'Workspace not found')}</Alert>
-            ) : settingsQuery.isLoading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                    <CircularProgress />
-                </Box>
-            ) : settingsQuery.isError ? (
-                <Alert severity='error'>{t('workspace.settingsLoadError', 'Failed to load workspace settings')}</Alert>
-            ) : (
-                <Stack spacing={2}>
-                    {formError ? <Alert severity='error'>{formError}</Alert> : null}
-                    {settingsQuery.data?.canManage ? null : (
-                        <Alert severity='info'>
-                            {t('workspace.settingsReadOnly', 'You can view inherited settings, but only workspace owners can change them.')}
-                        </Alert>
-                    )}
-                    {!settingsQuery.data ? (
-                        <Alert severity='warning'>{t('workspace.settingsLoadError', 'Failed to load workspace settings')}</Alert>
-                    ) : settingsQuery.data.items.filter((setting) => setting.allowed).length === 0 ? (
-                        <Alert severity='info'>{t('workspace.settingsEmpty', 'No workspace-level settings are available.')}</Alert>
-                    ) : (
-                        <Stack spacing={2}>
-                            {settingsQuery.data.items
-                                .filter((setting) => setting.allowed)
-                                .map((setting) => (
-                                    <WorkspaceSettingCard
-                                        key={setting.key}
-                                        setting={setting}
-                                        canManage={settingsQuery.data?.canManage === true && !settingsMutation.isPending}
-                                        onChange={(value) => {
-                                            setFormError(null)
-                                            settingsMutation.mutate({ setting, value })
-                                        }}
-                                        onReset={() => {
-                                            setFormError(null)
-                                            settingsMutation.mutate({ reset: setting })
-                                        }}
-                                    />
-                                ))}
-                        </Stack>
-                    )}
-                </Stack>
-            )}
-        </>
-    )
-
     return (
         <Box data-testid='runtime-workspaces-page' sx={{ width: '100%', minWidth: 0 }}>
-            {routeWorkspaceId
-                ? routeSection === 'access'
-                    ? renderWorkspaceAccess()
-                    : routeSection === 'settings'
-                    ? renderWorkspaceSettings()
-                    : renderWorkspaceDashboard()
-                : renderWorkspaceList()}
+            {routeWorkspaceId ? (
+                routeSection === 'access' ? (
+                    renderWorkspaceAccess()
+                ) : routeSection === 'settings' ? (
+                    <RuntimeWorkspaceSettingsPanel
+                        applicationId={applicationId}
+                        apiBaseUrl={apiBaseUrl}
+                        workspaceId={routeWorkspaceId}
+                        workspaceName={workspaceName}
+                        workspaceExists={Boolean(selectedWorkspace)}
+                        workspaceIsLoading={selectedWorkspaceIsLoading}
+                        workspaceLoadFailed={selectedWorkspaceLoadFailed}
+                        error={formError}
+                        isResettingSeededContent={resetSeededContentMutation.isPending}
+                        onClearError={() => setFormError(null)}
+                        onResetSeededContent={() => setResetSeededContentOpen(true)}
+                        onMutationError={(error) => setFormError(translateWorkspaceError(error))}
+                    />
+                ) : (
+                    renderWorkspaceDashboard()
+                )
+            ) : (
+                <RuntimeWorkspaceList
+                    rows={workspaceRows}
+                    columns={workspaceColumns}
+                    isError={workspacesQuery.isError}
+                    isLoading={workspacesQuery.isLoading}
+                    isFetching={workspacesQuery.isFetching}
+                    searchValue={workspaceSearch}
+                    onSearchChange={(value) => {
+                        setWorkspaceSearch(value)
+                        setWorkspaceOffset(0)
+                    }}
+                    viewMode={viewMode}
+                    onViewModeChange={setViewMode}
+                    canCreate={canCreateSharedWorkspace}
+                    onCreate={() => {
+                        setFormError(null)
+                        setCreateOpen(true)
+                    }}
+                    onOpen={(workspace) => navigateTo(buildWorkspaceHref(applicationId, workspace.id))}
+                    renderActions={renderWorkspaceActions}
+                    limit={workspaceLimit}
+                    offset={workspaceOffset}
+                    total={workspacesQuery.data?.total ?? 0}
+                    onLimitChange={setWorkspaceLimit}
+                    onOffsetChange={setWorkspaceOffset}
+                    onPaginationSearchChange={setWorkspaceSearch}
+                />
+            )}
 
             <Menu
                 open={Boolean(workspaceMenuAnchor)}
@@ -1323,367 +940,6 @@ export function RuntimeWorkspacesPage({
                 }}
             />
         </Box>
-    )
-}
-
-function WorkspaceMetricCard({ title, value }: { title: string; value: string }) {
-    return (
-        <Card
-            variant='outlined'
-            data-testid='runtime-workspace-metric-card'
-            sx={{
-                borderRadius: 1,
-                height: '100%',
-                minHeight: 112,
-                flexGrow: 1
-            }}
-        >
-            <CardContent>
-                <Typography
-                    component='h2'
-                    variant='subtitle2'
-                    gutterBottom
-                    sx={{
-                        color: 'text.secondary'
-                    }}
-                >
-                    {title}
-                </Typography>
-                <Typography variant='h5' component='p' sx={{ overflowWrap: 'anywhere' }}>
-                    {value}
-                </Typography>
-            </CardContent>
-        </Card>
-    )
-}
-
-function WorkspaceSettingCard({
-    setting,
-    canManage,
-    onChange,
-    onReset
-}: {
-    setting: RuntimeWorkspaceSetting
-    canManage: boolean
-    onChange: (value: unknown) => void
-    onReset: () => void
-}) {
-    const { t } = useTranslation('apps')
-    const definition = setting.definition
-    const label = t(`workspace.settingKeys.${setting.key}`, {
-        defaultValue: t(definition.labelKey, { defaultValue: definition.key })
-    })
-    const description = t(`workspace.settingKeys.${setting.key}.description`, {
-        defaultValue: t(definition.descriptionKey, { defaultValue: definition.key })
-    })
-    const sourceLabel = setting.isInherited
-        ? t('workspace.settingsInheritedFromApplication', 'Inherited from application')
-        : t('workspace.settingsOverriddenInWorkspace', 'Overridden in this workspace')
-    const sourceChipLabel = t(`workspace.settingSources.${setting.source}`, setting.source)
-    const optionItems = useMemo<SettingValueOption[]>(
-        () =>
-            (definition.options ?? []).map((option) => {
-                const translation = SETTING_OPTION_LABELS[`${definition.key}.${option}`]
-                return {
-                    value: option,
-                    label: translation ? t(translation.key, translation.fallback) : option
-                }
-            }),
-        [definition.key, definition.options, t]
-    )
-    const normalizedValue = setting.value === undefined || setting.value === null ? '' : setting.value
-
-    const renderControl = () => {
-        switch (definition.controlType) {
-            case 'boolean':
-                return (
-                    <FormControlLabel
-                        control={
-                            <Switch
-                                checked={normalizedValue === true}
-                                disabled={!canManage}
-                                onChange={(event) => onChange(readCheckboxChangeValue(event))}
-                                slotProps={{
-                                    input: {
-                                        'aria-label': label
-                                    }
-                                }}
-                            />
-                        }
-                        label={
-                            normalizedValue === true
-                                ? t('workspace.settingsBooleanEnabled', 'Enabled')
-                                : t('workspace.settingsBooleanDisabled', 'Disabled')
-                        }
-                    />
-                )
-            case 'select':
-                return (
-                    <TextField
-                        select
-                        size='small'
-                        fullWidth
-                        label={label}
-                        value={typeof normalizedValue === 'string' ? normalizedValue : ''}
-                        disabled={!canManage}
-                        slotProps={{ htmlInput: { 'data-testid': `runtime-workspace-setting-${setting.key}` } }}
-                        onChange={(event) => onChange(readInputChangeValue(event))}
-                    >
-                        {optionItems.map((option) => (
-                            <MenuItem key={option.value} value={option.value}>
-                                {option.label}
-                            </MenuItem>
-                        ))}
-                    </TextField>
-                )
-            case 'number':
-                return (
-                    <TextField
-                        type='number'
-                        size='small'
-                        fullWidth
-                        label={label}
-                        value={typeof normalizedValue === 'number' ? normalizedValue : 0}
-                        disabled={!canManage}
-                        slotProps={{ htmlInput: { 'data-testid': `runtime-workspace-setting-${setting.key}` } }}
-                        onChange={(event) => onChange(readNumericInputValue(event))}
-                    />
-                )
-            case 'string':
-                return (
-                    <TextField
-                        size='small'
-                        fullWidth
-                        label={label}
-                        value={typeof normalizedValue === 'string' ? normalizedValue : ''}
-                        disabled={!canManage}
-                        slotProps={{ htmlInput: { 'data-testid': `runtime-workspace-setting-${setting.key}` } }}
-                        onChange={(event) => onChange(readInputChangeValue(event))}
-                    />
-                )
-            case 'structured':
-            default:
-                return (
-                    <Alert severity='info' sx={{ width: '100%' }}>
-                        {t('workspace.settingsStructuredReadonly', 'This structured setting is managed in application settings.')}
-                    </Alert>
-                )
-        }
-    }
-
-    return (
-        <Card
-            variant='outlined'
-            data-testid='runtime-workspace-setting-card'
-            sx={{
-                borderRadius: 1,
-                width: '100%',
-                minWidth: 0
-            }}
-        >
-            <CardContent>
-                <Stack spacing={2}>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'flex-start', sm: 'center' } }}>
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography variant='subtitle1' component='h2' sx={{ overflowWrap: 'anywhere' }}>
-                                {label}
-                            </Typography>
-                            <Typography
-                                variant='body2'
-                                sx={{
-                                    color: 'text.secondary',
-                                    overflowWrap: 'anywhere'
-                                }}
-                            >
-                                {description}
-                            </Typography>
-                        </Box>
-                        <Stack direction='row' spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
-                            <Chip size='small' variant='outlined' label={sourceChipLabel} />
-                            <Chip
-                                size='small'
-                                color={setting.isInherited ? 'default' : 'primary'}
-                                variant={setting.isInherited ? 'outlined' : 'filled'}
-                                label={sourceLabel}
-                            />
-                        </Stack>
-                    </Stack>
-
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}>
-                        <Box sx={{ flex: 1, minWidth: 0 }}>{renderControl()}</Box>
-                        <Button
-                            variant='outlined'
-                            size='small'
-                            startIcon={<RestartAltRoundedIcon />}
-                            data-testid={`runtime-workspace-setting-reset-${setting.key}`}
-                            disabled={!canManage || setting.isInherited}
-                            onClick={onReset}
-                        >
-                            {t('workspace.settingsReset', 'Use application value')}
-                        </Button>
-                    </Stack>
-                </Stack>
-            </CardContent>
-        </Card>
-    )
-}
-
-function ConvertToSharedDialog({
-    open,
-    error,
-    loading,
-    onCancel,
-    onConfirm
-}: {
-    open: boolean
-    error?: string
-    loading: boolean
-    onCancel: () => void
-    onConfirm: () => void
-}) {
-    const { t } = useTranslation('apps')
-    const cancelButtonRef = useRef<HTMLButtonElement | null>(null)
-    const descriptionId = 'runtime-convert-shared-description'
-
-    // MUI Dialog autofocuses the dialog container itself; for an irreversible
-    // destructive confirmation the DOM-first safe action must hold the initial
-    // focus, so the dialog moves it explicitly on open.
-    useEffect(() => {
-        if (!open) return
-        const frame = requestAnimationFrame(() => cancelButtonRef.current?.focus())
-        return () => cancelAnimationFrame(frame)
-    }, [open])
-
-    return (
-        <StandardDialog
-            open={open}
-            onClose={onCancel}
-            title={t('workspace.convertTitle', 'Convert to shared workspace?')}
-            isBusy={loading}
-            ariaDescribedBy={descriptionId}
-            actions={
-                <>
-                    {/* Cancel is rendered DOM-first so the initial (autofocused)
-                        focus lands on the safe action for an irreversible change. */}
-                    <Button ref={cancelButtonRef} onClick={onCancel} disabled={loading}>
-                        {t('app.cancel', 'Cancel')}
-                    </Button>
-                    <Button
-                        variant='contained'
-                        color='error'
-                        onClick={() => {
-                            void Promise.resolve(onConfirm()).catch(() => undefined)
-                        }}
-                        disabled={loading}
-                    >
-                        {loading ? t('workspace.convertBusy', 'Converting…') : t('workspace.convertConfirm', 'Convert to shared')}
-                    </Button>
-                </>
-            }
-        >
-            <Stack id={descriptionId} spacing={1.5} useFlexGap>
-                {error ? <Alert severity='error'>{error}</Alert> : null}
-                <Alert severity='warning'>{t('workspace.convertOneWayLine', 'This change is permanent and cannot be undone.')}</Alert>
-                <Typography variant='body2' component='div'>
-                    <Box component='ul' sx={{ m: 0, pl: 3, display: 'grid', gap: 0.5 }}>
-                        <li>
-                            {t(
-                                'workspace.convertVisibilityLine',
-                                'Every application member sees this workspace with baseline member rights; existing owner roles are kept.'
-                            )}
-                        </li>
-                        <li>
-                            {t(
-                                'workspace.convertGuestLinksLine',
-                                'Existing guest links in this workspace become eligible when configured. Anonymous public access is not enabled automatically.'
-                            )}
-                        </li>
-                        <li>{t('workspace.convertDataLine', 'The workspace, its records and links are preserved.')}</li>
-                    </Box>
-                </Typography>
-            </Stack>
-        </StandardDialog>
-    )
-}
-
-function InviteMemberDialog({
-    open,
-    error,
-    isSubmitting,
-    onClose,
-    onSubmit
-}: {
-    open: boolean
-    error: string | null
-    isSubmitting: boolean
-    onClose: () => void
-    onSubmit: (data: { email: string; roleCodename: 'owner' | 'member' }) => Promise<unknown>
-}) {
-    const { t } = useTranslation('apps')
-    const [email, setEmail] = useState('')
-    const [emailInvalid, setEmailInvalid] = useState(false)
-    const [roleCodename, setRoleCodename] = useState<'owner' | 'member'>('member')
-
-    useEffect(() => {
-        if (open) {
-            return
-        }
-        setEmail('')
-        setEmailInvalid(false)
-        setRoleCodename('member')
-    }, [open])
-
-    return (
-        <Dialog open={open} onClose={isSubmitting ? undefined : onClose} maxWidth='sm' fullWidth>
-            <DialogTitle>{t('workspace.addMemberTitle', 'Add member')}</DialogTitle>
-            <DialogContent>
-                <Stack spacing={2} sx={{ pt: 1 }}>
-                    {error ? <Alert severity='error'>{error}</Alert> : null}
-                    <TextField
-                        type='email'
-                        label={t('workspace.fields.email', 'Email')}
-                        value={email}
-                        onChange={(event) => {
-                            setEmail(readInputChangeValue(event))
-                            setEmailInvalid(false)
-                        }}
-                        autoComplete='email'
-                        error={emailInvalid}
-                        helperText={emailInvalid ? t('workspace.errors.emailInvalid', 'Enter a valid email address.') : undefined}
-                        fullWidth
-                    />
-                    <TextField
-                        select
-                        label={t('workspace.fields.role', 'Role')}
-                        value={roleCodename}
-                        onChange={(event) => setRoleCodename(readWorkspaceRoleChangeValue(event))}
-                        fullWidth
-                    >
-                        <MenuItem value='member'>{t('workspace.roleMember', 'Member')}</MenuItem>
-                        <MenuItem value='owner'>{t('workspace.roleOwner', 'Owner')}</MenuItem>
-                    </TextField>
-                </Stack>
-            </DialogContent>
-            <DialogActions sx={{ p: 3, pt: 2 }}>
-                <Button onClick={onClose} disabled={isSubmitting}>
-                    {t('app.cancel', 'Cancel')}
-                </Button>
-                <Button
-                    variant='contained'
-                    onClick={() => {
-                        const trimmedEmail = email.trim()
-                        if (!emailSchema.safeParse(trimmedEmail).success) {
-                            setEmailInvalid(true)
-                            return
-                        }
-                        void onSubmit({ email: trimmedEmail, roleCodename }).catch(() => undefined)
-                    }}
-                    disabled={isSubmitting || email.trim().length === 0}
-                >
-                    {isSubmitting ? t('app.saving', 'Saving...') : t('workspace.addMember', 'Add')}
-                </Button>
-            </DialogActions>
-        </Dialog>
     )
 }
 

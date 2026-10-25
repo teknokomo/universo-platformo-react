@@ -105,13 +105,15 @@ export const RUNTIME_UX_VIEWPORT_MATRIX: RuntimeUxViewport[] = [
 
 const UUID_ONLY_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const UUID_SUBSTRING_PATTERN = /[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/gi
-const OPAQUE_RUNTIME_HANDLE_PATTERN = /(?:^|[^A-Za-z0-9_-])(rh1\.[A-Za-z0-9_-]{20,1020})(?=$|[^A-Za-z0-9_-])/gu
+const OPAQUE_RUNTIME_HANDLE_PATTERN = /(?:^|[^A-Za-z0-9_-])((?:rh1|pn1)\.[A-Za-z0-9_-]{20,1020})(?=$|[^A-Za-z0-9_-])/gu
 const JSON_LIKE_PATTERN =
     /(?:^|[\s:=])\{\s*"[^"\n]{1,120}"\s*:\s*(?:"|-|\d|\{|\[|true\b|false\b|null\b)[\s\S]{0,700}\}|(?:^|[\s:=])\[\s*\{\s*"[^"\n]{1,120}"\s*:\s*(?:"|-|\d|\{|\[|true\b|false\b|null\b)[\s\S]{0,700}\}[\s\S]{0,120}\]|\[object Object\]/i
 const INTERNAL_VALIDATION_PATTERN =
     /String must contain|Expected .* received|Invalid input|Required property|required_type|too_small|invalid_type|Zod/i
 const ENGLISH_VALIDATION_FALLBACK_PATTERN =
     /^(?:required|this field is required|.+\b(?:is required|is a required field)|please\s+(?:enter|select|choose)\b.*)[.!?]?\s*$/i
+const CYRILLIC_TEXT_PATTERN = /\p{Script=Cyrillic}/u
+const LATIN_TEXT_PATTERN = /\p{Script=Latin}/u
 const ISO_DATETIME_TEXT_PATTERN = /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z\b/
 const RAW_STRUCTURED_VALUE_PATTERNS = [
     /\[object (?:Object|Array)\]/i,
@@ -366,22 +368,25 @@ export async function expectLocalizedValidation(
             ? [INTERNAL_VALIDATION_PATTERN, /String must contain|This resource source is not valid|Invalid input/i]
             : [INTERNAL_VALIDATION_PATTERN]
     const matches = [...defaultForbidden, ...forbiddenPatterns].filter((pattern) => matchesPattern(pattern, text))
-    if (locale === 'ru') {
-        const messages = await surface
-            .locator('[role="alert"], [aria-live="assertive"], [aria-live="polite"], .MuiFormHelperText-root.Mui-error')
-            .evaluateAll((nodes) =>
-                nodes
-                    .filter((node) => {
-                        const element = node as HTMLElement
-                        const rect = element.getBoundingClientRect()
-                        const style = window.getComputedStyle(element)
-                        return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden'
-                    })
-                    .map((node) => node.textContent?.trim() ?? '')
-                    .filter(Boolean)
-            )
-        for (const message of messages) {
-            if (matchesPattern(ENGLISH_VALIDATION_FALLBACK_PATTERN, message)) matches.push(ENGLISH_VALIDATION_FALLBACK_PATTERN)
+    const messages = await surface
+        .locator('[role="alert"], [aria-live="assertive"], [aria-live="polite"], .MuiFormHelperText-root.Mui-error')
+        .evaluateAll((nodes) =>
+            nodes
+                .filter((node) => {
+                    const element = node as HTMLElement
+                    const rect = element.getBoundingClientRect()
+                    const style = window.getComputedStyle(element)
+                    return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden'
+                })
+                .map((node) => node.textContent?.trim() ?? '')
+                .filter(Boolean)
+        )
+    for (const message of messages) {
+        if (locale === 'ru' && (!CYRILLIC_TEXT_PATTERN.test(message) || matchesPattern(ENGLISH_VALIDATION_FALLBACK_PATTERN, message))) {
+            matches.push(ENGLISH_VALIDATION_FALLBACK_PATTERN)
+        }
+        if (locale === 'en' && !LATIN_TEXT_PATTERN.test(message)) {
+            matches.push(/English validation text must contain Latin letters/)
         }
     }
     expect(matches, `${label} must not expose internal validation text for ${locale}`).toEqual([])
@@ -418,7 +423,9 @@ export async function expectStrictRuntimeUxSurface(surface: Locator, options: St
 export async function expectNoPageHorizontalOverflow(page: Page, label: string): Promise<void> {
     const overflowDiagnostics = await page.evaluate(() => {
         const documentWidth = Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0)
-        const viewportWidth = Math.max(document.documentElement.clientWidth, document.body?.clientWidth ?? 0)
+        // The body can be wider than the viewport because of min-width; use the
+        // document viewport as the comparison boundary instead of body.clientWidth.
+        const viewportWidth = document.documentElement.clientWidth
         const overflowingElements = Array.from(document.querySelectorAll<HTMLElement>('body *'))
             .map((element) => {
                 const rect = element.getBoundingClientRect()
@@ -450,6 +457,7 @@ export async function expectNoPageHorizontalOverflow(page: Page, label: string):
             overflowPx: Math.max(0, documentWidth - viewportWidth),
             documentWidth,
             viewportWidth,
+            windowInnerWidth: window.innerWidth,
             bodyScrollWidth: document.body?.scrollWidth ?? 0,
             bodyClientWidth: document.body?.clientWidth ?? 0,
             documentElementScrollWidth: document.documentElement.scrollWidth,
@@ -545,7 +553,8 @@ export async function expectDataGridCellTextByColumn(grid: Locator, row: Locator
 export async function expectDataGridHorizontalScrollConstrained(page: Page, label: string): Promise<void> {
     const metrics = await page.locator('.MuiDataGrid-root').evaluateAll((nodes) => {
         const viewportWidth = document.documentElement.clientWidth
-        const pageOverflowPx = Math.max(0, document.documentElement.scrollWidth - viewportWidth)
+        const documentWidth = Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0)
+        const pageOverflowPx = Math.max(0, documentWidth - viewportWidth)
 
         return nodes
             .map((node, index) => {
@@ -561,6 +570,7 @@ export async function expectDataGridHorizontalScrollConstrained(page: Page, labe
                     index,
                     visible: isExposed && rootRect.width > 0 && rootRect.height > 0,
                     pageOverflowPx,
+                    documentWidth,
                     rootLeft: rootRect.left,
                     rootRight: rootRect.right,
                     viewportWidth,

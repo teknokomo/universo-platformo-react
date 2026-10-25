@@ -36,16 +36,23 @@ import {
 } from '../../api/mutations'
 import type { ApplicationEffectiveLayoutResponse } from '../../types'
 import { useHostedDashboardBoundRowActions } from './useHostedDashboardBoundRowActions'
-import { UUID_PATH_SEGMENT_REGEX, buildLearningContentCreateDefaultContext, toDashboardZoneWidgets } from './runtimeLayout'
+import {
+    UUID_PATH_SEGMENT_REGEX,
+    buildLearningContentCreateDefaultContext,
+    toAuthenticatedRuntimePlacementScopes,
+    toDashboardZoneWidgets
+} from './runtimeLayout'
 
 const DEFAULT_PAGE_SIZE = 50
 
 export const DashboardApplicationRuntime = ({
+    applicationIdOverride,
     effectiveLayout,
     locale,
     footerMetadata,
     onRuntimeDataChanged
 }: {
+    applicationIdOverride?: string
     effectiveLayout: ApplicationEffectiveLayoutResponse
     locale: string
     footerMetadata?: DashboardDetailsSlot['footerMetadata']
@@ -53,7 +60,7 @@ export const DashboardApplicationRuntime = ({
 }) => {
     const routeParams = useParams<{ applicationId: string; '*': string }>()
     const navigate = useNavigate()
-    const applicationId = routeParams.applicationId
+    const applicationId = applicationIdOverride ?? routeParams.applicationId
     const runtimeSubRoute = routeParams['*'] ?? ''
     const runtimeRouteSegments = runtimeSubRoute.split('/').filter(Boolean)
     const [searchParams, setSearchParams] = useSearchParams()
@@ -146,6 +153,7 @@ export const DashboardApplicationRuntime = ({
         const placements = toDashboardZoneWidgets(effectiveLayout)
         return isWorkspacesRoute ? withoutWorkspaceDashboardContent(placements) : placements
     }, [effectiveLayout, isWorkspacesRoute])
+    const authenticatedPlacementScopes = useMemo(() => toAuthenticatedRuntimePlacementScopes(effectiveLayout), [effectiveLayout])
 
     const activeRuntimeSection = state.appData?.section ?? state.appData?.objectCollection
     const activeRuntimeConfig = activeRuntimeSection?.runtimeConfig
@@ -845,7 +853,12 @@ export const DashboardApplicationRuntime = ({
 
     return (
         <>
-            <AppsDashboard layoutConfig={runtimeLayoutConfig} zoneWidgets={effectiveDashboardZoneWidgets} details={details} />
+            <AppsDashboard
+                layoutConfig={runtimeLayoutConfig}
+                zoneWidgets={effectiveDashboardZoneWidgets}
+                placementScopes={authenticatedPlacementScopes}
+                details={details}
+            />
 
             {!isWorkspacesRoute ? (
                 <>

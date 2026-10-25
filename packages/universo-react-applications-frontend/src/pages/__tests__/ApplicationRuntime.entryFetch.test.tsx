@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
@@ -113,7 +113,6 @@ describe('ApplicationRuntimeEntry anonymous bootstrap fetching', () => {
         )
 
         expect(await screen.findByTestId('public-marketing-runtime')).toBeInTheDocument()
-        await new Promise((resolve) => setTimeout(resolve, 50))
-        expect(fetchMocks.getPublicApplicationRuntime).toHaveBeenCalledTimes(1)
+        await waitFor(() => expect(fetchMocks.getPublicApplicationRuntime).toHaveBeenCalledTimes(1))
     })
 })

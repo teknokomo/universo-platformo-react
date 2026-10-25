@@ -1,4 +1,4 @@
-import { type AppDataResponse, type ZoneWidgets } from '@universo-react/apps-template-mui'
+import { type AppDataResponse, type AuthenticatedRuntimePlacementScopes, type ZoneWidgets } from '@universo-react/apps-template-mui'
 import { sanitizeApplicationLearningContentSettings } from '@universo-react/types'
 import type { ApplicationEffectiveLayoutResponse } from '../../types'
 
@@ -60,8 +60,6 @@ export const toDashboardZoneWidgets = (effectiveLayout: ApplicationEffectiveLayo
             throw new Error(`Effective layout contains an unsupported Dashboard zone: ${widget.zone}`)
         }
         grouped[widget.zone]?.push({
-            id: widget.id,
-            layoutId: widget.layoutId,
             widgetKey: widget.widgetKey,
             sortOrder: widget.sortOrder,
             config: widget.config,
@@ -75,8 +73,20 @@ export const toDashboardZoneWidgets = (effectiveLayout: ApplicationEffectiveLayo
     }
 
     for (const zone of DASHBOARD_LAYOUT_ZONES) {
-        grouped[zone]?.sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id))
+        grouped[zone]?.sort((left, right) => left.sortOrder - right.sortOrder || left.instanceKey.localeCompare(right.instanceKey))
     }
 
     return grouped
+}
+
+export const toAuthenticatedRuntimePlacementScopes = (
+    effectiveLayout: ApplicationEffectiveLayoutResponse | undefined
+): AuthenticatedRuntimePlacementScopes | undefined => {
+    if (!effectiveLayout || effectiveLayout.layout.templateKey !== 'dashboard') return undefined
+    return Object.fromEntries(
+        effectiveLayout.widgets.map((widget) => [
+            widget.instanceKey,
+            { widgetId: widget.id, layoutId: widget.layoutId ?? effectiveLayout.layout.id }
+        ])
+    )
 }

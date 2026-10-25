@@ -11,7 +11,8 @@ import {
     findMatrixRowByTitle,
     getMatrixRows,
     openStructures,
-    resolveRuntimeIds
+    resolveRuntimeIds,
+    setInterpretationNetworkWidgetConfig
 } from '../../support/interpretationNetworkFocused'
 
 test.describe('Interpretation Network single-system navigation @flow @interpretation-network-focused', () => {
@@ -32,16 +33,21 @@ test.describe('Interpretation Network single-system navigation @flow @interpreta
                 name: 'Interpretation Network single-system focused flow',
                 codename: `interpretation-network-single-${runManifest.runId}`
             })
+            await setInterpretationNetworkWidgetConfig(api, imported.applicationId, { structureMode: 'singleSystem' })
             const runtimeIds = await resolveRuntimeIds(api, imported.applicationId)
+            const system = await ensureSystemStructure(api, imported.applicationId, runtimeIds.workspaceId)
 
             await page.goto(`/a/${imported.applicationId}`)
-            await expect(page.getByTestId('runtime-workspace-switcher')).toBeVisible({ timeout: 30_000 })
+            await expect(page.getByTestId('runtime-side-menu-docked').getByTestId('runtime-workspace-switcher')).toBeVisible({
+                timeout: 30_000
+            })
             const startUrl = page.url()
             await openStructures(page)
             await expectSingleSystemMatrix(page)
             await expectNoTechnicalLeakage(page.getByRole('main'), {
                 label: 'single-system Matrix surface',
-                disallowUuidSubstring: true
+                checkUuidSubstrings: true,
+                checkOpaqueRuntimeHandles: true
             })
 
             const matrixUrl = page.url()
@@ -51,7 +57,6 @@ test.describe('Interpretation Network single-system navigation @flow @interpreta
             expect(new URL(matrixUrl).searchParams.get('matrixCell')).toMatch(/^[0-9a-f-]{36}$/i)
             await expectNoPageHorizontalOverflow(page, 'single-system direct Matrix route')
 
-            const system = await ensureSystemStructure(api, imported.applicationId, runtimeIds.workspaceId)
             const interpretationId = system.interpretationId
             expect(
                 (await getMatrixRows(api, imported.applicationId, runtimeIds, interpretationId!)).length,

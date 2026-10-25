@@ -450,7 +450,7 @@ export const runtimeLibraryConfigSchema = z
 
 export const runtimeRecordAccessConfigSchema = z
     .object({
-        mode: z.literal('ownerOrShared'),
+        mode: z.enum(['ownerOrShared', 'ownerOnly']),
         ownerFieldCodename: z.string().trim().min(1).max(128).optional(),
         ownerColumnName: z
             .string()

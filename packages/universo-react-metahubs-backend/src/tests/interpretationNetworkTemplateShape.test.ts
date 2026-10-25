@@ -12,6 +12,7 @@
 import { interpretationNetworkTemplate } from '../domains/templates/data/interpretation-network.template'
 import { INTERPRETATION_NETWORK_STAGE2 } from '../domains/templates/data/interpretation-network.stage2'
 import { builtinTemplates } from '../domains/templates/data'
+import { resolveEntityRecordPolicy } from '@universo-react/types'
 
 const findWidget = (widgets: Array<{ widgetKey: string }>, key: string) => widgets.find((w) => w.widgetKey === key)
 
@@ -38,13 +39,13 @@ describe('interpretation-network template shape', () => {
         expect(main?.isActive).toBe(true)
     })
 
-    it('seeds the main layout with the interpretation workspace plus canonical Dashboard chrome', () => {
-        const widgets = interpretationNetworkTemplate.seed.layoutZoneWidgets?.main ?? []
+    it('keeps the global shell on Start and scopes the interpretation workspace to Structures', () => {
+        const globalWidgets = interpretationNetworkTemplate.seed.layoutZoneWidgets?.main ?? []
+        const structureWidgets = interpretationNetworkTemplate.seed.layoutZoneWidgets?.structures ?? []
 
-        const top = widgets.filter((w) => w.zone === 'top')
-        const left = widgets.filter((w) => w.zone === 'left')
-        const center = widgets.filter((w) => w.zone === 'center')
-        const workspace = findWidget(center, 'interpretationNetworkWorkspace') as
+        const top = globalWidgets.filter((w) => w.zone === 'top')
+        const left = globalWidgets.filter((w) => w.zone === 'left')
+        const workspace = findWidget(structureWidgets, 'interpretationNetworkWorkspace') as
             | {
                   rendererConfig?: {
                       conceptCodename?: string
@@ -104,6 +105,20 @@ describe('interpretation-network template shape', () => {
         ])
         expect(findWidget(left, 'menuWidget')).toBeDefined()
         expect(findWidget(left, 'workspaceSwitcher')).toBeDefined()
+        expect(globalWidgets.filter(({ zone }) => zone === 'center')).toEqual([])
+        expect(structureWidgets).toHaveLength(1)
+        expect(structureWidgets[0]).toMatchObject({ zone: 'center', isActive: true })
+        expect(interpretationNetworkTemplate.seed.scopedLayouts).toEqual([
+            expect.objectContaining({
+                codename: 'structures',
+                templateKey: 'dashboard',
+                baseLayoutCodename: 'main',
+                scopeEntityCodename: 'Structure',
+                scopeEntityKind: 'object',
+                isDefault: true,
+                isActive: true
+            })
+        ])
         expect(workspace?.rendererConfig).toMatchObject({
             matrixMode: 'hierarchicalCells',
             structureMode: 'multiple',
@@ -151,11 +166,29 @@ describe('interpretation-network template shape', () => {
         expect(setPreset?.includedByDefault).toBe(true)
     })
 
+    it('keeps the specialized Start page without the generic Page preset instance', () => {
+        const pagePreset = interpretationNetworkTemplate.presets.find((preset) => preset.presetCodename === 'page')
+        const startPage = INTERPRETATION_NETWORK_STAGE2.seedEntities.find((entity) => entity.codename === 'InterpretationNetworkIntro')
+
+        expect(pagePreset?.includedByDefault).toBe(false)
+        expect(INTERPRETATION_NETWORK_STAGE2.seedEntities.some((entity) => entity.codename === 'WelcomePage')).toBe(false)
+        expect(startPage).toMatchObject({
+            kind: 'page',
+            name: {
+                locales: {
+                    en: { content: 'Start' },
+                    ru: { content: 'Начало' }
+                }
+            }
+        })
+    })
+
     it('activates the Interpretation Network entity definitions in the template seed', () => {
         expect(interpretationNetworkTemplate.seed.entities).toBe(INTERPRETATION_NETWORK_STAGE2.seedEntities)
         const codenames = (interpretationNetworkTemplate.seed.entities ?? []).map((e) => e.codename).sort()
         expect(codenames).toEqual([
             'Context',
+            'Favorite',
             'Interpretation',
             'InterpretationNetworkIntro',
             'Material',
@@ -208,16 +241,72 @@ describe('interpretation-network template shape', () => {
         expect(Number(matrix?.validationRules?.maxChildComponents ?? 0)).toBe(matrix?.childComponents?.length ?? 0)
     })
 
+    it('Favorite is a hidden owner-only entity excluded from generic writes and Workspace copy', () => {
+        const favorite = INTERPRETATION_NETWORK_STAGE2.seedEntities.find((entity) => entity.codename === 'Favorite')
+        expect(favorite).toMatchObject({ kind: 'object', hubs: [] })
+        expect(favorite?.name).toMatchObject({
+            locales: {
+                en: { content: 'Favorites' },
+                ru: { content: 'Избранное' }
+            }
+        })
+        expect(favorite?.config).toMatchObject({
+            recordBehavior: 'reference',
+            runtimeRecordAccess: { mode: 'ownerOnly', ownerFieldCodename: 'OwnerUserId' },
+            recordPolicy: { version: 1, runtimeMutation: 'deny', workspaceCopy: 'exclude' },
+            runtime: { menuVisibility: 'hidden' }
+        })
+        expect(favorite?.components?.map((component) => component.codename)).toEqual([
+            'OwnerUserId',
+            'TargetInterpretationId',
+            'TargetCellId'
+        ])
+        for (const component of favorite?.components ?? []) {
+            expect(component).toMatchObject({
+                dataType: 'STRING',
+                uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true }
+            })
+        }
+        expect(() => resolveEntityRecordPolicy(favorite?.config)).not.toThrow()
+    })
+
+    it('Material is hidden from generic navigation and writes use the dedicated Interpretation Network aggregate', () => {
+        const material = INTERPRETATION_NETWORK_STAGE2.seedEntities.find((entity) => entity.codename === 'Material')
+        expect(material?.config).toMatchObject({
+            recordBehavior: 'reference',
+            recordPolicy: { version: 1, runtimeMutation: 'deny', workspaceCopy: 'exclude' },
+            runtime: { menuVisibility: 'hidden' }
+        })
+        expect(material?.components?.map((component) => component.codename)).toEqual(
+            expect.arrayContaining(['Title', 'Description', 'Body', 'CellId', 'TemplateOwnerId'])
+        )
+        expect(material?.components?.find((component) => component.codename === 'CellId')?.uiConfig).toMatchObject({ serverOwned: true })
+        expect(material?.components?.find((component) => component.codename === 'TemplateOwnerId')?.uiConfig).toMatchObject({
+            serverOwned: true
+        })
+        expect(() => resolveEntityRecordPolicy(material?.config)).not.toThrow()
+    })
+
+    it('validates each protected Interpretation Network Object policy against the shared strict schema', () => {
+        for (const entity of INTERPRETATION_NETWORK_STAGE2.seedEntities.filter((candidate) => candidate.kind === 'object')) {
+            if (entity.config && Object.prototype.hasOwnProperty.call(entity.config, 'recordPolicy')) {
+                expect(() => resolveEntityRecordPolicy(entity.config)).not.toThrow()
+            }
+        }
+    })
+
     it('includes a localized intro Page with Editor.js-compatible block content', () => {
         const intro = INTERPRETATION_NETWORK_STAGE2.seedEntities.find((e) => e.codename === 'InterpretationNetworkIntro')
         const blockContent = intro?.config?.blockContent as { format?: string; blocks?: unknown[] } | undefined
         expect(intro?.kind).toBe('page')
         expect(blockContent?.format).toBe('editorjs')
-        expect(blockContent?.blocks?.length).toBeGreaterThanOrEqual(2)
-        expect(JSON.stringify(blockContent)).toContain('Interpretation Network')
-        expect(JSON.stringify(blockContent)).toContain('Трактовочная сеть')
-        expect(JSON.stringify(blockContent)).toContain('Use the workspace below to build the matrix')
-        expect(JSON.stringify(blockContent)).toContain('Создавайте матрицу в рабочей области ниже')
+        expect(blockContent?.blocks).toHaveLength(1)
+        expect((blockContent?.blocks?.[0] as { type?: string } | undefined)?.type).toBe('paragraph')
+        expect(JSON.stringify(blockContent)).toContain('helps build a hierarchy of structures')
+        expect(JSON.stringify(blockContent)).toContain('помогает создавать иерархию структур')
+        expect(JSON.stringify(blockContent)).not.toContain('interpretationNetwork-intro-title')
+        expect(JSON.stringify(blockContent)).not.toMatch(/"text":"(?:Interpretation Network|Трактовочная сеть)"/u)
+        expect(JSON.stringify(blockContent)).not.toMatch(/workspace below|рабочей области ниже/iu)
         expect(JSON.stringify(blockContent)).not.toContain('Open Structures')
     })
 
@@ -242,7 +331,7 @@ describe('interpretation-network template shape', () => {
         expect(menu?.rendererConfig).toEqual({ variant: 'generated' })
     })
 
-    it('Material is a record-capable Object with an Editor.js Body component', () => {
+    it('Material remains a read-capable Object with an Editor.js Body component', () => {
         const material = INTERPRETATION_NETWORK_STAGE2.seedEntities.find((e) => e.codename === 'Material')
         expect(material?.kind).toBe('object')
         expect(material?.config).toEqual(expect.objectContaining({ recordBehavior: 'reference' }))
@@ -391,5 +480,23 @@ describe('interpretation-network template shape', () => {
                 formHidden: true
             })
         }
+    })
+
+    it('scopes each Material attachment to its owning Interpretation while keeping template provenance separate', () => {
+        const material = INTERPRETATION_NETWORK_STAGE2.seedEntities.find((entity) => entity.codename === 'Material')
+        const interpretationId = material?.components?.find((component) => component.codename === 'InterpretationId')
+        const templateOwnerId = material?.components?.find((component) => component.codename === 'TemplateOwnerId')
+
+        expect(interpretationId).toMatchObject({
+            dataType: 'STRING',
+            validationRules: { maxLength: 36 },
+            uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true }
+        })
+        expect(templateOwnerId?.uiConfig).toMatchObject({
+            hidden: true,
+            gridHidden: true,
+            formHidden: true,
+            serverOwned: true
+        })
     })
 })

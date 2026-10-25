@@ -1,4 +1,5 @@
 import { loadApplicationRuntimeLayouts } from '../../routes/sync/syncDataLoader'
+import { assertCurrentApplicationStructureVersion } from '../../routes/sync/syncReleaseBundleSources'
 import {
     buildSingleTargetWidgetBinding,
     decodeLayoutWidgetConfigEnvelope,
@@ -17,6 +18,18 @@ const ids = {
     authSourceWidget: '019f3100-0000-7000-8000-000000000023',
     authScopedWidget: '019f3100-0000-7000-8000-000000000031'
 }
+
+describe('assertCurrentApplicationStructureVersion', () => {
+    it('accepts the current application structure version', () => {
+        expect(assertCurrentApplicationStructureVersion({ appStructureVersion: 1 })).toBe(1)
+    })
+
+    it.each([null, 2])('rejects unsupported application structure version %s', (appStructureVersion) => {
+        expect(() => assertCurrentApplicationStructureVersion({ appStructureVersion })).toThrow(
+            `Unsupported application structure version: ${String(appStructureVersion)}`
+        )
+    })
+})
 
 const globalLayout = {
     id: ids.globalLayout,

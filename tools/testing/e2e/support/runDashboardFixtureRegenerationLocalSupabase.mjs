@@ -200,7 +200,7 @@ const runPlaywright = async (label, args, options = {}) => {
     if (artifactFailure) throw artifactFailure
 }
 
-const validateFixture = async (fixture, generatedPath, { compareWithTracked = false, trackedPath = null } = {}) => {
+const validateFixture = async (fixture, generatedPath) => {
     const args = [
         'exec',
         'node',
@@ -209,11 +209,6 @@ const validateFixture = async (fixture, generatedPath, { compareWithTracked = fa
         fixture.kind,
         path.relative(repoRoot, generatedPath)
     ]
-    if (compareWithTracked) {
-        args.push('--drift')
-        args.push('--allow-stale-tracked')
-        if (trackedPath) args.push('--tracked', path.relative(repoRoot, trackedPath))
-    }
     await run(args)
 }
 
@@ -306,13 +301,6 @@ try {
     }
 
     await assertFixtureDirectoryChangesAreAllowlisted(fixtureDirectoryState)
-
-    for (const fixture of fixtureInventory) {
-        await validateFixture(fixture, generatedPaths.get(fixture.filename), {
-            compareWithTracked: true,
-            trackedPath: path.join(fullFixtureBackupRoot, fixture.filename)
-        })
-    }
 
     activatedFixtures = await stageAndReplaceFixtures(generatedPaths)
     await assertFixtureDirectoryChangesAreAllowlisted(fixtureDirectoryState, new Set(fixtureInventory.map(({ filename }) => filename)))

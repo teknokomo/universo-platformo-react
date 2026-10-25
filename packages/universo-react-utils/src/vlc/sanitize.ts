@@ -1,6 +1,6 @@
 import type { VersionedLocalizedContent, LocaleCode } from '@universo-react/types'
 import { isValidLocaleCode } from '@universo-react/types'
-import { createLocalizedContent, updateLocalizedContentLocale } from './index'
+import { createLocalizedContent, updateLocalizedContentLocale } from './contentMutations'
 
 /**
  * Sanitize and normalize localized input from API requests.

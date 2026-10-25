@@ -27,6 +27,7 @@ import {
 import {
     assertAllowedUniformTabularUpdates,
     assertNoClientSuppliedServerOwnedChildFields,
+    assertNoGenericMatrixAxisLabelUpdates,
     assertNoGenericMatrixPlacement,
     buildChildRowUpdate,
     getSafeRuntimeChildAttrs,
@@ -165,7 +166,8 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
         const safeChildAttrs = getSafeRuntimeChildAttrs(tc, {
             allowAssessmentOptions: ctx.permissions.editContent === true || ctx.permissions.manageApplication === true,
-            allowSiblingRowSelectKeys: ctx.permissions.editContent === true || ctx.permissions.manageApplication === true
+            allowSiblingRowSelectKeys: ctx.permissions.editContent === true || ctx.permissions.manageApplication === true,
+            allowGridHidden: tc.tableAttr.validation_rules?.matrixUniqueCoordinates === true
         })
         const hierarchyAttrs = resolveHierarchyAttrs(tc)
         const selectedColumns = new Set(safeChildAttrs.map((attr) => attr.column_name))
@@ -450,7 +452,8 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
                 const safeChildAttrs = getSafeRuntimeChildAttrs(tc, {
                     allowAssessmentOptions: ctx.permissions.editContent === true || ctx.permissions.manageApplication === true,
-                    allowSiblingRowSelectKeys: ctx.permissions.editContent === true || ctx.permissions.manageApplication === true
+                    allowSiblingRowSelectKeys: ctx.permissions.editContent === true || ctx.permissions.manageApplication === true,
+                    allowGridHidden: tc.tableAttr.validation_rules?.matrixUniqueCoordinates === true
                 })
                 const returningCols = [
                     'id',
@@ -547,6 +550,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
         try {
             assertNoClientSuppliedServerOwnedChildFields(tc, data)
             assertNoGenericMatrixPlacement(tc, data)
+            assertNoGenericMatrixAxisLabelUpdates(tc, data)
         } catch (error) {
             if (error instanceof UpdateFailure) return res.status(error.statusCode).json(error.body)
             throw error
@@ -692,9 +696,11 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
             for (const update of parsedBody.data.updates) {
                 assertNoClientSuppliedServerOwnedChildFields(tc, update.data)
                 assertNoGenericMatrixPlacement(tc, update.data)
+                assertNoGenericMatrixAxisLabelUpdates(tc, update.data)
             }
             for (const uniformUpdate of uniformUpdates) {
                 assertNoClientSuppliedServerOwnedChildFields(tc, uniformUpdate.data)
+                assertNoGenericMatrixAxisLabelUpdates(tc, uniformUpdate.data)
             }
         } catch (error) {
             if (error instanceof UpdateFailure) return res.status(error.statusCode).json(error.body)

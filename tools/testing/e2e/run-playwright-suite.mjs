@@ -3,7 +3,7 @@ import { spawn } from 'child_process'
 import { cleanupE2eRun } from './support/backend/e2eCleanup.mjs'
 import { fullResetE2eProject } from './support/backend/e2eFullReset.mjs'
 import { artifactsDir, ensureE2eDirectories, loadE2eEnvironment, repoRoot } from './support/env/load-e2e-env.mjs'
-import { acquireE2eRunLock, borrowE2eRunLock, releaseE2eRunLock } from './support/e2eRunLock.mjs'
+import { acquireE2eRunLock, borrowE2eRunLock, releaseE2eRunLock, withoutE2eRunLockDelegation } from './support/e2eRunLock.mjs'
 
 const env = loadE2eEnvironment()
 ensureE2eDirectories()
@@ -12,7 +12,7 @@ const playwrightArgs = process.argv.slice(2)
 const pingUrl = `${env.baseURL}/api/v1/ping`
 const resolvedBaseURL = new URL(env.baseURL)
 const baseCommandEnv = {
-    ...process.env,
+    ...withoutE2eRunLockDelegation(process.env),
     UNIVERSO_ENV_TARGET: env.envTarget,
     UNIVERSO_ENV_FILE: env.backendEnvPath ?? process.env.UNIVERSO_ENV_FILE,
     UNIVERSO_FRONTEND_ENV_FILE: env.frontendEnvPath ?? process.env.UNIVERSO_FRONTEND_ENV_FILE,
@@ -20,7 +20,8 @@ const baseCommandEnv = {
     PORT: resolvedBaseURL.port || process.env.PORT || '3100',
     HOST: resolvedBaseURL.hostname,
     API_RATE_LIMIT_READ_MAX: process.env.API_RATE_LIMIT_READ_MAX || '5000',
-    API_RATE_LIMIT_WRITE_MAX: process.env.API_RATE_LIMIT_WRITE_MAX || '2500'
+    API_RATE_LIMIT_WRITE_MAX: process.env.API_RATE_LIMIT_WRITE_MAX || '2500',
+    API_RATE_LIMIT_CUSTOM_MAX: process.env.API_RATE_LIMIT_CUSTOM_MAX || '5000'
 }
 
 let serverProcess = null
@@ -90,6 +91,8 @@ async function acquireRunLock() {
             ownerPid: Number(process.env.UNIVERSO_E2E_RUN_LOCK_OWNER_PID),
             token: delegatedToken
         })
+        delete process.env.UNIVERSO_E2E_RUN_LOCK_OWNER_PID
+        delete process.env.UNIVERSO_E2E_RUN_LOCK_TOKEN
         return
     }
 

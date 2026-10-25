@@ -1,5 +1,13 @@
 import { z } from 'zod'
 import { isUuidV7 } from '@universo-react/utils'
+import {
+    interpretationNetworkCellStylePolicySchema,
+    isInterpretationNetworkCellStyleWorkspaceSettingKey,
+    layoutInstanceKeySchema,
+    applicationLayoutZoneSchema,
+    layoutSemanticRegionSchema,
+    type WorkspaceSettingTarget
+} from '@universo-react/types'
 import { fetchWithCsrf } from './api'
 
 const uuidSchema = z.string().uuid()
@@ -64,6 +72,7 @@ const runtimeWorkspaceMutationResponseSchema = z
 
 const runtimeWorkspaceSettingSchema = z.object({
     key: z.string(),
+    target: z.object({ kind: z.literal('global') }).strict(),
     value: z.unknown(),
     source: z.enum(['default', 'metahub', 'application', 'workspace']),
     isInherited: z.boolean(),
@@ -72,8 +81,31 @@ const runtimeWorkspaceSettingSchema = z.object({
     definition: settingDefinitionSchema
 })
 
+const effectiveWorkspaceWidgetConfigSchema = z.object({
+    target: z.object({ kind: z.literal('widget'), instanceKey: layoutInstanceKeySchema }).strict(),
+    widgetKey: z.string().min(1),
+    zone: applicationLayoutZoneSchema,
+    semanticRegion: layoutSemanticRegionSchema,
+    config: z.record(z.unknown()),
+    cellStylePolicy: interpretationNetworkCellStylePolicySchema,
+    layoutToken: z.string().min(1)
+})
+
+const runtimeWorkspaceWidgetSettingSchema = z.object({
+    key: z.string().refine(isInterpretationNetworkCellStyleWorkspaceSettingKey),
+    target: z.object({ kind: z.literal('widget'), instanceKey: layoutInstanceKeySchema }).strict(),
+    value: z.unknown(),
+    source: z.enum(['application', 'workspace']),
+    isInherited: z.boolean(),
+    allowed: z.literal(true),
+    version: z.number().nullable()
+})
+
 const runtimeWorkspaceSettingsResponseSchema = z.object({
     items: z.array(runtimeWorkspaceSettingSchema),
+    widgetSettings: z.array(runtimeWorkspaceWidgetSettingSchema).default([]),
+    effectiveWidgetConfigs: z.array(effectiveWorkspaceWidgetConfigSchema).default([]),
+    layoutToken: z.string().nullable().optional(),
     canManage: z.boolean().default(false)
 })
 
@@ -91,6 +123,7 @@ export type RuntimeWorkspaceListResponse = z.infer<typeof workspaceListResponseS
 export type RuntimeWorkspaceMembersResponse = z.infer<typeof workspaceMembersResponseSchema>
 export type RuntimeWorkspaceMutationResponse = z.infer<typeof runtimeWorkspaceMutationResponseSchema>
 export type RuntimeWorkspaceSetting = z.infer<typeof runtimeWorkspaceSettingSchema>
+export type RuntimeWorkspaceWidgetSetting = z.infer<typeof runtimeWorkspaceWidgetSettingSchema>
 export type RuntimeWorkspaceSettingsResponse = z.infer<typeof runtimeWorkspaceSettingsResponseSchema>
 
 export class RuntimeWorkspaceApiError extends Error {
@@ -347,8 +380,16 @@ export async function fetchRuntimeWorkspaceSettings(options: {
     apiBaseUrl: string
     applicationId: string
     workspaceId: string
+    targetKind?: 'page' | 'object'
+    entityTypeId?: string
+    locale?: string
+    themeVariant?: 'light' | 'dark' | 'system'
 }): Promise<RuntimeWorkspaceSettingsResponse> {
     const url = buildRuntimeUrl(options.apiBaseUrl, options.applicationId, `/workspaces/${options.workspaceId}/settings`)
+    if (options.targetKind) url.searchParams.set('targetKind', options.targetKind)
+    if (options.entityTypeId) url.searchParams.set('entityTypeId', options.entityTypeId)
+    if (options.locale) url.searchParams.set('locale', options.locale)
+    if (options.themeVariant) url.searchParams.set('themeVariant', options.themeVariant)
 
     const response = await fetch(url.toString(), { credentials: 'include' })
     if (!response.ok) {
@@ -362,10 +403,14 @@ export async function updateRuntimeWorkspaceSettings(options: {
     apiBaseUrl: string
     applicationId: string
     workspaceId: string
-    settings?: Array<{ key: string; value: unknown; expectedVersion?: number }>
-    resets?: Array<{ key: string; expectedVersion?: number }>
+    targetKind?: 'page' | 'object'
+    entityTypeId?: string
+    settings?: Array<{ key: string; target: WorkspaceSettingTarget; value: unknown; expectedVersion?: number }>
+    resets?: Array<{ key: string; target: WorkspaceSettingTarget; expectedVersion?: number }>
 }): Promise<RuntimeWorkspaceSettingsResponse> {
     const url = buildRuntimeUrl(options.apiBaseUrl, options.applicationId, `/workspaces/${options.workspaceId}/settings`)
+    if (options.targetKind) url.searchParams.set('targetKind', options.targetKind)
+    if (options.entityTypeId) url.searchParams.set('entityTypeId', options.entityTypeId)
     const response = await fetchWithCsrf(options.apiBaseUrl, url.toString(), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

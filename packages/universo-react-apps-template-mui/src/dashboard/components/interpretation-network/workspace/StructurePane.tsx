@@ -4,10 +4,6 @@ import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import CardActionArea from '@mui/material/CardActionArea'
 import CardContent from '@mui/material/CardContent'
-import Dialog from '@mui/material/Dialog'
-import DialogActions from '@mui/material/DialogActions'
-import DialogContent from '@mui/material/DialogContent'
-import DialogTitle from '@mui/material/DialogTitle'
 import IconButton from '@mui/material/IconButton'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
@@ -28,6 +24,7 @@ import type { SxProps, Theme } from '@mui/material/styles'
 import type { TFunction } from 'i18next'
 import type { InterpretationNetworkTemplateDetail, InterpretationNetworkTemplateSummary } from '../../../../api/interpretationNetwork'
 import CustomizedDataGrid from '../../CustomizedDataGrid'
+import { StandardDialog } from '../../../../components/dialogs/StandardDialog'
 import { CatalogToolbar } from '../CatalogToolbar'
 import { readColumnText, type RuntimeColumnLike, type RuntimeRow } from '../model'
 import { readInterpretationNetworkTemplateLabel } from './templateDisplay'
@@ -40,7 +37,6 @@ const toMenuAnchorPosition = (anchor: HTMLElement | null) => {
 
 export type StructureViewMode = 'table' | 'cards'
 export type StructureListTab = 'structures' | 'templates'
-export type StructureDetailTab = 'matrix' | 'templates'
 
 export interface StructureSummary {
     id: string
@@ -62,7 +58,6 @@ export interface StructurePaneProps {
     filteredStructures: StructureSummary[]
     templates?: InterpretationNetworkTemplateSummary[]
     structureListTab?: StructureListTab
-    structureDetailTab?: StructureDetailTab
     showTemplatesInStructureList?: boolean
     showTemplatesInMatrix?: boolean
     dataGridLocaleText?: Partial<GridLocaleText>
@@ -73,10 +68,14 @@ export interface StructurePaneProps {
     templateDetailLoading?: boolean
     templateDetailError?: boolean
     templateDetail?: InterpretationNetworkTemplateDetail
+    templateApplyTargetLabel?: string
+    canInsertTemplate?: boolean
+    insertingTemplate?: boolean
+    templateApplyError?: boolean
     structureFieldsReady: boolean
     createStructureError: boolean
     normalizedStructureFilter: string
-    matrixWorkspace: ReactNode
+    matrixWorkspace: ReactNode | ((templatePanel: ReactNode) => ReactNode)
     structureMenuAnchor: HTMLElement | null
     structureMenuId: string | null
     canEditStructure: boolean
@@ -86,13 +85,13 @@ export interface StructurePaneProps {
     onFilterChange: (value: string) => void
     onViewModeChange: (value: StructureViewMode) => void
     onStructureListTabChange?: (value: StructureListTab) => void
-    onStructureDetailTabChange?: (value: StructureDetailTab) => void
     onOpenCreateStructure: () => void
     onOpenSaveTemplateForStructure?: (structureId: string) => void
     onEditTemplate?: (templateId: string) => void
     onDeleteTemplate?: (templateId: string) => void
     onOpenTemplate?: (templateId: string) => void
     onCloseTemplate?: () => void
+    onInsertTemplate?: (templateId: string) => Promise<boolean>
     onOpenStructure: (structure: StructureSummary) => void
     onOpenStructureMenu: (anchor: HTMLElement, structureId: string) => void
     onCloseStructureMenu: () => void
@@ -117,7 +116,6 @@ export function StructurePane({
     filteredStructures,
     templates = [],
     structureListTab = 'structures',
-    structureDetailTab = 'matrix',
     showTemplatesInStructureList = true,
     showTemplatesInMatrix = true,
     dataGridLocaleText,
@@ -128,6 +126,10 @@ export function StructurePane({
     templateDetailLoading = false,
     templateDetailError = false,
     templateDetail,
+    templateApplyTargetLabel,
+    canInsertTemplate = false,
+    insertingTemplate = false,
+    templateApplyError = false,
     structureFieldsReady,
     createStructureError,
     normalizedStructureFilter,
@@ -141,13 +143,13 @@ export function StructurePane({
     onFilterChange,
     onViewModeChange,
     onStructureListTabChange,
-    onStructureDetailTabChange,
     onOpenCreateStructure,
     onOpenSaveTemplateForStructure,
     onEditTemplate,
     onDeleteTemplate,
     onOpenTemplate,
     onCloseTemplate,
+    onInsertTemplate,
     onOpenStructure,
     onOpenStructureMenu,
     onCloseStructureMenu,
@@ -169,14 +171,6 @@ export function StructurePane({
     const structureListPanelIds = {
         structures: `${a11yIdPrefix}-structure-list-structures-panel`,
         templates: `${a11yIdPrefix}-structure-list-templates-panel`
-    } as const
-    const structureDetailTabIds = {
-        matrix: `${a11yIdPrefix}-structure-detail-matrix-tab`,
-        templates: `${a11yIdPrefix}-structure-detail-templates-tab`
-    } as const
-    const structureDetailPanelIds = {
-        matrix: `${a11yIdPrefix}-structure-detail-matrix-panel`,
-        templates: `${a11yIdPrefix}-structure-detail-templates-panel`
     } as const
     const selectedConceptTitle = selectedConcept
         ? readColumnText(selectedConcept, conceptColumns, conceptNameField, locale) || t('workspace.untitledConcept', 'Untitled concept')
@@ -339,84 +333,111 @@ export function StructurePane({
                     </Box>
                 ) : null}
             </Stack>
-            <Dialog open={Boolean(openTemplate)} onClose={closeTemplateDetail} fullWidth maxWidth='sm'>
-                <DialogTitle>
-                    {readInterpretationNetworkTemplateLabel(templateDetail?.name, locale) ||
-                        openTemplate?.title ||
-                        t('workspace.template.untitled', 'Untitled template')}
-                </DialogTitle>
-                <DialogContent dividers>
-                    <Stack spacing={2}>
-                        {templateDetailLoading ? (
-                            <Alert severity='info'>{t('workspace.template.detailLoading', 'Loading template...')}</Alert>
-                        ) : null}
-                        {templateDetailError ? (
-                            <Alert severity='error'>{t('workspace.template.detailError', 'Failed to load template.')}</Alert>
-                        ) : null}
-                        <Stack spacing={0.5}>
-                            <Typography variant='subtitle2'>{t('workspace.template.description', 'Description')}</Typography>
-                            <Typography
-                                variant='body2'
-                                sx={{
-                                    color: 'text.secondary',
-                                    whiteSpace: 'pre-wrap',
-                                    overflowWrap: 'anywhere'
+            <StandardDialog
+                open={Boolean(openTemplate)}
+                onClose={closeTemplateDetail}
+                title={
+                    readInterpretationNetworkTemplateLabel(templateDetail?.name, locale) ||
+                    openTemplate?.title ||
+                    t('workspace.template.untitled', 'Untitled template')
+                }
+                actions={
+                    <Stack direction='row' spacing={1} sx={{ justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                        {openTemplate && templateApplyTargetLabel ? (
+                            <Button
+                                type='button'
+                                variant='contained'
+                                disabled={!canInsertTemplate || !templateDetail || insertingTemplate}
+                                onClick={async () => {
+                                    if (await onInsertTemplate?.(openTemplate.id)) closeTemplateDetail()
                                 }}
                             >
-                                {readInterpretationNetworkTemplateLabel(templateDetail?.description, locale) ||
-                                    openTemplate?.description ||
-                                    '—'}
-                            </Typography>
-                        </Stack>
-                        <Stack spacing={0.5}>
-                            <Typography variant='subtitle2'>{t('workspace.template.copyScope', 'Saved data')}</Typography>
-                            <Typography variant='body2'>
-                                {templateDetail
-                                    ? templateDetail.includesMaterials
-                                        ? t('workspace.template.withMaterials', 'Structure and materials')
-                                        : t('workspace.template.structureOnly', 'Structure only')
-                                    : openTemplate?.scope ?? '—'}
-                            </Typography>
-                        </Stack>
-                        {templateDetail ? (
-                            <Stack spacing={0.5}>
-                                <Typography variant='subtitle2'>{t('workspace.template.contents', 'Contents')}</Typography>
-                                <Typography variant='body2'>
-                                    {t('workspace.template.cellCount', {
-                                        defaultValue: '{{count}} matrix cells',
-                                        count: templateDetail.matrix.cellCount
-                                    })}
-                                </Typography>
-                                <Typography variant='body2'>
-                                    {t('workspace.template.rootCount', {
-                                        defaultValue: '{{count}} root cells',
-                                        count: templateDetail.matrix.rootCount
-                                    })}
-                                </Typography>
-                                <Typography variant='body2'>
-                                    {t('workspace.template.maxDepth', {
-                                        defaultValue: 'Maximum depth: {{count}}',
-                                        count: templateDetail.matrix.maxDepth
-                                    })}
-                                </Typography>
-                                <Typography variant='body2'>
-                                    {t('workspace.template.materialCount', {
-                                        defaultValue: '{{count}} materials',
-                                        count: templateDetail.materialCount
-                                    })}
-                                </Typography>
-                            </Stack>
+                                {insertingTemplate
+                                    ? t('workspace.template.inserting', 'Inserting template...')
+                                    : t('workspace.template.insertIntoCell', {
+                                          defaultValue: 'Insert into “{{cell}}”',
+                                          cell: templateApplyTargetLabel
+                                      })}
+                            </Button>
                         ) : null}
+                        <Button type='button' color='inherit' disabled={insertingTemplate} onClick={closeTemplateDetail}>
+                            {t('workspace.actions.close', 'Close')}
+                        </Button>
                     </Stack>
-                </DialogContent>
-                <DialogActions>
-                    <Button type='button' color='inherit' onClick={closeTemplateDetail}>
-                        {t('workspace.actions.close', 'Close')}
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                }
+            >
+                <Stack spacing={2}>
+                    {templateApplyError ? (
+                        <Alert severity='error'>
+                            {t('workspace.template.insertError', 'Failed to insert the template into this cell.')}
+                        </Alert>
+                    ) : null}
+                    {templateDetailLoading ? (
+                        <Alert severity='info'>{t('workspace.template.detailLoading', 'Loading template...')}</Alert>
+                    ) : null}
+                    {templateDetailError ? (
+                        <Alert severity='error'>{t('workspace.template.detailError', 'Failed to load template.')}</Alert>
+                    ) : null}
+                    <Stack spacing={0.5}>
+                        <Typography variant='subtitle2'>{t('workspace.template.description', 'Description')}</Typography>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary',
+                                whiteSpace: 'pre-wrap',
+                                overflowWrap: 'anywhere'
+                            }}
+                        >
+                            {readInterpretationNetworkTemplateLabel(templateDetail?.description, locale) ||
+                                openTemplate?.description ||
+                                '—'}
+                        </Typography>
+                    </Stack>
+                    <Stack spacing={0.5}>
+                        <Typography variant='subtitle2'>{t('workspace.template.copyScope', 'Saved data')}</Typography>
+                        <Typography variant='body2'>
+                            {templateDetail
+                                ? templateDetail.includesMaterials
+                                    ? t('workspace.template.withMaterials', 'Structure and materials')
+                                    : t('workspace.template.structureOnly', 'Structure only')
+                                : openTemplate?.scope ?? '—'}
+                        </Typography>
+                    </Stack>
+                    {templateDetail ? (
+                        <Stack spacing={0.5}>
+                            <Typography variant='subtitle2'>{t('workspace.template.contents', 'Contents')}</Typography>
+                            <Typography variant='body2'>
+                                {t('workspace.template.cellCount', {
+                                    defaultValue: '{{count}} matrix cells',
+                                    count: templateDetail.matrix.cellCount
+                                })}
+                            </Typography>
+                            <Typography variant='body2'>
+                                {t('workspace.template.rootCount', {
+                                    defaultValue: '{{count}} root cells',
+                                    count: templateDetail.matrix.rootCount
+                                })}
+                            </Typography>
+                            <Typography variant='body2'>
+                                {t('workspace.template.maxDepth', {
+                                    defaultValue: 'Maximum depth: {{count}}',
+                                    count: templateDetail.matrix.maxDepth
+                                })}
+                            </Typography>
+                            <Typography variant='body2'>
+                                {t('workspace.template.materialCount', {
+                                    defaultValue: '{{count}} materials',
+                                    count: templateDetail.materialCount
+                                })}
+                            </Typography>
+                        </Stack>
+                    ) : null}
+                </Stack>
+            </StandardDialog>
         </>
     )
+    const matrixWorkspaceContent =
+        typeof matrixWorkspace === 'function' ? matrixWorkspace(showTemplatesInMatrix ? templateManagement : null) : matrixWorkspace
     const structureColumns: GridColDef[] = [
         {
             field: '__rowNumber',
@@ -755,91 +776,7 @@ export function StructurePane({
                             </Box>
                         </Stack>
                     ) : null}
-                    {singleSystemMode ? (
-                        showTemplatesInMatrix ? (
-                            <Box>
-                                <Tabs
-                                    value={structureDetailTab}
-                                    onChange={(_event, value: StructureDetailTab) => onStructureDetailTabChange?.(value)}
-                                    aria-label={t('workspace.structure.tabs', 'Structure sections')}
-                                    sx={{ borderBottom: 1, borderColor: 'divider', minHeight: 40 }}
-                                >
-                                    <Tab
-                                        value='matrix'
-                                        label={t('workspace.matrix', 'Matrix')}
-                                        id={structureDetailTabIds.matrix}
-                                        aria-controls={structureDetailPanelIds.matrix}
-                                        sx={{ minHeight: 40 }}
-                                    />
-                                    <Tab
-                                        value='templates'
-                                        label={t('workspace.template.title', 'Templates')}
-                                        id={structureDetailTabIds.templates}
-                                        aria-controls={structureDetailPanelIds.templates}
-                                        sx={{ minHeight: 40 }}
-                                    />
-                                </Tabs>
-                                <Box
-                                    role='tabpanel'
-                                    id={structureDetailPanelIds[structureDetailTab]}
-                                    aria-labelledby={structureDetailTabIds[structureDetailTab]}
-                                    sx={{ pt: 1.5 }}
-                                >
-                                    {structureDetailTab === 'templates' ? templateManagement : matrixWorkspace}
-                                </Box>
-                                <Box
-                                    role='tabpanel'
-                                    id={structureDetailPanelIds[structureDetailTab === 'matrix' ? 'templates' : 'matrix']}
-                                    aria-labelledby={structureDetailTabIds[structureDetailTab === 'matrix' ? 'templates' : 'matrix']}
-                                    hidden
-                                />
-                            </Box>
-                        ) : (
-                            <Box>{matrixWorkspace}</Box>
-                        )
-                    ) : (
-                        <Box>
-                            <Tabs
-                                value={showTemplatesInMatrix ? structureDetailTab : 'matrix'}
-                                onChange={(_event, value: StructureDetailTab) => onStructureDetailTabChange?.(value)}
-                                aria-label={t('workspace.structure.tabs', 'Structure sections')}
-                                sx={{ borderBottom: 1, borderColor: 'divider', minHeight: 40 }}
-                            >
-                                <Tab
-                                    value='matrix'
-                                    label={t('workspace.matrix', 'Matrix')}
-                                    id={structureDetailTabIds.matrix}
-                                    aria-controls={structureDetailPanelIds.matrix}
-                                    sx={{ minHeight: 40 }}
-                                />
-                                {showTemplatesInMatrix ? (
-                                    <Tab
-                                        value='templates'
-                                        label={t('workspace.template.title', 'Templates')}
-                                        id={structureDetailTabIds.templates}
-                                        aria-controls={structureDetailPanelIds.templates}
-                                        sx={{ minHeight: 40 }}
-                                    />
-                                ) : null}
-                            </Tabs>
-                            <Box
-                                role='tabpanel'
-                                id={structureDetailPanelIds[showTemplatesInMatrix ? structureDetailTab : 'matrix']}
-                                aria-labelledby={structureDetailTabIds[showTemplatesInMatrix ? structureDetailTab : 'matrix']}
-                                sx={{ pt: 1.5 }}
-                            >
-                                {showTemplatesInMatrix && structureDetailTab === 'templates' ? templateManagement : matrixWorkspace}
-                            </Box>
-                            {showTemplatesInMatrix ? (
-                                <Box
-                                    role='tabpanel'
-                                    id={structureDetailPanelIds[structureDetailTab === 'matrix' ? 'templates' : 'matrix']}
-                                    aria-labelledby={structureDetailTabIds[structureDetailTab === 'matrix' ? 'templates' : 'matrix']}
-                                    hidden
-                                />
-                            ) : null}
-                        </Box>
-                    )}
+                    <Box sx={{ minWidth: 0 }}>{matrixWorkspaceContent}</Box>
                 </Stack>
             ) : null}
         </Box>

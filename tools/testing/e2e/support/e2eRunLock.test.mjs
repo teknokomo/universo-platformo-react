@@ -3,13 +3,47 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { acquireE2eRunLock, borrowE2eRunLock, releaseE2eRunLock } from './e2eRunLock.mjs'
+import {
+    acquireE2eRunLock,
+    borrowE2eRunLock,
+    releaseE2eRunLock,
+    withE2eRunLockDelegation,
+    withoutE2eRunLockDelegation
+} from './e2eRunLock.mjs'
 
 async function createLockPath(t) {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'universo-e2e-lock-'))
     t.after(async () => fs.rm(directory, { recursive: true, force: true }))
     return path.join(directory, 'run.lock')
 }
+
+test('strips delegated run lock capabilities from child process environments', () => {
+    const source = {
+        NODE_ENV: 'test',
+        UNIVERSO_E2E_RUN_LOCK_OWNER_PID: '1234',
+        UNIVERSO_E2E_RUN_LOCK_TOKEN: 'delegated-secret-token'
+    }
+
+    assert.deepEqual(withoutE2eRunLockDelegation(source), { NODE_ENV: 'test' })
+    assert.equal(source.UNIVERSO_E2E_RUN_LOCK_TOKEN, 'delegated-secret-token')
+})
+
+test('delegates a run lock only to explicitly authorized child processes', () => {
+    const source = {
+        E2E_BASE_URL: 'http://127.0.0.1:3100',
+        UNIVERSO_E2E_RUN_LOCK_OWNER_PID: '1',
+        UNIVERSO_E2E_RUN_LOCK_TOKEN: 'stale-token'
+    }
+    const lease = { ownerPid: 1234, token: 'current-secret-token' }
+
+    assert.deepEqual(withE2eRunLockDelegation(source), { E2E_BASE_URL: 'http://127.0.0.1:3100' })
+    assert.deepEqual(withE2eRunLockDelegation(source, lease), {
+        E2E_BASE_URL: 'http://127.0.0.1:3100',
+        UNIVERSO_E2E_RUN_LOCK_OWNER_PID: '1234',
+        UNIVERSO_E2E_RUN_LOCK_TOKEN: 'current-secret-token'
+    })
+    assert.equal(source.UNIVERSO_E2E_RUN_LOCK_TOKEN, 'stale-token')
+})
 
 test('exclusive lock acquisition rejects competitors without replacing the active owner', async (t) => {
     const lockPath = await createLockPath(t)

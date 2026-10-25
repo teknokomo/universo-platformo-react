@@ -29,6 +29,17 @@ const createCodenameVlc = (primary: string, secondary?: string) => ({
 const editorPackageName = `@universo-react/${'playcanvas-editor-frontend'}`
 
 describe('SnapshotSerializer system field propagation', () => {
+    it('rejects unsupported structure versions before loading snapshot data', async () => {
+        const objectsService = { findAllByKind: jest.fn() }
+        const serializer = new SnapshotSerializer(objectsService as never, {} as never)
+
+        await expect(serializer.serializeMetahub('metahub-1', { structureVersion: '0.2.0' } as never)).rejects.toMatchObject({
+            statusCode: 400,
+            code: 'VALIDATION_ERROR'
+        })
+        expect(objectsService.findAllByKind).not.toHaveBeenCalled()
+    })
+
     it('rejects ledger snapshot publication when config references non-existing fields', async () => {
         const objectsService = {
             findAllByKind: jest.fn(async (_metahubId: string, kind: string) => {
@@ -223,9 +234,9 @@ describe('SnapshotSerializer system field propagation', () => {
         const serializer = new SnapshotSerializer({} as never, {} as never)
         const runtimeEntities = serializer.deserializeSnapshot({
             versionEnvelope: {
-                structureVersion: '53.0.0',
+                structureVersion: '0.1.0',
                 templateVersion: null,
-                snapshotFormatVersion: 4
+                snapshotFormatVersion: 1
             },
             entities: {
                 'object-site-settings': {
@@ -392,7 +403,7 @@ describe('SnapshotSerializer system field propagation', () => {
 
         const exportedSnapshot = await serializer.serializeMetahub('metahub-1')
 
-        expect(exportedSnapshot.versionEnvelope.snapshotFormatVersion).toBe(4)
+        expect(exportedSnapshot.versionEnvelope.snapshotFormatVersion).toBe(1)
         expect(exportedSnapshot.sharedComponents).toHaveLength(1)
         expect(exportedSnapshot.sharedFixedValues).toHaveLength(1)
         expect(exportedSnapshot.sharedOptionValues).toHaveLength(1)
@@ -646,7 +657,7 @@ describe('SnapshotSerializer system field propagation', () => {
         })
     })
 
-    it('serializes custom entity definitions and nested action/event metadata in snapshot v3', async () => {
+    it('serializes custom entity definitions and nested action/event metadata in snapshot v1', async () => {
         const objectsService = {
             findAllByKind: jest.fn(async (_metahubId: string, kind: string) => {
                 if (kind === 'customer_registry') {
@@ -761,7 +772,7 @@ describe('SnapshotSerializer system field propagation', () => {
         const snapshot = await serializer.serializeMetahub('metahub-1')
         const runtimeEntities = serializer.deserializeSnapshot(snapshot)
 
-        expect(snapshot.versionEnvelope.snapshotFormatVersion).toBe(4)
+        expect(snapshot.versionEnvelope.snapshotFormatVersion).toBe(1)
         expect(snapshot.entityTypeDefinitions?.customer_registry).toMatchObject({
             id: 'type-1',
             kindKey: 'customer_registry',

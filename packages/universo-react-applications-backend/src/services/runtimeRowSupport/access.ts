@@ -1,5 +1,4 @@
-import { acquireAdvisoryXactLock } from '@universo-react/utils/database'
-import { interpretationNetworkStructureModeLockKey } from '../../shared/interpretationNetworkStructureModeGuard'
+import { lockInterpretationNetworkStructureModeShared } from '../../shared/interpretationNetworkStructureModeGuard'
 import { z } from 'zod'
 import { type DbExecutor } from '@universo-react/utils'
 import { resolveApplicationLifecycleContractFromConfig } from '@universo-react/utils'
@@ -160,7 +159,8 @@ export const assertNotProtectedSystemStructureRuntimeRow = async (
     const surface = await resolveInterpretationNetworkRuntimeSurface(manager, {
         applicationId,
         schemaName: ctx.schemaName,
-        workspaceId: ctx.currentWorkspaceId
+        workspaceId: ctx.currentWorkspaceId,
+        scopeEntityId: objectCollectionId
     })
     if (surface.featureState === 'ambiguous-widget') {
         throw new UpdateFailure(409, {
@@ -217,13 +217,15 @@ export const assertInterpretationNetworkGenericCreateAllowed = async (
     manager: DbExecutor,
     ctx: Pick<RuntimeSchemaContext, 'schemaName' | 'currentWorkspaceId'>,
     applicationId: string,
-    objectCollectionId: string
+    objectCollectionId: string,
+    options: { structureModeLockHeld?: boolean } = {}
 ): Promise<void> => {
-    await acquireAdvisoryXactLock(manager, interpretationNetworkStructureModeLockKey(ctx.schemaName))
+    if (!options.structureModeLockHeld) await lockInterpretationNetworkStructureModeShared(manager, ctx.schemaName)
     const surface = await resolveInterpretationNetworkRuntimeSurface(manager, {
         applicationId,
         schemaName: ctx.schemaName,
-        workspaceId: ctx.currentWorkspaceId
+        workspaceId: ctx.currentWorkspaceId,
+        scopeEntityId: objectCollectionId
     })
     if (surface.featureState === 'ambiguous-widget') {
         throw new UpdateFailure(409, {
@@ -266,7 +268,8 @@ export const assertInterpretationNetworkGenericCopyAllowed = async (
     const surface = await resolveInterpretationNetworkRuntimeSurface(manager, {
         applicationId,
         schemaName: ctx.schemaName,
-        workspaceId: ctx.currentWorkspaceId
+        workspaceId: ctx.currentWorkspaceId,
+        scopeEntityId: objectCollectionId
     })
     if (surface.featureState === 'ambiguous-widget') {
         throw new UpdateFailure(409, {
@@ -274,9 +277,21 @@ export const assertInterpretationNetworkGenericCopyAllowed = async (
             code: 'INTERPRETATION_NETWORK_AMBIGUOUS_WIDGET_CONTEXT'
         })
     }
-    if (surface.featureState !== 'ready' || !Object.values(surface.resolvedObjects).includes(objectCollectionId)) return
+    const requestedRoles = Object.entries(surface.resolvedObjects)
+        .filter(([, resolvedObjectId]) => resolvedObjectId === objectCollectionId)
+        .map(([role]) => role)
+    const protectsSingleSystemAggregate =
+        surface.structureMode === 'singleSystem' && (requestedRoles.includes('Structure') || requestedRoles.includes('Interpretation'))
+
+    if (surface.featureState !== 'ready' && protectsSingleSystemAggregate) {
+        throw new UpdateFailure(409, {
+            error: 'Interpretation Network runtime metadata is incomplete for single-structure mode',
+            code: 'INTERPRETATION_NETWORK_MISSING_METADATA'
+        })
+    }
+    if (surface.featureState !== 'ready' || !protectsSingleSystemAggregate) return
     throw new UpdateFailure(409, {
-        error: 'Interpretation Network aggregates must be copied with dedicated commands',
+        error: 'Structure aggregates must be copied with dedicated commands in single-structure mode',
         code: 'INTERPRETATION_NETWORK_GENERIC_COPY_FORBIDDEN'
     })
 }
@@ -538,7 +553,7 @@ export const buildRuntimeRecordAccessClause = async (params: {
         const clauses = configuresRecordAccess ? [...parentAccessClauses, 'FALSE'] : parentAccessClauses
         return clauses.length > 0 ? clauses.join(' AND ') : null
     }
-    if (params.permissions.manageApplication) {
+    if (params.permissions.manageApplication && accessConfig.mode !== 'ownerOnly') {
         return parentAccessClauses.length > 0 ? parentAccessClauses.join(' AND ') : null
     }
     if (!params.currentUserId) {
@@ -546,6 +561,16 @@ export const buildRuntimeRecordAccessClause = async (params: {
     }
 
     const ownerColumnName = resolveRuntimeRecordOwnerColumnName(params.attrs, params.config)
+    if (accessConfig.mode === 'ownerOnly') {
+        if (!ownerColumnName) {
+            return parentAccessClauses.length > 0 ? [...parentAccessClauses, 'FALSE'].join(' AND ') : 'FALSE'
+        }
+
+        params.values.push(params.currentUserId)
+        const ownerOnlyClause = `${quoteIdentifier(ownerColumnName)} = $${params.values.length}`
+        return parentAccessClauses.length > 0 ? [...parentAccessClauses, ownerOnlyClause].join(' AND ') : ownerOnlyClause
+    }
+
     const libraryConfig = readRuntimeLibraryConfig(params.config)
     const sharedRelation = libraryConfig?.[accessConfig.sharedRelationKey]
     if (!ownerColumnName || !sharedRelation) {

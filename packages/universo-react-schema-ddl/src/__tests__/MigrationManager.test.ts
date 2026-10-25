@@ -120,7 +120,7 @@ describe('MigrationManager', () => {
 
     describe('recordMigration', () => {
         const createTestSnapshot = (): SchemaSnapshot => ({
-            version: 3,
+            version: 1,
             generatedAt: new Date().toISOString(),
             hasSystemTables: true,
             entities: {}
@@ -340,7 +340,7 @@ describe('MigrationManager', () => {
                     summary: 'Test migration',
                     changes: [],
                     snapshotBefore: null,
-                    snapshotAfter: { version: 3 }
+                    snapshotAfter: { version: 1 }
                 })
             })
 

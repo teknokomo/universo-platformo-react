@@ -11,6 +11,9 @@ import type { AppDataResponse } from '../api/api'
 import type { RuntimeRelationScope } from '../api/types'
 import type { ResourceSourceTypeOption } from '../components/dialogs/FormDialog'
 import type { RuntimePlacement } from './runtime/widgetPlacementGraph'
+import type { AuthenticatedRuntimePlacementScopes } from '../api/runtimePlacementScopes'
+
+export type { AuthenticatedRuntimePlacementScope, AuthenticatedRuntimePlacementScopes } from '../api/runtimePlacementScopes'
 
 export interface DashboardFooterLink {
     label: string
@@ -46,6 +49,16 @@ export interface DashboardDetailsSlot {
     /** Allowlisted application/site metadata exposed to the host-owned footer widget. */
     footerMetadata?: DashboardFooterMetadata
     runtimeAccessMode?: 'member' | 'public'
+    /** One server-projected, semantic next section available from the public start page. */
+    publicNavigationAction?: { label: string; href: string }
+    /** Semantic selector already authorized by the public runtime bootstrap. */
+    runtimeTarget?: {
+        targetKind?: 'page' | 'object' | null
+        entityTypeId?: string | null
+        entityTypeCodename?: string | null
+    }
+    /** Whether the server resolved an anonymous-readable workspace for this application. */
+    publicWorkspaceAvailable?: boolean
     runtimeQueryKeyPrefix?: readonly unknown[]
     workspacesEnabled?: boolean
     permissions?: AppDataResponse['permissions']
@@ -157,6 +170,7 @@ export interface ZoneWidgets {
 export interface DashboardProps {
     layoutConfig?: Pick<DashboardLayoutConfig, 'sideMenu'>
     zoneWidgets?: ZoneWidgets
+    placementScopes?: AuthenticatedRuntimePlacementScopes
     details?: DashboardDetailsSlot
 }
 

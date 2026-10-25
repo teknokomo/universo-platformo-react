@@ -90,7 +90,11 @@ const renderHierarchicalPathWorkspace = ({
     showHierarchicalTableHeaderCard = true,
     showMatrixTreeTotalCells = true,
     colorBreadcrumbsByCell = true,
-    canCreateContent = true
+    canCreateContent = true,
+    hasTemplates = false,
+    templatePanel,
+    selectedWorkspaceTab,
+    onWorkspaceTabChange
 }: {
     cells: MatrixCell[]
     focusedCellId: string
@@ -103,6 +107,10 @@ const renderHierarchicalPathWorkspace = ({
     showMatrixTreeTotalCells?: boolean
     colorBreadcrumbsByCell?: boolean
     canCreateContent?: boolean
+    hasTemplates?: boolean
+    templatePanel?: ComponentProps<typeof MatrixWorkspace>['templatePanel']
+    selectedWorkspaceTab?: ComponentProps<typeof MatrixWorkspace>['selectedWorkspaceTab']
+    onWorkspaceTabChange?: ComponentProps<typeof MatrixWorkspace>['onWorkspaceTabChange']
 }) =>
     render(
         <MatrixWorkspace
@@ -128,6 +136,10 @@ const renderHierarchicalPathWorkspace = ({
             visibleMatrixCells={cells}
             matrixRows={[]}
             materialCountByCellId={materialCountByCellId}
+            hasTemplates={hasTemplates}
+            templatePanel={templatePanel}
+            selectedWorkspaceTab={selectedWorkspaceTab}
+            onWorkspaceTabChange={onWorkspaceTabChange}
             matrixCellIds={cells.map((item) => item.id)}
             selectedCell={selectedCell}
             matrixDropState={EMPTY_TEST_DROP_STATE}
@@ -466,7 +478,7 @@ describe('MatrixWorkspace', () => {
         expect(await within(dialog).findByRole('status')).toHaveTextContent(
             'This text and fill combination may be difficult to read. You can still save it.'
         )
-        expect(within(dialog).getByRole('textbox', { name: /Hex color/ })).toHaveAttribute('aria-invalid', 'false')
+        expect(within(dialog).getByRole('textbox', { name: /Hex color/ })).not.toHaveAttribute('aria-invalid', 'true')
         await user.click(within(dialog).getByRole('button', { name: 'Save' }))
         await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
     })
@@ -511,6 +523,55 @@ describe('MatrixWorkspace', () => {
             expect(presets[0]).toHaveAccessibleName('black')
             expect(presets[1]).toHaveAccessibleName('white')
         }
+    })
+
+    it('restricts preset colors and editing controls to the effective cell-style policy', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn().mockResolvedValue({
+                ok: true,
+                json: async () => ({
+                    defaultLocale: 'en',
+                    locales: [{ code: 'en', label: 'English', isDefault: true }]
+                })
+            })
+        )
+
+        renderWithQueryClient(
+            <CellEditDialog
+                open
+                mode='edit'
+                t={t}
+                locale='en'
+                fields={[{ id: 'CellValue', codename: 'CellValue', label: 'Title', type: 'STRING' }]}
+                styleFields={[
+                    { id: 'CellFillColor', codename: 'CellFillColor', label: 'Fill', type: 'STRING' },
+                    { id: 'TextColor', codename: 'TextColor', label: 'Text color', type: 'STRING' }
+                ]}
+                initialData={{ CellValue: createLocalizedContent('en', 'Meaning') }}
+                cellStylePolicy={{
+                    allowedColors: ['#FF0000'],
+                    allowCustomColors: false,
+                    editable: { fillColor: false, textColor: true, borderColor: false, borderWidth: false, borderStyle: false }
+                }}
+                isSubmitting={false}
+                onClose={vi.fn()}
+                onSubmit={vi.fn()}
+            />
+        )
+
+        const dialog = await screen.findByRole('dialog', { name: 'Edit cell' })
+        await userEvent.click(within(dialog).getByRole('tab', { name: 'Style' }))
+        expect(within(dialog).queryByLabelText('Fill color picker')).not.toBeInTheDocument()
+        expect(within(dialog).queryByRole('textbox', { name: 'Hex color' })).not.toBeInTheDocument()
+
+        const fillPresets = within(dialog).getByRole('group', { name: 'Fill preset colors' })
+        const fillColor = within(fillPresets).getByRole('button', { name: '#FF0000' })
+        expect(within(fillPresets).getAllByRole('button')).toHaveLength(1)
+        expect(fillColor).toBeDisabled()
+
+        const textPresets = within(dialog).getByRole('group', { name: 'Text color preset colors' })
+        expect(within(textPresets).getByRole('button', { name: '#FF0000' })).toBeEnabled()
     })
 
     it('resets grouped border editing state when opening a different cell', async () => {
@@ -979,7 +1040,7 @@ describe('MatrixWorkspace', () => {
         expect(onOpenCellDialog).toHaveBeenCalledWith('create-child', 'root')
     })
 
-    it('requires create and edit permissions before opening hierarchical child creation', () => {
+    it('hides hierarchical child creation when the role lacks create permission', () => {
         const cells = [
             cell({ id: 'root', parentCellId: null, sortOrder: 0, title: 'Universe' }),
             cell({ id: 'meaning', parentCellId: 'root', sortOrder: 0, title: 'Meaning' })
@@ -1043,10 +1104,7 @@ describe('MatrixWorkspace', () => {
             />
         )
 
-        const addButton = screen.getByRole('button', { name: 'Add' })
-        expect(addButton).toBeDisabled()
-
-        fireEvent.click(addButton)
+        expect(screen.queryByRole('button', { name: 'Add' })).not.toBeInTheDocument()
         expect(onOpenCellDialog).not.toHaveBeenCalled()
     })
 
@@ -1147,7 +1205,8 @@ describe('MatrixWorkspace', () => {
                 sortOrder: 0,
                 rowLabel: 'Universe row',
                 colLabel: 'Universe column',
-                title: 'Universe'
+                title: 'Universe',
+                description: 'First description line\nSecond description line'
             })
         ]
 
@@ -1160,7 +1219,10 @@ describe('MatrixWorkspace', () => {
         expect(screen.queryByRole('table', { name: 'Matrix table for Universe' })).not.toBeInTheDocument()
         expect(screen.getByTestId('interpretation-network-table-header-card')).toHaveAttribute('data-cell-id', 'root')
         expect(screen.getByTestId('interpretation-network-table-header-card')).toHaveAttribute('data-selected-outline', 'inset')
-        expect(screen.getByRole('button', { name: '1, Universe' })).toBeInTheDocument()
+        const rootCellButton = screen.getByRole('button', { name: '1, Universe' })
+        expect(rootCellButton).toBeInTheDocument()
+        expect(rootCellButton).toHaveAccessibleDescription('First description line\nSecond description line')
+        expect(screen.getByTestId('interpretation-network-cell-description')).toHaveStyle({ whiteSpace: 'pre-wrap' })
         expect(screen.getByRole('button', { name: 'Cell actions: Universe' })).toBeEnabled()
         expect(screen.queryByRole('button', { name: 'Drag cell' })).not.toBeInTheDocument()
         expect(screen.queryByText('This cell has no child cells yet.')).not.toBeInTheDocument()
@@ -1835,7 +1897,27 @@ describe('MatrixWorkspace', () => {
         expect(within(table).getByRole('button', { name: 'Add column' })).toBeDisabled()
     })
 
-    it('keeps the menu cell target when opening a dialog after the menu closes', async () => {
+    it('reports Matrix tab selection to the parent when the workspace tab is controlled', async () => {
+        const user = userEvent.setup()
+        const root = cell({ id: 'root', parentCellId: null, sortOrder: 0, title: 'Universe' })
+        const onWorkspaceTabChange = vi.fn()
+
+        renderHierarchicalPathWorkspace({
+            cells: [root],
+            focusedCellId: root.id,
+            selectedCell: root,
+            hasTemplates: true,
+            templatePanel: <div>Saved templates</div>,
+            selectedWorkspaceTab: 'templates',
+            onWorkspaceTabChange
+        })
+
+        expect(screen.getByRole('tab', { name: 'Templates' })).toHaveAttribute('aria-selected', 'true')
+        await user.click(screen.getByRole('tab', { name: 'Matrix' }))
+        expect(onWorkspaceTabChange).toHaveBeenCalledWith('matrix')
+    })
+
+    it('keeps the menu cell target when editing or inserting a saved template after the menu closes', async () => {
         const user = userEvent.setup()
         const cells = [cell({ id: 'root', parentCellId: null, sortOrder: 0, title: 'Universe' })]
         const anchor = document.createElement('button')
@@ -1853,6 +1935,7 @@ describe('MatrixWorkspace', () => {
             } as DOMRect)
         document.body.appendChild(anchor)
         const onOpenCellDialog = vi.fn()
+        const onOpenTemplateInsert = vi.fn()
         const onCloseCellMenu = vi.fn()
 
         const baseProps: ComponentProps<typeof MatrixWorkspace> = {
@@ -1884,6 +1967,8 @@ describe('MatrixWorkspace', () => {
             matrixMutationsDisabled: false,
             matrixAxisActionsDisabled: false,
             addCellDisabled: false,
+            hasTemplates: true,
+            canInsertTemplate: true,
             isSavingCell: false,
             isMovingCell: false,
             matrixRowsError: null,
@@ -1899,6 +1984,7 @@ describe('MatrixWorkspace', () => {
             sensors: [],
             onChangeMatrixView: vi.fn(),
             onOpenCellDialog,
+            onOpenTemplateInsert,
             onAddTableRow: vi.fn(),
             onAddTableColumn: vi.fn(),
             onMoveSelectedToSlot: vi.fn(),
@@ -1918,6 +2004,11 @@ describe('MatrixWorkspace', () => {
             rerender(<MatrixWorkspace {...baseProps} cellMenuAnchor={null} menuCell={undefined} />)
         })
 
+        await user.click(await screen.findByRole('menuitem', { name: 'Insert saved template' }))
+        await waitFor(() => expect(onOpenTemplateInsert).toHaveBeenCalledWith('root'))
+
+        onCloseCellMenu.mockClear()
+        rerender(<MatrixWorkspace {...baseProps} />)
         await user.click(await screen.findByRole('menuitem', { name: 'Edit' }))
 
         await waitFor(() => expect(onOpenCellDialog).toHaveBeenCalledWith('edit', 'root'))

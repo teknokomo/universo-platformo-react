@@ -46,7 +46,7 @@ import type {
 import { ensureCodenameValue } from '../../shared/codename'
 import { MetahubValidationError } from '../../shared/domainErrors'
 import { toJsonbValue } from '../../shared/jsonb'
-import { SHARED_CONTAINER_DESCRIPTORS } from '../../shared/services/SharedContainerService'
+import { SHARED_CONTAINER_DESCRIPTORS } from '../../shared/services/sharedContainerDescriptors'
 import { resolveWidgetTableName } from '../../templates/services/widgetTableResolver'
 import { qSchemaTable } from '@universo-react/database'
 import { createLogger } from '../../../utils/logger'
@@ -1688,6 +1688,9 @@ export class SnapshotRestoreService {
 
         const moduleRole = module.moduleRole as ModuleRole
         const sourceKind = module.sourceKind as ModuleSourceKind
+        if (typeof module.sdkApiVersion !== 'string' || module.sdkApiVersion.trim().length === 0) {
+            throw new MetahubValidationError('Snapshot module SDK API version is required', { moduleCodename })
+        }
         const sdkApiVersion = assertSupportedModuleSdkApiVersion(module.sdkApiVersion)
         const resolvedAttachedToId = isNullableModuleScope(attachedToKind) ? null : attachedToId
 
@@ -1727,7 +1730,11 @@ export class SnapshotRestoreService {
             })
         }
 
-        const manifestSdkApiVersion = assertSupportedModuleSdkApiVersion(rawManifest.sdkApiVersion ?? sdkApiVersion)
+        if (typeof rawManifest.sdkApiVersion !== 'string' || rawManifest.sdkApiVersion.trim().length === 0) {
+            throw new MetahubValidationError('Snapshot module manifest SDK API version is required', { moduleCodename })
+        }
+
+        const manifestSdkApiVersion = assertSupportedModuleSdkApiVersion(rawManifest.sdkApiVersion)
         if (manifestSdkApiVersion !== sdkApiVersion) {
             throw new MetahubValidationError('Snapshot module SDK version does not match its manifest', {
                 moduleCodename,

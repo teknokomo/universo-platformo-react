@@ -1,11 +1,14 @@
 import { acquireAdvisoryXactLock, acquireTwoKeyAdvisoryXactLock } from '@universo-react/utils/database'
 import { interpretationNetworkStructureModeLockKey } from '../../shared/interpretationNetworkStructureModeGuard'
 import { qSchemaTable } from '@universo-react/database'
-import { LocalizedStringAllowEmptySchema, LocalizedStringSchema, type InterpretationNetworkStructureMode } from '@universo-react/types'
+import type { InterpretationNetworkStructureMode } from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
-import { createLocalizedContent, ensureVLC, generateUuidV7 } from '@universo-react/utils'
-import { z } from 'zod'
-import { assertRuntimeEntityMutationAllowed, RuntimeEntityMutationPolicyError } from '../../shared/entityMutationPolicy'
+import { buildVLC, createLocalizedContent, generateUuidV7 } from '@universo-react/utils'
+import {
+    assertRuntimeEntityMutationAllowed,
+    resolveValidatedRuntimeEntityRecordPolicy,
+    RuntimeEntityMutationPolicyError
+} from '../../shared/entityMutationPolicy'
 import {
     IDENTIFIER_REGEX,
     UUID_REGEX,
@@ -14,50 +17,76 @@ import {
     normalizeRuntimeTableChildInsertValueByMeta,
     quoteIdentifier,
     toRuntimeInputFormatErrorBody,
-    type RuntimeDataType,
     type RuntimeTableChildComponentMeta
 } from '../../shared/runtimeHelpers'
+import { activeWorkspaceWhere } from '../../shared/runtimeWorkspaceSql'
+import { assertColumn, getChildField, getField } from './runtimeInterpretationNetworkMetadata'
+import { InterpretationNetworkCommandError, interpretationNetworkCommandErrorCodes } from './runtimeInterpretationNetworkErrors'
+import {
+    type ComponentRow,
+    type InterpretationNetworkRuntimeSurface,
+    type ObjectContract,
+    type ObjectRow,
+    type RuntimeSurfaceReady
+} from '../../shared/interpretationNetworkRuntimeContracts'
+export {
+    INTERPRETATION_NETWORK_WIDGET_KEY,
+    type ComponentRow,
+    type InterpretationNetworkRuntimeSurface,
+    type ObjectContract,
+    type ObjectRow,
+    type RuntimeSurfaceReady,
+    type WidgetRow
+} from '../../shared/interpretationNetworkRuntimeContracts'
+export { activeWorkspaceWhere } from '../../shared/runtimeWorkspaceSql'
+export { assertColumn, getChildField, getField } from './runtimeInterpretationNetworkMetadata'
+export { InterpretationNetworkCommandError, interpretationNetworkCommandErrorCodes } from './runtimeInterpretationNetworkErrors'
 
-export const INTERPRETATION_NETWORK_WIDGET_KEY = 'interpretationNetworkWorkspace'
+export {
+    interpretationNetworkEnsureSystemStructureRequestSchema,
+    interpretationNetworkMaterialCreateRequestSchema,
+    interpretationNetworkMaterialDeleteRequestSchema,
+    interpretationNetworkMaterialPrimaryRequestSchema,
+    interpretationNetworkMaterialUpdateRequestSchema,
+    interpretationNetworkMatrixCellCreateRequestSchema,
+    interpretationNetworkMatrixCellDeleteRequestSchema,
+    interpretationNetworkMatrixCellUpdateRequestSchema,
+    interpretationNetworkMatrixCellsMoveRequestSchema,
+    interpretationNetworkStructureCreateRequestSchema,
+    interpretationNetworkStructureDeleteRequestSchema,
+    interpretationNetworkStructureRouteParamsSchema,
+    interpretationNetworkTemplateDeleteRequestSchema,
+    interpretationNetworkTemplateInstantiateRequestSchema,
+    interpretationNetworkTemplateSaveRequestSchema,
+    interpretationNetworkTemplateUpdateRequestSchema
+} from './runtimeInterpretationNetworkSchemas'
+
 export const SYSTEM_STRUCTURE_KEY = 'primary'
-export const SYSTEM_STRUCTURE_NAME = createLocalizedContent('en', 'System structure')
-export const SYSTEM_INTERPRETATION_TITLE = createLocalizedContent('en', 'System matrix')
+export const SYSTEM_STRUCTURE_NAME = buildVLC('System structure', 'Системная структура')
+export const SYSTEM_INTERPRETATION_TITLE = buildVLC('System matrix', 'Системная матрица')
 
 export const TEMPLATE_POLICY_STRUCTURE_ONLY = 'structureOnly'
 export const TEMPLATE_POLICY_WITH_MATERIALS = 'withMaterials'
 
-export const interpretationNetworkCommandErrorCodes = {
-    featureNotReady: 'INTERPRETATION_NETWORK_FEATURE_NOT_READY',
-    commandNotImplemented: 'INTERPRETATION_NETWORK_COMMAND_NOT_IMPLEMENTED',
-    invalidBody: 'INTERPRETATION_NETWORK_INVALID_BODY',
-    invalidParams: 'INTERPRETATION_NETWORK_INVALID_PARAMS',
-    duplicateSystemStructure: 'INTERPRETATION_NETWORK_DUPLICATE_SYSTEM_STRUCTURE',
-    malformedSystemStructure: 'INTERPRETATION_NETWORK_MALFORMED_SYSTEM_STRUCTURE',
-    unsupportedMode: 'INTERPRETATION_NETWORK_UNSUPPORTED_STRUCTURE_MODE',
-    sourceNotFound: 'INTERPRETATION_NETWORK_SOURCE_NOT_FOUND',
-    templateNotFound: 'INTERPRETATION_NETWORK_TEMPLATE_NOT_FOUND',
-    versionConflict: 'INTERPRETATION_NETWORK_VERSION_CONFLICT',
-    invalidMatrix: 'INTERPRETATION_NETWORK_INVALID_MATRIX',
-    missingMetadata: 'INTERPRETATION_NETWORK_MISSING_METADATA',
-    nonSystemStructuresExist: 'INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST',
-    invalidMaterial: 'INTERPRETATION_NETWORK_INVALID_MATERIAL',
-    invalidCell: 'INTERPRETATION_NETWORK_INVALID_CELL',
-    permissionDenied: 'INTERPRETATION_NETWORK_PERMISSION_DENIED',
-    rowNotFound: 'INTERPRETATION_NETWORK_ROW_NOT_FOUND'
-} as const
-
-export class InterpretationNetworkCommandError extends Error {
-    constructor(
-        public readonly statusCode: number,
-        public readonly code: string,
-        message: string,
-        public readonly details?: Record<string, unknown>
-    ) {
-        super(message)
-        this.name = 'InterpretationNetworkCommandError'
+/**
+ * Interpretation Network aggregate routes are the trusted write boundary for
+ * policy-protected entities. Generic runtime routes still enforce
+ * runtimeMutation='deny'; aggregate commands validate metadata here and apply
+ * their own permission, ownership, version and invariant checks.
+ */
+export const assertInterpretationNetworkAggregatePolicyValid = (config: unknown): void => {
+    try {
+        resolveValidatedRuntimeEntityRecordPolicy(config)
+    } catch {
+        throw new InterpretationNetworkCommandError(
+            409,
+            interpretationNetworkCommandErrorCodes.missingMetadata,
+            'Interpretation Network entity mutation policy is missing or invalid'
+        )
     }
 }
 
+/** Generic helper boundary: keep denied entities blocked unless an aggregate explicitly opts in. */
 export const assertInterpretationNetworkEntityMutationAllowed = (config: unknown): void => {
     try {
         assertRuntimeEntityMutationAllowed(config)
@@ -68,192 +97,10 @@ export const assertInterpretationNetworkEntityMutationAllowed = (config: unknown
     }
 }
 
-export const interpretationNetworkEnsureSystemStructureRequestSchema = z.object({ locale: z.string().optional() }).strict()
-
-const localizedRequiredTextSchema = z.preprocess((value) => ensureVLC(value, 'en') ?? value, LocalizedStringSchema)
-const localizedOptionalTextSchema = z.preprocess((value) => ensureVLC(value, 'en') ?? value, LocalizedStringAllowEmptySchema.optional())
-
-export const interpretationNetworkStructureCreateRequestSchema = z
-    .object({
-        name: localizedRequiredTextSchema,
-        description: localizedOptionalTextSchema,
-        locale: z.string().optional()
-    })
-    .strict()
-
-export const interpretationNetworkTemplateSaveRequestSchema = z
-    .object({
-        sourceStructureId: z.string().uuid(),
-        templateName: localizedRequiredTextSchema,
-        description: localizedOptionalTextSchema,
-        includeMaterials: z.boolean(),
-        expectedVersion: z.number().int().positive().optional(),
-        locale: z.string().optional()
-    })
-    .strict()
-
-export const interpretationNetworkTemplateUpdateRequestSchema = z
-    .object({
-        templateName: localizedRequiredTextSchema,
-        description: localizedOptionalTextSchema,
-        expectedVersion: z.number().int().positive().optional(),
-        locale: z.string().optional()
-    })
-    .strict()
-
-export const interpretationNetworkTemplateDeleteRequestSchema = z
-    .object({
-        expectedVersion: z.number().int().positive().optional()
-    })
-    .strict()
-
-export const interpretationNetworkTemplateInstantiateRequestSchema = z
-    .object({
-        structureName: localizedRequiredTextSchema,
-        description: localizedOptionalTextSchema,
-        expectedVersion: z.number().int().positive().optional(),
-        locale: z.string().optional()
-    })
-    .strict()
-
-export const interpretationNetworkStructureDeleteRequestSchema = z
-    .object({
-        expectedVersion: z.number().int().positive().optional()
-    })
-    .strict()
-
-export const interpretationNetworkStructureRouteParamsSchema = z
-    .object({
-        applicationId: z.string().min(1),
-        structureId: z.string().uuid()
-    })
-    .strict()
-
-export const interpretationNetworkMaterialCreateRequestSchema = z
-    .object({
-        interpretationId: z.string().uuid(),
-        matrixRowId: z.string().uuid(),
-        cellId: z.string().trim().min(1).max(255),
-        data: z.record(z.unknown()),
-        expectedVersion: z.number().int().positive().optional()
-    })
-    .strict()
-
-const interpretationNetworkCellPlacementSchema = z
-    .object({
-        parentCellId: z.string().uuid().nullable().optional(),
-        rowKey: z.string().trim().min(1).max(64).optional(),
-        colKey: z.string().trim().min(1).max(64).optional(),
-        sortOrder: z.number().int().nonnegative().max(2_147_483_647).optional()
-    })
-    .strict()
-
-export const interpretationNetworkMatrixCellCreateRequestSchema = z
-    .object({
-        interpretationId: z.string().uuid(),
-        data: z.record(z.unknown()),
-        placement: interpretationNetworkCellPlacementSchema
-    })
-    .strict()
-
-export const interpretationNetworkMatrixCellsMoveRequestSchema = z
-    .object({
-        interpretationId: z.string().uuid(),
-        updates: z
-            .array(
-                z
-                    .object({
-                        matrixRowId: z.string().uuid(),
-                        expectedVersion: z.number().int().positive().optional(),
-                        placement: interpretationNetworkCellPlacementSchema,
-                        data: z.record(z.unknown()).optional()
-                    })
-                    .strict()
-            )
-            .min(1)
-            .max(5000)
-    })
-    .strict()
-
-export type WidgetRow = {
-    id: string
-    layout_id: string
-    widget_key: string
-    config: Record<string, unknown> | null
-    scope_rank?: number
-}
-
-export type ObjectRow = {
-    id: string
-    codename: string
-    table_name: string
-    config?: Record<string, unknown> | null
-}
-
-export type ComponentRow = {
-    id: string
-    codename: string
-    column_name: string
-    data_type: RuntimeDataType
-    parent_component_id?: string | null
-    validation_rules?: Record<string, unknown> | null
-    ui_config?: Record<string, unknown> | null
-    is_required?: boolean | null
-}
-
 export type MaterialCreateResult = {
     id: string
     matrixRowId: string
 }
-
-export type ObjectContract = {
-    object: ObjectRow
-    fields: Record<string, ComponentRow>
-    table?: ComponentRow
-    childFields: Record<string, ComponentRow>
-    childTableName?: string
-}
-
-export type RuntimeSurfaceReady = {
-    applicationId: string
-    schemaName: string
-    workspaceId: string | null
-    layoutId: string
-    widgetId: string
-    widgetKey: typeof INTERPRETATION_NETWORK_WIDGET_KEY
-    widgetConfig: Record<string, unknown>
-    structureMode: InterpretationNetworkStructureMode
-    featureState: 'ready'
-    missing: []
-    contracts: {
-        Structure: ObjectContract
-        Interpretation: ObjectContract
-        Material: ObjectContract
-        TableTemplate: ObjectContract
-    }
-    resolvedObjects: {
-        Structure: string
-        Interpretation: string
-        Material: string
-        TableTemplate: string
-    }
-}
-
-export type InterpretationNetworkRuntimeSurface =
-    | RuntimeSurfaceReady
-    | {
-          applicationId: string
-          schemaName: string
-          workspaceId: string | null
-          layoutId: string | null
-          widgetId: string | null
-          widgetKey: typeof INTERPRETATION_NETWORK_WIDGET_KEY
-          widgetConfig: Record<string, unknown>
-          structureMode: InterpretationNetworkStructureMode
-          featureState: 'missing-widget' | 'missing-metadata' | 'ambiguous-widget'
-          missing: string[]
-          resolvedObjects: Record<string, string>
-      }
 
 export type SystemStructureAggregate = {
     structureId: string
@@ -334,24 +181,8 @@ export const buildFeatureNotReadyError = (
         }
     )
 
-export const getField = (contract: ObjectContract, codename: string): ComponentRow | undefined => contract.fields[codename]
-
-export const getChildField = (contract: ObjectContract, codename: string): ComponentRow | undefined => contract.childFields[codename]
-
 export const findFieldByColumnOrCodename = (contract: ObjectContract, key: string): ComponentRow | undefined =>
     Object.values(contract.fields).find((field) => field.column_name === key || field.codename === key)
-
-export const assertColumn = (field: ComponentRow | undefined, label: string): string => {
-    if (!field?.column_name || !IDENTIFIER_REGEX.test(field.column_name)) {
-        throw new InterpretationNetworkCommandError(
-            501,
-            interpretationNetworkCommandErrorCodes.missingMetadata,
-            'Interpretation Network metadata is incomplete',
-            { missing: [label] }
-        )
-    }
-    return field.column_name
-}
 
 export const tableIdent = (schemaName: string, object: ObjectRow): string => qSchemaTable(schemaName, object.table_name)
 
@@ -364,16 +195,6 @@ export const childTableIdent = (schemaName: string, contract: ObjectContract): s
         )
     }
     return qSchemaTable(schemaName, contract.childTableName)
-}
-
-export const activeWorkspaceWhere = (workspaceId: string | null, params: unknown[], alias?: string): string => {
-    const prefix = alias ? `${alias}.` : ''
-    const conditions = [`${prefix}_upl_deleted = false`, `${prefix}_app_deleted = false`]
-    if (workspaceId) {
-        params.push(workspaceId)
-        conditions.push(`${prefix}${quoteIdentifier('workspace_id')} = $${params.length}`)
-    }
-    return conditions.join(' AND ')
 }
 
 const lockKey = (surface: RuntimeSurfaceReady, command: string): [string, string] => [
@@ -471,9 +292,11 @@ export const insertRow = async (
         values: Record<string, unknown>
         workspaceId: string | null
         userId: string
+        trustedAggregate?: boolean
     }
 ): Promise<string> => {
-    assertInterpretationNetworkEntityMutationAllowed(params.contract.object.config)
+    if (params.trustedAggregate) assertInterpretationNetworkAggregatePolicyValid(params.contract.object.config)
+    else assertInterpretationNetworkEntityMutationAllowed(params.contract.object.config)
     const generatedId = generateUuidV7()
     const columns: string[] = ['id']
     const placeholders: string[] = ['$1']
@@ -525,9 +348,11 @@ export const updateRowValues = async (
         workspaceId: string | null
         userId: string
         expectedVersion?: number
+        trustedAggregate?: boolean
     }
 ): Promise<Record<string, unknown>> => {
-    assertInterpretationNetworkEntityMutationAllowed(params.contract.object.config)
+    if (params.trustedAggregate) assertInterpretationNetworkAggregatePolicyValid(params.contract.object.config)
+    else assertInterpretationNetworkEntityMutationAllowed(params.contract.object.config)
     const setClauses: string[] = []
     const queryValues: unknown[] = []
 
@@ -583,9 +408,11 @@ export const softDeleteRow = async (
         workspaceId: string | null
         userId: string
         expectedVersion?: number
+        trustedAggregate?: boolean
     }
 ): Promise<void> => {
-    assertInterpretationNetworkEntityMutationAllowed(params.contract.object.config)
+    if (params.trustedAggregate) assertInterpretationNetworkAggregatePolicyValid(params.contract.object.config)
+    else assertInterpretationNetworkEntityMutationAllowed(params.contract.object.config)
     const values: unknown[] = [params.userId, params.rowId]
     const where = ['id = $2']
     if (params.expectedVersion !== undefined) {
@@ -632,11 +459,13 @@ export const softDeleteChildRows = async (
         parentIds: string[]
         workspaceId: string | null
         userId: string
+        trustedAggregate?: boolean
     }
 ): Promise<string[]> => {
     const parentIds = [...new Set(params.parentIds.filter((id) => UUID_REGEX.test(id)))]
     if (parentIds.length === 0) return []
-    assertInterpretationNetworkEntityMutationAllowed(params.contract.object.config)
+    if (params.trustedAggregate) assertInterpretationNetworkAggregatePolicyValid(params.contract.object.config)
+    else assertInterpretationNetworkEntityMutationAllowed(params.contract.object.config)
     const values: unknown[] = [params.userId, parentIds]
     const rows = await executor.query<{ id: string }>(
         `
@@ -651,41 +480,6 @@ export const softDeleteChildRows = async (
             _upl_updated_at = NOW(),
             _upl_version = COALESCE(_upl_version, 1) + 1
         WHERE _tp_parent_id = ANY($2::uuid[])
-          AND ${activeWorkspaceWhere(params.workspaceId, values)}
-        RETURNING id
-        `,
-        values
-    )
-    return rows.map((row) => row.id)
-}
-
-export const softDeleteRowsByField = async (
-    executor: DbExecutor,
-    params: {
-        schemaName: string
-        contract: ObjectContract
-        field: ComponentRow
-        value: string
-        workspaceId: string | null
-        userId: string
-    }
-): Promise<string[]> => {
-    assertInterpretationNetworkEntityMutationAllowed(params.contract.object.config)
-    const column = assertColumn(params.field, params.field.codename)
-    const values: unknown[] = [params.userId, params.value]
-    const rows = await executor.query<{ id: string }>(
-        `
-        UPDATE ${tableIdent(params.schemaName, params.contract.object)}
-        SET _upl_deleted = true,
-            _app_deleted = true,
-            _upl_deleted_at = NOW(),
-            _app_deleted_at = NOW(),
-            _upl_deleted_by = $1,
-            _app_deleted_by = $1,
-            _upl_updated_by = $1,
-            _upl_updated_at = NOW(),
-            _upl_version = COALESCE(_upl_version, 1) + 1
-        WHERE ${quoteIdentifier(column)} = $2
           AND ${activeWorkspaceWhere(params.workspaceId, values)}
         RETURNING id
         `,
@@ -763,10 +557,12 @@ export const insertChildRows = async (
         rows: Array<Record<string, unknown>>
         workspaceId: string | null
         userId: string
+        trustedAggregate?: boolean
     }
 ): Promise<void> => {
     if (params.rows.length === 0) return
-    assertInterpretationNetworkEntityMutationAllowed(params.contract.object.config)
+    if (params.trustedAggregate) assertInterpretationNetworkAggregatePolicyValid(params.contract.object.config)
+    else assertInterpretationNetworkEntityMutationAllowed(params.contract.object.config)
 
     const childAttrsByColumn = new Map<string, RuntimeTableChildComponentMeta>(
         Object.values(params.contract.childFields).map((field) => [
@@ -878,31 +674,6 @@ export const readTemplateIncludesMaterials = (row: Record<string, unknown>, cont
         409,
         interpretationNetworkCommandErrorCodes.invalidMatrix,
         'Table Template material policy is missing or unsupported'
-    )
-}
-
-export const loadMaterialsByIds = async (
-    executor: DbExecutor,
-    params: {
-        schemaName: string
-        contract: ObjectContract
-        materialIds: string[]
-        workspaceId: string | null
-        forUpdate?: boolean
-    }
-): Promise<Array<Record<string, unknown>>> => {
-    const ids = [...new Set(params.materialIds.filter((id) => UUID_REGEX.test(id)))]
-    if (ids.length === 0) return []
-    const values: unknown[] = [ids]
-    return executor.query<Record<string, unknown>>(
-        `
-        SELECT *
-        FROM ${tableIdent(params.schemaName, params.contract.object)}
-        WHERE id = ANY($1::uuid[])
-          AND ${activeWorkspaceWhere(params.workspaceId, values)}
-        ${params.forUpdate ? 'FOR UPDATE' : ''}
-        `,
-        values
     )
 }
 

@@ -56,40 +56,28 @@ describe('structureVersionToSemver', () => {
         expect(structureVersionToSemver(CURRENT_STRUCTURE_VERSION)).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
     })
 
-    it('returns current semver for null', () => {
-        expect(structureVersionToSemver(null)).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
+    it('rejects missing versions instead of assuming the current revision', () => {
+        expect(() => structureVersionToSemver(null)).toThrow('Unsupported metahub structure version: null')
+        expect(() => structureVersionToSemver(undefined)).toThrow('Unsupported metahub structure version: undefined')
     })
 
-    it('returns current semver for undefined', () => {
-        expect(structureVersionToSemver(undefined)).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
+    it('rejects unregistered numeric revisions instead of clamping them to current', () => {
+        expect(() => structureVersionToSemver(0)).toThrow('Unsupported metahub structure version: 0')
+        expect(() => structureVersionToSemver(-1)).toThrow('Unsupported metahub structure version: -1')
+        expect(() => structureVersionToSemver(999)).toThrow('Unsupported metahub structure version: 999')
     })
 
-    it('returns current semver for 0', () => {
-        expect(structureVersionToSemver(0)).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
+    it('accepts only the registered semver label', () => {
+        expect(structureVersionToSemver(CURRENT_STRUCTURE_VERSION_SEMVER)).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
     })
 
-    it('returns current semver for negative number', () => {
-        expect(structureVersionToSemver(-1)).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
-    })
-
-    it('returns current semver for unknown positive integer', () => {
-        expect(structureVersionToSemver(999)).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
-    })
-
-    it('passes through valid semver string', () => {
-        expect(structureVersionToSemver('0.1.0')).toBe('0.1.0')
-    })
-
-    it('returns current semver for empty string', () => {
-        expect(structureVersionToSemver('')).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
-    })
-
-    it('converts numeric string to semver', () => {
-        expect(structureVersionToSemver('1')).toBe('0.1.0')
-    })
-
-    it('returns current semver for non-numeric string', () => {
-        expect(structureVersionToSemver('invalid')).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
+    it('rejects empty, numeric-string, and unregistered semver labels', () => {
+        expect(() => structureVersionToSemver('')).toThrow('Unsupported metahub structure version')
+        expect(() => structureVersionToSemver('1')).toThrow('Unsupported metahub structure version: 1')
+        expect(() => structureVersionToSemver('99.0.0')).toThrow('Unsupported metahub structure version: 99.0.0')
+        expect(() => structureVersionToSemver('invalid')).toThrow('Unsupported metahub structure version: invalid')
+        expect(() => structureVersionToSemver('__proto__')).toThrow('Unsupported metahub structure version: __proto__')
+        expect(() => structureVersionToSemver('constructor')).toThrow('Unsupported metahub structure version: constructor')
     })
 })
 
@@ -98,40 +86,33 @@ describe('semverToStructureVersion', () => {
         expect(semverToStructureVersion(CURRENT_STRUCTURE_VERSION_SEMVER)).toBe(CURRENT_STRUCTURE_VERSION)
     })
 
-    it('returns current version for null', () => {
-        expect(semverToStructureVersion(null)).toBe(CURRENT_STRUCTURE_VERSION)
+    it('rejects missing versions instead of assuming the current revision', () => {
+        expect(() => semverToStructureVersion(null)).toThrow('Unsupported metahub structure version: null')
+        expect(() => semverToStructureVersion(undefined)).toThrow('Unsupported metahub structure version: undefined')
     })
 
-    it('returns current version for undefined', () => {
-        expect(semverToStructureVersion(undefined)).toBe(CURRENT_STRUCTURE_VERSION)
+    it('rejects empty version labels', () => {
+        expect(() => semverToStructureVersion('')).toThrow('Unsupported metahub structure version')
     })
 
-    it('returns current version for empty string', () => {
-        expect(semverToStructureVersion('')).toBe(CURRENT_STRUCTURE_VERSION)
-    })
-
-    it('returns current version for 0', () => {
-        expect(semverToStructureVersion(0)).toBe(CURRENT_STRUCTURE_VERSION)
+    it('rejects unsupported numeric revisions', () => {
+        expect(() => semverToStructureVersion(0)).toThrow('Unsupported metahub structure version: 0')
+        expect(() => semverToStructureVersion(999)).toThrow('Unsupported metahub structure version: 999')
     })
 
     it('passes through valid numeric version', () => {
         expect(semverToStructureVersion(1)).toBe(1)
     })
 
-    it('treats non-baseline semver labels as future unsupported structure versions', () => {
-        expect(semverToStructureVersion('99.0.0')).toBe(CURRENT_STRUCTURE_VERSION + 1)
+    it('rejects unregistered semver labels', () => {
+        expect(() => semverToStructureVersion('99.0.0')).toThrow('Unsupported metahub structure version: 99.0.0')
+        expect(() => semverToStructureVersion('__proto__')).toThrow('Unsupported metahub structure version: __proto__')
+        expect(() => semverToStructureVersion('constructor')).toThrow('Unsupported metahub structure version: constructor')
     })
 
-    it('clamps future numeric version to CURRENT + 1', () => {
-        expect(semverToStructureVersion(999)).toBe(CURRENT_STRUCTURE_VERSION + 1)
-    })
-
-    it('converts numeric string to version', () => {
-        expect(semverToStructureVersion('1')).toBe(1)
-    })
-
-    it('returns current version for non-parseable string', () => {
-        expect(semverToStructureVersion('invalid')).toBe(CURRENT_STRUCTURE_VERSION)
+    it('rejects numeric-string aliases and invalid labels', () => {
+        expect(() => semverToStructureVersion('1')).toThrow('Unsupported metahub structure version: 1')
+        expect(() => semverToStructureVersion('invalid')).toThrow('Unsupported metahub structure version: invalid')
     })
 })
 
@@ -140,25 +121,17 @@ describe('normalizeStoredStructureVersion', () => {
         expect(normalizeStoredStructureVersion(CURRENT_STRUCTURE_VERSION_SEMVER)).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
     })
 
-    it('normalizes numeric version to semver', () => {
-        expect(normalizeStoredStructureVersion(1)).toBe('0.1.0')
-        expect(normalizeStoredStructureVersion(999)).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
+    it('converts the registered numeric revision to semver', () => {
+        expect(normalizeStoredStructureVersion(1)).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
     })
 
-    it('normalizes null to current semver', () => {
-        expect(normalizeStoredStructureVersion(null)).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
-    })
-
-    it('normalizes undefined to current semver', () => {
-        expect(normalizeStoredStructureVersion(undefined)).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
-    })
-
-    it('normalizes empty string to current semver', () => {
-        expect(normalizeStoredStructureVersion('')).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
-    })
-
-    it('normalizes future semver to current', () => {
-        expect(normalizeStoredStructureVersion('99.0.0')).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
+    it('rejects unsupported or malformed stored versions instead of normalizing them', () => {
+        expect(() => normalizeStoredStructureVersion(null)).toThrow('Unsupported metahub structure version: null')
+        expect(() => normalizeStoredStructureVersion(undefined)).toThrow('Unsupported metahub structure version: undefined')
+        expect(() => normalizeStoredStructureVersion('')).toThrow('Unsupported metahub structure version')
+        expect(() => normalizeStoredStructureVersion('1')).toThrow('Unsupported metahub structure version: 1')
+        expect(() => normalizeStoredStructureVersion('99.0.0')).toThrow('Unsupported metahub structure version: 99.0.0')
+        expect(() => normalizeStoredStructureVersion(999)).toThrow('Unsupported metahub structure version: 999')
     })
 
     it('round-trips: semver → numeric → semver', () => {

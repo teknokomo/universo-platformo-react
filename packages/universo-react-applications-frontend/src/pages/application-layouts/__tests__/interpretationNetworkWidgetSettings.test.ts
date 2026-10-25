@@ -63,6 +63,28 @@ describe('interpretationNetworkWidgetSettings', () => {
         )
     })
 
+    it('parses, compares and saves the effective cell-style policy', () => {
+        const settings = parseInterpretationNetworkMatrixSettings({
+            cellStylePolicy: {
+                allowedColors: ['#abc', '#1e88e5'],
+                allowCustomColors: false,
+                editable: { fillColor: true, textColor: false, borderColor: false, borderWidth: false, borderStyle: false }
+            }
+        })
+        expect(settings.cellStylePolicy).toEqual({
+            allowedColors: ['#AABBCC', '#1E88E5'],
+            allowCustomColors: false,
+            editable: { fillColor: true, textColor: false, borderColor: false, borderWidth: false, borderStyle: false }
+        })
+        expect(mergeInterpretationNetworkMatrixSettings({}, settings).cellStylePolicy).toEqual(settings.cellStylePolicy)
+        expect(
+            areInterpretationNetworkMatrixSettingsEqual(settings, {
+                ...settings,
+                cellStylePolicy: { ...settings.cellStylePolicy, allowCustomColors: true }
+            })
+        ).toBe(false)
+    })
+
     it('compares every persisted Matrix setting', () => {
         const baseline = parseInterpretationNetworkMatrixSettings({})
 

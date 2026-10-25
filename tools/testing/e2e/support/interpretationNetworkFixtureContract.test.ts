@@ -56,6 +56,23 @@ const withEntityMutation = (codename: string, mutate: (entity: FixtureRecord) =>
     return envelope
 }
 
+const withGenericWelcomePage = (): MetahubSnapshotTransportEnvelope => {
+    const envelope = structuredClone(fixture)
+    const snapshot = envelope.snapshot as unknown as FixtureRecord
+    const entities = snapshot.entities as Record<string, FixtureRecord>
+    const welcomePageId = '018f0000-0000-7000-8000-000000000001'
+    const welcomePage = structuredClone(findFixtureEntity(envelope, 'InterpretationNetworkIntro'))
+    const codename = welcomePage.codename as FixtureRecord
+    const locales = codename.locales as Record<string, FixtureRecord>
+
+    welcomePage.id = welcomePageId
+    locales.en.content = 'WelcomePage'
+    locales.ru.content = 'WelcomePage'
+    entities[welcomePageId] = welcomePage
+    envelope.snapshotHash = computeSnapshotHash(envelope.snapshot)
+    return envelope
+}
+
 const setLocalizedName = (entity: FixtureRecord, locale: 'en' | 'ru', value: string): void => {
     const presentation = entity.presentation as FixtureRecord
     const name = presentation.name as FixtureRecord
@@ -65,6 +82,29 @@ const setLocalizedName = (entity: FixtureRecord, locale: 'en' | 'ru', value: str
 
 test('accepts the canonical fixture with generated bilingual Start and Structures navigation', () => {
     assert.doesNotThrow(() => assertInterpretationNetworkFixtureEnvelopeContract(fixture))
+
+    const snapshot = fixture.snapshot as unknown as FixtureRecord
+    const entities = Object.values(snapshot.entities as Record<string, FixtureRecord>)
+    const hasWelcomePage = entities.some((entity) => {
+        const codename = entity.codename as FixtureRecord
+        const locales = codename.locales as Record<string, FixtureRecord>
+        return locales.en.content === 'WelcomePage'
+    })
+    const startPage = findFixtureEntity(fixture, 'InterpretationNetworkIntro')
+    const presentation = startPage.presentation as FixtureRecord
+    const name = presentation.name as FixtureRecord
+    const nameLocales = name.locales as Record<string, FixtureRecord>
+
+    assert.equal(hasWelcomePage, false)
+    assert.equal(nameLocales.en.content, 'Start')
+    assert.equal(nameLocales.ru.content, 'Начало')
+})
+
+test('rejects a generic WelcomePage alongside the specialized Start page', () => {
+    assert.throws(
+        () => assertInterpretationNetworkFixtureEnvelopeContract(withGenericWelcomePage()),
+        /generic WelcomePage must be absent from the product template snapshot/u
+    )
 })
 
 test('rejects generated navigation with incorrect labels, icons, home route, or Hub grouping', () => {

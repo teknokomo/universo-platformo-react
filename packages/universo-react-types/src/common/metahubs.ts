@@ -842,8 +842,12 @@ export interface EnumerationValueDefinition {
 export type MetahubTemplateSchemaVersion = 'metahub-template/v1'
 
 /** Snapshot envelope version used for metahub export/publication snapshots. */
-export const CURRENT_METAHUB_SNAPSHOT_FORMAT_VERSION = 4 as const
+export const CURRENT_METAHUB_SNAPSHOT_FORMAT_VERSION = 1 as const
 export type MetahubSnapshotFormatVersion = typeof CURRENT_METAHUB_SNAPSHOT_FORMAT_VERSION
+
+/** Current supported public version label for metahub structure definitions. */
+export const CURRENT_METAHUB_STRUCTURE_VERSION_SEMVER = '0.1.0' as const
+export type MetahubStructureVersionSemVer = typeof CURRENT_METAHUB_STRUCTURE_VERSION_SEMVER
 
 /**
  * Unified version envelope that separates:
@@ -852,7 +856,7 @@ export type MetahubSnapshotFormatVersion = typeof CURRENT_METAHUB_SNAPSHOT_FORMA
  * - snapshot format version
  */
 export interface MetahubSnapshotVersionEnvelope {
-    structureVersion: string
+    structureVersion: MetahubStructureVersionSemVer
     templateVersion: string | null
     snapshotFormatVersion: MetahubSnapshotFormatVersion
 }

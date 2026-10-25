@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { MetahubSnapshotTransportEnvelopeSchema, type MetahubSnapshotTransportEnvelope } from '@universo-react/types'
+import { MetahubSnapshotTransportEnvelopeSchema } from '@universo-react/types'
 import { validateSnapshotEnvelope } from '@universo-react/utils'
 import { repoRoot } from './env/load-e2e-env.mjs'
 import { assertDashboardSnapshotInvariants } from './dashboardSnapshotInvariants.ts'
@@ -47,29 +47,23 @@ const profiles = {
 
 type FixtureKind = keyof typeof profiles
 
-export const parseTrackedTransportEnvelope = (raw: unknown): MetahubSnapshotTransportEnvelope =>
-    MetahubSnapshotTransportEnvelopeSchema.parse(raw)
+export const parseTrackedTransportEnvelope = (raw: unknown): Record<string, unknown> =>
+    MetahubSnapshotTransportEnvelopeSchema.parse(raw) as unknown as Record<string, unknown>
 
-export const getTrackedDashboardCompatibilityIssue = (snapshot: unknown, allowStaleTracked: boolean): string | null => {
+export const getTrackedDashboardCompatibilityIssue = (snapshot: unknown): string | null => {
     try {
         assertDashboardSnapshotInvariants(snapshot)
         return null
     } catch (error) {
-        if (!allowStaleTracked) throw error
         return error instanceof Error ? error.message : String(error)
     }
 }
 
-export const getTrackedDashboardFixtureContractIssue = (
-    fixture: unknown,
-    assertContract: (value: unknown) => unknown,
-    allowStaleTracked: boolean
-): string | null => {
+export const getTrackedDashboardFixtureContractIssue = (fixture: unknown, assertContract: (value: unknown) => unknown): string | null => {
     try {
         assertContract(fixture)
         return null
     } catch (error) {
-        if (!allowStaleTracked) throw error
         return error instanceof Error ? error.message : String(error)
     }
 }
@@ -101,7 +95,7 @@ async function main(): Promise<void> {
     }
     if (!kindInput || !(kindInput in profiles) || !generatedInput) {
         throw new Error(
-            'Usage: checkDashboardSnapshotFixtureDrift.ts <73rd-meridian|interpretation-network|lms|quiz|self-hosted|mmoomm> <fixture-path> [--drift] [--tracked <fixture-path>] [--allow-stale-tracked]'
+            'Usage: checkDashboardSnapshotFixtureDrift.ts <73rd-meridian|interpretation-network|lms|quiz|self-hosted|mmoomm> <fixture-path> [--drift] [--tracked <fixture-path>]'
         )
     }
 
@@ -117,10 +111,6 @@ async function main(): Promise<void> {
         : path.join(repoRoot, 'tools', 'fixtures', profile.filename)
     const fixturePath = resolvePathInsideRepository(generatedInput, 'Fixture paths')
     const compareWithTracked = args.includes('--drift')
-    const allowStaleTracked = args.includes('--allow-stale-tracked')
-    if (allowStaleTracked && !compareWithTracked) {
-        throw new Error('--allow-stale-tracked requires --drift.')
-    }
     if (!fs.existsSync(fixturePath) || (compareWithTracked && !fs.existsSync(trackedPath))) {
         throw new Error(`${compareWithTracked ? 'Tracked or generated' : 'Generated'} ${kind} fixture is missing.`)
     }
@@ -142,36 +132,17 @@ async function main(): Promise<void> {
     }
 
     const tracked = parseTrackedTransportEnvelope(JSON.parse(fs.readFileSync(trackedPath, 'utf8')) as unknown)
-    const compatibilityIssue = getTrackedDashboardCompatibilityIssue(tracked.snapshot, allowStaleTracked)
+    const compatibilityIssue = getTrackedDashboardCompatibilityIssue(tracked.snapshot)
     if (compatibilityIssue) {
-        process.stdout.write(
-            `${kind} tracked fixture is incompatible with the current snapshot contract; ` +
-                `canonical regeneration will replace it after the generated fixture passed strict validation.\n` +
-                `Tracked: ${path.relative(repoRoot, trackedPath)}\nReason: ${compatibilityIssue}\n`
-        )
-        return
+        throw new Error(`${kind} tracked fixture violates current dashboard invariants: ${compatibilityIssue}`)
     }
-    const trackedContractIssue = getTrackedDashboardFixtureContractIssue(tracked, assertContract, allowStaleTracked)
+    const trackedContractIssue = getTrackedDashboardFixtureContractIssue(tracked, assertContract)
     if (trackedContractIssue) {
-        process.stdout.write(
-            `${kind} tracked fixture does not satisfy the current fixture contract; ` +
-                `canonical regeneration will replace it after the generated fixture passed strict validation.\n` +
-                `Tracked: ${path.relative(repoRoot, trackedPath)}\nReason: ${trackedContractIssue}\n`
-        )
-        return
+        throw new Error(`${kind} tracked fixture violates its current fixture contract: ${trackedContractIssue}`)
     }
 
     const difference = getNormalizedDashboardFixtureDifference(tracked, fixture)
     if (difference) {
-        if (allowStaleTracked) {
-            process.stdout.write(
-                `${kind} tracked fixture differs from the freshly generated canonical snapshot; ` +
-                    `canonical regeneration will replace it after strict validation.\n` +
-                    `Tracked: ${path.relative(repoRoot, trackedPath)}\nGenerated: ${path.relative(repoRoot, fixturePath)}\n` +
-                    `First normalized difference:\n${difference}\n`
-            )
-            return
-        }
         throw new Error(
             `${kind} snapshot fixture drift detected after normalizing volatile identifiers and timestamps.\n` +
                 `Tracked: ${path.relative(repoRoot, trackedPath)}\nGenerated: ${path.relative(repoRoot, fixturePath)}\n` +

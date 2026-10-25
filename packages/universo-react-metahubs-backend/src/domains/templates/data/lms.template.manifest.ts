@@ -1,4 +1,4 @@
-import type { MetahubTemplateManifest } from '@universo-react/types'
+import { DEFAULT_MODULE_SDK_API_VERSION, type MetahubTemplateManifest } from '@universo-react/types'
 import { vlc } from './basic.template'
 import { LMS_PUBLIC_GUEST_RUNTIME_CONFIG } from './lms.seed-settings'
 import {
@@ -531,7 +531,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 attachedToEntityCodename: 'Enrollments',
                 moduleRole: 'lifecycle',
                 sourceKind: 'embedded',
-                sdkApiVersion: '1.0.0',
+                sdkApiVersion: DEFAULT_MODULE_SDK_API_VERSION,
                 capabilities: ['records.read', 'metadata.read', 'lifecycle', 'posting', 'ledger.write'],
                 sourceCode: LMS_ENROLLMENT_POSTING_MODULE_SOURCE
             },
@@ -546,7 +546,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 attachedToEntityCodename: 'QuizAttempts',
                 moduleRole: 'lifecycle',
                 sourceKind: 'embedded',
-                sdkApiVersion: '1.0.0',
+                sdkApiVersion: DEFAULT_MODULE_SDK_API_VERSION,
                 capabilities: ['records.read', 'metadata.read', 'lifecycle', 'posting', 'ledger.write'],
                 sourceCode: LMS_QUIZ_ATTEMPT_POSTING_MODULE_SOURCE
             },
@@ -561,7 +561,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 attachedToEntityCodename: 'ContentProgress',
                 moduleRole: 'lifecycle',
                 sourceKind: 'embedded',
-                sdkApiVersion: '1.0.0',
+                sdkApiVersion: DEFAULT_MODULE_SDK_API_VERSION,
                 capabilities: ['records.read', 'metadata.read', 'lifecycle', 'posting', 'ledger.write'],
                 sourceCode: LMS_CONTENT_COMPLETION_POSTING_MODULE_SOURCE
             },
@@ -576,7 +576,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 attachedToEntityCodename: 'CertificateIssues',
                 moduleRole: 'lifecycle',
                 sourceKind: 'embedded',
-                sdkApiVersion: '1.0.0',
+                sdkApiVersion: DEFAULT_MODULE_SDK_API_VERSION,
                 capabilities: ['records.read', 'metadata.read', 'lifecycle', 'posting', 'ledger.write'],
                 sourceCode: LMS_CERTIFICATE_ISSUE_POSTING_MODULE_SOURCE
             },
@@ -591,7 +591,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 attachedToEntityCodename: 'PointTransactions',
                 moduleRole: 'lifecycle',
                 sourceKind: 'embedded',
-                sdkApiVersion: '1.0.0',
+                sdkApiVersion: DEFAULT_MODULE_SDK_API_VERSION,
                 capabilities: ['records.read', 'metadata.read', 'lifecycle', 'posting', 'ledger.write'],
                 sourceCode: LMS_POINT_TRANSACTION_POSTING_MODULE_SOURCE
             }

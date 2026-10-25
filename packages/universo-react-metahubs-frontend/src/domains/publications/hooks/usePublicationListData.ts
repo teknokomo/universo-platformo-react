@@ -6,7 +6,7 @@ import { useDebouncedSearch } from '@universo-react/template-mui'
 import type { PaginationState, PaginationActions } from '@universo-react/template-mui'
 
 import { usePublicationsList } from '../hooks/usePublications'
-import { useMetahubDetails } from '../../metahubs'
+import { useMetahubDetails } from '../../metahubs/hooks/useMetahubDetails'
 import type { Publication } from '../api'
 import { listBranchOptions } from '../../branches/api/branches'
 import { getVLCString } from '../../../types'

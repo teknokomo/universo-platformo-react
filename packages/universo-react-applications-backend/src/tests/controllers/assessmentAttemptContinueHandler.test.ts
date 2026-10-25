@@ -8,7 +8,7 @@ import type {
 import { createContinueGuestAssessmentAttemptHandler } from '../../controllers/runtimeGuest/assessmentAttemptContinueHandler'
 
 const mockLockEvents: string[] = []
-const mockLockGuestAccessLinkWorkspace = jest.fn(async () => {
+const mockLockGuestAccessLinkWorkspace = jest.fn(async (..._args: unknown[]): Promise<void> => {
     mockLockEvents.push('workspace')
 })
 

@@ -21,7 +21,12 @@ import {
     ensureWorkspaceScopedPolicies,
     ensureWorkspaceSupportTables
 } from '../ddl/applicationWorkspacesSchema'
-export { lockActiveRuntimeWorkspaceContext, setRuntimeWorkspaceContext } from './runtimeWorkspaceContext'
+export {
+    acquireWorkspaceBaselineLock,
+    lockActiveRuntimeWorkspaceContext,
+    setRuntimeWorkspaceContext,
+    validateActiveRuntimeWorkspaceContext
+} from './runtimeWorkspaceContext'
 
 const WORKSPACES_TABLE = '_app_workspaces'
 const WORKSPACE_ROLES_TABLE = '_app_workspace_roles'
@@ -1595,6 +1600,7 @@ export async function ensurePersonalWorkspaceForUser(
     const desiredRoleCodename = input.defaultRoleCodename ?? 'owner'
     const workspacesQt = qSchemaTable(schemaName, WORKSPACES_TABLE)
     const workspaceUserRolesQt = qSchemaTable(schemaName, WORKSPACE_USER_ROLES_TABLE)
+    const personalWorkspaceLockKey = `personal-workspace:${schemaName}:${userId}`
 
     const existingWorkspaceRows = await executor.query<{ id: string }>(
         `
@@ -1602,6 +1608,7 @@ export async function ensurePersonalWorkspaceForUser(
         FROM ${workspacesQt}
         WHERE workspace_type = 'personal'
           AND personal_user_id = $1
+          AND COALESCE(status, 'active') = 'active'
           AND ${ACTIVE_ROW_SQL}
         ORDER BY _upl_created_at ASC, id ASC
         LIMIT 1
@@ -1609,54 +1616,78 @@ export async function ensurePersonalWorkspaceForUser(
         [userId]
     )
 
-    let createdWorkspace = false
-    let convertedWorkspace = false
-    let workspaceId = existingWorkspaceRows[0]?.id
-
-    if (!workspaceId) {
-        // Serialize the rare "creation actually needed" path against an in-flight
-        // personal→shared conversion. The conversion transaction takes the same
-        // key, so either this instance sees the pre-conversion personal row
-        // (real arbiter still protects the INSERT) or it sees the marker and
-        // skips creation entirely instead of re-seeding a duplicate `Main`.
-        workspaceId = await withTransactionSavepoint(executor, async (tx) => {
-            await acquireAdvisoryXactLock(tx, `personal-workspace:${schemaName}:${userId}`)
-
-            const lockedWorkspaceRows = await tx.query<{ id: string }>(
-                `
-                SELECT id
-                FROM ${workspacesQt}
-                WHERE workspace_type = 'personal'
-                  AND personal_user_id = $1
+    const existingWorkspaceId = existingWorkspaceRows[0]?.id
+    if (existingWorkspaceId) {
+        const membershipRows = await executor.query<{ isDefaultWorkspace: boolean }>(
+            `
+                SELECT is_default_workspace AS "isDefaultWorkspace"
+                FROM ${workspaceUserRolesQt}
+                WHERE workspace_id = $1
+                  AND user_id = $2
                   AND ${ACTIVE_ROW_SQL}
-                ORDER BY _upl_created_at ASC, id ASC
                 LIMIT 1
                 `,
-                [userId]
-            )
-            if (lockedWorkspaceRows[0]?.id) {
-                return lockedWorkspaceRows[0].id
-            }
+            [existingWorkspaceId, userId]
+        )
+        const defaultRows = await executor.query<{ workspaceId: string }>(
+            `
+                SELECT workspace_id AS "workspaceId"
+                FROM ${workspaceUserRolesQt}
+                WHERE user_id = $1
+                  AND is_default_workspace = true
+                  AND ${ACTIVE_ROW_SQL}
+                LIMIT 1
+                `,
+            [userId]
+        )
+        if (membershipRows[0] && (membershipRows[0].isDefaultWorkspace || defaultRows.length > 0)) {
+            return { workspaceId: existingWorkspaceId }
+        }
+    }
 
+    return withTransactionSavepoint(executor, async (tx) => {
+        // Every mutation that creates or changes the user's default membership
+        // uses this lock. A read-only fast path above avoids serializing routine
+        // runtime requests when the personal and default memberships are sound.
+        await acquireAdvisoryXactLock(tx, personalWorkspaceLockKey)
+
+        let workspaceId: string | undefined
+        let createdWorkspace = false
+        const activeWorkspaceRows = await tx.query<{ id: string }>(
+            `
+            SELECT id
+            FROM ${workspacesQt}
+            WHERE workspace_type = 'personal'
+              AND personal_user_id = $1
+              AND COALESCE(status, 'active') = 'active'
+              AND ${ACTIVE_ROW_SQL}
+            ORDER BY _upl_created_at ASC, id ASC
+            LIMIT 1
+            `,
+            [userId]
+        )
+        workspaceId = activeWorkspaceRows[0]?.id
+
+        if (!workspaceId) {
             // A converted personal workspace already represents this user's
-            // runtime scope: keep it, create no new personal workspace.
+            // runtime scope; never create another personal workspace for them.
             const convertedRows = await tx.query<{ id: string }>(
                 `
                 SELECT id
                 FROM ${workspacesQt}
                 WHERE converted_from_user_id = $1
+                  AND COALESCE(status, 'active') = 'active'
                   AND ${ACTIVE_ROW_SQL}
                 ORDER BY _upl_created_at ASC, id ASC
                 LIMIT 1
                 `,
                 [userId]
             )
-            if (convertedRows[0]?.id) {
-                convertedWorkspace = true
-                return convertedRows[0].id
-            }
+            if (convertedRows[0]?.id) return { workspaceId: convertedRows[0].id }
 
-            const [{ id: generatedWorkspaceId }] = await tx.query<{ id: string }>('SELECT public.uuid_generate_v7() AS id')
+            const [{ id: generatedWorkspaceId } = {}] = await tx.query<{ id: string }>('SELECT public.uuid_generate_v7() AS id')
+            if (!generatedWorkspaceId) throw new Error('PERSONAL_WORKSPACE_CREATE_FAILED')
+
             const insertedWorkspaceRows = await tx.query<{ id: string }>(
                 `
                 INSERT INTO ${workspacesQt} (
@@ -1684,106 +1715,47 @@ export async function ensurePersonalWorkspaceForUser(
                     actorUserId ?? null
                 ]
             )
-
-            let insertedWorkspaceId = insertedWorkspaceRows[0]?.id
-            if (insertedWorkspaceId) {
-                createdWorkspace = true
-            } else {
+            workspaceId = insertedWorkspaceRows[0]?.id
+            if (workspaceId) createdWorkspace = true
+            else {
                 const concurrentWorkspaceRows = await tx.query<{ id: string }>(
                     `
                     SELECT id
                     FROM ${workspacesQt}
                     WHERE workspace_type = 'personal'
                       AND personal_user_id = $1
+                      AND COALESCE(status, 'active') = 'active'
                       AND ${ACTIVE_ROW_SQL}
                     ORDER BY _upl_created_at ASC, id ASC
                     LIMIT 1
                     `,
                     [userId]
                 )
-                insertedWorkspaceId = concurrentWorkspaceRows[0]?.id ?? generatedWorkspaceId
-                createdWorkspace = concurrentWorkspaceRows.length === 0
+                workspaceId = concurrentWorkspaceRows[0]?.id
+                if (!workspaceId) throw new Error('PERSONAL_WORKSPACE_CREATE_FAILED')
             }
-            return insertedWorkspaceId
-        })
-    }
+        }
 
-    if (!workspaceId) {
-        throw new Error('PERSONAL_WORKSPACE_CREATE_FAILED')
-    }
-
-    // The converted workspace already carries the user's owner membership row
-    // (its `is_default_workspace` state was set on bootstrap); creating role or
-    // default bookkeeping for a second personal workspace would be wrong.
-    if (convertedWorkspace) {
-        return { workspaceId }
-    }
-
-    const seededRoles = await ensureWorkspaceRoleSeeds(executor, schemaName, actorUserId)
-    const desiredRoleId = desiredRoleCodename === 'member' ? seededRoles.memberRoleId : seededRoles.ownerRoleId
-
-    const existingUserRoleRows = await executor.query<WorkspaceUserRoleRow>(
-        `
-        SELECT
-            workspace_id AS "workspaceId",
-            user_id AS "userId",
-            is_default_workspace AS "isDefaultWorkspace"
-        FROM ${workspaceUserRolesQt}
-        WHERE workspace_id = $1
-          AND user_id = $2
-          AND ${ACTIVE_ROW_SQL}
-        `,
-        [workspaceId, userId]
-    )
-
-    if (existingUserRoleRows.length === 0) {
-        const [{ id: relationId }] = await executor.query<{ id: string }>('SELECT public.uuid_generate_v7() AS id')
-        await executor.query(
+        const seededRoles = await ensureWorkspaceRoleSeeds(tx, schemaName, actorUserId)
+        const desiredRoleId = desiredRoleCodename === 'member' ? seededRoles.memberRoleId : seededRoles.ownerRoleId
+        const existingUserRoleRows = await tx.query<WorkspaceUserRoleRow>(
             `
-            UPDATE ${workspaceUserRolesQt}
-            SET is_default_workspace = false,
-                _upl_updated_at = NOW(),
-                _upl_updated_by = $2
-            WHERE user_id = $1
-              AND is_default_workspace = true
-              AND ${ACTIVE_ROW_SQL}
-            `,
-            [userId, actorUserId ?? null]
-        )
-
-        await executor.query(
-            `
-            INSERT INTO ${workspaceUserRolesQt} (
-                id,
-                workspace_id,
-                user_id,
-                role_id,
-                is_default_workspace,
-                _upl_created_by,
-                _upl_updated_by
-            )
-            VALUES ($1, $2, $3, $4, true, $5, $6)
-            ON CONFLICT (workspace_id, user_id)
-                WHERE _upl_deleted = false AND _app_deleted = false
-            DO NOTHING
-            `,
-            [relationId, workspaceId, userId, desiredRoleId, actorUserId ?? null, actorUserId ?? null]
-        )
-    } else if (!existingUserRoleRows.some((row) => row.isDefaultWorkspace === true)) {
-        const userDefaultWorkspaceRows = await executor.query<{ workspaceId: string }>(
-            `
-            SELECT workspace_id AS "workspaceId"
+            SELECT
+                workspace_id AS "workspaceId",
+                user_id AS "userId",
+                is_default_workspace AS "isDefaultWorkspace"
             FROM ${workspaceUserRolesQt}
-            WHERE user_id = $1
-              AND is_default_workspace = true
+            WHERE workspace_id = $1
+              AND user_id = $2
               AND ${ACTIVE_ROW_SQL}
-            LIMIT 1
             `,
-            [userId]
+            [workspaceId, userId]
         )
 
-        if (userDefaultWorkspaceRows.length === 0) {
-            await executor.query(
+        if (existingUserRoleRows.length === 0) {
+            const [{ id: relationId } = {}] = await tx.query<{ id: string }>('SELECT public.uuid_generate_v7() AS id')
+            if (!relationId) throw new Error('PERSONAL_WORKSPACE_MEMBERSHIP_CREATE_FAILED')
+            await tx.query(
                 `
                 UPDATE ${workspaceUserRolesQt}
                 SET is_default_workspace = false,
@@ -1795,32 +1767,64 @@ export async function ensurePersonalWorkspaceForUser(
                 `,
                 [userId, actorUserId ?? null]
             )
-
-            await executor.query(
+            await tx.query(
                 `
-                UPDATE ${workspaceUserRolesQt}
-                SET is_default_workspace = true,
-                    _upl_updated_at = NOW(),
-                    _upl_updated_by = $3
-                WHERE workspace_id = $1
-                  AND user_id = $2
-                  AND ${ACTIVE_ROW_SQL}
+                INSERT INTO ${workspaceUserRolesQt} (
+                    id,
+                    workspace_id,
+                    user_id,
+                    role_id,
+                    is_default_workspace,
+                    _upl_created_by,
+                    _upl_updated_by
+                )
+                VALUES ($1, $2, $3, $4, true, $5, $6)
+                ON CONFLICT (workspace_id, user_id)
+                    WHERE _upl_deleted = false AND _app_deleted = false
+                DO NOTHING
                 `,
-                [workspaceId, userId, actorUserId ?? null]
+                [relationId, workspaceId, userId, desiredRoleId, actorUserId ?? null, actorUserId ?? null]
             )
+        } else if (!existingUserRoleRows.some((row) => row.isDefaultWorkspace === true)) {
+            const userDefaultWorkspaceRows = await tx.query<{ workspaceId: string }>(
+                `
+                SELECT workspace_id AS "workspaceId"
+                FROM ${workspaceUserRolesQt}
+                WHERE user_id = $1
+                  AND is_default_workspace = true
+                  AND ${ACTIVE_ROW_SQL}
+                LIMIT 1
+                `,
+                [userId]
+            )
+
+            if (userDefaultWorkspaceRows.length === 0) {
+                await tx.query(
+                    `
+                    UPDATE ${workspaceUserRolesQt}
+                    SET is_default_workspace = true,
+                        _upl_updated_at = NOW(),
+                        _upl_updated_by = $3
+                    WHERE workspace_id = $1
+                      AND user_id = $2
+                      AND ${ACTIVE_ROW_SQL}
+                    `,
+                    [workspaceId, userId, actorUserId ?? null]
+                )
+            }
         }
-    }
 
-    if (createdWorkspace && input.seedElements !== false) {
-        await syncWorkspaceSeededElements(executor, {
-            schemaName,
-            workspaceId,
-            actorUserId,
-            currentUserId: userId
-        })
-    }
+        if (createdWorkspace && input.seedElements !== false) {
+            await syncWorkspaceSeededElements(tx, {
+                schemaName,
+                workspaceId,
+                actorUserId,
+                currentUserId: userId
+            })
+        }
 
-    return { workspaceId }
+        return { workspaceId }
+    })
 }
 
 export async function ensurePersonalWorkspacesForApplicationMembers(
@@ -1883,6 +1887,22 @@ export async function ensureSharedWorkspaceBaselineMembership(
 ): Promise<number> {
     await acquireAdvisoryXactLock(executor, `workspace-baseline:${input.schemaName}:${input.applicationId}`)
 
+    return ensureSharedWorkspaceBaselineMembershipUnderHeldBaselineLock(executor, input)
+}
+
+/**
+ * Enroll application members when the caller already holds the workspace
+ * baseline lock. Copy operations use the shared lock so ordinary runtime
+ * writers can proceed while lifecycle membership changes remain excluded.
+ */
+export async function ensureSharedWorkspaceBaselineMembershipUnderHeldBaselineLock(
+    executor: DbExecutor,
+    input: {
+        schemaName: string
+        applicationId: string
+        actorUserId?: string | null
+    }
+): Promise<number> {
     const workspacesQt = qSchemaTable(input.schemaName, WORKSPACES_TABLE)
     const workspaceUserRolesQt = qSchemaTable(input.schemaName, WORKSPACE_USER_ROLES_TABLE)
     const workspaceRolesQt = qSchemaTable(input.schemaName, WORKSPACE_ROLES_TABLE)
@@ -2161,6 +2181,40 @@ export async function resolvePublicEntryWorkspace(executor: SqlQueryable, schema
         throw new PublicEntryWorkspaceError('PUBLIC_ENTRY_WORKSPACE_AMBIGUOUS')
     }
     return rows[0] ?? null
+}
+
+/**
+ * Resolves the server-owned Workspace used by a public Dashboard. An explicit
+ * public-entry designation wins; otherwise one active shared Workspace is a
+ * safe deterministic default. Multiple shared Workspaces require an explicit
+ * designation, and personal Workspaces are never eligible. A stale designation
+ * on an inactive row also fails closed rather than silently publishing another
+ * Workspace.
+ */
+export async function resolvePublicDashboardWorkspace(executor: SqlQueryable, schemaName: string): Promise<PublicEntryWorkspace | null> {
+    const explicitWorkspace = await resolvePublicEntryWorkspace(executor, schemaName)
+    if (explicitWorkspace) return explicitWorkspace
+
+    const workspacesQt = qSchemaTable(schemaName, WORKSPACES_TABLE)
+    const markerRows = await executor.query<{ exists: boolean }>(
+        `SELECT EXISTS (SELECT 1 FROM ${workspacesQt} WHERE is_public_entry = true) AS "exists"`
+    )
+    if (markerRows[0]?.exists) return null
+
+    const rows = await executor.query<{ workspaceId: string }>(
+        `
+        SELECT id AS "workspaceId"
+        FROM ${workspacesQt}
+        WHERE workspace_type = 'shared'
+          AND personal_user_id IS NULL
+          AND status = 'active'
+          AND ${ACTIVE_ROW_SQL}
+        ORDER BY id ASC
+        LIMIT 2
+        `
+    )
+
+    return rows.length === 1 ? rows[0] : null
 }
 
 /**

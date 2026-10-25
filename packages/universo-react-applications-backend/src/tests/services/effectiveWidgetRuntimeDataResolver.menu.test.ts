@@ -259,6 +259,61 @@ describe('resolveEffectiveWidgetRuntimeData menu projection', () => {
         expect(runtimeStore.loadPublishedDashboardMenuEntities).toHaveBeenCalledWith(executor, 'tenant_app')
     })
 
+    it('resolves only published generated navigation without a workspace or trusted actor', async () => {
+        const { executor } = createMockDbExecutor()
+        ;(runtimeStore.loadPublishedDashboardMenuEntities as jest.Mock).mockResolvedValueOnce([
+            {
+                id: objectId,
+                kind: 'page',
+                codename: 'PublicOverview',
+                presentation: { name: { _primary: 'en', locales: { en: { content: 'Overview' } } } },
+                config: { runtime: { menuVisibility: 'visible' } },
+                tableName: null
+            },
+            {
+                id: '018f8a78-7b8f-7c1d-a111-2222333344a8',
+                kind: 'object',
+                codename: 'RestrictedReports',
+                presentation: { name: { _primary: 'en', locales: { en: { content: 'Reports' } } } },
+                config: { runtime: { menuVisibility: 'primary', requiresPermission: 'readReports' } },
+                tableName: 'app_restricted_reports'
+            }
+        ])
+
+        const resolved = await resolveEffectiveWidgetRuntimeData(
+            executor,
+            {
+                ...scope,
+                workspaceId: null,
+                currentUserId: null,
+                role: null,
+                permissions: {
+                    manageMembers: false,
+                    manageApplication: false,
+                    createContent: false,
+                    editContent: false,
+                    deleteContent: false,
+                    readReports: false
+                }
+            },
+            [candidate({ config: { variant: 'generated' }, bindings: null })],
+            'en'
+        )
+
+        const publicMenu = resolved.get('placement-menu-1')
+        expect(publicMenu?.status).toBe('ready')
+        if (publicMenu?.status !== 'ready' || publicMenu.data.kind !== 'menu') return
+        expect(publicMenu.data.items).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ key: 'nav.page.PublicOverview', target: { kind: 'page', codename: 'PublicOverview' } })
+            ])
+        )
+        expect(JSON.stringify(publicMenu)).not.toContain('Reports')
+        expect(runtimeStore.loadPublishedDashboardMenuEntities).toHaveBeenCalledWith(executor, 'tenant_app')
+        expect(runtimeStore.loadRuntimeWidgetBindingMetadata).not.toHaveBeenCalled()
+        expect(runtimeStore.loadWidgetBindingRuntimeRecords).not.toHaveBeenCalled()
+    })
+
     it('filters permission-gated generated menu targets using the current application role', async () => {
         const { executor } = createMockDbExecutor()
         const reportsEntity = {

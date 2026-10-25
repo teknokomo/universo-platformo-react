@@ -63,7 +63,23 @@ const buildHierarchyMap = (
     return parentByCellId
 }
 
-const assertValidHierarchy = (parentByCellId: Map<string, string | null>) => {
+type MatrixCopyMode = 'hierarchicalCells' | 'independentRows'
+
+const assertValidHierarchy = (parentByCellId: Map<string, string | null>, matrixMode: MatrixCopyMode) => {
+    if (matrixMode === 'independentRows') {
+        for (const [cellId, parentCellId] of parentByCellId) {
+            if (parentCellId !== null) {
+                throw new InterpretationNetworkCommandError(
+                    409,
+                    interpretationNetworkCommandErrorCodes.invalidMatrix,
+                    'Independent matrix rows must not reference parent cells',
+                    { cellId, parentCellId }
+                )
+            }
+        }
+        return
+    }
+
     for (const [cellId, parentCellId] of parentByCellId) {
         if (parentCellId && !parentByCellId.has(parentCellId)) {
             throw new InterpretationNetworkCommandError(
@@ -110,7 +126,8 @@ export const planMatrixRowsCopy = (
     destinationContract: ObjectContract,
     materialIdMap: Map<string, string>,
     includeMaterials: boolean,
-    cellIdMap: Map<string, string> = new Map()
+    cellIdMap: Map<string, string> = new Map(),
+    matrixMode: MatrixCopyMode = 'hierarchicalCells'
 ): MatrixCopyPlan => {
     const sourceCellIdColumn = assertColumn(getChildField(sourceContract, 'CellId'), 'CellId')
     const destinationCellIdColumn = assertColumn(getChildField(destinationContract, 'CellId'), 'CellId')
@@ -123,17 +140,8 @@ export const planMatrixRowsCopy = (
     const sourceMaterialColumn = getChildField(sourceContract, 'MaterialRef')?.column_name
     const destinationMaterialColumn = getChildField(destinationContract, 'MaterialRef')?.column_name
     const parentByCellId = buildHierarchyMap(sourceRows, sourceCellIdColumn, sourceParentColumn, cellIdMap)
-    assertValidHierarchy(parentByCellId)
+    assertValidHierarchy(parentByCellId, matrixMode)
 
-    const sourceMaterialByCellId = new Map<string, string>()
-    if (includeMaterials) {
-        for (const row of sourceRows) {
-            const cellId = String(row[sourceCellIdColumn] ?? '').trim()
-            const sourceMaterialId = sourceMaterialColumn ? String(row[sourceMaterialColumn] ?? '').trim() : ''
-            const materialId = (sourceMaterialId ? materialIdMap.get(sourceMaterialId) : undefined) ?? materialIdMap.get(cellId)
-            if (materialId) sourceMaterialByCellId.set(cellId, materialId)
-        }
-    }
     const rowAxisKeyMap = new Map<string, string>()
     const columnAxisKeyMap = new Map<string, string>()
     const mapAxisKey = (value: unknown, prefix: 'row' | 'column'): string => {
@@ -176,7 +184,9 @@ export const planMatrixRowsCopy = (
                 )
             }
             row[destinationMaterialColumn] = includeMaterials
-                ? materialIdMap.get(sourceMaterialId) ?? sourceMaterialByCellId.get(sourceCellId) ?? null
+                ? sourceMaterialId
+                    ? materialIdMap.get(sourceMaterialId) ?? null
+                    : null
                 : null
         }
         return row

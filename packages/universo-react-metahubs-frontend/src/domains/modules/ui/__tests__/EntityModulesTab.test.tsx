@@ -151,11 +151,11 @@ const createModuleRecord = (overrides: Record<string, unknown> = {}) => ({
     attachedToId: 'object-1',
     moduleRole: 'module',
     sourceKind: 'embedded',
-    sdkApiVersion: '1.0.0',
+    sdkApiVersion: '0.1.0',
     sourceCode: 'export default class ExampleModule extends ExtensionModule {}',
     manifest: {
         className: 'ExampleModule',
-        sdkApiVersion: '1.0.0',
+        sdkApiVersion: '0.1.0',
         moduleRole: 'module',
         sourceKind: 'embedded',
         capabilities: ['records.read', 'metadata.read'],
@@ -724,7 +724,7 @@ describe('EntityModulesTab', () => {
             createModuleRecord({
                 manifest: {
                     className: 'PostingModule',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'module',
                     sourceKind: 'embedded',
                     capabilities: ['posting', 'ledger.read', 'ledger.write'],
@@ -846,7 +846,7 @@ describe('EntityModulesTab', () => {
                 moduleRole: 'library',
                 manifest: {
                     className: 'ExampleSharedLibrary',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'library',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read'],

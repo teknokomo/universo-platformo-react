@@ -1,9 +1,32 @@
 import { z } from 'zod'
-import { CURRENT_METAHUB_SNAPSHOT_FORMAT_VERSION } from './metahubs'
+import { SUPPORTED_MODULE_SDK_API_VERSIONS } from './modules'
+import { CURRENT_METAHUB_SNAPSHOT_FORMAT_VERSION, CURRENT_METAHUB_STRUCTURE_VERSION_SEMVER } from './metahubs'
+
+const moduleSdkApiVersionSchema = z.enum(SUPPORTED_MODULE_SDK_API_VERSIONS)
+
+const snapshotModuleSchema = z
+    .object({
+        sdkApiVersion: moduleSdkApiVersionSchema,
+        manifest: z
+            .object({
+                sdkApiVersion: moduleSdkApiVersionSchema
+            })
+            .passthrough()
+    })
+    .passthrough()
+    .superRefine((module, context) => {
+        if (module.sdkApiVersion !== module.manifest.sdkApiVersion) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['manifest', 'sdkApiVersion'],
+                message: 'Module SDK API version must match its manifest'
+            })
+        }
+    })
 
 const metahubSnapshotVersionEnvelopeSchema = z
     .object({
-        structureVersion: z.string().trim().min(1),
+        structureVersion: z.literal(CURRENT_METAHUB_STRUCTURE_VERSION_SEMVER),
         templateVersion: z.string().nullable(),
         snapshotFormatVersion: z.literal(CURRENT_METAHUB_SNAPSHOT_FORMAT_VERSION)
     })
@@ -34,7 +57,7 @@ export const MetahubSnapshotTransportEnvelopeSchema = z.object({
      *  passthrough() preserves all fields for round-trip fidelity; hash integrity guards against injection. */
     snapshot: z
         .object({
-            version: z.union([z.number().int().positive(), z.string()]),
+            version: z.literal(1),
             metahubId: z.string().uuid(),
             versionEnvelope: metahubSnapshotVersionEnvelopeSchema,
             entities: z.record(z.unknown()),
@@ -43,7 +66,7 @@ export const MetahubSnapshotTransportEnvelopeSchema = z.object({
             optionValues: z.record(z.unknown()).optional(),
             elements: z.record(z.unknown()).optional(),
             systemFields: z.record(z.unknown()).optional(),
-            modules: z.array(z.unknown()).optional(),
+            modules: z.array(snapshotModuleSchema).optional(),
             layouts: z.array(z.unknown()).optional(),
             scopedLayouts: z.array(z.unknown()).optional(),
             layoutZoneWidgets: z.array(z.unknown()).optional(),

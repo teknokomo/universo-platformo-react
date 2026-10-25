@@ -22,7 +22,7 @@ Modules currently cover four product needs:
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Source kind       | Only `embedded` authoring is enabled in the UI.                                                                                                         |
 | Storage mode      | `inline` stores source in the metahub database; `file` stores source under `UPL_MODULE_SOURCE_ROOT` and keeps only relative metadata in `_mhb_modules`. |
-| SDK compatibility | Only `sdkApiVersion = 1.0.0` is supported.                                                                                                              |
+| SDK compatibility | Only `sdkApiVersion = 0.1.0` is supported.                                                                                                              |
 | Imports           | `@universo-react/extension-sdk` is always allowed; consumer modules may also import Resources workspace libraries through `@shared/<codename>`.         |
 | Roles             | `module`, `lifecycle`, `widget`, and `library`.                                                                                                         |
 | Attachment scopes | `general` in the Resources workspace for `library`, plus metahub, hub, object, set, enumeration, and component for executable consumers.                |

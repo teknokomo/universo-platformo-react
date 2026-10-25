@@ -250,6 +250,18 @@ describe('MetahubSchemaService (read_only mode)', () => {
         expect(mockCreateSchema).not.toHaveBeenCalled()
     })
 
+    it('rejects an unsupported stored branch structure version before schema readiness checks', async () => {
+        const exec = setupExec(2)
+        const service = new MetahubSchemaService(exec)
+
+        await expect(service.ensureSchema(metahubId, userId)).rejects.toMatchObject({
+            statusCode: 400,
+            code: 'VALIDATION_ERROR',
+            details: { structureVersion: 2 }
+        })
+        expect(mockAcquireAdvisoryLock).not.toHaveBeenCalled()
+    })
+
     it('returns schema in read_only mode for fully initialized and up-to-date branch without acquiring lock', async () => {
         seedExpectedTables(SYSTEM_TABLES.map((table) => table.name))
 
@@ -643,6 +655,49 @@ describe('MetahubSchemaService create options', () => {
         const service = new MetahubSchemaService(exec)
 
         await expect(service.resolvePublicStructureVersion('mhb_test_schema', CURRENT_STRUCTURE_VERSION)).resolves.toBe('0.1.0')
+    })
+
+    it('rejects an unsupported baseline version instead of inferring it from the migration name', async () => {
+        tablePresence.set('_mhb_migrations', true)
+        migrationRows.push({
+            id: 'migration-unsupported',
+            name: 'baseline_structure_v1',
+            from_version: 1,
+            to_version: 2,
+            applied_at: '2026-04-12T00:00:00.000Z'
+        })
+
+        const exec = createSchemaServiceExec()
+        const service = new MetahubSchemaService(exec)
+
+        await expect(service.resolvePublicStructureVersion('mhb_test_schema', CURRENT_STRUCTURE_VERSION)).rejects.toThrow(
+            'Unsupported metahub structure version: 2'
+        )
+    })
+
+    it('rejects a baseline row without an explicit structure version', async () => {
+        tablePresence.set('_mhb_migrations', true)
+        migrationRows.push({
+            id: 'migration-missing-version',
+            name: 'baseline_structure_v1',
+            from_version: null,
+            to_version: null,
+            applied_at: '2026-04-12T00:00:00.000Z'
+        })
+
+        const exec = createSchemaServiceExec()
+        const service = new MetahubSchemaService(exec)
+
+        await expect(service.resolvePublicStructureVersion('mhb_test_schema', CURRENT_STRUCTURE_VERSION)).rejects.toThrow(
+            'Baseline migration row is missing its structure version'
+        )
+    })
+
+    it('rejects unsupported structure revisions instead of clamping them to the current revision', () => {
+        const service = new MetahubSchemaService(createSchemaServiceExec())
+
+        expect(() => (service as any).normalizeStructureVersion(2)).toThrow('Unsupported metahub structure version: 2')
+        expect(() => (service as any).getExpectedSystemTables(2)).toThrow('Unsupported metahub structure version: 2')
     })
 
     it('rewrites the baseline migration row to the imported snapshot baseline structure version', async () => {

@@ -228,8 +228,8 @@ const createMockTransaction = (): MockTx => {
 const makeSnapshotEnvelope = () =>
     buildSnapshotEnvelope({
         snapshot: {
-            version: '1.0.0',
-            versionEnvelope: { structureVersion: '0.1.0', templateVersion: null, snapshotFormatVersion: 4 },
+            version: 1,
+            versionEnvelope: { structureVersion: '0.1.0', templateVersion: null, snapshotFormatVersion: 1 },
             metahubId: '00000000-0000-0000-0000-000000000001',
             entities: {}
         },
@@ -890,8 +890,8 @@ describe('Publications Routes', () => {
 
             const envelope = buildSnapshotEnvelope({
                 snapshot: {
-                    version: '1.0.0',
-                    versionEnvelope: { structureVersion: '0.1.0', templateVersion: null, snapshotFormatVersion: 4 },
+                    version: 1,
+                    versionEnvelope: { structureVersion: '0.1.0', templateVersion: null, snapshotFormatVersion: 1 },
                     metahubId: '00000000-0000-0000-0000-000000000001',
                     entities: {
                         interpretation: {
@@ -926,8 +926,8 @@ describe('Publications Routes', () => {
             const layoutId = '0190a9b5-3cde-7abc-8def-0123456789b1'
             const envelope = buildSnapshotEnvelope({
                 snapshot: {
-                    version: '1.0.0',
-                    versionEnvelope: { structureVersion: '0.1.0', templateVersion: null, snapshotFormatVersion: 4 },
+                    version: 1,
+                    versionEnvelope: { structureVersion: '0.1.0', templateVersion: null, snapshotFormatVersion: 1 },
                     metahubId: '00000000-0000-0000-0000-000000000001',
                     entities: {},
                     layouts: [

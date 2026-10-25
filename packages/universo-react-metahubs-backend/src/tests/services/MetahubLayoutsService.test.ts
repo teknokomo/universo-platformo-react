@@ -22,6 +22,50 @@ import {
 const globalLayoutIdV7 = '0190a9b5-3cde-7abc-8def-0123456789a1'
 
 describe('MetahubLayoutsService', () => {
+    it('includes scoped layouts only when the caller explicitly requests all scopes', async () => {
+        const globalRow = {
+            id: globalLayoutIdV7,
+            scope_entity_id: null,
+            base_layout_id: null,
+            template_key: 'dashboard',
+            name: { en: 'Main' },
+            description: null,
+            config: {},
+            is_active: true,
+            is_default: true,
+            sort_order: 0,
+            _upl_version: 1,
+            _upl_created_at: '2026-10-25T00:00:00.000Z',
+            _upl_updated_at: '2026-10-25T00:00:00.000Z'
+        }
+        const scopedRow = {
+            ...globalRow,
+            id: '0190a9b5-3cde-7abc-8def-0123456789c1',
+            scope_entity_id: '0190a9b5-3cde-7abc-8def-0123456789c2',
+            name: { en: 'Structures workspace' },
+            is_default: false
+        }
+        const query = jest.fn(async (sql: string) => {
+            if (sql.includes('COUNT(*)::int')) return [{ count: sql.includes('scope_entity_id IS NULL') ? 1 : 2 }]
+            if (sql.includes('_mhb_layouts')) {
+                return sql.includes('scope_entity_id IS NULL') ? [globalRow] : [globalRow, scopedRow]
+            }
+            throw new Error(`Unexpected SQL in layout scope listing test: ${sql}`)
+        })
+        const service = new MetahubLayoutsService(
+            { query, isReleased: () => false } as never,
+            { ensureSchema: jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1') } as never
+        )
+
+        const globalOnly = await service.listLayouts('metahub-1', { limit: 100, offset: 0 })
+        expect(globalOnly.items.map((layout) => layout.scopeEntityId)).toEqual([null])
+
+        const allScopes = await service.listLayouts('metahub-1', { limit: 100, offset: 0, includeAllScopes: true })
+        expect(allScopes.items.map((layout) => layout.scopeEntityId)).toEqual([null, scopedRow.scope_entity_id])
+        expect(query.mock.calls.some(([sql]) => String(sql).includes('scope_entity_id IS NULL'))).toBe(true)
+        expect(query.mock.calls.some(([sql]) => String(sql).includes('TRUE'))).toBe(true)
+    })
+
     it('accepts only UUID v7 layout, scope, base, and widget identities at the layout ingress schemas', () => {
         const uuidV7 = '0190a9b5-3cde-7abc-8def-0123456789a1'
         const uuidV4 = '550e8400-e29b-41d4-a716-446655440000'

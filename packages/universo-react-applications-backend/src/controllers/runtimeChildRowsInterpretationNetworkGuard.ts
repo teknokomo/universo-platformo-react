@@ -1,6 +1,35 @@
-import { UpdateFailure, quoteIdentifier, type RuntimeSchemaContext, type resolveTabularContext } from '../shared/runtimeHelpers'
+import {
+    UpdateFailure,
+    quoteIdentifier,
+    resolveRuntimeCodenameText,
+    type RuntimeSchemaContext,
+    type resolveTabularContext
+} from '../shared/runtimeHelpers'
 import { SYSTEM_STRUCTURE_KEY } from '../services/interpretationNetwork/runtimeInterpretationNetworkCore'
 import { resolveInterpretationNetworkRuntimeSurface } from '../services/interpretationNetwork/runtimeInterpretationNetworkSurface'
+
+export type RuntimeTableTemplateGenericMutation = 'parent-delete' | 'child-delete' | 'child-replacement'
+
+export const getRuntimeTableTemplateGenericMutationFailure = (
+    objectCodename: unknown,
+    mutation: RuntimeTableTemplateGenericMutation
+): { statusCode: number; body: Record<string, string> } | null => {
+    if (resolveRuntimeCodenameText(objectCodename).toLowerCase() !== 'tabletemplate') return null
+
+    const messages: Record<RuntimeTableTemplateGenericMutation, string> = {
+        'parent-delete': 'TableTemplate records must be deleted through the dedicated aggregate command',
+        'child-delete': 'TableTemplate child rows must be deleted through the dedicated aggregate command',
+        'child-replacement':
+            'TableTemplate child rows cannot be replaced through generic runtime updates when rows already exist; use a dedicated aggregate command so associated Materials are cleaned up transactionally'
+    }
+    return {
+        statusCode: 409,
+        body: {
+            error: messages[mutation],
+            code: 'INTERPRETATION_NETWORK_TEMPLATE_AGGREGATE_COMMAND_REQUIRED'
+        }
+    }
+}
 
 export const assertCanonicalMatrixChildMutation = async (
     ctx: RuntimeSchemaContext,
@@ -12,7 +41,8 @@ export const assertCanonicalMatrixChildMutation = async (
     const surface = await resolveInterpretationNetworkRuntimeSurface(ctx.manager, {
         applicationId,
         schemaName: ctx.schemaName,
-        workspaceId: ctx.currentWorkspaceId
+        workspaceId: ctx.currentWorkspaceId,
+        scopeEntityId: tc.object.id
     })
     if (surface.featureState === 'ambiguous-widget') {
         throw new UpdateFailure(409, {

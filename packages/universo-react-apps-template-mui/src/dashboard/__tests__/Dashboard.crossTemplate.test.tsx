@@ -9,8 +9,8 @@ vi.mock('../components/SideMenu', () => ({
         <div data-testid='left-zone'>
             {String(zoneWidgets?.left?.length ?? 0)}
             {(zoneWidgets?.left ?? []).map((widget) => {
-                const item = widget as { id: string; widgetKey: string }
-                return <span key={item.id} data-testid={`left-widget-${item.widgetKey}`} />
+                const item = widget as { instanceKey: string; widgetKey: string }
+                return <span key={item.instanceKey} data-testid={`left-widget-${item.widgetKey}`} />
             })}
         </div>
     )
@@ -53,7 +53,6 @@ const details = {
     hostCapabilities: ['theme.safe'] as const
 }
 
-let widgetId = 0
 const widget = (
     instanceKey: string,
     widgetKey: string,
@@ -68,8 +67,7 @@ const widget = (
         ? 'top'
         : 'center'
 ) => {
-    const id = `018f0000-0000-7000-8000-${String(++widgetId).padStart(12, '0')}`
-    return { id, instanceKey, widgetKey, zone, sortOrder, config: {}, isActive: true, parentInstanceKey: null, slotKey: null }
+    return { instanceKey, widgetKey, zone, sortOrder, config: {}, isActive: true, parentInstanceKey: null, slotKey: null }
 }
 
 describe('Dashboard zone adapter', () => {

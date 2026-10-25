@@ -1,5 +1,5 @@
 import type { SharedEntityKind } from '@universo-react/types'
-import { apiClient } from '..'
+import apiClient from '../apiClient'
 
 export interface SharedEntityOverride {
     id: string

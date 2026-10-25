@@ -17,16 +17,29 @@ import type { ApplicationRole, RolePermission } from '../routes/guards'
 import { ensureApplicationAccess, resolveEffectiveRoleCapabilities, resolveEffectiveRolePermissions } from '../routes/guards'
 import { findApplicationSchemaInfo } from '../persistence/applicationsStore'
 import type { RuntimeWorkspaceAccess } from '../services/applicationWorkspaces'
-import { resolveRuntimeWorkspaceAccess, setRuntimeWorkspaceContext } from '../services/applicationWorkspaces'
-import { resolveEffectiveApplicationSettingsForWorkspace } from '../services/workspaceSettingsService'
+import {
+    lockActiveRuntimeWorkspaceContext,
+    resolveRuntimeWorkspaceAccess,
+    setRuntimeWorkspaceContext,
+    validateActiveRuntimeWorkspaceContext
+} from '../services/applicationWorkspaces'
+import {
+    acquireWorkspaceBaselineLock,
+    acquireWorkspaceBaselineSharedLock,
+    acquireWorkspaceCopyLocks,
+    lockApplicationMembershipForRuntimeMutation
+} from '../services/runtimeWorkspaceContext'
+import { resolveEffectiveApplicationSettingsForWorkspace } from '../services/workspaceSettingsApplicationService'
 import { getRequestDbExecutor, getRequestDbSession } from '../utils'
 import { UpdateFailure } from './updateFailure'
 import { IDENTIFIER_REGEX, quoteIdentifier } from './runtimeSqlIdentifiers'
 import { resolveRuntimeCodenameText } from './runtimeCodenameText'
+import { normalizeLocale, resolveLocalizedContent } from './runtimeLocalization'
 
 export { UpdateFailure } from './updateFailure'
 export { IDENTIFIER_REGEX, quoteIdentifier } from './runtimeSqlIdentifiers'
 export { resolveRuntimeCodenameText } from './runtimeCodenameText'
+export { normalizeLocale, resolveLocalizedContent } from './runtimeLocalization'
 
 /**
  * Safe, stable validation error for a closed metadata formatter.
@@ -54,11 +67,6 @@ export const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9
 // ---------------------------------------------------------------------------
 // Locale helpers
 // ---------------------------------------------------------------------------
-
-export const normalizeLocale = (locale?: string): string => {
-    if (!locale) return 'en'
-    return locale.split('-')[0].split('_')[0].toLowerCase()
-}
 
 export const resolveRequestedRuntimeWorkspaceId = (
     requestedWorkspaceId: string | null | undefined,
@@ -167,33 +175,6 @@ export const getRuntimeInputValue = (data: Record<string, unknown>, columnName: 
         hasUserValue: Object.prototype.hasOwnProperty.call(data, columnName) || hasCodenameValue,
         value: data[columnName] ?? (codenameKey.length > 0 ? data[codenameKey] : undefined)
     }
-}
-
-export const resolveLocalizedContent = (value: unknown, locale: string, fallback: string): string => {
-    if (typeof value === 'string') {
-        const trimmed = value.trim()
-        return trimmed.length > 0 ? trimmed : fallback
-    }
-
-    if (value && typeof value === 'object') {
-        const normalizedLocale = normalizeLocale(locale)
-        const localized = getVLCString(value as Record<string, unknown>, normalizedLocale)
-        if (localized && localized.trim().length > 0) {
-            return localized
-        }
-
-        const plain = value as Record<string, unknown>
-        const direct = plain[normalizedLocale]
-        if (typeof direct === 'string' && direct.trim().length > 0) {
-            return direct
-        }
-        const en = plain.en
-        if (typeof en === 'string' && en.trim().length > 0) {
-            return en
-        }
-    }
-
-    return fallback
 }
 
 // ---------------------------------------------------------------------------
@@ -941,7 +922,8 @@ export const resolveRuntimeSchema = async (
     req: Request,
     res: Response,
     applicationId: string,
-    workspaceIdOverride?: string | null
+    workspaceIdOverride?: string | null,
+    options: { workspaceLockStrategy?: 'retain-share' | 'validate-only' | 'schema-first-copy' } = {}
 ): Promise<RuntimeSchemaContext | null> => {
     if (!UUID_REGEX.test(applicationId)) {
         res.status(400).json({ error: 'Invalid application ID format' })
@@ -955,8 +937,8 @@ export const resolveRuntimeSchema = async (
         return null
     }
 
-    const accessContext = await ensureApplicationAccess(ds, userId, applicationId)
-    const role = (accessContext.membership.role || 'member') as ApplicationRole
+    let accessContext = await ensureApplicationAccess(ds, userId, applicationId)
+    let role = (accessContext.membership.role || 'member') as ApplicationRole
 
     const application = await findApplicationSchemaInfo(
         {
@@ -973,13 +955,38 @@ export const resolveRuntimeSchema = async (
         return null
     }
     const baseApplicationSettings = application.settings ?? {}
-    const permissions = resolveEffectiveRolePermissions(role, baseApplicationSettings)
-    const workflowCapabilities = resolveEffectiveRoleCapabilities(role, baseApplicationSettings)
+    let permissions = resolveEffectiveRolePermissions(role, baseApplicationSettings)
+    let workflowCapabilities = resolveEffectiveRoleCapabilities(role, baseApplicationSettings)
 
     const schemaName = application.schemaName
     if (!IDENTIFIER_REGEX.test(schemaName)) {
         res.status(400).json({ error: 'Invalid application schema name' })
         return null
+    }
+
+    const requiresActiveWorkspaceLock = !['GET', 'HEAD', 'OPTIONS'].includes(req.method.toUpperCase())
+    if (requiresActiveWorkspaceLock) {
+        if (application.workspacesEnabled) {
+            // Lifecycle mutations use the exclusive lock; ordinary writes share
+            // it so workspace membership changes cannot commit mid-request.
+            if (options.workspaceLockStrategy === 'schema-first-copy') {
+                await acquireWorkspaceCopyLocks(ds, schemaName, applicationId)
+            } else if (options.workspaceLockStrategy === 'validate-only') {
+                await acquireWorkspaceBaselineLock(ds, schemaName, applicationId)
+            } else {
+                await acquireWorkspaceBaselineSharedLock(ds, schemaName, applicationId)
+            }
+        }
+
+        // A shared row lock lets concurrent writes proceed while serializing
+        // role changes and application-member removal with this request. The
+        // access check is repeated after the lock so a revoked member fails
+        // closed instead of using an earlier authorization snapshot.
+        await lockApplicationMembershipForRuntimeMutation(ds, applicationId, userId)
+        accessContext = await ensureApplicationAccess(ds, userId, applicationId)
+        role = (accessContext.membership.role || 'member') as ApplicationRole
+        permissions = resolveEffectiveRolePermissions(role, baseApplicationSettings)
+        workflowCapabilities = resolveEffectiveRoleCapabilities(role, baseApplicationSettings)
     }
 
     const requestedWorkspaceId =
@@ -1001,6 +1008,7 @@ export const resolveRuntimeSchema = async (
                 workspacesEnabled: application.workspacesEnabled,
                 userId,
                 actorUserId: userId,
+                ensurePersonalWorkspace: options.workspaceLockStrategy !== 'schema-first-copy',
                 allowUnassigned: permissions.manageApplication === true
             })
 
@@ -1018,7 +1026,18 @@ export const resolveRuntimeSchema = async (
             return null
         }
 
-        await setRuntimeWorkspaceContext(ds, currentWorkspaceId)
+        if (requiresActiveWorkspaceLock) {
+            const workspaceContextValid =
+                options.workspaceLockStrategy === 'validate-only' || options.workspaceLockStrategy === 'schema-first-copy'
+                    ? await validateActiveRuntimeWorkspaceContext(ds, schemaName, currentWorkspaceId)
+                    : await lockActiveRuntimeWorkspaceContext(ds, schemaName, currentWorkspaceId)
+            if (!workspaceContextValid) {
+                res.status(403).json({ error: 'No active workspace is available for the current user' })
+                return null
+            }
+        } else {
+            await setRuntimeWorkspaceContext(ds, currentWorkspaceId)
+        }
     }
 
     const applicationSettings =

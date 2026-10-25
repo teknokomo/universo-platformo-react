@@ -1,0 +1,36 @@
+{
+    "publicViewer": {
+        "navigation": "Structure navigation",
+        "structures": "Structures",
+        "interpretations": "Interpretations",
+        "matrix": "Matrix",
+        "materials": "Materials",
+        "loading": "Loading public content",
+        "retry": "Retry",
+        "error": "Public content is currently unavailable. Please try again.",
+        "back": "Back",
+        "backToMaterials": "Back to materials",
+        "primary": "Primary Material",
+        "emptyMaterials": "This cell has no public materials.",
+        "emptyCell": "Untitled cell",
+        "row": "Row",
+        "column": "Column",
+        "cell": "Cell",
+        "openCell": "Open materials: {{row}}, {{column}}, {{title}}",
+        "pagination": "Result pages",
+        "previous": "Previous page",
+        "next": "Next page",
+        "deferredMenu": "Navigation is currently unavailable.",
+        "noWorkspaces": "This public application has no shared workspace available yet.",
+        "emptyDashboard": "There is no public content on this page.",
+        "empty": {
+            "structures": "No public structures are available.",
+            "interpretations": "This structure has no public interpretations.",
+            "matrix": "This interpretation has no public matrix cells."
+        },
+        "colorMode": "Color mode",
+        "system": "System",
+        "light": "Light",
+        "dark": "Dark"
+    }
+}

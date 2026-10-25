@@ -19,7 +19,7 @@ rejects every other bare import before publication.
 
 -   Server execution uses `isolated-vm` with LRU isolate reuse.
 -   Repeated failures open a per-bundle circuit breaker for a cooldown window.
--   `sdkApiVersion` support is currently pinned to `1.0.0`.
+-   `sdkApiVersion` support is currently pinned to `0.1.0`.
 -   Embedded modules may import only from `@universo-react/extension-sdk`; unsupported static imports, `require()`, dynamic `import()`, and `import.meta` fail compilation.
 -   Client bundles are intended for the dedicated runtime client-bundle endpoint.
 -   PlayCanvas script-asset artifacts are main-thread ESM modules and are

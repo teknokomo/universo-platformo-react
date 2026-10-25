@@ -5,7 +5,7 @@ const createInput = (sourceCode: string, overrides: Record<string, unknown> = {}
     codename: 'quiz-widget',
     moduleRole: 'widget' as const,
     sourceKind: 'embedded' as const,
-    sdkApiVersion: '1.0.0',
+    sdkApiVersion: '0.1.0',
     capabilities: ['metadata.read', 'rpc.client'] as const,
     sourceCode,
     ...overrides
@@ -185,7 +185,7 @@ export default class TsxWidgetModule extends ExtensionModule {
                 ...createInput(VALID_SOURCE),
                 sdkApiVersion: '2.0.0'
             })
-        ).rejects.toThrow('Unsupported module sdkApiVersion "2.0.0". Supported versions: 1.0.0')
+        ).rejects.toThrow('Unsupported module sdkApiVersion "2.0.0". Supported versions: 0.1.0')
     })
 
     it('rejects unsupported static imports', async () => {

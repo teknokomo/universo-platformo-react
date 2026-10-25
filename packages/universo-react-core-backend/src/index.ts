@@ -4,7 +4,6 @@ import { Request, Response, NextFunction, type RequestHandler } from 'express'
 import path from 'path'
 import cors from 'cors'
 import http from 'http'
-import tls from 'tls'
 import session from 'express-session'
 import { createCsrfProtection } from './middlewares/csrf'
 import rateLimit from 'express-rate-limit'
@@ -100,30 +99,15 @@ const splitConfiguredHttpOrigins = (value: string | undefined): string[] =>
 
 const hasWildcardOrigin = (value: string | undefined): boolean => (value ?? '').split(',').some((origin) => origin.trim() === '*')
 
-const resolveRequestHostOrigin = (request: http.IncomingMessage): string | null => {
-    const trustProxyHeaders = process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS === 'true'
-    const forwardedHost = trustProxyHeaders ? request.headers['x-forwarded-host'] : undefined
-    const host = typeof forwardedHost === 'string' ? forwardedHost.split(',')[0]?.trim() : request.headers.host
-    if (!host || Array.isArray(host) || host.includes(',')) return null
-    const forwardedProto = trustProxyHeaders ? request.headers['x-forwarded-proto'] : undefined
-    const rawProtocol = typeof forwardedProto === 'string' ? forwardedProto.split(',')[0]?.trim() : undefined
-    const protocol =
-        rawProtocol === 'https' || rawProtocol === 'http' ? rawProtocol : request.socket instanceof tls.TLSSocket ? 'https' : 'http'
-    return parseHttpOrigin(`${protocol}://${host}`)
-}
-
 export const isApplicationRealtimeUpgradeOriginAllowed = (request: http.IncomingMessage): boolean => {
-    const requestOrigin = parseHttpOrigin(String(request.headers.origin ?? ''))
-    if (!requestOrigin) return false
-
-    const requestHostOrigin = resolveRequestHostOrigin(request)
-    if (requestHostOrigin && requestHostOrigin === requestOrigin) return true
+    const rawRequestOrigin = request.headers.origin
+    if (typeof rawRequestOrigin !== 'string') return false
+    const requestOrigin = parseHttpOrigin(rawRequestOrigin)
+    if (!requestOrigin || requestOrigin !== rawRequestOrigin.trim()) return false
 
     const explicitRealtimeOrigins = process.env.APPLICATION_REALTIME_WS_ORIGINS
     if (!explicitRealtimeOrigins || hasWildcardOrigin(explicitRealtimeOrigins)) return false
-    const allowedOrigins = new Set(splitConfiguredHttpOrigins(explicitRealtimeOrigins))
-
-    return allowedOrigins.has(requestOrigin)
+    return new Set(splitConfiguredHttpOrigins(explicitRealtimeOrigins)).has(requestOrigin)
 }
 
 const resolvePlayCanvasEditorFrameSources = (): string[] => {

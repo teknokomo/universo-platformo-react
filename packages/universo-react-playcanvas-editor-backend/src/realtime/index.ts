@@ -15,7 +15,7 @@ import {
     createDefaultProjectSettingsDocument,
     hashToPositiveInt
 } from '../config/index.js'
-import { parseSafeHttpOrigin } from '../middleware/index.js'
+import { normalizeOrigin, parseSafeHttpOrigin } from '../middleware/index.js'
 import { validateFullBootClaims } from '../tokens/index.js'
 import {
     claimPipelineReplay,
@@ -320,54 +320,13 @@ export const resolveAllowedFullBootUpgradeOrigins = (): Set<string> => {
     return origins
 }
 
-const splitHeaderValue = (value: string | string[] | undefined): string | undefined => {
-    const selected = Array.isArray(value) ? value[0] : value
-    return selected?.split(',')[0]?.trim() || undefined
-}
-
-const resolveUpgradeHost = (request: IncomingMessage): string | undefined => {
-    const forwardedHost =
-        process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS === 'true' ? splitHeaderValue(request.headers['x-forwarded-host']) : undefined
-    return forwardedHost ?? splitHeaderValue(request.headers.host)
-}
-
-const parseHostAsOriginUrl = (host: string, protocol: string): URL | null => {
-    try {
-        const parsed = new URL(`${protocol}//${host}`)
-        if (!parsed.hostname) return null
-        return parsed
-    } catch {
-        return null
-    }
-}
-
-const isLoopbackHost = (hostname: string): boolean => ['localhost', '127.0.0.1', '::1', '[::1]'].includes(hostname)
-
-export const isSameHostOrLoopbackSiblingUpgradeOrigin = (request: IncomingMessage, requestOrigin: string): boolean => {
-    const host = resolveUpgradeHost(request)
-    if (!host) return false
-    try {
-        const originUrl = new URL(requestOrigin)
-        const hostUrl = parseHostAsOriginUrl(host, originUrl.protocol)
-        if (!hostUrl) return false
-        if (originUrl.host === hostUrl.host) return true
-        return isLoopbackHost(originUrl.hostname) && isLoopbackHost(hostUrl.hostname) && originUrl.port === hostUrl.port
-    } catch {
-        return false
-    }
-}
-
 export const isFullBootUpgradeOriginAllowed = (request: IncomingMessage): boolean => {
-    const requestOrigin = parseSafeHttpOrigin(request.headers.origin)
-    if (!requestOrigin) return false
+    const rawRequestOrigin = request.headers.origin
+    if (typeof rawRequestOrigin !== 'string') return false
+    const requestOrigin = normalizeOrigin(rawRequestOrigin)
+    if (!requestOrigin || requestOrigin !== rawRequestOrigin.trim()) return false
     const configuredOrigins = resolveAllowedFullBootUpgradeOrigins()
-    if (configuredOrigins.has(requestOrigin)) return true
-    // Same-host fallback is deliberately opt-in. A non-production NODE_ENV is
-    // not a security boundary (staging and misconfigured deployments commonly
-    // run with NODE_ENV unset), so accepting Host-derived origins implicitly
-    // would turn a missing allow-list into a WebSocket CSRF bypass.
-    if (process.env.NODE_ENV !== 'development' || process.env.PLAYCANVAS_EDITOR_ALLOW_SAME_HOST_ORIGIN !== 'true') return false
-    return isSameHostOrLoopbackSiblingUpgradeOrigin(request, requestOrigin)
+    return configuredOrigins.has(requestOrigin)
 }
 
 export const getUpgradeRemoteAddress = (request: IncomingMessage): string => {

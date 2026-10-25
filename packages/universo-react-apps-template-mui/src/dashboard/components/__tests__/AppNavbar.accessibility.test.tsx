@@ -29,7 +29,6 @@ vi.mock('react-i18next', () => ({
 vi.mock('../SideMenuMobileRight', () => ({ default: () => null }))
 
 const createMenuWidget = (overflow = false): ZoneWidgetItem => ({
-    id: '018f0000-0000-7000-8000-000000000001',
     instanceKey: 'mobile-menu',
     widgetKey: 'menuWidget',
     zone: 'left',

@@ -1,18 +1,14 @@
 import { z } from 'zod'
 import type { MetahubTemplateSeed } from '@universo-react/types'
-import {
-    CURRENT_STRUCTURE_VERSION,
-    CURRENT_STRUCTURE_VERSION_SEMVER,
-    semverToStructureVersion
-} from '../../metahubs/services/structureVersions'
+import { CURRENT_STRUCTURE_VERSION_SEMVER } from '../../metahubs/services/structureVersions'
 import { collectMarketingPageSeedIntegrityErrors } from './marketingPageSeedIntegrity'
 
 export function validateTemplateMinimumStructureVersion(manifest: { minStructureVersion: string }, ctx: z.RefinementCtx): void {
-    if (semverToStructureVersion(manifest.minStructureVersion) > CURRENT_STRUCTURE_VERSION) {
+    if (manifest.minStructureVersion !== CURRENT_STRUCTURE_VERSION_SEMVER) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ['minStructureVersion'],
-            message: `Template requires structure version ${manifest.minStructureVersion}, but current platform supports only ${CURRENT_STRUCTURE_VERSION_SEMVER}`
+            message: `Template requires unsupported structure version ${manifest.minStructureVersion}; current platform requires ${CURRENT_STRUCTURE_VERSION_SEMVER}`
         })
     }
 }

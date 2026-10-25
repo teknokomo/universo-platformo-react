@@ -15,6 +15,7 @@ import {
     getPersistedDashboardLayoutConfig,
     getPersistedPublishedLayouts,
     getPersistedPublishedWidgets,
+    tombstoneApplicationLayoutWidgetsForSourceRemoval,
     type SyncWidgetInput,
     type ApplicationLayoutSyncWidgetRow
 } from '../../persistence/applicationLayoutSyncStore'
@@ -57,6 +58,40 @@ const syncWidget = (widgetKey: string, zone: SyncZone, config: Record<string, un
 })
 
 describe('applicationLayoutSyncStore canonical layout boundaries', () => {
+    it('retires workspace widget overrides together with source-removed widgets', async () => {
+        const queryResults: unknown[][] = [
+            [],
+            [
+                {
+                    id: '0190a9b5-3cde-7abc-8def-2123456789d5',
+                    layout_id: '0190a9b5-3cde-7abc-8def-2123456789d1',
+                    is_active: false,
+                    _upl_deleted: true,
+                    _app_deleted: false
+                }
+            ]
+        ]
+        const queryCalls: Array<{ sql: string; parameters?: unknown[] }> = []
+        const query: DbExecutor['query'] = async <TRow = unknown>(sql: string, parameters?: unknown[]): Promise<TRow[]> => {
+            queryCalls.push({ sql, parameters })
+            return (queryResults.shift() ?? []) as TRow[]
+        }
+        const executor = createExecutor(query)
+
+        await tombstoneApplicationLayoutWidgetsForSourceRemoval(
+            executor,
+            schemaName,
+            '0190a9b5-3cde-7abc-8def-2123456789d1',
+            '0190a9b5-3cde-7abc-8def-2123456789d2'
+        )
+
+        expect(queryCalls).toHaveLength(2)
+        expect(queryCalls[0]?.sql).toContain('_app_workspace_settings')
+        expect(queryCalls[0]?.parameters).toEqual(['0190a9b5-3cde-7abc-8def-2123456789d1', '0190a9b5-3cde-7abc-8def-2123456789d2', false])
+        expect(queryCalls[1]?.sql).toContain('_app_widgets')
+        expect(queryCalls[1]?.parameters).toEqual(['0190a9b5-3cde-7abc-8def-2123456789d1', '0190a9b5-3cde-7abc-8def-2123456789d2'])
+    })
+
     it('syncs binding-only source changes while retaining a presentation-only baseline', () => {
         const previousConfig = heroConfig('default')
         const sourceState = createApplicationLayoutWidgetSourceState('marketing-page', 'marketing.hero', {

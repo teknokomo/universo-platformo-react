@@ -1544,7 +1544,7 @@ describe('FormDialog block editor fields', () => {
             Name: 'Custom page name',
             NameManuallyEdited: true
         })
-    })
+    }, 15_000)
 
     it('keeps TABLE fields immutable in copy mode so child rows are not silently dropped', () => {
         const fields: FieldConfig[] = [

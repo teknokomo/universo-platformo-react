@@ -544,6 +544,7 @@ const dashboardWidgetRegistry = [
                     'showHierarchicalTableHeaderCard',
                     'showMatrixTreeTotalCells',
                     'colorBreadcrumbsByCell',
+                    'cellStylePolicy',
                     'splitPane',
                     'templatePanel',
                     'hierarchyRowMode',

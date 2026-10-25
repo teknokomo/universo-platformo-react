@@ -152,6 +152,8 @@ export * from './components/dialogs'
 // Forms
 export { LocalizedFieldEditor } from './components/forms/LocalizedFieldEditor'
 export { LocalizedInlineField } from './components/forms/LocalizedInlineField'
+export { HexColorPickerPopover } from './components/forms/HexColorPickerPopover'
+export type { HexColorPickerPopoverProps } from './components/forms/HexColorPickerPopover'
 export { CodenameField } from './components/forms/CodenameField'
 export type { CodenameFieldProps } from './components/forms/CodenameField'
 

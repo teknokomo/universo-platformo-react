@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef } from 'react'
 import {
     DataGrid,
     type GridColumnVisibilityModel,
@@ -5,7 +6,8 @@ import {
     type GridFilterModel,
     type GridLocaleText,
     type GridPaginationModel,
-    type GridSortModel
+    type GridSortModel,
+    useGridApiRef
 } from '@mui/x-data-grid'
 import Box from '@mui/material/Box'
 import { getPendingAction, shouldShowPendingFeedback } from '@universo-react/utils'
@@ -34,6 +36,8 @@ export interface CustomizedDataGridProps {
     localeText?: Partial<GridLocaleText>
     /** Custom row height: number for fixed px, 'auto' for multi-line content */
     rowHeight?: number | 'auto'
+    /** Fill a parent with an explicit height so the grid keeps scrolling inside that boundary. */
+    fillHeight?: boolean
     hideFooter?: boolean
 }
 
@@ -69,14 +73,56 @@ export default function CustomizedDataGrid({
     pageSizeOptions = [10, 20, 50],
     localeText,
     rowHeight,
+    fillHeight = false,
     hideFooter = false
 }: CustomizedDataGridProps) {
     const firstDataField = columns.find((column) => typeof column.field === 'string' && !String(column.field).startsWith('__'))?.field
     const resolvedRowHeight = rowHeight ?? 'auto'
+    const getRowHeight = useCallback(() => resolvedRowHeight, [resolvedRowHeight])
+    const apiRef = useGridApiRef()
+    const gridContainerRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        const gridContainer = gridContainerRef.current
+        if (resolvedRowHeight !== 'auto' || !gridContainer || typeof ResizeObserver === 'undefined') return
+
+        let previousWidth: number | null = null
+        let resizeFrame: number | null = null
+        const resizeObserver = new ResizeObserver((entries) => {
+            const width = entries[0]?.contentRect.width
+            if (width === undefined) return
+
+            if (previousWidth !== null && Math.abs(width - previousWidth) >= 1) {
+                if (resizeFrame !== null) cancelAnimationFrame(resizeFrame)
+                resizeFrame = requestAnimationFrame(() => {
+                    resizeFrame = null
+                    apiRef.current?.resetRowHeights()
+                })
+            }
+
+            previousWidth = width
+        })
+
+        resizeObserver.observe(gridContainer)
+        return () => {
+            resizeObserver.disconnect()
+            if (resizeFrame !== null) cancelAnimationFrame(resizeFrame)
+        }
+    }, [apiRef, resolvedRowHeight])
 
     return (
-        <Box sx={{ minWidth: 0, maxWidth: '100%', overflow: 'hidden', width: '100%' }}>
+        <Box
+            ref={gridContainerRef}
+            sx={{
+                minWidth: 0,
+                maxWidth: '100%',
+                overflow: 'hidden',
+                width: '100%',
+                ...(fillHeight ? { height: '100%', minHeight: 0 } : {})
+            }}
+        >
             <DataGrid
+                apiRef={apiRef}
                 checkboxSelection={checkboxSelection}
                 disableRowSelectionOnClick
                 rows={rows}
@@ -106,12 +152,13 @@ export default function CustomizedDataGrid({
                 hideFooter={hideFooter}
                 disableColumnResize
                 density={rowHeight ? undefined : 'compact'}
-                getRowHeight={resolvedRowHeight === 'auto' ? () => 'auto' : () => resolvedRowHeight}
+                getRowHeight={getRowHeight}
                 localeText={localeText}
                 sx={{
                     maxWidth: '100%',
                     minWidth: 0,
                     width: '100%',
+                    ...(fillHeight ? { height: '100%', minHeight: 0 } : {}),
                     [`& .MuiDataGrid-columnHeader`]: {
                         position: 'relative'
                     },

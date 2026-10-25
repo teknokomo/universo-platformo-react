@@ -36,9 +36,15 @@ This page is for an editor who creates child cells, styles them, and attaches Ma
 
 ![Material editor](../.gitbook/assets/interpretation-network/cells-and-materials-step-4.png)
 
+5. Set a cell's **Primary Material** from the Material actions, then select the cell again to open that Material directly.
+
+![Primary Material detail](../.gitbook/assets/interpretation-network/cells-and-materials-step-5.png)
+
 ## Expected Result
 
 The new child cell appears under the selected parent, and the Material appears in the Materials pane for that cell. The Material body is edited through the block editor and is not shown as technical text in tables or cards.
+
+A cell can have more than one attached Material. Its optional **Primary Material** is a separate choice on the Matrix cell; selecting one does not remove the other attached Materials. Each Material belongs to its Interpretation and Matrix cell, so matching cell numbers in different Interpretations never mix their Materials. The application assigns each cell's internal identifier; editors do not need to enter or copy it.
 
 ## What To Check
 

@@ -35,16 +35,21 @@ function readToken(req: Request): string | undefined {
 
 export function createCsrfProtection() {
     return function csrfProtection(req: Request, res: Response, next: NextFunction) {
-        if (!req.session.csrfSecret) {
-            req.session.csrfSecret = tokens.secretSync()
+        const getSecret = () => {
+            if (!req.session.csrfSecret) {
+                req.session.csrfSecret = tokens.secretSync()
+            }
+
+            return req.session.csrfSecret
         }
 
-        const secret = req.session.csrfSecret
-        req.csrfToken = () => tokens.create(secret)
+        req.csrfToken = () => tokens.create(getSecret())
 
         if (SAFE_METHODS.has(req.method)) {
             return next()
         }
+
+        const secret = getSecret()
 
         // Compatibility routes perform their own signed-token + CSRF-proof
         // validation. The proof is intentionally stateless because a

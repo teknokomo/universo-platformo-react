@@ -22,6 +22,7 @@ import { getKnex } from '@universo-react/database'
 import {
     getStructureVersion,
     CURRENT_STRUCTURE_VERSION,
+    CURRENT_STRUCTURE_VERSION_SEMVER,
     semverToStructureVersion,
     structureVersionToSemver,
     normalizeStoredStructureVersion
@@ -178,14 +179,16 @@ export class MetahubSchemaService {
         return this.exec.query<T>(sql, parameters)
     }
 
-    async resolvePublicStructureVersion(schemaName: string, fallbackVersion: string | number | null | undefined): Promise<string> {
+    async resolvePublicStructureVersion(
+        schemaName: string,
+        fallbackVersion: string | number
+    ): Promise<typeof CURRENT_STRUCTURE_VERSION_SEMVER> {
         const baselineVersion = await this.readBaselineMigrationVersion(schemaName)
         return structureVersionToSemver(baselineVersion ?? fallbackVersion)
     }
 
-    async rewriteBaselineMigrationVersion(schemaName: string, version: string | number | null | undefined): Promise<void> {
+    async rewriteBaselineMigrationVersion(schemaName: string, version: string | number): Promise<void> {
         const normalizedVersion = this.parseExplicitStructureVersion(version)
-        if (normalizedVersion == null) return
 
         const baselineRow = await this.readBaselineMigrationRow(schemaName)
         if (!baselineRow?.id) return
@@ -204,52 +207,20 @@ export class MetahubSchemaService {
         return getKnex()
     }
 
-    private parseExplicitStructureVersion(version: string | number | null | undefined): number | null {
-        if (typeof version === 'number') {
-            if (!Number.isInteger(version) || version < 1 || version > CURRENT_STRUCTURE_VERSION) return null
-            return version
-        }
-
-        if (typeof version !== 'string') {
-            return null
-        }
-
-        const trimmed = version.trim()
-        if (!trimmed) return null
-
-        if (/^\d+$/.test(trimmed)) {
-            const numeric = Number(trimmed)
-            if (!Number.isInteger(numeric) || numeric < 1 || numeric > CURRENT_STRUCTURE_VERSION) return null
-            return numeric
-        }
-
-        if (!/^\d+\.\d+\.\d+$/.test(trimmed)) {
-            return null
-        }
-
-        const normalized = semverToStructureVersion(trimmed)
-        if (normalized < 1 || normalized > CURRENT_STRUCTURE_VERSION) return null
-        return normalized
+    private parseExplicitStructureVersion(version: string | number): number {
+        return semverToStructureVersion(version)
     }
 
     private async readBaselineMigrationVersion(schemaName: string): Promise<number | null> {
         const baselineRow = await this.readBaselineMigrationRow(schemaName)
         if (!baselineRow) return null
 
-        const versionFromColumn = this.parseExplicitStructureVersion(baselineRow.toVersion)
-        if (versionFromColumn != null) {
-            return versionFromColumn
+        if (baselineRow.toVersion === null) {
+            throw new MetahubValidationError('Baseline migration row is missing its structure version', {
+                migrationId: baselineRow.id
+            })
         }
-
-        const nameMatch = /^baseline_structure_v(\d+)$/.exec(baselineRow.name)
-        if (!nameMatch) return null
-
-        const versionFromName = Number(nameMatch[1])
-        if (!Number.isInteger(versionFromName) || versionFromName < 1 || versionFromName > CURRENT_STRUCTURE_VERSION) {
-            return null
-        }
-
-        return versionFromName
+        return this.parseExplicitStructureVersion(baselineRow.toVersion)
     }
 
     private async readBaselineMigrationRow(
@@ -1347,11 +1318,20 @@ export class MetahubSchemaService {
         })
     }
 
-    private normalizeStructureVersion(version: number | null | undefined): number {
-        if (!Number.isInteger(version) || (version ?? 0) <= 0) {
-            return 1
+    private normalizeStructureVersion(version: number): number {
+        if (!Number.isSafeInteger(version) || version <= 0) {
+            throw new MetahubValidationError(`Unsupported metahub structure version: ${String(version)}`, {
+                structureVersion: version
+            })
         }
-        return Math.min(version as number, CURRENT_STRUCTURE_VERSION)
+
+        try {
+            getStructureVersion(version)
+        } catch {
+            throw new MetahubValidationError(`Unsupported metahub structure version: ${version}`, { structureVersion: version })
+        }
+
+        return version
     }
 
     private getExpectedSystemTables(structureVersion: number): string[] {

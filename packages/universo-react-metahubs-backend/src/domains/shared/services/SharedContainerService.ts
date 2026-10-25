@@ -4,36 +4,15 @@ import { createCodenameVLC, createLocalizedContent } from '@universo-react/utils
 import type { DbExecutor, SqlQueryable } from '@universo-react/utils/database'
 import { queryMany, queryOne, queryOneOrThrow, acquireAdvisoryXactLock } from '@universo-react/utils/database'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
+import { SHARED_CONTAINER_DESCRIPTORS } from './sharedContainerDescriptors'
+
+export { SHARED_CONTAINER_DESCRIPTORS, type SharedContainerDescriptor } from './sharedContainerDescriptors'
 
 const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
 type SharedContainerRow = {
     id: string
     kind: SharedObjectKind
-}
-
-export type SharedContainerDescriptor = {
-    codename: string
-    title: string
-    description: string
-}
-
-export const SHARED_CONTAINER_DESCRIPTORS: Record<SharedObjectKind, SharedContainerDescriptor> = {
-    [SHARED_OBJECT_KINDS.SHARED_OBJECT_POOL]: {
-        codename: 'shared_components',
-        title: 'Shared Components',
-        description: 'Virtual container for metahub-wide shared components'
-    },
-    [SHARED_OBJECT_KINDS.SHARED_SET_POOL]: {
-        codename: 'shared_constants',
-        title: 'Shared Constants',
-        description: 'Virtual container for metahub-wide shared constants'
-    },
-    [SHARED_OBJECT_KINDS.SHARED_ENUM_POOL]: {
-        codename: 'shared_values',
-        title: 'Shared Values',
-        description: 'Virtual container for metahub-wide shared enumeration values'
-    }
 }
 
 export class SharedContainerService {

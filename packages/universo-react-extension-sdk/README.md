@@ -16,7 +16,7 @@ Source-only modules authoring primitives for Universo runtime modules.
 -   `AtServer()` marks server methods that stay in the server bundle.
 -   `AtServerAndClient()` keeps a method available in both server and client bundles.
 -   `OnEvent(...)` marks server lifecycle handlers and cannot be combined with client-exposed targets.
--   `sdkApiVersion` is currently limited to `1.0.0`.
+-   `sdkApiVersion` is currently limited to `0.1.0`.
 -   Only non-lifecycle server or shared methods from modules that declare `rpc.client` are bridged through `this.ctx.callServerMethod(...)`.
 -   Embedded modules may import only from `@universo-react/extension-sdk`; external or relative imports, `require()`, dynamic `import()`, and `import.meta` are not part of the supported authoring contract.
 -   Keep decorator syntax inside module authoring sources; ordinary frontend bundles do not enable decorators.

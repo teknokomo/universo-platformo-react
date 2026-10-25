@@ -75,10 +75,10 @@ const createModuleRecord = (overrides: Record<string, unknown> = {}) => ({
     attachedToId: null,
     moduleRole: 'widget',
     sourceKind: 'embedded',
-    sdkApiVersion: '1.0.0',
+    sdkApiVersion: '0.1.0',
     manifest: {
         className: 'FlightCanvasWidget',
-        sdkApiVersion: '1.0.0',
+        sdkApiVersion: '0.1.0',
         moduleRole: 'widget',
         sourceKind: 'embedded',
         capabilities: ['rpc.client'],
@@ -118,7 +118,7 @@ describe('PlayCanvasCanvasWidgetEditorDialog', () => {
                 moduleRole: 'module',
                 manifest: {
                     className: 'FixedTickFlightRuntime',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'module',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read'],

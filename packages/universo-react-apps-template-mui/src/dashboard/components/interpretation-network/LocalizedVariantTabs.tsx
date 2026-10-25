@@ -118,38 +118,40 @@ export function LocalizedVariantTabs({
                                 ) : null}
                                 <Box component='span'>{item.label}</Box>
                             </ButtonBase>
-                            <IconButton
-                                size='small'
-                                aria-label={labels.actions(item.label)}
-                                disabled={!canEdit}
-                                onClick={(event) => onOpenActions(event, item.code)}
-                                sx={{ width: 28, height: 28, p: 0.5, mt: 0, mb: '8px', lineHeight: 0 }}
-                            >
-                                <MoreVertRoundedIcon fontSize='small' />
-                            </IconButton>
+                            {canEdit ? (
+                                <IconButton
+                                    size='small'
+                                    aria-label={labels.actions(item.label)}
+                                    onClick={(event) => onOpenActions(event, item.code)}
+                                    sx={{ width: 28, height: 28, p: 0.5, mt: 0, mb: '8px', lineHeight: 0 }}
+                                >
+                                    <MoreVertRoundedIcon fontSize='small' />
+                                </IconButton>
+                            ) : null}
                         </Stack>
                     )
                 })}
             </Box>
-            <IconButton
-                size='small'
-                aria-label={labels.add}
-                disabled={!canAdd || !canEdit}
-                onClick={onAdd}
-                sx={{
-                    width: 28,
-                    height: 28,
-                    p: 0.5,
-                    mt: 0,
-                    mb: '8px',
-                    border: 1,
-                    borderColor: 'divider',
-                    borderRadius: 1,
-                    lineHeight: 0
-                }}
-            >
-                <AddRoundedIcon fontSize='small' />
-            </IconButton>
+            {canEdit && canAdd ? (
+                <IconButton
+                    size='small'
+                    aria-label={labels.add}
+                    onClick={onAdd}
+                    sx={{
+                        width: 28,
+                        height: 28,
+                        p: 0.5,
+                        mt: 0,
+                        mb: '8px',
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        lineHeight: 0
+                    }}
+                >
+                    <AddRoundedIcon fontSize='small' />
+                </IconButton>
+            ) : null}
         </Stack>
     )
 }

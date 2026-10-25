@@ -1,7 +1,5 @@
-import { Box, Checkbox, FormControl, FormControlLabel, InputLabel, MenuItem, Stack, Switch, TextField, Typography } from '@mui/material'
+import { Checkbox, FormControl, FormControlLabel, InputLabel, MenuItem, Stack, Switch, TextField, Typography } from '@mui/material'
 
-import type { ReactNode, Dispatch, SetStateAction } from 'react'
-import type { TFunction } from 'i18next'
 import {
     interpretationNetworkBreadcrumbDepthCounts,
     interpretationNetworkMatrixViews,
@@ -15,10 +13,9 @@ import {
     type InterpretationNetworkToolbarLayout
 } from '@universo-react/types'
 import { testIdInputProps } from './SettingsPanels'
-import type { InterpretationNetworkMatrixSettings } from './MatrixSettingsPanel'
+import type { MatrixSettingsRowsProps } from './matrixSettingsTypes'
+import { MatrixSettingsRow as SettingsRow } from './MatrixSettingsRow'
 import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
-
-type Translate = TFunction<'applications'>
 
 const MATRIX_VIEW_FALLBACK_LABELS: Record<InterpretationNetworkMatrixView, string> = {
     table: 'Table view',
@@ -28,52 +25,6 @@ const MATRIX_VIEW_FALLBACK_LABELS: Record<InterpretationNetworkMatrixView, strin
 
 const defaultTableProjectionForMode = (matrixMode: InterpretationNetworkMatrixMode): InterpretationNetworkTableProjection =>
     matrixMode === 'independentRows' ? 'independentAxes' : 'hierarchicalPath'
-
-const SettingsRow = ({
-    testId,
-    title,
-    description,
-    children,
-    extra
-}: {
-    testId: string
-    title: string
-    description: string
-    children: ReactNode
-    extra?: ReactNode
-}) => (
-    <Box
-        data-testid={testId}
-        sx={{
-            py: 2,
-            display: 'flex',
-            flexDirection: { xs: 'column', sm: 'row' },
-            alignItems: { xs: 'stretch', sm: 'center' },
-            gap: { xs: 1.5, sm: 3 }
-        }}
-    >
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant='subtitle2'>{title}</Typography>
-            <Typography
-                variant='body2'
-                sx={{
-                    color: 'text.secondary'
-                }}
-            >
-                {description}
-            </Typography>
-            {extra}
-        </Box>
-        {children}
-    </Box>
-)
-
-export interface MatrixSettingsRowsProps {
-    t: Translate
-    isSaving: boolean
-    localSettings: InterpretationNetworkMatrixSettings
-    setLocalSettings: Dispatch<SetStateAction<InterpretationNetworkMatrixSettings>>
-}
 
 export const MatrixStructureAndTemplateRows = ({ t, isSaving, localSettings, setLocalSettings }: MatrixSettingsRowsProps) => (
     <>

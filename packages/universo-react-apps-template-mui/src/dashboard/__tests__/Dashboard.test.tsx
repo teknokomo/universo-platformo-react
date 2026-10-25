@@ -33,7 +33,6 @@ const runtimeMenuData = {
 const zoneWidgets = {
     left: [
         {
-            id: '018f0000-0000-7000-8000-000000000001',
             instanceKey: 'menu-widget',
             widgetKey: 'menuWidget',
             zone: 'left' as const,
@@ -47,7 +46,6 @@ const zoneWidgets = {
     ],
     top: [
         {
-            id: '018f0000-0000-7000-8000-000000000002',
             instanceKey: 'app-navbar-widget',
             widgetKey: 'appNavbar',
             zone: 'top' as const,
@@ -64,7 +62,6 @@ const zoneWidgets = {
 const zoneWidgetsWithoutMenu = {
     left: [
         {
-            id: '018f0000-0000-7000-8000-000000000003',
             instanceKey: 'workspace-switcher',
             widgetKey: 'workspaceSwitcher',
             zone: 'left' as const,
@@ -75,7 +72,6 @@ const zoneWidgetsWithoutMenu = {
             slotKey: null
         },
         {
-            id: '018f0000-0000-7000-8000-000000000004',
             instanceKey: 'divider',
             widgetKey: 'divider',
             zone: 'left' as const,
@@ -88,7 +84,6 @@ const zoneWidgetsWithoutMenu = {
     ],
     top: [
         {
-            id: '018f0000-0000-7000-8000-000000000005',
             instanceKey: 'app-navbar-widget',
             widgetKey: 'appNavbar',
             zone: 'top' as const,
@@ -338,7 +333,6 @@ describe('Dashboard side menu modes', () => {
                     ...zoneWidgets,
                     right: [
                         {
-                            id: '018f0000-0000-7000-8000-000000000009',
                             instanceKey: 'right-panel-workspace-switcher',
                             widgetKey: 'divider',
                             zone: 'right',

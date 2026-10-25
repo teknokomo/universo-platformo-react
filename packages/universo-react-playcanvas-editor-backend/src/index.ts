@@ -76,7 +76,6 @@ export {
     isSocketOpen,
     writeUpgradeTooManyRequests,
     writeUpgradeForbidden,
-    isSameHostOrLoopbackSiblingUpgradeOrigin,
     isFullBootUpgradeOriginAllowed,
     getUpgradeRemoteAddress,
     isPlayCanvasRealtimeControlFrame,

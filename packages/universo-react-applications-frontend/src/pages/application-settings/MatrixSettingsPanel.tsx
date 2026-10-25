@@ -6,15 +6,7 @@ import {
     normalizeInterpretationNetworkSplitPaneSettings,
     normalizeInterpretationNetworkTableSettings,
     normalizeInterpretationNetworkTemplatePanelSettings,
-    type InterpretationNetworkBreadcrumbDepth,
-    type InterpretationNetworkHierarchyRowMode,
-    type InterpretationNetworkMatrixMode,
-    type InterpretationNetworkMatrixView,
-    type InterpretationNetworkStructureMode,
-    type InterpretationNetworkSplitPaneSettings,
-    type InterpretationNetworkTemplatePanelSettings,
-    type InterpretationNetworkTableProjection,
-    type InterpretationNetworkToolbarLayout
+    normalizeInterpretationNetworkCellStylePolicy
 } from '@universo-react/types'
 import { SaveSettingsButton } from './SettingsPanels'
 import {
@@ -24,33 +16,11 @@ import {
     MatrixTableOptionRows,
     MatrixViewRows
 } from './MatrixSettingsRows'
+import { MatrixCellStylePolicyRows } from './MatrixCellStylePolicyRows'
+import type { InterpretationNetworkMatrixSettings } from './matrixSettingsTypes'
+export type { InterpretationNetworkMatrixSettings } from './matrixSettingsTypes'
 
 type Translate = TFunction<'applications'>
-
-export type InterpretationNetworkPositionNumberingSettings = {
-    enabled: boolean
-    includeRoot: boolean
-    startIndex: number
-}
-
-export type InterpretationNetworkMatrixSettings = {
-    structureMode: InterpretationNetworkStructureMode
-    matrixMode: InterpretationNetworkMatrixMode
-    allowedMatrixViews: InterpretationNetworkMatrixView[]
-    defaultMatrixView: InterpretationNetworkMatrixView
-    tableProjection: InterpretationNetworkTableProjection
-    breadcrumbDepth: InterpretationNetworkBreadcrumbDepth
-    toolbarLayout: InterpretationNetworkToolbarLayout
-    showHierarchicalTableHeaders: boolean
-    showHierarchicalTableHeaderCard: boolean
-    showMatrixTreeTotalCells: boolean
-    colorBreadcrumbsByCell: boolean
-    hierarchyRowMode: InterpretationNetworkHierarchyRowMode
-    positionNumbering: InterpretationNetworkPositionNumberingSettings
-    allowNewAxesInCellDialog: boolean
-    splitPane: InterpretationNetworkSplitPaneSettings
-    templatePanel: InterpretationNetworkTemplatePanelSettings
-}
 
 const normalizeMatrixPanelSettings = (settings: InterpretationNetworkMatrixSettings): InterpretationNetworkMatrixSettings => {
     const viewSettings = normalizeInterpretationNetworkMatrixViewSettings(
@@ -81,7 +51,8 @@ const normalizeMatrixPanelSettings = (settings: InterpretationNetworkMatrixSetti
         },
         allowNewAxesInCellDialog: settings.allowNewAxesInCellDialog === true,
         splitPane: normalizeInterpretationNetworkSplitPaneSettings(settings.splitPane),
-        templatePanel: normalizeInterpretationNetworkTemplatePanelSettings(settings.templatePanel)
+        templatePanel: normalizeInterpretationNetworkTemplatePanelSettings(settings.templatePanel),
+        cellStylePolicy: normalizeInterpretationNetworkCellStylePolicy(settings.cellStylePolicy)
     }
 }
 
@@ -111,6 +82,14 @@ const hasMatrixSettingsChanged = (
     localSettings.splitPane.enabled !== normalizedSettings.splitPane.enabled ||
     localSettings.templatePanel.showInStructureList !== normalizedSettings.templatePanel.showInStructureList ||
     localSettings.templatePanel.showInMatrix !== normalizedSettings.templatePanel.showInMatrix ||
+    localSettings.cellStylePolicy.allowCustomColors !== normalizedSettings.cellStylePolicy.allowCustomColors ||
+    localSettings.cellStylePolicy.allowedColors.length !== normalizedSettings.cellStylePolicy.allowedColors.length ||
+    localSettings.cellStylePolicy.allowedColors.some((color, index) => color !== normalizedSettings.cellStylePolicy.allowedColors[index]) ||
+    localSettings.cellStylePolicy.editable.fillColor !== normalizedSettings.cellStylePolicy.editable.fillColor ||
+    localSettings.cellStylePolicy.editable.textColor !== normalizedSettings.cellStylePolicy.editable.textColor ||
+    localSettings.cellStylePolicy.editable.borderColor !== normalizedSettings.cellStylePolicy.editable.borderColor ||
+    localSettings.cellStylePolicy.editable.borderWidth !== normalizedSettings.cellStylePolicy.editable.borderWidth ||
+    localSettings.cellStylePolicy.editable.borderStyle !== normalizedSettings.cellStylePolicy.editable.borderStyle ||
     localSettings.positionNumbering.enabled !== normalizedSettings.positionNumbering.enabled ||
     localSettings.positionNumbering.includeRoot !== normalizedSettings.positionNumbering.includeRoot ||
     localSettings.positionNumbering.startIndex !== normalizedSettings.positionNumbering.startIndex
@@ -179,6 +158,7 @@ export const MatrixSettingsPanel = ({
                 <MatrixTableOptionRows t={t} isSaving={isSaving} localSettings={localSettings} setLocalSettings={setLocalSettings} />
                 <MatrixHierarchyRows t={t} isSaving={isSaving} localSettings={localSettings} setLocalSettings={setLocalSettings} />
                 <MatrixBehaviorRows t={t} isSaving={isSaving} localSettings={localSettings} setLocalSettings={setLocalSettings} />
+                <MatrixCellStylePolicyRows t={t} isSaving={isSaving} localSettings={localSettings} setLocalSettings={setLocalSettings} />
             </Stack>
 
             {renderSaveButton && hasChanges ? (

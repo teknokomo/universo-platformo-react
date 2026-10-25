@@ -3896,6 +3896,42 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       security: *a1
+  /applications/{applicationId}/runtime/interpretation-network/material-associations:
+    get:
+      tags:
+        - Applications
+      summary: GET
+        /applications/{applicationId}/runtime/interpretation-network/material-associations
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_get_applications_applicationId_runtime_interpretation_network_material_associations
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
   /applications/{applicationId}/runtime/interpretation-network/materials:
     post:
       tags:
@@ -3942,6 +3978,139 @@ paths:
             schema:
               $ref: "#/components/schemas/InterpretationNetworkMaterialCreateRequest"
       security: *a1
+  /applications/{applicationId}/runtime/interpretation-network/materials/{materialId}:
+    patch:
+      tags:
+        - Applications
+      summary: PATCH
+        /applications/{applicationId}/runtime/interpretation-network/materials/{materialId}
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_patch_applications_applicationId_runtime_interpretation_network_materials_materialId
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: materialId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: materialId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+    delete:
+      tags:
+        - Applications
+      summary: DELETE
+        /applications/{applicationId}/runtime/interpretation-network/materials/{materialId}
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_delete_applications_applicationId_runtime_interpretation_network_materials_materialId
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: materialId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: materialId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+  /applications/{applicationId}/runtime/interpretation-network/materials/primary:
+    put:
+      tags:
+        - Applications
+      summary: PUT
+        /applications/{applicationId}/runtime/interpretation-network/materials/primary
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_put_applications_applicationId_runtime_interpretation_network_materials_primary
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
   /applications/{applicationId}/runtime/interpretation-network/matrix/cells:
     post:
       tags:
@@ -3987,6 +4156,97 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/InterpretationNetworkMatrixCellCreateRequest"
+      security: *a1
+  /applications/{applicationId}/runtime/interpretation-network/matrix/cells/{cellId}:
+    patch:
+      tags:
+        - Applications
+      summary: PATCH
+        /applications/{applicationId}/runtime/interpretation-network/matrix/cells/{cellId}
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_patch_applications_applicationId_runtime_interpretation_network_matrix_cells_cellId
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: cellId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: cellId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+    delete:
+      tags:
+        - Applications
+      summary: DELETE
+        /applications/{applicationId}/runtime/interpretation-network/matrix/cells/{cellId}
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_delete_applications_applicationId_runtime_interpretation_network_matrix_cells_cellId
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: cellId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: cellId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
       security: *a1
   /applications/{applicationId}/runtime/interpretation-network/matrix/cells/move:
     post:
@@ -4409,6 +4669,56 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/InterpretationNetworkVersionedDeleteRequest"
+  /applications/{applicationId}/runtime/interpretation-network/templates/{templateId}/apply:
+    post:
+      tags:
+        - Applications
+      summary: POST
+        /applications/{applicationId}/runtime/interpretation-network/templates/{templateId}/apply
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_post_applications_applicationId_runtime_interpretation_network_templates_templateId_apply
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: templateId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "201":
+          $ref: "#/components/responses/CreatedSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
   /applications/{applicationId}/runtime/interpretation-network/templates/{templateId}/instantiate:
     post:
       tags:
@@ -16518,6 +16828,43 @@ paths:
           $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
+  /public/applications/{applicationRef}/runtime/widgets/{instanceKey}/interpretation-network:
+    get:
+      tags:
+        - Applications
+      summary: GET
+        /public/applications/{applicationRef}/runtime/widgets/{instanceKey}/interpretation-network
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/publicApplicationRuntimeRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_get_public_applications_applicationRef_runtime_widgets_instanceKey_interpretation_network
+      parameters:
+        - name: applicationRef
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationRef path parameter.
+        - name: instanceKey
+          in: path
+          required: true
+          schema:
+            type: string
+          description: instanceKey path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /public/metahub/{slug}:
     get:
       tags:
@@ -17921,6 +18268,8 @@ components:
         matrixRowId:
           type: string
           format: uuid
+          description: Optional v1 compatibility identity for the Matrix row; the server
+            always resolves and returns the canonical row ID.
         cellId:
           type: string
           minLength: 1
@@ -17930,9 +18279,10 @@ components:
           additionalProperties: true
         expectedVersion:
           $ref: "#/components/schemas/InterpretationNetworkExpectedVersion"
+        expectedCellVersion:
+          $ref: "#/components/schemas/InterpretationNetworkExpectedVersion"
       required:
         - interpretationId
-        - matrixRowId
         - cellId
         - data
     InterpretationNetworkMaterialCreateResponse:
@@ -17941,10 +18291,10 @@ components:
       properties:
         id:
           type: string
-          minLength: 1
+          format: uuid
         matrixRowId:
           type: string
-          minLength: 1
+          format: uuid
       required:
         - id
         - matrixRowId
@@ -18032,7 +18382,7 @@ components:
       type: object
       additionalProperties: false
       properties:
-        matrixRowId:
+        cellId:
           type: string
           format: uuid
         expectedVersion:
@@ -18045,7 +18395,8 @@ components:
           description: Optional user-authored field updates; server-owned placement fields
             are rejected here.
       required:
-        - matrixRowId
+        - cellId
+        - expectedVersion
         - placement
     InterpretationNetworkMatrixCellMoveRequest:
       type: object

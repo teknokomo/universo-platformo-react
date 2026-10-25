@@ -38,6 +38,18 @@ test('runtime UX oracles inspect visible control values and compact structured c
         <section data-testid="localized-validation-surface">
           <p class="MuiFormHelperText-root Mui-error">This field is required.</p>
         </section>
+        <section data-testid="unknown-english-russian-validation">
+          <p role="alert">Title already exists.</p>
+        </section>
+        <section data-testid="valid-russian-validation">
+          <p role="alert">Заполните обязательное поле.</p>
+        </section>
+        <section data-testid="russian-english-validation">
+          <p role="alert">Заполните обязательное поле.</p>
+        </section>
+        <section data-testid="valid-english-validation">
+          <p role="alert">Please complete this field.</p>
+        </section>
         <section data-testid="localized-description-controls">
           <label>English Description<textarea></textarea></label>
           <label>Russian Description<input /></label>
@@ -95,6 +107,22 @@ test('runtime UX oracles inspect visible control values and compact structured c
     await expect(
         expectLocalizedValidation(page.getByTestId('localized-validation-surface'), 'ru', { label: 'Russian required-field fallback' })
     ).rejects.toThrow('must not expose internal validation text for ru')
+    await expect(
+        expectLocalizedValidation(page.getByTestId('unknown-english-russian-validation'), 'ru', {
+            label: 'Unknown English error in Russian locale'
+        })
+    ).rejects.toThrow('must not expose internal validation text for ru')
+    await expect(
+        expectLocalizedValidation(page.getByTestId('valid-russian-validation'), 'ru', { label: 'Russian validation' })
+    ).resolves.toBeUndefined()
+    await expect(
+        expectLocalizedValidation(page.getByTestId('russian-english-validation'), 'en', {
+            label: 'Russian error in English locale'
+        })
+    ).rejects.toThrow('must not expose internal validation text for en')
+    await expect(
+        expectLocalizedValidation(page.getByTestId('valid-english-validation'), 'en', { label: 'English validation' })
+    ).resolves.toBeUndefined()
 
     await expect(
         expectSemanticFieldControls(page.getByTestId('localized-description-controls'), { longTextLabels: ['Description'] })

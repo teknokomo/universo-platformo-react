@@ -19,6 +19,7 @@ import { getApplicationLayoutWidgetSourceBindingState } from '../persistence/app
 import { projectMarketingWidgetBindingData } from './marketingWidgetEntityBinding'
 import { PublicMarketingMaterializationError, type PublicMarketingBindingRecordLoader } from '../persistence/publicApplicationRuntimeStore'
 import type { ApplicationPublicRouteResolution } from '@universo-react/types'
+import { toPublicApplicationRouteResolution } from './publicApplicationRuntime'
 
 type PublicRecord = Record<string, unknown>
 
@@ -325,7 +326,7 @@ export const serializePublicMarketingRuntime = async ({
     })
     if (!parsedViewModel.success) throw new PublicMarketingMaterializationError('Public marketing runtime DTO is invalid')
 
-    const { applicationId: _applicationId, ...publicRoute } = route
+    const publicRoute = toPublicApplicationRouteResolution(route)
     const parsedRuntime = publicMarketingApplicationRuntimeSchema.safeParse({
         route: publicRoute,
         templateKey: parsedViewModel.data.templateKey,

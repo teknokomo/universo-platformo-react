@@ -124,3 +124,5 @@ pnpm --filter @universo-react/applications-backend build
 ## License
 
 Omsk Open License
+
+-   Изменения Матрицы выполняются агрегатными командами: общая замена TABLE и изменение подписей осей через универсальные API отклоняются с `INTERPRETATION_NETWORK_MATRIX_AGGREGATE_COMMAND_REQUIRED`, чтобы корректно очищать Материалы и сохранять согласованность подписей.

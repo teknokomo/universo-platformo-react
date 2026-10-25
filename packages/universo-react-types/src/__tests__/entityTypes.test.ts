@@ -21,6 +21,8 @@ import {
     entityTypeCapabilitiesSchema,
     METAHUB_SETTINGS_REGISTRY,
     effectiveWidgetRuntimePayloadSchema,
+    CURRENT_METAHUB_SNAPSHOT_FORMAT_VERSION,
+    CURRENT_METAHUB_STRUCTURE_VERSION_SEMVER,
     type EntityTypeCapabilities,
     type MetahubSnapshotFormatVersion
 } from '../index'
@@ -38,10 +40,15 @@ describe('entity type contracts', () => {
         expect(Object.values(BuiltinEntityKinds)).not.toContain('document')
     })
 
-    it('preserves metahub snapshot format version through v4', () => {
-        const version: MetahubSnapshotFormatVersion = 4
+    it('uses metahub snapshot format version 1', () => {
+        const version: MetahubSnapshotFormatVersion = 1
 
-        expect(version).toBe(4)
+        expect(CURRENT_METAHUB_SNAPSHOT_FORMAT_VERSION).toBe(1)
+        expect(version).toBe(1)
+    })
+
+    it('uses metahub structure version 0.1.0', () => {
+        expect(CURRENT_METAHUB_STRUCTURE_VERSION_SEMVER).toBe('0.1.0')
     })
 
     it('validates projected dashboard menu items using semantic runtime kinds', () => {

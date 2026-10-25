@@ -169,10 +169,26 @@ export function useMatrixRouteSelectionSync({
 
     useEffect(() => {
         if (!selectedCell) {
+            const routeFocusIsRestoringCell =
+                pendingSelectedCellId !== null ||
+                (Boolean(selectedInterpretation) && matrixRowsSettled && resolveRouteFocus(routeCellId, matrixCells, rootState) !== null)
+            if (routeFocusIsRestoringCell) return
             clearMaterialSelection()
             return
         }
         if (selectedMaterialId && cellMaterials.some((material) => material.id === selectedMaterialId)) return
         setSelectedMaterialId(cellMaterials[0]?.id ?? null)
-    }, [cellMaterials, clearMaterialSelection, selectedCell, selectedMaterialId, setSelectedMaterialId])
+    }, [
+        cellMaterials,
+        clearMaterialSelection,
+        matrixCells,
+        matrixRowsSettled,
+        pendingSelectedCellId,
+        rootState,
+        routeCellId,
+        selectedCell,
+        selectedInterpretation,
+        selectedMaterialId,
+        setSelectedMaterialId
+    ])
 }

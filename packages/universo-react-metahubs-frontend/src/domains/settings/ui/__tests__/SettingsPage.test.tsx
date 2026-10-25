@@ -37,6 +37,7 @@ vi.mock('react-i18next', () => ({
                 'settings.matrix.views.horizontalRows': 'Horizontal rows',
                 'settings.layoutWidgets.interpretationNetworkSummary': 'Matrix mode: {{matrixMode}}. Default view: {{defaultView}}.',
                 'settings.layoutWidgets.layoutLabel': 'Layout: {{layout}}',
+                'settings.layoutWidgets.scopedLayout': 'For a specific entity type',
                 'settings.layoutWidgets.editSettings': 'Edit settings',
                 'settings.layoutWidgets.openEditor': 'Open in layout',
                 'settings.layoutWidgets.saved': 'Widget settings saved',
@@ -103,6 +104,12 @@ vi.mock('notistack', () => ({
 
 vi.mock('@universo-react/template-mui', () => ({
     APIEmptySVG: 'empty',
+    HexColorPickerPopover: ({ label, value }: { label: string; value: string }) => (
+        <label>
+            {label}
+            <input value={value} readOnly />
+        </label>
+    ),
     EmptyListState: ({ title }: { title?: string }) => <div>{title}</div>,
     EntityFormDialog: ({
         open,
@@ -321,6 +328,7 @@ describe('SettingsPage', () => {
             items: [
                 {
                     id: 'layout-1',
+                    scopeEntityId: 'structure-entity-type-1',
                     templateKey: 'dashboard',
                     name: {
                         _schema: '1',
@@ -370,9 +378,11 @@ describe('SettingsPage', () => {
 
         expect(await screen.findByText('Interpretation network workspace')).toBeInTheDocument()
         expect(screen.getByText('Layout: Main layout')).toBeInTheDocument()
+        expect(screen.getByText('For a specific entity type')).toBeInTheDocument()
         expect(screen.getByText('Matrix mode: Hierarchical cells. Default view: Horizontal rows.')).toBeInTheDocument()
         expect(screen.queryByText(/\{/)).not.toBeInTheDocument()
         expect(screen.queryByText('settings.layoutWidgets.interpretationNetworkSummary')).not.toBeInTheDocument()
+        expect(layoutsApiMocks.listLayouts).toHaveBeenCalledWith('metahub-1', { limit: 100, offset: 0, includeAllScopes: true })
 
         await user.click(screen.getByRole('button', { name: 'Edit settings' }))
         expect(screen.getByRole('dialog', { name: 'Interpretation network workspace' })).toBeInTheDocument()

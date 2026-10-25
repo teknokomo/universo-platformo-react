@@ -21,7 +21,6 @@ vi.mock('../widgetRenderer', () => ({
 }))
 
 const root: RuntimePlacement = {
-    id: '018f0000-0000-7000-8000-000000000001',
     instanceKey: 'overview-columns',
     widgetKey: 'columnsContainer',
     zone: 'center',
@@ -33,7 +32,6 @@ const root: RuntimePlacement = {
 }
 
 const child: RuntimePlacement = {
-    id: '018f0000-0000-7000-8000-000000000002',
     instanceKey: 'courses-table',
     widgetKey: 'detailsTable',
     zone: 'center',

@@ -1,3 +1,141 @@
+# Interpretation Network public Dashboard follow-up — IMPLEMENT (2026-10-25)
+
+> Continue the authorized implementation without reverting inherited dirty work. Preserve the current root application version `0.86.0-alpha`, schema/template versions, and clean-reset contract.
+
+## Current Execution Plan
+
+-   [x] IN-PUB-01 Make anonymous published Dashboard use the canonical runtime shell in explicit read-only mode for Interpretation Network and generic Dashboard/LMS; remove the duplicate central title and keep only the first navigation item where required.
+-   [x] IN-PUB-02 Keep the Interpretation Network “Start” page limited to its introductory content and move the functional widget to “Structures”; update product template sources and regenerate the checked-in snapshot.
+-   [x] IN-PUB-03 Diagnose and fix workspace-settings mutations losing their runtime target context; add API and hook regression tests.
+-   [x] IN-PUB-04 Pass the focused workspace-settings regression suite and apps-template lint; build the E2E workspace and pass the imported-snapshot Playwright journey (2/2), including settings persistence and structure navigation.
+-   [x] IN-PUB-08 Keep exactly one item in the public left menu while making the next public-safe page reachable from Start; verify the EN CTA click and the localized RU CTA by accessible name, focus, and Enter, with responsive screenshots and overflow checks.
+-   [x] IN-PUB-09 Run the canonical exact-title/pass-only acceptance checks after the public runtime scenario update; confirm the core-flow report contains all required unique titles with no skipped or failed attempts.
+-   [x] IN-PUB-05 Rerun the canonical minimal-local-Supabase Interpretation Network verification gate after the final test-oracle/runtime fixes; inspect fresh anonymous/LMS and responsive browser evidence and record the screenshot-drift result against the staged baseline.
+-   [x] IN-PUB-06 Complete independent runtime UX and Thermos reviews, scoped Autoreview, and OntoIndex diff verification; record tool limitations without treating them as PASS. Runtime UX evidence includes the fresh IN/LMS Playwright journeys and inspected EN screenshots; correctness/security and maintainability reviewers found no actionable findings after the pagination test fix. Scoped Autoreview remains `UNAVAILABLE/ENGINE_TRANSPORT_ERROR`; the final OntoIndex `gn_verify_diff` passed the explicit eight-file/two-test inventory after the LMS oracle fix, while graph-backed impact remains unavailable for the source-only subset.
+-   [x] IN-PUB-07 Verify fixture contract/drift, format/lint/build status, root/schema/template version invariants, and reconcile this checklist plus `memory-bank/progress.md`; stop the dedicated local E2E Supabase profile. Fixture contract and drift passed; apps-template lint/build, focused 18/18 tests, formatting, and E2E build/browser runs passed. Root is still `0.86.0-alpha`; snapshot/bundle/schema-format versions are `1`, structure/template metadata stays `0.1.0`/`null`, and no version was changed. The dedicated E2E Supabase profile is stopped.
+
+---
+
+# Interpretation Network post-QA implementation — IMPLEMENT (2026-10-24)
+
+> Address the latest hands-on QA findings and the additional aggregate-integrity review on top of the existing dirty implementation. Preserve all unrelated work. Keep the clean-reset contract: no legacy adapters, no platform schema or metahub-template version bump, and do not stage pre-existing changes to make verification green.
+
+-   [x] IN-QA2-01 Replace the separate anonymous Interpretation Network presentation with the canonical Dashboard and Interpretation Network presentation in explicit public/read-only mode, retaining the credential-free allowlisted public transport and workspace empty states.
+-   [x] IN-QA2-02 Add an end-to-end template-application command that inserts a saved structure/subtree beneath a user-selected cell in the current structure; remap all copied UUID v7 identities, parent links, coordinates, and material references transactionally, with optimistic version and authorization checks.
+-   [x] IN-QA2-03 Close generic parent/child delete paths around TableTemplate aggregates so callers cannot orphan template Materials or bypass aggregate invariants; preserve dedicated aggregate deletion behavior.
+-   [x] IN-QA2-04 Preserve template/material semantics when copying a Workspace, or fail closed when the target cannot safely receive the complete aggregate; add real PostgreSQL coverage.
+-   [x] IN-QA2-05 Fix the HEX color input adornment alignment using existing MUI primitives and add browser geometry assertions at supported viewport sizes.
+-   [x] IN-QA2-06 Add focused regression coverage for public presentation parity, nested template insertion, source immutability/fresh IDs, aggregate deletion, workspace copy, and relevant concurrent database mutations.
+-   [x] IN-QA2-07 Update the spec/plan and bilingual GitBook guidance for the clarified template insertion workflow and the public read-only contract; regenerate and visually inspect only intentional screenshot changes and provenance.
+-   [x] IN-QA2-08 Run focused package tests/lint/build/Prettier, PostgreSQL integration, the canonical minimal-Supabase Playwright gate, documentation/drift checks, OntoIndex diff inventory, and Thermos review. Record exact terminal outcomes; never mask screenshot drift through staging or weakened checks.
+-   [x] IN-QA2-09 Reconcile `memory-bank/progress.md`, `memory-bank/activeContext.md`, and this checklist with actual evidence; confirm schema/template versions unchanged and that no unrelated staged or dirty files were reverted.
+
+> Closeout evidence (2026-10-24): the canonical local-Supabase gate passed at `tools/testing/e2e/.artifacts/interpretation-network-verification/2026-10-24T15-24-45-650Z/manifest.json`; screenshot drift passed with a temporary isolated Git index, leaving the real 71-path staging area unchanged. Scoped OntoIndex verification passed for its five-file/six-test allowlist, while aggregate worktree graph coverage is limited by 519 dirty paths reported at scan time and the 200-file scan cap. Thermos Autoreview is `UNAVAILABLE/ENGINE_TRANSPORT_ERROR` after three attempts. See `progress.md` for exact results and limitations.
+
+---
+
+# Interpretation Network QA Remediation — IMPLEMENT (2026-10-23)
+
+## Current Execution Plan
+
+-   [x] Finish the current canonical browser run and inspect the populated Favorites failure screenshot and trace; confirm the `Доступна` assertion matched 13 rows rather than a runtime failure.
+-   [x] Resolve the Favorites target row through visible business text, stabilize shared DataGrid dynamic-height measurement, and verify row/content geometry at mobile, tablet, desktop, and wide-desktop widths.
+-   [x] Fix the authorized member Matrix edit regression where CellDescription returns empty after a successful PATCH; prove durable multiline persistence through the alias flow.
+-   [x] Align workspace-copy lock acquisition with schema sync; validate copy membership under the held locks and prevent default-membership races.
+-   [x] Add PostgreSQL concurrency coverage for schema-sync/copy lock order, default membership serialization, and active-source validation.
+-   [x] Strengthen persisted-state assertions for Favorite removal, anonymous write denial, and Matrix edit; require real PNG payloads and primitive-reuse canaries.
+-   [x] Run authorized non-owner editor CRUD through the canonical public alias and read-only member alias/UI plus direct 403/no-state-change checks.
+-   [x] Keep anonymous DTO requests in an isolated Playwright API context and verify the browser remains cookie-free.
+-   [x] Decode screenshot payloads and check dimensions; make localized EN/RU validation errors visible at desktop, tablet, and mobile sizes with required screenshots.
+-   [x] Make every acceptance-gate title exact, unique, and strictly passing; retain required screenshot evidence.
+-   [x] Close the public Material Body byte-limit and bounded-read gap before storage transfer and JSON parsing; add over-limit persisted-data tests.
+-   [x] Serialize Matrix style-policy validation against concurrent Workspace policy changes and add a race regression test.
+-   [x] Re-verify workspace member email disclosure against the brief's owner/admin boundary and keep non-manager payloads free of email.
+-   [x] Re-run focused Interpretation Network unit, PostgreSQL integration, and full canonical minimal-Supabase browser checks; inspect fresh EN/RU responsive screenshots.
+-   [x] Complete package lint/build, Prettier, documentation, fixture, and diff checks; preserve existing staged files.
+-   [x] Obtain independent correctness/security and test-oracle reviews, then resolve any actionable findings.
+-   [x] Run final OntoIndex diff inventory, record review/tool limitations and exact test evidence, stop local minimal Supabase, and reconcile this checklist.
+-   [x] Add the missing negative runtime UX canary to the canonical gate, strengthen primitive-reuse and localized-error oracles, and retain provenance for the completed browser run.
+-   [x] Serialize workspace content writes with soft deletion, order workspace creation before owner-removal checks, make the workspace-settings DDL idempotent for existing tables, and restrict member-email exposure.
+-   [x] Diagnose and fix the populated Favorites runtime regression where saved cell targets render as unavailable after reload; prove the returned cell path and persisted target in a focused local-Supabase browser test.
+-   [x] Remove the anonymous public-dashboard E2E dependency on browser CDP response-body retention while keeping a real anonymous DTO assertion and the browser's rendered read-only/navigation checks.
+-   [x] Re-run the full canonical minimal-Supabase gate after the two regressions are fixed; inspect final user-flow screenshots and reconcile all checklist items against evidence.
+-   [x] Ensure the read-only system-structure probe cannot create the missing aggregate; prove 403 with unchanged storage and no-op read of existing content.
+-   [x] Reach populated Favorites endpoints through repeated real wheel input after viewport changes and capture the scrolled mobile state.
+
+> Follow-up to comprehensive QA of the 2026-10-22 implementation. Reopen acceptance where direct code/test evidence found a gap; do not rewrite unrelated implementation history. Preserve the dirty worktree and the no-version-bump/no-legacy constraints.
+
+-   [x] IN-QA-01 Match Workspace-copy checks to the app-scoped layout model: resolve the current active Application layout once, persist allowed widget overrides under its authoritative owner (which may be the same owner as the source row), drop stale owners, and verify this in PostgreSQL.
+-   [x] IN-QA-02 Add direct real-PostgreSQL coverage for the public Interpretation Network runtime store and ensure the minimal-Supabase runner executes nonzero, non-skipped cases.
+-   [x] IN-QA-03 Complete browser acceptance for selected-branch save at 1920×1080, effective style-policy inheritance/delegation through Cell Edit, and Primary Material replace/clear/delete; preserve shared MUI primitives and responsive/focus checks.
+-   [x] IN-QA-04 Resolve Interpretation Network screenshot/provenance drift using current generated browser evidence; synchronize stale README/GitBook claims and verify both documentation gates.
+-   [x] IN-QA-05 Address confirmed maintainability/layering debt in workspace settings resolution, opaque handles, and persistence/service boundaries without broad unrelated refactors.
+-   [x] IN-QA-06 Run focused Jest/Vitest, real PostgreSQL, local minimal-Supabase Playwright, lint/build/Prettier/docs checks, then Thermos and OntoIndex diff verification; record any tool status that is unavailable without calling it PASS.
+-   [x] IN-QA-07 Complete browser acceptance for populated Favorites overflow and prove favorite isolation across users and workspaces; verify secondary Material deletion preserves the Primary Material and Matrix reference.
+-   [x] IN-QA-08 Exercise selected-branch save with descendants and an outside sibling, instantiate the saved branch, and verify fresh identities plus unchanged source/template data.
+-   [x] IN-QA-09 Verify anonymous UUID and canonical secondary-alias routes preserve suffix/query/hash behavior, and confirm English and Russian validation plus the shared MUI primitive guard.
+-   [x] IN-QA-10 Extend EN/RU documentation screenshot provenance for public viewer, Favorites, Primary Material, and selected-branch template states; document the canonical full local-Supabase verification gate.
+-   [x] IN-QA-11 Run final focused and aggregate gates, inspect generated browser screenshots, reconcile the plan/progress evidence, and record Thermos/Autoreview/OntoIndex results without overstating unavailable checks.
+-   [x] IN-QA-12 Split the oversized Matrix command module and its Jest suite along existing command boundaries; add direct transactional delete coverage for cascade cleanup, root/parent guards, version conflicts, rollback, and lifecycle hooks without changing public imports.
+-   [x] IN-QA-13 Route authenticated members of public applications through the protected access resolver and existing editor guards; retain anonymous read-only access and public read-only fallback for authenticated non-members, with unit and browser regression coverage.
+-   [x] IN-QA-14 Let protected member resolution proceed independently from the public bootstrap probe; bound anonymous fetch/body parsing, cancel oversized response bodies, and replace timing sleeps with condition-based assertions.
+-   [x] IN-QA-15 Harden public browser acceptance against UUID leakage and protected request/mutation regressions; exercise cell create/edit/delete through the canonical alias and capture member responsive evidence.
+-   [x] IN-QA-16 Serialize Favorite target validation and Structure aggregate deletion with a consistent Structure → Interpretation → Cell row-lock order; cover the order and concurrency behavior.
+-   [x] IN-QA-17 Verify public runtime records and matrix children exclude unpublished rows, and preserve per-layout widget settings while copying Workspace overrides.
+-   [x] IN-QA-18 Close browser screenshot/provenance drift, verify the public Primary Material description, and confirm renderer placement scopes omit persistence widget/layout IDs.
+-   [x] IN-QA-19 Run focused unit/integration/browser checks, full canonical minimal-Supabase verification, docs gates, lint/build/Prettier, Thermos and OntoIndex; reconcile checklist and progress evidence without promoting unavailable tools to PASS.
+-   [x] IN-QA-20 Make workspace-copy discovery and physical-column reads stable against schema sync; capture business rows and workspace settings in one statement snapshot, remap TABLE child parent IDs before insert, and prove concurrent writers do not block or alter the snapshot.
+-   [x] IN-QA-21 Align public-runtime browser assertions with the dedicated semantic public shell: retain read-only application navigation, use selectors from the public Table renderer, and verify main content, absent workspace switcher, and absent authoring controls.
+-   [x] IN-QA-22 Close public-runtime E2E oracle gaps: monitor non-GET requests for anonymous and authenticated non-members, detect `pn1.*` handles in visible and computed accessibility-tree text, and verify multiline Matrix descriptions in component and browser tests.
+-   [x] IN-QA-23 Run negative runtime UX canaries in the canonical gate; make primitive-reuse and localized-validation canaries fail on realistic regressions, and preserve machine-readable evidence for the gate's browser runs.
+-   [x] IN-QA-24 Prevent content writes from committing after a workspace has been archived by acquiring an active-workspace shared lock in the same transaction as workspace-scoped mutations.
+-   [x] IN-QA-25 Acquire the baseline-membership lock before workspace creation and revalidate the creator's active membership before assigning ownership.
+-   [x] IN-QA-26 Verify workspace-settings DDL for a fresh schema and safe re-run; explicitly exclude in-place migration of legacy table shapes under the clean-reset/no-legacy requirement, without incrementing platform schema or metahub-template versions.
+-   [x] IN-QA-27 Restrict workspace member email visibility to authorized owners/admins or omit email from member payloads where it is not required.
+-   [x] IN-QA-28 Deny read-only runtime users permission to create a missing single-system Matrix while retaining read access to an existing aggregate.
+-   [x] IN-QA-29 Exercise populated Favorites scrolling with repeated real wheel input so MUI's lazy row-height measurement can extend the scroll range before the final-row assertion.
+-   [x] IN-QA-30 Strengthen the production-query EXPLAIN oracle, add a real PostgreSQL duplicate-Favorite lock race, split the workspace-settings integration suite, and make the Applications Backend test TypeScript project typecheck cleanly.
+
+## Evidence and remaining limits (2026-10-24)
+
+-   Final canonical gate passed at `tools/testing/e2e/.artifacts/interpretation-network-verification/2026-10-24T00-33-18-777Z/manifest.json`: root build 36/36, backend Jest 27 suites / 458 tests, runtime UI primitive Vitest 15/15, PostgreSQL 5 suites / 29 tests / 0 skipped, Chromium core 21/21, EN and RU 3/3 each, GitBook screenshots 2/2, and all documentation/isolation/screenshot-drift checks. The minimal local Supabase profile stopped automatically.
+-   Tightened the PostgreSQL plan test to capture the exact SQL and bind parameters emitted by the production workspace-settings lookup, then verify `_app_workspace_settings_target_active_uidx` after `ANALYZE` over 2,048 rows. Added a two-connection duplicate-Favorite race that observes PostgreSQL lock blocking and proves only one row is created. The workspace-settings PostgreSQL coverage is split into cohesive suites. Deterministic query-count assertions cover one-versus-25 Favorites and a 20-material page.
+-   `pnpm exec tsc --noEmit -p packages/universo-react-applications-backend/tsconfig.test.json` now passes. Seven focused Jest suites covering the corrected test contracts pass 53/53; relevant ESLint, Prettier, and `git diff --check` pass.
+-   Inspected fresh actual PNGs for anonymous EN/RU Matrix/material views, selected-branch dialog, policy controls, Primary Material list/detail, Favorites mobile top/bottom, unavailable Favorite state, and localized validation. Representative sizes include 390, 768, 1280, and 1920 CSS pixels; no page-level overflow was observed in the tested flows.
+-   `CURRENT_SCHEMA_SNAPSHOT_VERSION=2`, Interpretation Network seed `2.29.0`, and metahub template `0.1.0` are unchanged. The canonical fixture contract and import/drift checks passed. Workspace-settings DDL is required to support fresh creation and re-run; no older-shape migration is retained or added. No schema/template version bump, staging, or commit was introduced by this closeout.
+-   Autoreview terminal status: `UNAVAILABLE/BUNDLE_TOO_LARGE` on the accumulated dirty-worktree bundle; no PASS is claimed. OntoIndex `gn_verify_diff` returned `PASS` for the explicit 14-file closeout inventory and executed-test allowlist, with no unexpected paths/symbols or missing tests; the scan is capped at 200 files and the commit-based graph is stale/degraded, so this is not proof of graph-backed source impact. The aggregate apps-template Vitest attempt remains `INCOMPLETE` under worker pressure; the focused feature suite passed 15/15.
+-   Production `https://universo.pro/a/suzdal` smoke remains `INCOMPLETE`: no deployment/live-host verification was in scope. Local canonical alias, UUID, and secondary-alias browser routes passed.
+
+### Resumed implementation verification (2026-10-24)
+
+-   The rerun manifest is `tools/testing/e2e/.artifacts/interpretation-network-verification/2026-10-24T04-48-55-587Z/manifest.json` and its terminal status is `failed`, not passed. Every recorded stage passed: build 36/36, backend unit tests 467/467, UI primitive Vitest 15/15, fixture generator 2/2, Chromium core flows 21/21, EN and RU acceptance 3/3 each, GitBook screenshots 2/2, and PostgreSQL integration 30/30 across five suites with zero skipped tests. GitBook localization (115 EN/RU pairs), links/assets, Interpretation Network docs, apps-template isolation, and no-LMS-forks checks passed.
+-   The sole canonical-gate failure was `docs:interpretation-network:drift:check`: the freshly generated EN/RU screenshots and provenance differ from the staged Git-index baseline after intended UI changes (one-row Matrix/Favorites/Templates tabs, removal of the Welcome and Workspaces navigation items, and direct Primary Material view). The generated screenshots were visually checked at desktop/mobile and in both locales; the drift checker compares worktree files with `git show :path`. No files were staged to make that comparison green. The new screenshots and provenance remain in the worktree for review.
+-   Public no-workspace EN desktop/mobile and RU mobile captures show the localized empty state without an authentication redirect or editing controls. The public Matrix capture is read-only. The application settings capture shows the expanded HEX input and allowed-color list. The selected-workspace screenshot proves the selected workspace's unique structure loaded; the Primary Material screenshot shows its detail view and a visible return-to-list control.
+-   After the one-line unused test-parameter cleanup, the three focused workspace/copy Jest suites passed 36/36; targeted ESLint and Prettier passed. Package lints for Apps Template MUI, Applications Frontend, and Metahubs Backend exited 0. Applications Backend package lint exited 0 with 17 warnings in existing tests and zero errors. `git diff --check` and `git diff --cached --check` passed.
+-   One `GET /metahub/:id/settings` request logged `RLS connection lease is closed` during the browser run. A read-only subagent confirmed the cause is unproven: request `close` before `finish` would close the lease and a still-running sequential handler could then fail its next query, but the logs do not show whether this request was actually aborted. The log does not prove the client received a 500; existing response-gate code may suppress a response after abort. Current settings tests do not cover that real abort sequence. This remains a cross-cutting reliability signal for a dedicated regression test; no broad auth/RLS middleware change was made without reproduction.
+-   OntoIndex `gn_verify_diff` passed its explicit 12-file/five-test inventory with no unexpected paths or missing required tests; the repository scan reported its 200-file cap, and the commit-based graph does not represent the current dirty source. This is scope-inventory evidence, not graph-backed impact proof. No schema/template version bump, staging, or commit was made.
+-   Scoped Autoreview was retried on the local diff and ended `UNAVAILABLE/ENGINE_TRANSPORT_ERROR` after three Codex engine attempts. It produced no valid structured review and is not a PASS. Independent scoped reviewers and the hands-on source/test checks remain the available review evidence.
+
+# Interpretation Network Public Runtime And Advanced Workspace — IMPLEMENT (2026-10-22)
+
+> Implement all phases of `memory-bank/plan/interpretation-network-public-runtime-advanced-workspace-plan-2026-10-22.md` as a clean break for the recreated test database. Preserve unrelated dirty work. Do not use `pnpm dev`, add legacy compatibility, or increment platform schema / metahub-template versions. Use entity-backed, server-authoritative commands, existing UI primitives, generator-first fixtures, EN/RU UX and minimal local Supabase for Playwright.
+
+-   [x] IN-00 Baseline, UI contracts, versions/fixture checksum, OntoIndex inventory and per-symbol impact; preserve unrelated changes.
+-   [x] IN-01 Shared public DTOs and renderer identity; keep persistence IDs in authenticated adapters, enforce strict schemas and UUID v7.
+-   [x] IN-02 Public Dashboard backend dispatch/projector registry, supported placement closure, target propagation and fail-closed unsupported placements.
+-   [x] IN-03 Bounded anonymous Interpretation Network read projector, public Workspace/RLS resolution, scoped opaque read handles, limiter, privacy and payload bounds.
+-   [x] IN-04 Public Dashboard host and read-only Interpretation Network UI; scoped TanStack keys, no authenticated mutation transport, localized states.
+-   [x] IN-05 Unified target-aware Workspace setting addresses, DDL, access/resolution, lock ordering, workspace-copy remapping and stale-layout cleanup.
+-   [x] IN-06 Typed cell-style policy across metahub/Application/Workspace, existing settings surfaces, capability/palette UI and trusted Matrix mutation enforcement.
+-   [x] IN-07 Multiple Materials and Primary Material aggregate: dedicated create/edit/primary/delete APIs, copy/delete remapping, optimistic concurrency and UI.
+-   [x] IN-08 Whole/selected-branch template saving, server descendant calculation, root rebase, shared Matrix membership locks and canonical dialog UX.
+-   [x] IN-09 Entity-backed owner-only Favorites, stale-target removal, aggregate lifecycle cleanup, existing tabs/grid primitives and isolation.
+-   [x] IN-10 Generator-first canonical Interpretation Network snapshot and fixture contract/drift/import verification; versions unchanged.
+-   [x] IN-11 Complete Jest/Vitest/integration coverage for privacy, RLS, mutation denials, durable-state invariants, races, rollback, cache isolation and UI contracts. Focused suites and PostgreSQL integration passed; the aggregate apps-template Vitest run remains incomplete under worker resource pressure and is documented in `progress.md`.
+-   [x] IN-12 Minimal-Supabase Playwright E2E for UUID/aliases, public read-only, settings, branch templates, Materials/Primary, Favorites, EN/RU, keyboard/focus and responsive screenshots; visually inspect captures.
+-   [x] IN-13 Update package READMEs and GitBook EN/RU documentation/screenshots/provenance.
+-   [x] IN-14 Prettier, relevant lint/build/test gates, i18n/isolation/fixture/docs checks, Thermos/autoreview, OntoIndex diff verification, version/dirty-worktree audit; final responsive Favorites E2E passed on minimal local Supabase at 390/768/1280/1920 px with keyboard Enter activation and inspected screenshots. Autoreview ended `UNAVAILABLE/ENGINE_TRANSPORT_ERROR`; OntoIndex inventory passed but the graph is stale. Exact evidence and limits are in `progress.md`.
+
 # LMS Quiz Blocks and Sixth Muse — IMPLEMENT (2026-10-17)
 
 > Implement `memory-bank/plan/lms-quiz-blocks-sixth-muse-plan-2026-10-17.md` as a clean-break LMS feature: generic ordered quiz blocks, block-introduction phase, authoritative optional intro pause, display numbering, new Russian quiz fixture, preserved seven flat grade quizzes, comprehensive tests, browser evidence, and EN/RU documentation. Do not bump schema/template versions, add legacy compatibility, run `pnpm dev`, or disturb unrelated dirty work.
@@ -1510,3 +1648,58 @@ The Interpretation Network baseline is now aligned at its ownership boundary: th
 -   [x] PRQA-7 CI: refresh the tracked 73rd Meridian fixture to #917 pricing semantics (ActionLabel/ActionHref optional) and its snapshot hash; contract 21/21-style gate, drift unit tests, and the public-runtime Chromium flow pass.
 -   [x] PRQA-8 CI: migrate `marketingPageBaselineContract` from the legacy `config.__layout` carrier to the current seed shape (`rendererConfig` + neutral `bindings` envelope, `instanceKey` top-level, registry-default `placement`); `check:marketing-page-template-contract` passes.
 -   [x] PRQA-9 Align marketing E2E helpers/specs with the current layout API shape: `widget.instanceKey` identity, `layout-widget-presentation-dialog` testid. Remaining browser-gate failures (5 specs) are a pre-existing main-branch product conflict — the layout-copy dialog always sends `entityBindingCopyMode:'reuse'` while marketing widgets declare `clone-record` policy, so `POST /layout/:id/copy` returns 409 `VALIDATION_ERROR` (`This widget requires the registered record-copy flow`). Implementing the registered record-copy flow for layout copy is a separate feature-sized task; recorded in `progress.md` as the open blocker for the marketing browser gate.
+
+# Interpretation Network QA remediation — IMPLEMENT (2026-10-24)
+
+Implement the confirmed findings from the fresh-application QA against the original stakeholder brief, the reviewed product specification, the research report, and the implementation plan. Preserve the existing dirty worktree and unrelated edits. Keep the clean-break contract: no legacy compatibility, no schema-version increase, no metahub-template-version increase. Product acceptance must cover a fresh generated snapshot/application and the owner’s actual role context.
+
+-   [x] IN-QA-IMPL-00 Reconcile the current diff, implementation plan, source contracts, package READMEs, and OntoIndex readiness; record exact scoped files and maintain this checklist as work proceeds. The review covers public-runtime controllers/services/DTOs and Playwright flows, owner permission projections and write guards, apps-template matrix/material/favorites/workspace UI, application/metahub/workspace style-policy editors, the canonical Interpretation Network seed and fixture generator/contracts, plus bilingual GitBook docs. OntoIndex impact was attempted for the public resolver and the new UI editor symbols; it reports degraded/stale coverage and cannot resolve newly introduced editor symbols, so direct source and callsite review remains required.
+-   [x] IN-QA-IMPL-01 Public UUID and alias routes open anonymously with zero shared workspaces and show the localized empty state; public data is resolved server-side and the browser remains read-only.
+-   [x] IN-QA-IMPL-02 Owner/editor Matrix create and edit succeed while member/non-member write attempts are denied; direct permission and state-preservation regressions pass.
+-   [x] IN-QA-IMPL-03 Selecting a cell opens its persisted Primary Material, Back returns to the full list, and replace/clear/delete transitions are covered.
+-   [x] IN-QA-IMPL-04 Matrix, Favorites, and Templates render as one peer tab row; Playwright and inspected screenshots confirm the hierarchy.
+-   [x] IN-QA-IMPL-05 Shared cell-style settings cover metahub/application/workspace policy, allowed-color limits, and color controls; captured settings show the wide HEX input and swatch list.
+-   [x] IN-QA-IMPL-06 Removed the duplicate Workspaces navigation item while preserving WorkspaceSwitcher selection and management.
+-   [x] IN-QA-IMPL-07 Removed Welcome from the Interpretation Network template and regenerated the snapshot fixture with the supported generator; fixture contract/drift and imported-snapshot flows pass.
+-   [x] IN-QA-IMPL-08 Fresh generated fixture/application flows passed on minimal Supabase: anonymous empty state, shared-workspace read-only view, owner/editor writes, role denial, aliases, Primary Material, Favorites, tabs, navigation, EN/RU, responsive screenshots, and user-visible validation.
+-   [x] IN-QA-IMPL-09 Updated EN/RU GitBook and package documentation and regenerated screenshot provenance from browser captures. The final drift command reported expected changes against the staged-index baseline; exact evidence is below and no assets were staged.
+-   [x] IN-QA-IMPL-10 Ran focused Jest, Vitest, PostgreSQL integration, fixture generation/contracts, root build, package lints, Prettier, docs/i18n/isolation checks, and the canonical local-Supabase gate. The gate ended `FAIL` only at screenshot drift; all preceding test stages passed. Fresh captures were inspected.
+-   [x] IN-QA-IMPL-11 Ran scoped Thermos/security/maintainability reviews, Autoreview, OntoIndex verification, and the schema/template version audit. Autoreview was `UNAVAILABLE/ENGINE_TRANSPORT_ERROR`; OntoIndex passed the explicit inventory but its graph is stale/capped. No version bump or legacy shim was added; unrelated changes were preserved.
+-   [x] IN-QA-IMPL-12 Recorded the evidence and limits in this checklist and `memory-bank/progress.md`; unavailable tools and the unresolved RLS log signal are not marked as passes.
+
+## Fresh-application QA follow-up — IMPLEMENT (2026-10-24)
+
+-   [ ] IN-QA-IMPL-13 Close the local template-details dialog after a successful template insertion while keeping it open with an inline error on failure; verify the existing-cell insertion browser journey.
+-   [ ] IN-QA-IMPL-14 Resolve the permission-flow root row version using the row ID from its validated shared-workspace aggregate snapshot; rerun the owner/editor/member and guessed-ID browser flow.
+-   [ ] IN-QA-IMPL-15 Align the public workspace journey assertions with the canonical Dashboard shell (no synthetic app-title heading); rerun all dependent anonymous/member public-runtime flows.
+-   [ ] IN-QA-IMPL-16 Rerun the complete local-Supabase verification gate, inspect refreshed public/template screenshots, run formatting/lint/build and Thermos/Autoreview/OntoIndex closeout, and record actual terminal results and limits.
+
+## Fresh-application QA remediation continuation — IMPLEMENT (2026-10-24)
+
+-   [ ] IN-QA-IMPL-17 Fix the imported-snapshot color-picker browser oracle to inspect the visible trigger through the nested picker dialog while preserving its keyboard, HEX, viewport-fit, and edge-alignment assertions; fix any actual geometry defect revealed by rerunning it.
+-   [ ] IN-QA-IMPL-18 Correct public-runtime setup to honor the generated snapshot's `multiple` structure mode and seed a real structure through supported runtime operations; keep anonymous public UI/read-only assertions intact.
+-   [ ] IN-QA-IMPL-19 Bind workspace-copy reads and writes to the source and destination RLS workspace contexts respectively; add PostgreSQL integration coverage under the `authenticated` database role proving target inserts succeed only with the destination context.
+-   [ ] IN-QA-IMPL-20 Extend the atomic workspace-copy preflight so included Materials cannot retain `TemplateOwnerId` references to excluded TableTemplates, and excluded Materials cannot retain references to copied TableTemplates; preserve UUIDv7 remapping and source immutability with direct PostgreSQL regressions.
+-   [ ] IN-QA-IMPL-21 Add a complete Russian-locale saved-template insertion flow under an existing selected cell; then rerun the focused and canonical minimal-Supabase browser gate, inspect screenshots, run lint/format/build and scoped Thermos/Autoreview/OntoIndex checks, and record only verified outcomes.
+-   [ ] IN-QA-IMPL-22 Fix `resetOnCopy` workspace-local REF defaults so foreign keys remain valid until every copied target exists, then remap the default to the destination UUID; cover a later-sorting target with a real PostgreSQL FK and keep the source unchanged.
+-   [ ] IN-QA-IMPL-23 Localize `WORKSPACE_COPY_TEMPLATE_MATERIALS_EXCLUDED` in EN/RU and verify the workspace copy dialog renders only the localized message for that backend code.
+
+## Fresh-application QA remediation continuation — IMPLEMENT (2026-10-24, follow-up)
+
+-   [ ] IN-QA-IMPL-24 Separate the multiple-mode anonymous public-runtime fixture from the single-system role/CRUD fixture; assert the empty-workspace precondition, canonical Dashboard shell, cookie-free anonymous GETs, and persisted Matrix cell fields after create.
+-   [ ] IN-QA-IMPL-25 Complete the nested saved-template journey and template-details success/error behavior in Russian; inspect the real browser screenshots and keep a selected existing parent Cell throughout insertion.
+-   [ ] IN-QA-IMPL-26 Fix or disprove the reported HEX picker alignment defect with measured field/button geometry at desktop, tablet, and mobile widths; retain keyboard, HEX, and viewport-fit assertions.
+-   [ ] IN-QA-IMPL-27 Close generic Matrix mutation bypasses: generic child-row deletion must not bypass aggregate Material cleanup, and generic row updates must not alter Matrix axis labels outside the validated Matrix command; add direct regressions.
+-   [ ] IN-QA-IMPL-28 Tighten realtime WebSocket Origin validation so Host and forwarded-host headers cannot expand the configured trusted-origin allowlist; cover allowed, rejected, missing, and malformed Origin cases.
+-   [ ] IN-QA-IMPL-29 Finish the prior workspace-copy integrity tasks IN-QA-IMPL-19 through 23, including source/destination RLS contexts, reciprocal template-material references, deferred UUIDv7 REF remapping, and localized exclusion errors, with authenticated PostgreSQL coverage.
+-   [ ] IN-QA-IMPL-30 Rerun the full canonical minimal-Supabase gate after all changes; inspect final UI evidence; run targeted unit/integration tests, package lint, Prettier, build and docs checks; perform scoped Thermos, Autoreview, OntoIndex diff verification, and schema/template version audit; report only observed terminal results.
+
+## Public Dashboard and Interpretation Network home layout — IMPLEMENT (2026-10-25)
+
+-   [x] IN-PUB-01 Remove application-specific heading noise from the shared anonymous Dashboard surface and expose only the first configured navigation entry for all public Dashboard applications, including Interpretation Network and LMS; retain the canonical read-only Dashboard composition and authenticated navigation behavior.
+-   [x] IN-PUB-02 Keep the Interpretation Network Start page limited to its basic information and place the functional workspace widget only on the Structures page; update the authoritative template and product seed sources, preserve schema/template versions, and regenerate the canonical snapshot fixture.
+-   [x] IN-PUB-03 Add focused component and browser regressions for public Dashboard navigation/title behavior across Interpretation Network and LMS and for Start-versus-Structures widget placement; keep localization, read-only state, no-overflow, and fixture-contract assertions.
+-   [x] IN-PUB-04 Run Prettier, focused package lint/build/tests, fixture contract/drift, and relevant Playwright journeys with minimal local Supabase; inspect actual browser screenshots; record scoped Thermos/Autoreview/OntoIndex outcomes and unavailable-tool limits.
+-   [x] IN-PUB-05 Project public Page Blocks through an explicit allowlist, return only active localized text needed by the requested locale, and discard unapproved translation metadata; add sentinel regressions.
+-   [x] IN-PUB-06 Seed a published LMS row in the exact E2E user's personal workspace, register it in Recent, then assert it is absent from the anonymous public Dashboard payload and UI after opening Recent in initial and populated states.
+-   [x] IN-PUB-07 Separate anonymous Interpretation Network data loading and view-model construction from presentation composition; preserve the shared read-only panes and behavior, add focused regression coverage, and rerun package verification after the maintainability review finding. The viewer now delegates to a read controller and pure projection helpers; direct tests cover paginated aggregation, repeated offsets, and the public offset limit. Focused Vitest passed 18/18, package lint/build and Prettier passed, and the bounded maintainability reviewer confirmed the P2 gap is closed with no remaining actionable findings.

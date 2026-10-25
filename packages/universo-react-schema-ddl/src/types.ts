@@ -57,7 +57,7 @@ export interface SchemaEntitySnapshot {
 }
 
 export interface SchemaSnapshot {
-    version: number
+    version: 1
     generatedAt: string
     hasSystemTables: boolean
     entities: Record<string, SchemaEntitySnapshot>

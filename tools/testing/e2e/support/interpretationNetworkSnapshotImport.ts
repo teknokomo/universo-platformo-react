@@ -98,6 +98,7 @@ export async function importInterpretationNetworkSnapshot(
     }
     const metahub = importBody.metahub
     const publication = importBody.publication
+    const publicationId = publication?.id
 
     if (!metahub?.id) {
         throw new Error(`Interpretation Network snapshot import did not return a metahub id for ${options.label}`)
@@ -105,7 +106,7 @@ export async function importInterpretationNetworkSnapshot(
     if (readLocalizedLabel(metahub.name) !== INTERPRETATION_NETWORK_CANONICAL_METAHUB.name.en) {
         throw new Error('Interpretation Network snapshot import created a metahub with a non-canonical title')
     }
-    if (!publication?.id) {
+    if (!publication || typeof publicationId !== 'string') {
         throw new Error(`Interpretation Network snapshot import did not return a publication id for ${options.label}`)
     }
 
@@ -136,7 +137,7 @@ export async function importInterpretationNetworkSnapshot(
 
     return {
         metahub: metahub as { id: string; codename?: string; name?: { en?: string } },
-        publication,
+        publication: { ...publication, id: publicationId },
         linkedApplication,
         applicationId
     }

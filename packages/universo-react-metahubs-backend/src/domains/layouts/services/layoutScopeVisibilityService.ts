@@ -27,7 +27,16 @@ export class MetahubLayoutScopeVisibilityService extends MetahubLayoutPlacementS
     async listLayouts(metahubId: string, options: LayoutListOptions, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const lt = qSchemaTable(schemaName, '_mhb_layouts')
-        const { limit = 20, offset = 0, sortBy = 'updated', sortOrder = 'desc', search, scopeEntityId, includeDeleted = false } = options
+        const {
+            limit = 20,
+            offset = 0,
+            sortBy = 'updated',
+            sortOrder = 'desc',
+            search,
+            scopeEntityId,
+            includeAllScopes = false,
+            includeDeleted = false
+        } = options
 
         const conditions: string[] = []
         const params: unknown[] = []
@@ -43,7 +52,7 @@ export class MetahubLayoutScopeVisibilityService extends MetahubLayoutPlacementS
             idx++
         }
 
-        const scopeClause = this.buildLayoutScopeWhereSql(scopeEntityId ?? null, idx)
+        const scopeClause = includeAllScopes ? { sql: 'TRUE', params: [] } : this.buildLayoutScopeWhereSql(scopeEntityId ?? null, idx)
         conditions.push(scopeClause.sql)
         params.push(...scopeClause.params)
         idx += scopeClause.params.length

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { TFunction } from 'i18next'
 import {
@@ -8,9 +8,11 @@ import {
     saveInterpretationNetworkTemplate,
     updateInterpretationNetworkTemplate
 } from '../../../../api/interpretationNetwork'
-import type { RuntimeRow } from '../model'
+import type { MatrixCell, MatrixMode, RuntimeRow } from '../model'
+import type { InterpretationNetworkTemplateSaveScope } from '../../../../api/interpretationNetwork'
 import type { StructureSummary } from './StructurePane'
 import { readRuntimeRowVersion } from './workspaceRuntime'
+import { resolveTemplateBranchPath, type TemplateSaveScopeKind } from './templateSaveScope'
 
 interface UseInterpretationNetworkTemplateCommandsOptions {
     apiBaseUrl?: string
@@ -24,6 +26,8 @@ interface UseInterpretationNetworkTemplateCommandsOptions {
     canEditContent: boolean
     canDeleteContent: boolean
     selectedConcept?: RuntimeRow
+    matrixCells: MatrixCell[]
+    matrixMode: MatrixMode
     structureSummaries: StructureSummary[]
     closeStructureMenu: () => void
     t: TFunction<'interpretationNetwork'>
@@ -41,13 +45,15 @@ export function useInterpretationNetworkTemplateCommands({
     canEditContent,
     canDeleteContent,
     selectedConcept,
+    matrixCells,
+    matrixMode,
     structureSummaries,
     closeStructureMenu,
     t
 }: UseInterpretationNetworkTemplateCommandsOptions) {
     const queryClient = useQueryClient()
     const templatesQuery = useQuery({
-        queryKey: ['interpretationNetworkTemplates', applicationId, workspaceId],
+        queryKey: ['interpretationNetworkTemplates', applicationId, workspaceId, widgetId, layoutId],
         enabled,
         queryFn: () =>
             fetchInterpretationNetworkTemplates({
@@ -63,10 +69,21 @@ export function useInterpretationNetworkTemplateCommands({
     const [structureCreateTemplateId, setStructureCreateTemplateId] = useState('')
     const [templateActionId, setTemplateActionId] = useState<string | null>(null)
     const [saveTemplateSourceStructureId, setSaveTemplateSourceStructureId] = useState<string | null>(null)
+    const [saveTemplateRootCellId, setSaveTemplateRootCellId] = useState<string | null>(null)
+    const [saveTemplateScopeKind, setSaveTemplateScopeKind] = useState<TemplateSaveScopeKind>('wholeStructure')
     const [templateDialogError, setTemplateDialogError] = useState<string | null>(null)
+    const saveTemplateBranchPath = useMemo(
+        () => resolveTemplateBranchPath(matrixCells, saveTemplateRootCellId),
+        [matrixCells, saveTemplateRootCellId]
+    )
+    const canSaveSelectedBranch = matrixMode === 'hierarchicalCells' && saveTemplateBranchPath.length > 0
+    const changeSaveTemplateScopeKind = (scope: TemplateSaveScopeKind) => {
+        if (scope === 'selectedBranch' && !canSaveSelectedBranch) return
+        setSaveTemplateScopeKind(scope)
+    }
     const [openTemplateId, setOpenTemplateId] = useState<string | null>(null)
     const templateDetailQuery = useQuery({
-        queryKey: ['interpretationNetworkTemplateDetail', applicationId, workspaceId, openTemplateId],
+        queryKey: ['interpretationNetworkTemplateDetail', applicationId, workspaceId, widgetId, layoutId, openTemplateId],
         enabled: enabled && Boolean(openTemplateId),
         queryFn: () =>
             fetchInterpretationNetworkTemplateDetail({
@@ -86,6 +103,13 @@ export function useInterpretationNetworkTemplateCommands({
             if (!canCreateContent || !canEditContent || !sourceStructureId || !apiBaseUrl || !applicationId) {
                 throw new Error('permission-denied')
             }
+            const scope: InterpretationNetworkTemplateSaveScope =
+                saveTemplateScopeKind === 'selectedBranch' && canSaveSelectedBranch && saveTemplateRootCellId
+                    ? { kind: 'selectedBranch', rootCellId: saveTemplateRootCellId }
+                    : { kind: 'wholeStructure' }
+            if (saveTemplateScopeKind === 'selectedBranch' && scope.kind !== 'selectedBranch') {
+                throw new Error('selected-branch-unavailable')
+            }
             return saveInterpretationNetworkTemplate({
                 apiBaseUrl,
                 applicationId,
@@ -94,6 +118,7 @@ export function useInterpretationNetworkTemplateCommands({
                 templateName: data.templateName,
                 description: data.description,
                 includeMaterials: data.templatePolicy === 'withMaterials',
+                scope,
                 expectedVersion: readRuntimeRowVersion(sourceStructure?.row),
                 locale,
                 widgetId,
@@ -104,6 +129,8 @@ export function useInterpretationNetworkTemplateCommands({
             setTemplateDialogMode(null)
             setTemplateDialogError(null)
             setSaveTemplateSourceStructureId(null)
+            setSaveTemplateRootCellId(null)
+            setSaveTemplateScopeKind('wholeStructure')
             await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkTemplates'] })
         },
         onError: () => setTemplateDialogError(t('workspace.template.saveError', 'Failed to save template'))
@@ -160,12 +187,17 @@ export function useInterpretationNetworkTemplateCommands({
         setTemplateDialogError(null)
         setTemplateActionId(null)
         setSaveTemplateSourceStructureId(null)
+        setSaveTemplateRootCellId(null)
+        setSaveTemplateScopeKind('wholeStructure')
     }
-    const openSaveTemplateDialog = (structureId?: string) => {
+    const openSaveTemplateDialog = (structureId?: string, rootCellId?: string) => {
         closeStructureMenu()
         setTemplateDialogError(null)
         setTemplateActionId(null)
         setSaveTemplateSourceStructureId(structureId ?? selectedConcept?.id ?? null)
+        const selectedRoot = rootCellId && matrixCells.some((cell) => cell.id === rootCellId) ? rootCellId : null
+        setSaveTemplateRootCellId(selectedRoot)
+        setSaveTemplateScopeKind('wholeStructure')
         setTemplateDialogMode('save')
     }
     const openEditTemplateDialog = (templateId: string) => {
@@ -190,6 +222,11 @@ export function useInterpretationNetworkTemplateCommands({
         templateDialogError,
         setTemplateDialogError,
         selectedTemplateForDialog: templatesQuery.data?.items.find((template) => template.id === templateActionId),
+        saveTemplateRootCellId,
+        saveTemplateBranchPath,
+        canSaveSelectedBranch,
+        saveTemplateScopeKind,
+        setSaveTemplateScopeKind: changeSaveTemplateScopeKind,
         saveTemplateMutation,
         updateTemplateMutation,
         deleteTemplateMutation,

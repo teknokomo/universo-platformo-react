@@ -265,9 +265,9 @@ describe('applicationSyncRoutes', () => {
         snapshotHash: calculateCanonicalApplicationReleaseSnapshotHash(
             {
                 versionEnvelope: {
-                    structureVersion: '53.0.0',
+                    structureVersion: '0.1.0',
                     templateVersion: null,
-                    snapshotFormatVersion: 4 as const
+                    snapshotFormatVersion: 1 as const
                 },
                 entities: {
                     'object-products': baseCatalogEntity
@@ -279,9 +279,9 @@ describe('applicationSyncRoutes', () => {
         ),
         snapshot: {
             versionEnvelope: {
-                structureVersion: '53.0.0',
+                structureVersion: '0.1.0',
                 templateVersion: null,
-                snapshotFormatVersion: 4 as const
+                snapshotFormatVersion: 1 as const
             },
             entities: {
                 'object-products': baseCatalogEntity
@@ -292,9 +292,9 @@ describe('applicationSyncRoutes', () => {
         entities: [baseCatalogEntity],
         publicationSnapshot: {
             versionEnvelope: {
-                structureVersion: '53.0.0',
+                structureVersion: '0.1.0',
                 templateVersion: null,
-                snapshotFormatVersion: 4 as const
+                snapshotFormatVersion: 1 as const
             },
             entities: {
                 'object-products': baseCatalogEntity
@@ -774,9 +774,9 @@ describe('applicationSyncRoutes', () => {
 
         const previewSnapshot = {
             versionEnvelope: {
-                structureVersion: '53.0.0',
+                structureVersion: '0.1.0',
                 templateVersion: null,
-                snapshotFormatVersion: 4 as const
+                snapshotFormatVersion: 1 as const
             },
             entities: {
                 'hub-learning': {
@@ -1314,9 +1314,9 @@ describe('applicationSyncRoutes', () => {
 
         const complexSyncSnapshot = {
             versionEnvelope: {
-                structureVersion: '53.0.0',
+                structureVersion: '0.1.0',
                 templateVersion: null,
-                snapshotFormatVersion: 4 as const
+                snapshotFormatVersion: 1 as const
             },
             entities: {
                 'object-resources': rawCatalogEntity
@@ -1494,9 +1494,9 @@ describe('applicationSyncRoutes', () => {
 
         const publicationSnapshot = {
             versionEnvelope: {
-                structureVersion: '53.0.0',
+                structureVersion: '0.1.0',
                 templateVersion: null,
-                snapshotFormatVersion: 4 as const
+                snapshotFormatVersion: 1 as const
             },
             entities: {
                 'object-resources': rawCatalogEntity
@@ -1828,7 +1828,7 @@ describe('applicationSyncRoutes', () => {
             schemaName: 'app_019ccefc2f7b7b3682f485cdb1312268',
             schemaSnapshot: null,
             schemaStatus: 'ready',
-            appStructureVersion: 7,
+            appStructureVersion: 1,
             installedReleaseMetadata: {
                 sourceKind: 'publication',
                 releaseVersion: 'publication-version-1',
@@ -1936,7 +1936,7 @@ describe('applicationSyncRoutes', () => {
                 kind: 'application_release_bundle',
                 bundleVersion: 1,
                 applicationKey: 'application-1',
-                releaseVersion: expect.stringMatching(/^application-runtime-v7-/),
+                releaseVersion: expect.stringMatching(/^application-runtime-v1-/),
                 incrementalMigration: expect.objectContaining({
                     fromVersion: 'publication-version-1'
                 }),
@@ -1946,6 +1946,10 @@ describe('applicationSyncRoutes', () => {
                     publicationVersionId: null
                 }),
                 snapshot: expect.objectContaining({
+                    versionEnvelope: expect.objectContaining({
+                        structureVersion: '0.1.0',
+                        snapshotFormatVersion: 1
+                    }),
                     entities: expect.objectContaining({
                         'object-1': expect.objectContaining({
                             codename: 'products'
@@ -1983,9 +1987,9 @@ describe('applicationSyncRoutes', () => {
     it('reuses stored runtime release lineage when re-exporting an unchanged application-origin bundle', async () => {
         const expectedSnapshot = {
             versionEnvelope: {
-                structureVersion: '7',
-                templateVersion: 'application-runtime-v7-snapshot-hash',
-                snapshotFormatVersion: 4
+                structureVersion: '0.1.0',
+                templateVersion: 'application-runtime-v1-snapshot-hash',
+                snapshotFormatVersion: 1
             },
             entities: {
                 'object-1': {
@@ -2044,10 +2048,10 @@ describe('applicationSyncRoutes', () => {
             schemaName: 'app_019ccefc2f7b7b3682f485cdb1312268',
             schemaSnapshot: null,
             schemaStatus: 'ready',
-            appStructureVersion: 7,
+            appStructureVersion: 1,
             installedReleaseMetadata: {
                 sourceKind: 'release_bundle',
-                releaseVersion: 'application-runtime-v7-snapshot-hash',
+                releaseVersion: 'application-runtime-v1-snapshot-hash',
                 previousReleaseVersion: 'publication-version-1',
                 snapshotHash: expectedSnapshotHash,
                 baseSchemaSnapshot: expectedBaseSchemaSnapshot,
@@ -2102,7 +2106,7 @@ describe('applicationSyncRoutes', () => {
         const app = buildApp(loadPublishedApplicationSyncContext)
         const response = await request(app).get('/application/application-1/release-bundle?source=application').expect(200)
 
-        expect(response.body.bundle.releaseVersion).toBe('application-runtime-v7-snapshot-hash')
+        expect(response.body.bundle.releaseVersion).toBe('application-runtime-v1-snapshot-hash')
         expect(response.body.bundle.incrementalMigration.fromVersion).toBe('publication-version-1')
         expect(response.body.bundle.incrementalMigration.baseSchemaSnapshot).toEqual(expectedBaseSchemaSnapshot)
         expect(response.body.bundle.bootstrap.payload.entities).toEqual(expect.any(Array))

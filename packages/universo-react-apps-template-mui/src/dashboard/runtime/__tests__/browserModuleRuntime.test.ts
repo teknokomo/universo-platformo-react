@@ -290,7 +290,7 @@ describe('browserModuleRuntime', () => {
                 codename: 'quiz-widget',
                 moduleRole: 'widget',
                 sourceKind: 'embedded',
-                sdkApiVersion: '1.0.0',
+                sdkApiVersion: '0.1.0',
                 capabilities: ['rpc.client'],
                 sourceCode: COMPILED_WIDGET_SOURCE
             })

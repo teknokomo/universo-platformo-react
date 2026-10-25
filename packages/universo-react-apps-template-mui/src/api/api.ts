@@ -11,6 +11,7 @@ import {
     readLocalizedTextValue
 } from '@universo-react/types'
 import { runtimePlacementGraphSchema, runtimePlacementSchema, runtimeWidgetDataSchema } from '../dashboard/runtime/widgetPlacementGraph'
+import type { AuthenticatedRuntimePlacementScopes } from './runtimePlacementScopes'
 import {
     buildRuntimeApiUrl,
     createRuntimeFetcher,
@@ -330,8 +331,6 @@ export const toDashboardZoneWidgets = (result: RuntimeEffectiveLayoutSuccess): z
         }
 
         grouped[widget.zone].push({
-            id: widget.id,
-            layoutId: widget.layoutId,
             widgetKey: widget.widgetKey,
             sortOrder: widget.sortOrder,
             config: widget.config,
@@ -345,10 +344,19 @@ export const toDashboardZoneWidgets = (result: RuntimeEffectiveLayoutSuccess): z
     }
 
     for (const zone of DASHBOARD_ZONES) {
-        grouped[zone].sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id))
+        grouped[zone].sort((left, right) => left.sortOrder - right.sortOrder || left.instanceKey.localeCompare(right.instanceKey))
     }
 
     return runtimeZoneWidgetsSchema.parse(grouped)
+}
+
+export const toAuthenticatedRuntimePlacementScopes = (
+    result: RuntimeEffectiveLayoutSuccess | undefined
+): AuthenticatedRuntimePlacementScopes | undefined => {
+    if (!result || result.layout.templateKey !== 'dashboard') return undefined
+    return Object.fromEntries(
+        result.widgets.map((widget) => [widget.instanceKey, { widgetId: widget.id, layoutId: widget.layoutId ?? result.layout.id }])
+    )
 }
 
 export async function fetchMarketingPageRuntime(options: {

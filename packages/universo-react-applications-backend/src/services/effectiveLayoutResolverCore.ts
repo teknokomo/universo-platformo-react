@@ -890,7 +890,8 @@ export async function resolveEffectiveLayoutForPublicTransactionWithRuntimeData(
     executor: DbExecutor,
     input: unknown,
     publicWorkspaceId: string | null,
-    runtimeDataResolver: EffectiveLayoutRuntimeDataResolver
+    runtimeDataResolver: EffectiveLayoutRuntimeDataResolver,
+    options: { allowMissingWorkspace?: boolean } = {}
 ): Promise<EffectiveLayoutSuccess> {
     const target = normalizeRuntimeTarget(input)
     if (target.workspaceId) return failEffectiveLayout('LAYOUT_REQUEST_INVALID')
@@ -908,6 +909,17 @@ export async function resolveEffectiveLayoutForPublicTransactionWithRuntimeData(
                 return {
                     workspaceId: null,
                     workspacesEnabled: false,
+                    currentUserId: null,
+                    role: null,
+                    permissions: PUBLIC_RUNTIME_PERMISSIONS
+                }
+            }
+
+            if (publicWorkspaceId === null && options.allowMissingWorkspace === true) {
+                await queryOrFail(() => setRuntimeWorkspaceContext(tx, null))
+                return {
+                    workspaceId: null,
+                    workspacesEnabled: true,
                     currentUserId: null,
                     role: null,
                     permissions: PUBLIC_RUNTIME_PERMISSIONS

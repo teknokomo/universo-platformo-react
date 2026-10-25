@@ -64,6 +64,7 @@ for (const file of changed.stdout.split('\n').filter(Boolean)) {
 
     const normalizeProvenance = (buffer) => {
         const value = JSON.parse(buffer.toString('utf8'))
+        delete value.generatedAt
         for (const asset of value.assets ?? []) delete asset.sha256
         return JSON.stringify(value)
     }

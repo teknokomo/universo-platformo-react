@@ -243,6 +243,12 @@ For manual local development, Supabase Studio is available at [http://127.0.0.1:
 pnpm run test:e2e:smoke:local-supabase
 ```
 
+For the complete Interpretation Network acceptance run, use the minimal-Supabase gate below. It builds the E2E app, verifies the generated fixture and PostgreSQL invariants, exercises authenticated and anonymous browser flows in English and Russian, regenerates GitBook screenshots, checks documentation drift, and stops the E2E Supabase profile even when a check fails:
+
+```bash
+pnpm run test:e2e:interpretation-network:verify:local-supabase
+```
+
 Useful lifecycle commands:
 
 ```bash

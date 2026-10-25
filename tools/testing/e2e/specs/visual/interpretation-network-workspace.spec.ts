@@ -16,6 +16,7 @@ import {
     INTERPRETATION_NETWORK_CANONICAL_METAHUB,
     INTERPRETATION_NETWORK_FIXTURE_FILENAME
 } from '../../support/interpretationNetworkFixtureContract'
+import { ensureSystemStructure, resolveRuntimeIds, setInterpretationNetworkWidgetConfig } from '../../support/interpretationNetworkFocused'
 import { expectInterpretationNetworkRuntimeDataReady } from '../../support/interpretationNetworkRuntime'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
@@ -50,6 +51,9 @@ test.describe('Interpretation Network workspace @visual', () => {
             name: `Interpretation Network visual workspace (${testInfo.project.name})`,
             codename: `interpretation-network-visual-workspace-${testInfo.project.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
         })
+        await setInterpretationNetworkWidgetConfig(api, applicationId, { structureMode: 'singleSystem' })
+        const runtimeIds = await resolveRuntimeIds(api, applicationId)
+        await ensureSystemStructure(api, applicationId, runtimeIds.workspaceId)
 
         await page.goto(`/metahub/${metahub.id}`)
         await expect(page.getByText(INTERPRETATION_NETWORK_CANONICAL_METAHUB.name.en, { exact: true }).first()).toBeVisible({
@@ -57,21 +61,31 @@ test.describe('Interpretation Network workspace @visual', () => {
         })
 
         await page.goto(`/a/${applicationId}`)
-        await expect(page.getByTestId('runtime-workspace-switcher')).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByTestId('runtime-side-menu-docked').getByTestId('runtime-workspace-switcher')).toBeVisible({
+            timeout: 30_000
+        })
         const menu = page.getByRole('navigation').first()
         await expect(menu).toBeVisible()
         await expect(menu.getByRole('link', { name: 'Start' })).toBeVisible()
+        await expect(menu.getByRole('link', { name: 'Welcome', exact: true })).toHaveCount(0)
         await expect(menu.getByRole('link', { name: 'Structures' })).toBeVisible()
-        await expect(menu.getByRole('link', { name: 'Workspaces' })).toBeVisible()
+        await expect(menu.getByRole('link', { name: 'Workspaces', exact: true })).toHaveCount(0)
         await menu.getByRole('link', { name: 'Structures' }).click()
+        await expect(page).toHaveURL(/targetKind=object/)
+        await expect(page).toHaveURL(/entityTypeCodename=Structure/)
         await expect(page.getByTestId('interpretation-network-workspace')).toBeVisible({ timeout: 30_000 })
         const structurePane = page.getByTestId('interpretation-network-structure-pane')
         await expect(page.getByTestId('interpretation-network-matrix-workspace')).toBeVisible({ timeout: 30_000 })
         await expect(structurePane.getByRole('heading', { name: 'Structures' })).toHaveCount(0)
         await expect(structurePane.getByRole('textbox', { name: 'Filter by title' })).toHaveCount(0)
         await expect(structurePane.getByRole('button', { name: 'Create' })).toHaveCount(0)
-        await expect(structurePane.getByRole('tab', { name: 'Matrix' })).toBeVisible()
-        await expect(structurePane.getByRole('tab', { name: 'Templates' })).toBeVisible()
+        const workspaceTabs = page
+            .getByTestId('interpretation-network-matrix-workspace')
+            .getByRole('tablist', { name: 'Workspace sections', exact: true })
+        await expect(workspaceTabs.getByRole('tab', { name: 'Matrix', exact: true })).toBeVisible()
+        await expect(workspaceTabs.getByRole('tab', { name: 'Favorites', exact: true })).toBeVisible()
+        await expect(workspaceTabs.getByRole('tab', { name: 'Templates', exact: true })).toBeVisible()
+        await expect(workspaceTabs.getByRole('tab')).toHaveCount(3)
         await expect(page.getByTestId('interpretation-network-structure-header')).toHaveCount(0)
         await expect(page.getByRole('button', { name: 'Structures' })).toHaveCount(0)
         await expect(structurePane.getByRole('button', { name: 'Save as template' })).toBeVisible()

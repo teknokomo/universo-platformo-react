@@ -5,7 +5,7 @@ describe('DDL Snapshot Utilities', () => {
     describe('CURRENT_SCHEMA_SNAPSHOT_VERSION', () => {
         it('should be defined and be a number', () => {
             expect(typeof CURRENT_SCHEMA_SNAPSHOT_VERSION).toBe('number')
-            expect(CURRENT_SCHEMA_SNAPSHOT_VERSION).toBeGreaterThan(0)
+            expect(CURRENT_SCHEMA_SNAPSHOT_VERSION).toBe(1)
         })
     })
 

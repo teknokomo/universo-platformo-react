@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page, type TestInfo } from '@playwright/test'
 import {
+    getApplicationEffectiveLayout,
     getRuntimeAppData,
     listApplicationLayouts,
     listApplicationLayoutWidgets,
@@ -25,6 +26,10 @@ export type RuntimeRowsResponse = {
 
 export type InterpretationNetworkRuntimeIds = {
     workspaceId: string
+    layoutId: string
+    widgetId: string
+    instanceKey: string
+    entityTypeId: string
     structureSectionId: string
     interpretationSectionId: string
     materialSectionId: string
@@ -43,8 +48,6 @@ export type MatrixRowSnapshot = {
 
 export type MaterialRowSnapshot = {
     rowId: string
-    cellId: string
-    templateOwnerId: string | null
     title: string
     description: string
     body: unknown
@@ -135,13 +138,20 @@ const withColumnAliases = (row: Record<string, unknown>, aliases: Record<string,
     return mapped
 }
 
-export const resolveRuntimeIds = async (api: InterpretationNetworkApi, applicationId: string): Promise<InterpretationNetworkRuntimeIds> => {
+export const resolveRuntimeIds = async (
+    api: InterpretationNetworkApi,
+    applicationId: string,
+    requestedWorkspaceId?: string
+): Promise<InterpretationNetworkRuntimeIds> => {
     const workspaces = (await listApplicationWorkspaces(api, applicationId)) as {
         items?: Array<{ id?: string; isDefault?: boolean }>
     }
-    const workspaceId = requireString(workspaces.items?.find((workspace) => workspace.isDefault === true)?.id, 'default workspace id')
-    const [structures, interpretations, materials, templates] = (await Promise.all(
-        ['Structure', 'Interpretation', 'Material', 'TableTemplate'].map((objectCollectionCodename) =>
+    const workspaceId = requireString(
+        requestedWorkspaceId ?? workspaces.items?.find((workspace) => workspace.isDefault === true)?.id,
+        requestedWorkspaceId ? 'requested workspace id' : 'default workspace id'
+    )
+    const [structures, interpretations, materials, templates, widgetContext] = (await Promise.all([
+        ...(['Structure', 'Interpretation', 'Material', 'TableTemplate'].map((objectCollectionCodename) =>
             getRuntimeAppData(api, applicationId, {
                 objectCollectionCodename,
                 workspaceId,
@@ -149,13 +159,15 @@ export const resolveRuntimeIds = async (api: InterpretationNetworkApi, applicati
                 limit: 100,
                 offset: 0
             })
-        )
-    )) as [RuntimeRowsResponse, RuntimeRowsResponse, RuntimeRowsResponse, RuntimeRowsResponse]
+        ) as Promise<unknown>[]),
+        resolveInterpretationNetworkWidgetContext(api, applicationId, workspaceId)
+    ])) as [RuntimeRowsResponse, RuntimeRowsResponse, RuntimeRowsResponse, RuntimeRowsResponse, InterpretationNetworkWidgetContext]
 
     const matrixComponentId = requireString(findColumn(interpretations, 'InterpretationMatrix')?.id, 'matrix TABLE component id')
     const templateMatrixComponentId = requireString(findColumn(templates, 'TemplateMatrix')?.id, 'template matrix TABLE component id')
     return {
         workspaceId,
+        ...widgetContext,
         structureSectionId: requireString(structures.section?.id ?? structures.objectCollection?.id, 'Structure section id'),
         interpretationSectionId: requireString(
             interpretations.section?.id ?? interpretations.objectCollection?.id,
@@ -168,20 +180,49 @@ export const resolveRuntimeIds = async (api: InterpretationNetworkApi, applicati
     }
 }
 
+export type InterpretationNetworkWidgetContext = {
+    layoutId: string
+    widgetId: string
+    instanceKey: string
+    entityTypeId: string
+}
+
+export const resolveInterpretationNetworkWidgetContext = async (
+    api: InterpretationNetworkApi,
+    applicationId: string,
+    workspaceId: string
+): Promise<InterpretationNetworkWidgetContext> => {
+    const effectiveLayout = (await getApplicationEffectiveLayout(api, applicationId, {
+        targetKind: 'object',
+        entityTypeCodename: 'Structure',
+        workspaceId,
+        locale: 'en',
+        themeVariant: 'light'
+    })) as {
+        layout?: { id?: unknown }
+        resolvedEntityTypeId?: unknown
+        widgets?: Array<{ id?: unknown; instanceKey?: unknown; widgetKey?: string }>
+    }
+    const widget = effectiveLayout.widgets?.find((candidate) => candidate.widgetKey === 'interpretationNetworkWorkspace')
+    return {
+        layoutId: requireString(effectiveLayout.layout?.id, 'Structure-scoped layout id'),
+        widgetId: requireString(widget?.id, 'Structure-scoped Interpretation Network widget id'),
+        instanceKey: requireString(widget?.instanceKey, 'Structure-scoped Interpretation Network widget instance key'),
+        entityTypeId: requireString(effectiveLayout.resolvedEntityTypeId, 'Structure entity type id')
+    }
+}
+
 export const setInterpretationNetworkWidgetConfig = async (
     api: InterpretationNetworkApi,
     applicationId: string,
     patch: Record<string, unknown>
 ): Promise<void> => {
     const layoutCollection = (await listApplicationLayouts(api, applicationId, { limit: 100, offset: 0 })) as {
-        items?: Array<{ id?: string; scopeEntityId?: string | null; isActive?: boolean; isDefault?: boolean }>
+        items?: Array<{ id?: string; isActive?: boolean }>
     }
     const widgetCollections = await Promise.all(
         (layoutCollection.items ?? [])
-            .filter(
-                (layout): layout is { id: string; scopeEntityId?: string | null; isActive?: boolean; isDefault?: boolean } =>
-                    typeof layout.id === 'string' && layout.scopeEntityId === null && layout.isActive === true && layout.isDefault === true
-            )
+            .filter((layout): layout is { id: string; isActive?: boolean } => typeof layout.id === 'string' && layout.isActive === true)
             .map((layout) => listApplicationLayoutWidgets(api, applicationId, layout.id))
     )
     const targetWidgets = widgetCollections
@@ -230,12 +271,16 @@ export const ensureSystemStructure = async (
     applicationId: string,
     workspaceId: string
 ): Promise<{ structureId: string; interpretationId: string; rootCellId: string; created: boolean; canCreate?: boolean }> => {
+    const widgetContext = await resolveInterpretationNetworkWidgetContext(api, applicationId, workspaceId)
+    const query = new URLSearchParams({
+        workspaceId,
+        layoutId: widgetContext.layoutId,
+        widgetId: widgetContext.widgetId
+    })
     const response = await sendWithCsrf(
         api,
         'POST',
-        `/api/v1/applications/${applicationId}/runtime/interpretation-network/system-structure/ensure?workspaceId=${encodeURIComponent(
-            workspaceId
-        )}`,
+        `/api/v1/applications/${applicationId}/runtime/interpretation-network/system-structure/ensure?${query}`,
         { locale: 'en' }
     )
     await assertApiOk(response, 'ensure system structure')
@@ -252,8 +297,14 @@ export const ensureSystemStructure = async (
     return body
 }
 
-const aggregateUrl = (applicationId: string, suffix: string, workspaceId: string) =>
-    `/api/v1/applications/${applicationId}/runtime/interpretation-network${suffix}?workspaceId=${encodeURIComponent(workspaceId)}`
+const aggregateUrl = (applicationId: string, suffix: string, workspaceId: string, widgetContext: InterpretationNetworkWidgetContext) => {
+    const query = new URLSearchParams({
+        workspaceId,
+        layoutId: widgetContext.layoutId,
+        widgetId: widgetContext.widgetId
+    })
+    return `/api/v1/applications/${applicationId}/runtime/interpretation-network${suffix}?${query}`
+}
 
 const fetchApi = async (api: InterpretationNetworkApi, path: string, init: RequestInit = {}): Promise<Response> => {
     const headers = new Headers(init.headers ?? {})
@@ -279,7 +330,8 @@ export const listTemplates = async (
     applicationId: string,
     workspaceId: string
 ): Promise<TemplateSummary[]> => {
-    const response = await fetchApi(api, aggregateUrl(applicationId, '/templates', workspaceId))
+    const widgetContext = await resolveInterpretationNetworkWidgetContext(api, applicationId, workspaceId)
+    const response = await fetchApi(api, aggregateUrl(applicationId, '/templates', workspaceId, widgetContext))
     if (response.status === 403) {
         return []
     }
@@ -294,7 +346,11 @@ export const getTemplateDetail = async (
     workspaceId: string,
     templateId: string
 ): Promise<TemplateDetail> => {
-    const response = await fetchApi(api, aggregateUrl(applicationId, `/templates/${encodeURIComponent(templateId)}`, workspaceId))
+    const widgetContext = await resolveInterpretationNetworkWidgetContext(api, applicationId, workspaceId)
+    const response = await fetchApi(
+        api,
+        aggregateUrl(applicationId, `/templates/${encodeURIComponent(templateId)}`, workspaceId, widgetContext)
+    )
     await assertApiOk(response, 'template detail')
     return (await response.json()) as TemplateDetail
 }
@@ -305,7 +361,8 @@ export const saveTemplate = async (
     workspaceId: string,
     input: { sourceStructureId: string; name: string; description: string; includeMaterials: boolean }
 ): Promise<TemplateSummary> => {
-    const response = await sendWithCsrf(api, 'POST', aggregateUrl(applicationId, '/templates', workspaceId), {
+    const widgetContext = await resolveInterpretationNetworkWidgetContext(api, applicationId, workspaceId)
+    const response = await sendWithCsrf(api, 'POST', aggregateUrl(applicationId, '/templates', workspaceId, widgetContext), {
         sourceStructureId: input.sourceStructureId,
         templateName: localizedContent(input.name),
         description: localizedContent(input.description),
@@ -325,10 +382,11 @@ export const instantiateTemplate = async (
     template: TemplateSummary,
     name: string
 ): Promise<{ structureId: string; interpretationId: string }> => {
+    const widgetContext = await resolveInterpretationNetworkWidgetContext(api, applicationId, workspaceId)
     const response = await sendWithCsrf(
         api,
         'POST',
-        aggregateUrl(applicationId, `/templates/${encodeURIComponent(template.id)}/instantiate`, workspaceId),
+        aggregateUrl(applicationId, `/templates/${encodeURIComponent(template.id)}/instantiate`, workspaceId, widgetContext),
         {
             structureName: localizedContent(name),
             description: localizedContent(`Created from ${readLocalizedText(template.name)}`),
@@ -373,6 +431,16 @@ export const getMatrixRows = async (
 const readRuntimeRowValue = (row: Record<string, unknown>, key: string): unknown => {
     if (Object.prototype.hasOwnProperty.call(row, key)) return row[key]
     const data = row.data
+    if (data && typeof data === 'object' && !Array.isArray(data) && Object.prototype.hasOwnProperty.call(data, key)) {
+        return (data as Record<string, unknown>)[key]
+    }
+    const matrixHierarchy = row.matrixHierarchy
+    if (matrixHierarchy && typeof matrixHierarchy === 'object' && !Array.isArray(matrixHierarchy)) {
+        const hierarchyValue = (matrixHierarchy as Record<string, unknown>)[
+            key === 'CellId' ? 'cellId' : key === 'ParentCellId' ? 'parentCellId' : ''
+        ]
+        if (hierarchyValue !== undefined) return hierarchyValue
+    }
     return data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>)[key] : undefined
 }
 
@@ -441,8 +509,6 @@ export const getMaterialRows = async (
         const mappedRow = withColumnAliases(row, aliases)
         return {
             rowId: requireString(mappedRow.id, 'Material row id'),
-            cellId: requireString(readRuntimeRowValue(mappedRow, 'CellId'), 'Material CellId'),
-            templateOwnerId: readReferenceId(readRuntimeRowValue(mappedRow, 'TemplateOwnerId')),
             title: readLocalizedText(readRuntimeRowValue(mappedRow, 'Title')),
             description: readLocalizedText(readRuntimeRowValue(mappedRow, 'Description')),
             body: readRuntimeRowValue(mappedRow, 'Body'),
@@ -457,16 +523,15 @@ export const createMaterialForCell = async (
     runtimeIds: InterpretationNetworkRuntimeIds,
     input: {
         interpretationId: string
-        matrixRowId: string
         cellId: string
         title: string
         description: string
         body?: unknown
     }
 ): Promise<{ id: string; matrixRowId: string }> => {
-    const response = await sendWithCsrf(api, 'POST', aggregateUrl(applicationId, '/materials', runtimeIds.workspaceId), {
+    const widgetContext = runtimeIds
+    const response = await sendWithCsrf(api, 'POST', aggregateUrl(applicationId, '/materials', runtimeIds.workspaceId, widgetContext), {
         interpretationId: input.interpretationId,
-        matrixRowId: input.matrixRowId,
         cellId: input.cellId,
         data: {
             Title: localizedContent(input.title),
@@ -477,16 +542,37 @@ export const createMaterialForCell = async (
     await assertApiOk(response, 'material create', 201)
     const body = (await response.json()) as { id: string; matrixRowId: string }
     expect(body.id).toMatch(uuidV7Pattern)
-    expect(body.matrixRowId).toBe(input.matrixRowId)
+    expect(body.matrixRowId).toMatch(uuidV7Pattern)
     return body
+}
+
+export const setPrimaryMaterialForCell = async (
+    api: InterpretationNetworkApi,
+    applicationId: string,
+    runtimeIds: InterpretationNetworkRuntimeIds,
+    input: { interpretationId: string; cellId: string; materialId: string; expectedCellVersion: number }
+): Promise<void> => {
+    const widgetContext = runtimeIds
+    const response = await sendWithCsrf(
+        api,
+        'PUT',
+        aggregateUrl(applicationId, '/materials/primary', runtimeIds.workspaceId, widgetContext),
+        input
+    )
+    await assertApiOk(response, 'set Primary Material')
 }
 
 export const expectSingleSystemMatrix = async (page: Page): Promise<void> => {
     const pane = page.getByTestId('interpretation-network-structure-pane')
+    const matrixWorkspace = page.getByTestId('interpretation-network-matrix-workspace')
     await expect(page.getByTestId('interpretation-network-workspace')).toBeVisible({ timeout: 30_000 })
-    await expect(page.getByTestId('interpretation-network-matrix-workspace')).toBeVisible({ timeout: 30_000 })
-    await expect(pane.getByRole('tab', { name: 'Matrix' })).toBeVisible()
-    await expect(pane.getByRole('tab', { name: 'Templates' })).toBeVisible()
+    await expect(matrixWorkspace).toBeVisible({ timeout: 30_000 })
+    const workspaceTabs = matrixWorkspace.getByRole('tablist', { name: 'Workspace sections' })
+    await expect(workspaceTabs.getByRole('tab', { name: 'Matrix', exact: true })).toBeVisible()
+    await expect(workspaceTabs.getByRole('tab', { name: 'Favorites', exact: true })).toBeVisible()
+    await expect(workspaceTabs.getByRole('tab', { name: 'Templates', exact: true })).toBeVisible()
+    await expect(workspaceTabs.getByRole('tab')).toHaveCount(3)
+    await expect(pane.getByRole('tablist', { name: 'Structure list sections' })).toHaveCount(0)
     await expect(pane.getByRole('heading', { name: 'Structures' })).toHaveCount(0)
     await expect(page.getByTestId('interpretation-network-structure-header')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Structures' })).toHaveCount(0)
@@ -540,11 +626,12 @@ export const attachViewportEvidence = async (
     page: Page,
     testInfo: TestInfo,
     name: string,
-    viewport: { width: number; height: number }
+    viewport: { width: number; height: number },
+    options: { fullPage?: boolean } = {}
 ): Promise<void> => {
     await page.setViewportSize(viewport)
     await expectNoPageHorizontalOverflow(page, `${name} ${viewport.width}x${viewport.height}`)
-    const screenshot = await page.screenshot({ fullPage: true, animations: 'disabled' })
+    const screenshot = await page.screenshot({ fullPage: options.fullPage ?? true, animations: 'disabled' })
     expect(screenshot.byteLength, `${name} screenshot must not be empty`).toBeGreaterThan(5_000)
     await testInfo.attach(`${name}-${viewport.width}x${viewport.height}`, { body: screenshot, contentType: 'image/png' })
 }

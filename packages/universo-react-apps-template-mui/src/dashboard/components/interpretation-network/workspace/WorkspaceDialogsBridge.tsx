@@ -4,7 +4,9 @@ import { createLocalizedContent } from '@universo-react/utils'
 import type { FieldConfig } from '../../../../components/dialogs/FormDialog'
 import type { InterpretationNetworkTemplateSummary } from '../../../../api/interpretationNetwork'
 import type { MatrixAxisOptions, MatrixCell } from '../model'
+import type { TemplateSaveScopeKind } from './templateSaveScope'
 import type { MatrixCellPlacement } from '../matrixCellData'
+import type { InterpretationNetworkCellStylePolicy } from '@universo-react/types'
 import type { StructureSummary } from './StructurePane'
 import { WorkspaceDialogs } from './WorkspaceDialogs'
 import type { MatrixAxisDialogKind } from './workspaceState'
@@ -53,6 +55,10 @@ export interface WorkspaceDialogsBridgeProps {
         mode: TemplateDialogMode | null
         error: string | null
         initialData?: Record<string, unknown>
+        saveScopeKind?: TemplateSaveScopeKind
+        saveBranchPath?: string[]
+        canSaveSelectedBranch?: boolean
+        onSaveScopeKindChange?: (scope: TemplateSaveScopeKind) => void
         deleteId?: string | null
         deleteTemplate?: InterpretationNetworkTemplateSummary | undefined
     }
@@ -62,6 +68,7 @@ export interface WorkspaceDialogsBridgeProps {
         axisDialogKind: MatrixAxisDialogKind | null
         fields: FieldConfig[]
         styleFields: FieldConfig[]
+        cellStylePolicy?: InterpretationNetworkCellStylePolicy
         initialData: Record<string, unknown>
         axisOptions: MatrixAxisOptions
         placement: MatrixCellPlacement | null
@@ -176,6 +183,10 @@ export function WorkspaceDialogsBridge({
             }}
             templateDialogMode={templateState.mode}
             templateInitialData={templateState.initialData}
+            templateSaveScopeKind={templateState.saveScopeKind}
+            templateSaveBranchPath={templateState.saveBranchPath}
+            canSaveSelectedBranch={templateState.canSaveSelectedBranch}
+            onTemplateSaveScopeKindChange={templateState.onSaveScopeKindChange}
             templateDeleteId={templateState.deleteId}
             deleteTemplate={templateState.deleteTemplate}
             isSavingTemplate={saveTemplateMutation.isPending}
@@ -220,6 +231,7 @@ export function WorkspaceDialogsBridge({
             axisDialogKind={cell.axisDialogKind}
             cellMetadataFields={cell.fields}
             styleFields={cell.styleFields}
+            cellStylePolicy={cell.cellStylePolicy}
             cellDialogInitialData={cell.initialData}
             matrixAxisOptions={cell.axisOptions}
             cellDialogPlacement={cell.placement}

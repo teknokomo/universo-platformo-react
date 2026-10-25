@@ -5,6 +5,8 @@ import {
     sanitizeApplicationLearningContentSettings,
     sanitizeApplicationRolePolicySettingsForSupportedScopes
 } from './lmsPlatform'
+import { layoutInstanceKeySchema } from './applicationLayouts'
+import { isRegisteredWorkspaceWidgetSettingKey } from './workspaceWidgetSettingRegistry'
 
 export const SETTINGS_LAYER_ORDER = ['metahub', 'application', 'workspace'] as const
 export type SettingsLayer = (typeof SETTINGS_LAYER_ORDER)[number]
@@ -60,10 +62,24 @@ export const applicationWorkspaceOpenBehaviorSchema = z.enum(['last-used', 'defa
 export const dialogSizePresetSchema = z.enum(['small', 'medium', 'large']).default('medium')
 export const dialogCloseBehaviorSchema = z.enum(['strict-modal', 'backdrop-close']).default('strict-modal')
 
+export const workspaceSettingTargetSchema = z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('global') }).strict(),
+    z.object({ kind: z.literal('widget'), instanceKey: layoutInstanceKeySchema }).strict()
+])
+export type WorkspaceSettingTarget = z.infer<typeof workspaceSettingTargetSchema>
+
+export const workspaceSettingAddressSchema = z
+    .object({
+        key: z.string().min(1).max(160),
+        target: workspaceSettingTargetSchema
+    })
+    .strict()
+export type WorkspaceSettingAddress = z.infer<typeof workspaceSettingAddressSchema>
+
 export const applicationWorkspaceOverridePolicySchema = z
     .object({
-        allowedKeys: z.array(z.string().min(1).max(160)).default([]),
-        lockedKeys: z.array(z.string().min(1).max(160)).default([])
+        allowedAddresses: z.array(workspaceSettingAddressSchema).default([]),
+        lockedAddresses: z.array(workspaceSettingAddressSchema).default([])
     })
     .strict()
     .default({})
@@ -90,6 +106,7 @@ export type UnifiedApplicationSettings = z.infer<typeof unifiedApplicationSettin
 export const workspaceSettingOverrideSchema = z
     .object({
         key: z.string().min(1).max(160),
+        target: workspaceSettingTargetSchema.default({ kind: 'global' }),
         value: z.unknown(),
         expectedVersion: z.number().int().positive().optional()
     })
@@ -99,6 +116,7 @@ export type WorkspaceSettingOverrideInput = z.infer<typeof workspaceSettingOverr
 export const workspaceSettingResetSchema = z
     .object({
         key: z.string().min(1).max(160),
+        target: workspaceSettingTargetSchema.default({ kind: 'global' }),
         expectedVersion: z.number().int().positive().optional()
     })
     .strict()
@@ -112,17 +130,30 @@ export const workspaceSettingBatchUpdateSchema = z
     })
     .strict()
     .superRefine((value, ctx) => {
-        const updatedKeys = new Set(value.settings.map((setting) => setting.key))
-        const resetKeys = [...value.resetKeys, ...value.resets.map((reset) => reset.key)]
+        const seen = new Set<string>()
+        const operations = [
+            ...value.settings.map((setting, index) => ({ setting, path: ['settings', index] as (string | number)[] })),
+            ...value.resets.map((reset, index) => ({ setting: reset, path: ['resets', index] as (string | number)[] })),
+            ...value.resetKeys.map((key, index) => ({
+                setting: { key, target: { kind: 'global' as const } },
+                path: ['resetKeys', index] as (string | number)[]
+            }))
+        ]
 
-        for (const key of resetKeys) {
-            if (updatedKeys.has(key)) {
+        for (const operation of operations) {
+            const identity = JSON.stringify([
+                operation.setting.key,
+                operation.setting.target.kind,
+                operation.setting.target.kind === 'widget' ? operation.setting.target.instanceKey : ''
+            ])
+            if (seen.has(identity)) {
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
-                    path: ['resetKeys'],
-                    message: `Setting "${key}" cannot be updated and reset in the same request`
+                    path: operation.path,
+                    message: 'A setting address can be changed or reset only once per request'
                 })
             }
+            seen.add(identity)
         }
     })
 export type WorkspaceSettingBatchUpdate = z.infer<typeof workspaceSettingBatchUpdateSchema>
@@ -147,6 +178,9 @@ const DEFAULT_WORKSPACE_OVERRIDE_ALLOWED_KEYS: WorkspaceOverridableSettingKey[] 
 ]
 
 export const getDefaultWorkspaceOverrideAllowedKeys = (): WorkspaceOverridableSettingKey[] => [...DEFAULT_WORKSPACE_OVERRIDE_ALLOWED_KEYS]
+
+export const getDefaultWorkspaceOverrideAllowedAddresses = (): WorkspaceSettingAddress[] =>
+    getDefaultWorkspaceOverrideAllowedKeys().map((key) => ({ key, target: { kind: 'global' } }))
 
 export const UNIFIED_SETTINGS_REGISTRY: readonly UnifiedSettingDefinition[] = [
     {
@@ -403,27 +437,76 @@ export const normalizeApplicationWorkspaceOverridePolicy = (
 ): ApplicationWorkspaceOverridePolicy => {
     const rawPolicy = isRecord(settings) ? settings.workspaceOverrides : undefined
     const parsed = applicationWorkspaceOverridePolicySchema.safeParse(rawPolicy)
-    const policy = parsed.success ? parsed.data : { allowedKeys: [], lockedKeys: [] }
+    const policy = parsed.success ? parsed.data : { allowedAddresses: [], lockedAddresses: [] }
     const knownWorkspaceKeys = new Set(listWorkspaceOverridableSettings().map((definition) => definition.key))
-    const hasExplicitAllowedKeys = isRecord(rawPolicy) && Object.prototype.hasOwnProperty.call(rawPolicy, 'allowedKeys')
-    const allowedKeys = (hasExplicitAllowedKeys ? policy.allowedKeys : getDefaultWorkspaceOverrideAllowedKeys()).filter((key) =>
-        knownWorkspaceKeys.has(key)
+    const hasExplicitAllowedAddresses = isRecord(rawPolicy) && Object.prototype.hasOwnProperty.call(rawPolicy, 'allowedAddresses')
+    const allowedAddresses = parsed.success
+        ? hasExplicitAllowedAddresses
+            ? policy.allowedAddresses
+            : getDefaultWorkspaceOverrideAllowedAddresses()
+        : []
+    const normalizeAddresses = (addresses: WorkspaceSettingAddress[]): WorkspaceSettingAddress[] => {
+        const seen = new Set<string>()
+        return addresses.filter((address) => {
+            if (address.target.kind === 'global' && !knownWorkspaceKeys.has(address.key)) return false
+            if (address.target.kind === 'widget' && !isRegisteredWorkspaceWidgetSettingKey(address.key)) return false
+            const identity = JSON.stringify([
+                address.key,
+                address.target.kind,
+                address.target.kind === 'widget' ? address.target.instanceKey : ''
+            ])
+            if (seen.has(identity)) return false
+            seen.add(identity)
+            return true
+        })
+    }
+    const lockedAddresses = normalizeAddresses(policy.lockedAddresses)
+    const lockedIdentities = new Set(
+        lockedAddresses.map((address) =>
+            JSON.stringify([address.key, address.target.kind, address.target.kind === 'widget' ? address.target.instanceKey : ''])
+        )
     )
-    const lockedKeys = policy.lockedKeys.filter((key) => knownWorkspaceKeys.has(key))
     return {
-        allowedKeys: Array.from(new Set(allowedKeys.filter((key) => !lockedKeys.includes(key)))),
-        lockedKeys: Array.from(new Set(lockedKeys))
+        allowedAddresses: normalizeAddresses(allowedAddresses).filter(
+            (address) =>
+                !lockedIdentities.has(
+                    JSON.stringify([address.key, address.target.kind, address.target.kind === 'widget' ? address.target.instanceKey : ''])
+                )
+        ),
+        lockedAddresses
     }
 }
 
-export const isWorkspaceSettingAllowed = (settings: Record<string, unknown> | null | undefined, key: string): boolean => {
-    const definition = getUnifiedSettingDefinition(key)
-    if (!definition || definition.workspaceMutability !== 'workspace-allowed') {
+export const isWorkspaceSettingAddressAllowed = (
+    settings: Record<string, unknown> | null | undefined,
+    inputAddress: WorkspaceSettingAddress
+): boolean => {
+    const parsedAddress = workspaceSettingAddressSchema.safeParse(inputAddress)
+    if (!parsedAddress.success) return false
+    if (parsedAddress.data.target.kind === 'global') {
+        const definition = getUnifiedSettingDefinition(parsedAddress.data.key)
+        if (!definition || definition.workspaceMutability !== 'workspace-allowed') return false
+    } else if (!isRegisteredWorkspaceWidgetSettingKey(parsedAddress.data.key)) {
         return false
     }
     const policy = normalizeApplicationWorkspaceOverridePolicy(settings)
-    return policy.allowedKeys.includes(key) && !policy.lockedKeys.includes(key)
+    const identity = JSON.stringify([
+        parsedAddress.data.key,
+        parsedAddress.data.target.kind,
+        parsedAddress.data.target.kind === 'widget' ? parsedAddress.data.target.instanceKey : ''
+    ])
+    return policy.allowedAddresses.some((address) => {
+        const addressIdentity = JSON.stringify([
+            address.key,
+            address.target.kind,
+            address.target.kind === 'widget' ? address.target.instanceKey : ''
+        ])
+        return addressIdentity === identity
+    })
 }
+
+export const isWorkspaceSettingAllowed = (settings: Record<string, unknown> | null | undefined, key: string): boolean =>
+    isWorkspaceSettingAddressAllowed(settings, { key, target: { kind: 'global' } })
 
 export const parseUnifiedSettingValue = (key: string, value: unknown): unknown => {
     const definition = getUnifiedSettingDefinition(key)

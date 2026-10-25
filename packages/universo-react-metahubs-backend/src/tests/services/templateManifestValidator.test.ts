@@ -12,6 +12,7 @@ import {
     oneCCompatibleCorePresets,
     oneCCompatiblePreviewPresets
 } from '../../domains/templates/data/one-c-compatible.entity-presets'
+import { builtinEntityTypePresets, builtinTemplates } from '../../domains/templates/data'
 import { enumerationEntityPreset } from '../../domains/templates/data/option-list.entity-preset'
 import { pageEntityPreset } from '../../domains/templates/data/page.entity-preset'
 import { ledgerEntityPreset } from '../../domains/templates/data/ledger.entity-preset'
@@ -24,6 +25,7 @@ import {
     parseApplicationLayoutWidgetConfig,
     workflowActionSchema
 } from '@universo-react/types'
+import { ZodError } from 'zod'
 import {
     validateEntityTypePresetManifest,
     validateTemplateManifest,
@@ -31,6 +33,16 @@ import {
 } from '../../domains/templates/services/TemplateManifestValidator'
 
 const cloneTemplate = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
+
+const expectStructureVersionIssue = (validate: () => unknown): void => {
+    try {
+        validate()
+        throw new Error('Expected validation to reject the unsupported structure version')
+    } catch (error) {
+        if (!(error instanceof ZodError)) throw error
+        expect(error.issues.some((issue) => issue.path.includes('minStructureVersion'))).toBe(true)
+    }
+}
 
 const readVlcContent = (value: unknown, locale: 'en' | 'ru'): string | undefined => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
@@ -53,6 +65,13 @@ describe('TemplateManifestValidator', () => {
 
     it('accepts the built-in lms template', () => {
         expect(() => validateTemplateManifest(cloneTemplate(lmsTemplate))).not.toThrow()
+    })
+
+    it.each(['0.0.1', '0.2.0', 'invalid'])('reports unsupported template structure version %s as a Zod issue', (version) => {
+        const manifest = cloneTemplate(interpretationNetworkTemplate)
+        manifest.minStructureVersion = version
+
+        expectStructureVersionIssue(() => validateTemplateManifest(manifest))
     })
 
     it('validates every built-in Dashboard template against the strict registry contracts', () => {
@@ -104,6 +123,13 @@ describe('TemplateManifestValidator', () => {
                 }
             }
         }
+    })
+
+    it('keeps every built-in template and entity preset at version 0.1.0', () => {
+        expect(builtinTemplates.every((manifest) => manifest.version === '0.1.0' && manifest.minStructureVersion === '0.1.0')).toBe(true)
+        expect(builtinEntityTypePresets.every((manifest) => manifest.version === '0.1.0' && manifest.minStructureVersion === '0.1.0')).toBe(
+            true
+        )
     })
 
     it('binds Basic Demo information, headings, metrics, charts, and table rows to Object records', () => {
@@ -557,6 +583,13 @@ describe('TemplateManifestValidator', () => {
 
     it('accepts the built-in object entity preset', () => {
         expect(() => validateEntityTypePresetManifest(cloneTemplate(objectEntityPreset))).not.toThrow()
+    })
+
+    it.each(['0.0.1', '0.2.0', 'invalid'])('reports unsupported preset structure version %s as a Zod issue', (version) => {
+        const manifest = cloneTemplate(objectEntityPreset)
+        manifest.minStructureVersion = version
+
+        expectStructureVersionIssue(() => validateEntityTypePresetManifest(manifest))
     })
 
     it('preserves record behavior component flags in the built-in object entity preset', () => {

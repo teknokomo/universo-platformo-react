@@ -22,6 +22,15 @@ export async function acquireAdvisoryXactLock(executor: Pick<DbExecutor, 'query'
 }
 
 /**
+ * Acquire a transaction-scoped shared advisory lock in the same key space as
+ * `acquireAdvisoryXactLock`. Shared holders can proceed concurrently while an
+ * exclusive holder coordinates a configuration or lifecycle transition.
+ */
+export async function acquireAdvisoryXactSharedLock(executor: Pick<DbExecutor, 'query'>, lockKey: string): Promise<void> {
+    await executor.query('SELECT pg_advisory_xact_lock_shared(hashtextextended($1::text, 0))', [lockKey])
+}
+
+/**
  * Acquire a transaction-scoped two-key advisory lock on the current connection.
  * PostgreSQL exposes a two-key variant only for 32-bit keys, so the pair is
  * combined into one unambiguous text key and hashed into the shared

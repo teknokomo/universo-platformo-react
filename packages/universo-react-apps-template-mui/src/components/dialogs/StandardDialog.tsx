@@ -4,6 +4,7 @@ import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
 import type { TransitionProps } from '@mui/material/transitions'
+import type { SxProps, Theme } from '@mui/material/styles'
 
 export interface StandardDialogProps {
     open: boolean
@@ -17,6 +18,9 @@ export interface StandardDialogProps {
     onTransitionEntered?: TransitionProps['onEntered']
     /** Optional WAI-ARIA describedby id for danger framing or auxiliary copy. */
     ariaDescribedBy?: string
+    paperSx?: SxProps<Theme>
+    contentSx?: SxProps<Theme>
+    actionsSx?: SxProps<Theme>
 }
 
 /**
@@ -34,7 +38,10 @@ export function StandardDialog({
     fullWidth = true,
     isBusy = false,
     onTransitionEntered,
-    ariaDescribedBy
+    ariaDescribedBy,
+    paperSx,
+    contentSx,
+    actionsSx
 }: StandardDialogProps) {
     const titleId = `runtime-standard-dialog-${useId().replace(/:/g, '')}`
 
@@ -46,11 +53,16 @@ export function StandardDialog({
             {...(ariaDescribedBy ? { 'aria-describedby': ariaDescribedBy } : {})}
             maxWidth={maxWidth}
             fullWidth={fullWidth}
-            slotProps={onTransitionEntered ? { transition: { onEntered: onTransitionEntered } } : undefined}
+            slotProps={{
+                ...(onTransitionEntered ? { transition: { onEntered: onTransitionEntered } } : {}),
+                ...(paperSx ? { paper: { sx: paperSx } } : {})
+            }}
         >
             <DialogTitle id={titleId}>{title}</DialogTitle>
-            <DialogContent>{children}</DialogContent>
-            {actions ? <DialogActions sx={{ p: 3, pt: 2, gap: 1, justifyContent: 'flex-end' }}>{actions}</DialogActions> : null}
+            <DialogContent sx={contentSx}>{children}</DialogContent>
+            {actions ? (
+                <DialogActions sx={actionsSx ?? { p: 3, pt: 2, gap: 1, justifyContent: 'flex-end' }}>{actions}</DialogActions>
+            ) : null}
         </Dialog>
     )
 }

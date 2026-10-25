@@ -324,6 +324,16 @@ pnpm run test:e2e:interpretation-network-fixture-gate:local-supabase
 
 The local gate starts the minimal E2E Supabase stack, builds the E2E app with the generated local profile, writes the new snapshot to `tools/testing/e2e/.artifacts/generated-metahubs-interpretation-network-app-snapshot.json`, validates the strict fixture contract, and compares the generated artifact with the committed fixture after normalizing volatile UUID v7 values, timestamps, and snapshot hashes.
 
+Run the canonical full Interpretation Network verification against the dedicated minimal local Supabase profile with:
+
+```bash
+pnpm run test:e2e:interpretation-network:verify:local-supabase
+```
+
+This gate starts and validates the minimal E2E Supabase stack, builds the app, generates and checks the Interpretation Network fixture, runs the focused runtime and visual flows plus database integration and English/Russian locale acceptance, regenerates the bilingual GitBook screenshots, and runs the documentation, link, asset, and screenshot-drift checks. The gate stops local Supabase when it finishes.
+
+The full gate also runs the `runtime-ux-oracles.spec.ts` contract in the `en-light` project. Each Playwright batch is preserved under `tools/testing/e2e/.artifacts/interpretation-network-verification/<run-id>/<batch>/`; the root `manifest.json` records commands, projects, timestamps, test titles/statuses, report paths, screenshot paths, and the final gate status.
+
 Regenerate the complete six-snapshot set through its canonical producers, then run each snapshot's import/runtime proof on the fresh minimal database:
 
 ```bash

@@ -63,7 +63,7 @@ metahub snapshot without going through publication versions.
     "versionEnvelope": {
       "structureVersion": "0.1.0",
       "templateVersion": null,
-      "snapshotFormatVersion": 4
+      "snapshotFormatVersion": 1
     },
     "entities": { ... },
     "sharedComponents": [ ... ],

@@ -24,19 +24,24 @@ This page is for the owner who prepares the first usable application and for the
 
 ![Imported metahub](../.gitbook/assets/interpretation-network/getting-started-step-1.png)
 
-2. Open the linked application and wait for the workspace switcher and navigation to load.
+2. Open the linked application. Sign in to use the workspace switcher and authenticated navigation; an anonymous visitor to a public application receives its read-only public view.
 
 ![Published application](../.gitbook/assets/interpretation-network/getting-started-step-2.png)
 
+3. Open the public application in a signed-out browser to review the configured entry Workspace without editing controls.
+
+![Anonymous read-only public view](../.gitbook/assets/interpretation-network/getting-started-step-3.png)
+
 ## Expected Result
 
-The published application opens with the Start page and the Structures navigation item. The application is workspace-aware, so users work in the active workspace selected in the application header.
+In the authenticated runtime, application members can open **Structures** and select an authorized Workspace from the workspace switcher. The anonymous public view does not show a workspace switcher: the server selects the explicitly configured public-entry Workspace, or the only active shared Workspace. When neither is available unambiguously, the public application still opens and displays a localized no-workspaces state without content mutations.
 
 ## What To Check
 
 -   The imported metahub title matches the Interpretation Network template.
 -   The linked application opens without a separate development server.
 -   Users see only normal product navigation and localized labels.
+-   Public visibility provides read-only access; editing, templates, Favorites, and Workspace selection require the authenticated runtime.
 
 ## Related Pages
 

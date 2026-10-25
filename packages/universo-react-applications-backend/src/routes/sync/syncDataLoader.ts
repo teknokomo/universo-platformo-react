@@ -17,6 +17,7 @@ import stableStringify from 'json-stable-stringify'
 import { quoteQualifiedIdentifier } from '@universo-react/migrations-core'
 import {
     ComponentDefinitionDataType,
+    CURRENT_METAHUB_STRUCTURE_VERSION_SEMVER,
     CURRENT_METAHUB_SNAPSHOT_FORMAT_VERSION,
     decodeLayoutConfigEnvelope,
     encodeLayoutWidgetConfigEnvelope,
@@ -33,7 +34,6 @@ import {
     type ApplicationReleaseBundle
 } from '../../services/applicationReleaseBundle'
 import type { PublishedApplicationSnapshot, SnapshotEnumerationValueDefinition } from '../../services/applicationSyncContracts'
-import { TARGET_APP_STRUCTURE_VERSION } from '../../constants'
 import {
     type SyncableApplicationRecord,
     type RuntimeApplicationObjectRow,
@@ -55,7 +55,11 @@ import {
     extractSetConstantRefConfig,
     parseApplicationTemplateKey
 } from './syncHelpers'
-import { resolveRuntimeApplicationReleaseBaseSnapshot, resolveRuntimeApplicationReleaseLineage } from './syncReleaseBundleSources'
+import {
+    assertCurrentApplicationStructureVersion,
+    resolveRuntimeApplicationReleaseBaseSnapshot,
+    resolveRuntimeApplicationReleaseLineage
+} from './syncReleaseBundleSources'
 import {
     classifyPlacementLineage,
     decodePlacementWidgetConfigEnvelope,
@@ -839,6 +843,8 @@ export async function createExistingApplicationReleaseBundle(options: {
         throw new Error('Application schema is not initialized yet. Sync or apply a release bundle first.')
     }
 
+    assertCurrentApplicationStructureVersion(application)
+
     const entities = await loadApplicationRuntimeEntities(exec, application.schemaName)
     if (entities.length === 0) {
         throw new Error('Application runtime metadata is empty. Sync the application before exporting a release bundle.')
@@ -852,11 +858,7 @@ export async function createExistingApplicationReleaseBundle(options: {
     const installedReleaseVersion = extractInstalledReleaseVersion(application.installedReleaseMetadata)
     const snapshot: PublishedApplicationSnapshot = {
         versionEnvelope: {
-            structureVersion: String(
-                typeof application.appStructureVersion === 'number' && Number.isFinite(application.appStructureVersion)
-                    ? application.appStructureVersion
-                    : TARGET_APP_STRUCTURE_VERSION
-            ),
+            structureVersion: CURRENT_METAHUB_STRUCTURE_VERSION_SEMVER,
             templateVersion: installedReleaseVersion,
             snapshotFormatVersion: CURRENT_METAHUB_SNAPSHOT_FORMAT_VERSION
         },

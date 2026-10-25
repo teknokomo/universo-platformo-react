@@ -723,6 +723,9 @@ export class SnapshotSerializer {
         }
     ): Promise<MetahubSnapshot> {
         const { runtimePolicy, packageMode = 'runtime', playCanvasMode = 'runtime', ...versionEnvelope } = options ?? {}
+        const structureVersion = Object.prototype.hasOwnProperty.call(versionEnvelope, 'structureVersion')
+            ? structureVersionToSemver(versionEnvelope.structureVersion)
+            : structureVersionToSemver(CURRENT_STRUCTURE_VERSION)
         const { typeByKind, entityTypeDefinitions } = await this.loadSnapshotTypeDefinitions(metahubId)
         const objectKinds = [...typeByKind.keys()].filter((kind) => {
             const definition = typeByKind.get(kind)
@@ -1019,7 +1022,7 @@ export class SnapshotSerializer {
             generatedAt: new Date().toISOString(),
             version: 1,
             versionEnvelope: {
-                structureVersion: versionEnvelope?.structureVersion ?? structureVersionToSemver(CURRENT_STRUCTURE_VERSION),
+                structureVersion,
                 templateVersion: versionEnvelope?.templateVersion ?? null,
                 snapshotFormatVersion: CURRENT_METAHUB_SNAPSHOT_FORMAT_VERSION
             },
