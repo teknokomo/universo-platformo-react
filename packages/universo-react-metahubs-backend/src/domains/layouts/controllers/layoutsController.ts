@@ -60,7 +60,7 @@ const copyLayoutSchema = z
         descriptionPrimaryLocale: z.string().optional(),
         copyWidgets: z.boolean().optional(),
         deactivateAllWidgets: z.boolean().optional(),
-        entityBindingCopyMode: z.enum(['reuse', 'omit']).optional(),
+        entityBindingCopyMode: z.enum(['reuse', 'omit', 'clone']).optional(),
         expectedVersion: z.number().int().positive().optional()
     })
     .strict()
@@ -207,6 +207,7 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
             const schemaName = await schemaService.ensureSchema(metahubId, userId)
             const created = await copyMetahubLayout({
                 executor: exec,
+                metahubId,
                 schemaName,
                 layoutId,
                 userId,

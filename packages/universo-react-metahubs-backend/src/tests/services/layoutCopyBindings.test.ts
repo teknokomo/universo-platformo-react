@@ -1,4 +1,5 @@
 import { encodeWidgetConfigEnvelope, getLayoutWidgetDefinition, validateWidgetBindings } from '@universo-react/types'
+import { marketingLayoutZoneWidgets } from '../../domains/templates/data/marketing-page.layouts'
 import { resolveLayoutCopyBindings } from '../../domains/layouts/services/layoutCopyBindings'
 
 const navigationDefinition = getLayoutWidgetDefinition('marketing.navigation')
@@ -89,6 +90,34 @@ describe('resolveLayoutCopyBindings', () => {
         expect(result.boundWidgets).toEqual(new Set([preparedWidget]))
     })
 
+    it('keeps registered clone-record placements when copy will rewrite their binding targets', () => {
+        const hero = Object.values(marketingLayoutZoneWidgets)
+            .flat()
+            .find(({ widgetKey }) => widgetKey === 'marketing.hero')
+        if (!hero?.bindings) throw new Error('The Marketing Page template must seed a bound Hero widget')
+        const heroConfig = encodeWidgetConfigEnvelope(
+            { rendererConfig: hero.rendererConfig, neutral: { bindings: hero.bindings } },
+            { templateKey: 'marketing-page', widgetKey: hero.widgetKey, zone: hero.zone, requireBindings: true }
+        )
+        const preparedWidget = {
+            widget: { widget_key: hero.widgetKey, zone: hero.zone },
+            config: heroConfig,
+            isActive: true
+        }
+
+        const result = resolveLayoutCopyBindings({
+            templateKey: 'marketing-page',
+            preparedWidgets: [preparedWidget],
+            baseWidgets: [],
+            sourceOverrides: [],
+            copyOverrides: true,
+            copyMode: 'clone'
+        })
+
+        expect(result.preparedWidgets).toEqual([preparedWidget])
+        expect(result.boundWidgets).toEqual(new Set([preparedWidget]))
+    })
+
     it('rejects reuse of direct bound widget rows owned by a Marketing overlay', () => {
         const preparedWidget = {
             widget: { widget_key: 'marketing.navigation', zone: 'marketing-header' },
@@ -119,6 +148,26 @@ describe('resolveLayoutCopyBindings', () => {
                 isOverlayLayout: true
             }).preparedWidgets
         ).toEqual([])
+    })
+
+    it('does not let clone mode reuse shared bindings owned by a Marketing overlay', () => {
+        const preparedWidget = {
+            widget: { widget_key: 'marketing.navigation', zone: 'marketing-header' },
+            config: navigationConfig,
+            isActive: true
+        }
+
+        expect(() =>
+            resolveLayoutCopyBindings({
+                templateKey: 'marketing-page',
+                preparedWidgets: [preparedWidget],
+                baseWidgets: [],
+                sourceOverrides: [],
+                copyOverrides: true,
+                copyMode: 'clone',
+                isOverlayLayout: true
+            })
+        ).toThrow('Overlay copies cannot own Entity bindings for source-managed placements')
     })
 
     it('does not classify a deleted inherited override as a binding to reuse or omit', () => {

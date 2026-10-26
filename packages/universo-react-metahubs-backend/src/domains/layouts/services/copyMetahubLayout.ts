@@ -1,5 +1,5 @@
 import { qSchemaTable } from '@universo-react/database'
-import { queryMany, queryOne, withTransactionSavepoint, type SqlQueryable } from '@universo-react/utils/database'
+import { queryMany, queryOne, withTransactionSavepoint } from '@universo-react/utils/database'
 import { validation } from '@universo-react/utils'
 import { MetahubDomainError } from '../../shared/domainErrors'
 import { acquireMetahubLayoutGraphLock } from '../layoutGraphLocks'
@@ -15,11 +15,12 @@ import { insertCopiedLayout } from './copyMetahubLayoutPersistence'
 import { insertCopiedWidgets, prepareWidgetCopyGraph } from './copyMetahubLayoutWidgetOperations'
 import { insertCopiedOverrides, prepareOverrideCopies } from './copyMetahubLayoutOverrideOperations'
 import type { CopyMetahubLayoutParams, SourceBaseWidgetRow, SourceLayoutWidgetOverrideRow, SourceWidgetRow } from './copyMetahubLayoutTypes'
+import { cloneRecordWidgetBindingsInSubtree } from './cloneRecordWidgetSubtree'
 
 const { normalizeLayoutCopyOptions } = validation
 
 /** Copy one layout and its owned widget graph atomically within a metahub schema. */
-export const copyMetahubLayout = async ({ executor, schemaName, layoutId, userId, input }: CopyMetahubLayoutParams) => {
+export const copyMetahubLayout = async ({ executor, metahubId, schemaName, layoutId, userId, input }: CopyMetahubLayoutParams) => {
     const layoutsQt = qSchemaTable(schemaName, '_mhb_layouts')
     const widgetsQt = qSchemaTable(schemaName, '_mhb_widgets')
     const overridesQt = qSchemaTable(schemaName, '_mhb_layout_widget_overrides')
@@ -29,7 +30,7 @@ export const copyMetahubLayout = async ({ executor, schemaName, layoutId, userId
     })
     const shouldDeactivateWidgets = copyOptions.copyWidgets && (input.deactivateAllWidgets ?? copyOptions.deactivateAllWidgets)
 
-    return withTransactionSavepoint(executor, async (trx: SqlQueryable) => {
+    return withTransactionSavepoint(executor, async (trx) => {
         await acquireMetahubLayoutGraphLock(trx, schemaName)
         const sourceLayout = await queryOne<Record<string, unknown>>(
             trx,
@@ -90,6 +91,26 @@ export const copyMetahubLayout = async ({ executor, schemaName, layoutId, userId
               )
             : []
 
+        const copiedRecordConfigs =
+            copyOptions.copyWidgets && input.entityBindingCopyMode === 'clone'
+                ? await cloneRecordWidgetBindingsInSubtree({
+                      executor: trx,
+                      metahubId,
+                      schemaName,
+                      templateKey: ownership.templateKey,
+                      placements: sourceWidgets.map((widget) => ({
+                          id: widget.id,
+                          widgetKey: widget.widget_key ?? '',
+                          zone: widget.zone ?? '',
+                          config:
+                              widget.config && typeof widget.config === 'object' && !Array.isArray(widget.config)
+                                  ? (widget.config as Record<string, unknown>)
+                                  : {}
+                      })),
+                      userId
+                  })
+                : new Map<string, Record<string, unknown>>()
+
         const widgetGraph = prepareWidgetCopyGraph({
             templateKey: ownership.templateKey,
             sourceWidgets,
@@ -98,7 +119,8 @@ export const copyMetahubLayout = async ({ executor, schemaName, layoutId, userId
             copyWidgets: copyOptions.copyWidgets,
             shouldDeactivateWidgets,
             input,
-            isOverlayLayout: ownership.isOverlayLayout
+            isOverlayLayout: ownership.isOverlayLayout,
+            copiedRecordConfigs
         })
         const preparedLayout = prepareLayoutCopy(sourceLayout, input, ownership, copyOptions.copyWidgets)
         const overrides = ownership.isOverlayLayout

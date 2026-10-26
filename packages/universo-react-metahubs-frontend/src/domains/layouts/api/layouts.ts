@@ -121,7 +121,7 @@ export type LayoutCopyInput = {
     descriptionPrimaryLocale?: MetahubLayoutLocalizedPayload['descriptionPrimaryLocale']
     copyWidgets?: LayoutCopyOptions['copyWidgets']
     deactivateAllWidgets?: LayoutCopyOptions['deactivateAllWidgets']
-    entityBindingCopyMode?: 'reuse' | 'omit'
+    entityBindingCopyMode?: 'reuse' | 'omit' | 'clone'
 }
 
 export const copyLayout = (metahubId: string, layoutId: string, data: LayoutCopyInput) =>

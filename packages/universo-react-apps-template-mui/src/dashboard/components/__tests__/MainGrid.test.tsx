@@ -83,6 +83,23 @@ describe('Dashboard MainGrid placement composition', () => {
         expect(screen.queryByRole('status')).not.toBeInTheDocument()
     })
 
+    it('replaces center dashboard widgets when host content is the current page', () => {
+        render(
+            <DashboardDetailsProvider
+                value={{
+                    title: 'Edit element',
+                    content: <div>Page form</div>,
+                    contentMode: 'page'
+                }}
+            >
+                <MainGrid placements={[root]} />
+            </DashboardDetailsProvider>
+        )
+
+        expect(screen.getByTestId('dashboard-host-content')).toHaveTextContent('Page form')
+        expect(screen.queryByTestId('root-overview-columns')).not.toBeInTheDocument()
+    })
+
     it('renders structured Page content without replacing persisted dashboard placements', () => {
         render(
             <DashboardDetailsProvider

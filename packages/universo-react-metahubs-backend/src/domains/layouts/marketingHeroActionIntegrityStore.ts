@@ -28,6 +28,7 @@ type DbLayout = { id: string; scope_entity_id: string | null; base_layout_id: st
 type DbWidget = {
     id: string
     layout_id: string
+    instance_key?: string | null
     widget_key: unknown
     zone: unknown
     config: unknown
@@ -46,6 +47,7 @@ type DbOverride = {
 type BindingTarget = WidgetEntityBindingEnvelope['slots'][number]['targets'][number]
 type EffectiveWidget = {
     id: string
+    instanceKey?: string
     widgetKey: string
     zone: string
     sortOrder: number
@@ -75,6 +77,7 @@ const decodeWidget = (row: DbWidget): EffectiveWidget => {
     })
     return {
         id: String(row.id),
+        ...(typeof row.instance_key === 'string' ? { instanceKey: row.instance_key } : {}),
         widgetKey,
         zone,
         sortOrder: row.sort_order,
@@ -120,7 +123,7 @@ const getEffectiveLayouts = async (
     ]
     const widgetRows = await queryMany<DbWidget>(
         db,
-        `SELECT id, layout_id, widget_key, zone, config, sort_order, is_active
+        `SELECT id, layout_id, instance_key, widget_key, zone, config, sort_order, is_active
            FROM ${qSchemaTable(schemaName, '_mhb_widgets')}
           WHERE layout_id = ANY($1::uuid[]) AND ${ACTIVE}
           ORDER BY layout_id ASC, zone ASC, sort_order ASC, _upl_created_at ASC`,
@@ -256,7 +259,12 @@ const getMarketingHeroSemanticKeyDefinition = () => {
 }
 
 const getSectionDescriptors = (widgets: readonly EffectiveWidget[]) =>
-    widgets.map((widget) => ({ widgetKey: widget.widgetKey, config: widget.config, isActive: widget.isActive }))
+    widgets.map((widget) => ({
+        widgetKey: widget.widgetKey,
+        instanceKey: widget.instanceKey,
+        config: widget.config,
+        isActive: widget.isActive
+    }))
 
 const loadBoundHeroContent = async (
     db: SqlQueryable,

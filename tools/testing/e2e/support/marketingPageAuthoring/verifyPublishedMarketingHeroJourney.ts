@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext, type Page, type TestInfo } from '@playwright/test'
+import { expect, type APIRequestContext, type Browser, type Page, type TestInfo } from '@playwright/test'
 import { applyBrowserPreferences } from '../browser/preferences'
 import { getMarketingPageRuntime } from '../backend/api-session.mjs'
 import { installMarketingPageLocalMedia } from '../marketingPageMedia'
@@ -15,6 +15,7 @@ export type MarketingHeroCopy = {
 }
 
 export async function verifyPublishedMarketingHeroJourney(options: {
+    browser: Browser
     api: APIRequestContext
     page: Page
     testInfo: TestInfo
@@ -29,6 +30,7 @@ export async function verifyPublishedMarketingHeroJourney(options: {
 }): Promise<void> {
     const {
         api,
+        browser,
         page,
         testInfo,
         browserIssues,
@@ -136,6 +138,7 @@ export async function verifyPublishedMarketingHeroJourney(options: {
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }))
 
     await verifyPublishedMarketingHeroRuntime({
+        browser,
         page,
         testInfo,
         browserIssues,

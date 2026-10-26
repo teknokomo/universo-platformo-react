@@ -2,7 +2,7 @@ import type {} from '@mui/material/themeCssVarsAugmentation'
 import { alpha } from '@mui/material/styles'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Children, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { type DashboardSideMenuMode, type DashboardLayoutConfig } from '@universo-react/types'
 import AppNavbar from './components/AppNavbar'
 import Header from './components/Header'
@@ -139,6 +139,8 @@ export default function Dashboard(props: DashboardProps) {
     const canToggleOverlaySideMenuMode = canOpenOverlaySideMenu && dockedSideMenuModes.length > 0
     const headerLeadingWidgets = showHeader ? activeTopWidgets.filter((widget) => HEADER_LEADING_WIDGET_KEYS.has(widget.widgetKey)) : []
     const headerActionWidgets = showHeader ? activeTopWidgets.filter((widget) => HEADER_ACTION_WIDGET_KEYS.has(widget.widgetKey)) : []
+    const hostActions = props.details?.runtimeAccessMode === 'public' ? undefined : props.details?.actions
+    const headerActions = Children.toArray([...headerActionWidgets.map((widget) => renderWidget(widget, { placements })), hostActions])
     const headerManagedWidgetKeys = new Set([...headerLeadingWidgets, ...headerActionWidgets].map((widget) => widget.instanceKey))
     const visibleTopWidgets = activeTopWidgets.filter(
         (widget) => !SHELL_TOP_WIDGET_KEYS.has(widget.widgetKey) && !headerManagedWidgetKeys.has(widget.instanceKey)
@@ -304,10 +306,10 @@ export default function Dashboard(props: DashboardProps) {
                                     {renderWidget(widget, { placements })}
                                 </Box>
                             ))}
-                            {showHeader && (
+                            {(showHeader || headerActions.length > 0) && (
                                 <Header
                                     leading={headerLeadingWidgets.map((widget) => renderWidget(widget, { placements }))}
-                                    actions={headerActionWidgets.map((widget) => renderWidget(widget, { placements }))}
+                                    actions={headerActions}
                                 />
                             )}
                             <MainGrid placements={placements} fullWidth={sideMenuMode === 'overlay' || sideMenuMode === 'compact'} />

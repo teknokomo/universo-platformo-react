@@ -1,11 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { Children, type ReactNode } from 'react'
 import Dashboard from '../Dashboard'
 import type { ZoneWidgetItem } from '../contracts'
 
 vi.mock('../components/Header', () => ({
-    default: () => <div data-testid='dashboard-header' />
+    default: ({ leading, actions }: { leading?: ReactNode; actions?: ReactNode }) => {
+        const hasLeading = Children.toArray(leading).length > 0
+        const actionItems = Children.toArray(actions)
+        if (!hasLeading && actionItems.length === 0) return null
+
+        return (
+            <div data-testid='dashboard-header'>
+                {leading}
+                {actionItems.length > 0 ? <div data-testid='runtime-header-actions'>{actionItems}</div> : null}
+            </div>
+        )
+    }
 }))
 
 vi.mock('../components/MainGrid', () => ({
@@ -97,6 +109,23 @@ const zoneWidgetsWithoutMenu = {
     center: []
 }
 
+const zoneWidgetsWithEmptyHeader = {
+    left: [],
+    top: [
+        {
+            instanceKey: 'header-widget',
+            widgetKey: 'header',
+            zone: 'top' as const,
+            sortOrder: 1,
+            config: {},
+            isActive: true,
+            parentInstanceKey: null,
+            slotKey: null
+        }
+    ],
+    center: []
+}
+
 const details = {
     title: 'Runtime'
 }
@@ -126,6 +155,38 @@ describe('Dashboard side menu modes', () => {
 
     afterEach(() => {
         delete (globalThis as typeof globalThis & { MUI_TEST_ENV?: boolean }).MUI_TEST_ENV
+    })
+
+    it('renders host toolbar actions even when the persisted layout has no header widget', () => {
+        render(
+            <Dashboard
+                details={{ ...details, actions: <button type='button'>Create</button> }}
+                zoneWidgets={{ left: [], top: [], center: [] }}
+            />
+        )
+
+        const actions = screen.getByTestId('runtime-header-actions')
+        expect(within(actions).getByRole('button', { name: 'Create', exact: true })).toBeInTheDocument()
+        expect(within(actions).getAllByRole('button', { name: 'Create', exact: true })).toHaveLength(1)
+    })
+
+    it('does not render host-provided toolbar actions in public runtime mode', () => {
+        render(
+            <Dashboard
+                details={{ ...details, runtimeAccessMode: 'public', actions: <button type='button'>Create</button> }}
+                zoneWidgets={{ left: [], top: [], center: [] }}
+            />
+        )
+
+        expect(screen.queryByRole('button', { name: 'Create', exact: true })).not.toBeInTheDocument()
+        expect(screen.queryByTestId('dashboard-header')).not.toBeInTheDocument()
+    })
+
+    it('does not render an empty header or actions region for a header placement without actions', () => {
+        render(<Dashboard details={details} zoneWidgets={zoneWidgetsWithEmptyHeader} />)
+
+        expect(screen.queryByTestId('dashboard-header')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('runtime-header-actions')).not.toBeInTheDocument()
     })
 
     it('renders compact mode with accessible icon-only menu items', () => {

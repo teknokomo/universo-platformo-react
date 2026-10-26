@@ -77,4 +77,68 @@ describe('runtime row read payload', () => {
             expect(metadata.runtimeConfig).not.toHaveProperty('reorderPersistenceField')
         }
     })
+
+    it('projects Entity mutation policy into effective runtime permissions', () => {
+        const permissions = {
+            manageMembers: true,
+            manageApplication: true,
+            createContent: true,
+            editContent: true,
+            deleteContent: true,
+            readReports: true
+        }
+        const activeObjectCollection = {
+            id: 'object-1',
+            kind: 'object',
+            codename: 'MarketingPageSiteSettings',
+            table_name: 'marketing_page_site_settings',
+            config: {
+                recordPolicy: {
+                    version: 1,
+                    denyDeleteWhenBound: true,
+                    immutableSemanticKeyWhenBound: true,
+                    runtimeMutation: 'deny'
+                }
+            }
+        } as RuntimeReadObjectCollection
+        const runtimeContext = {
+            applicationSettings: {},
+            workspacesEnabled: false,
+            currentWorkspaceId: null,
+            permissions,
+            workflowCapabilities: {}
+        } as RuntimeSchemaContext
+        const activeObjectCollectionRuntimeConfig = normalizeObjectCollectionRuntimeViewConfig(undefined) as RuntimeReadRuntimeConfig
+        const objectCollectionsForRuntime = buildRuntimeReadSections({
+            runtimeObjects: [activeObjectCollection],
+            activeObjectCollection,
+            activeObjectCollectionRuntimeConfig,
+            requestedLocale: 'en'
+        }).objectCollectionsForRuntime
+
+        const payload = buildRuntimeReadResponsePayload({
+            runtimeContext,
+            activeObjectCollection,
+            activeObjectCollectionKind: 'object',
+            isActivePage: false,
+            activeRecordBehavior: normalizeRuntimeRecordBehavior(undefined),
+            activeWorkflowActions: [],
+            activeObjectCollectionRuntimeConfig,
+            requestedLocale: 'en',
+            objectCollectionsForRuntime,
+            columns: [],
+            rows: [],
+            total: 0,
+            limit: 20,
+            offset: 0,
+            workspaceLimit: undefined
+        })
+
+        expect(payload.permissions).toEqual({
+            ...permissions,
+            createContent: false,
+            editContent: false,
+            deleteContent: false
+        })
+    })
 })

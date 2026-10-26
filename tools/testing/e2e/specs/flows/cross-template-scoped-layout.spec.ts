@@ -33,6 +33,7 @@ import {
     getApplication,
     getApplicationEffectiveLayout,
     getApplicationLayout,
+    getApplicationRuntime,
     listApplicationLayoutScopes,
     listApplicationLayouts,
     listApplicationLayoutWidgets,
@@ -1002,6 +1003,15 @@ test('@flow @combined @cross-template @scoped-layout covers Page/Object preceden
             marketingRequestKeys
         )
         // MarketingPageSiteSettings is a singleton Entity with runtime mutations denied.
+        const restrictedRuntime = await getApplicationRuntime(fixture.api, fixture.applicationId, {
+            objectCollectionId: objectTarget.entityTypeId,
+            locale: 'ru'
+        })
+        expect(restrictedRuntime.permissions).toMatchObject({
+            createContent: false,
+            editContent: false,
+            deleteContent: false
+        })
         await expect(page.getByTestId('application-runtime-create-row')).toHaveCount(0)
         await expect(page.getByRole('heading', { name: 'Записи', exact: true })).toBeVisible()
         await expect(page.getByRole('textbox', { name: 'Поиск записей', exact: true })).toBeVisible()

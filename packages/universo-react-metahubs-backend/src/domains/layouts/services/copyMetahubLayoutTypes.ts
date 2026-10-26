@@ -8,12 +8,13 @@ export type CopyMetahubLayoutInput = {
     descriptionPrimaryLocale?: string
     copyWidgets?: boolean
     deactivateAllWidgets?: boolean
-    entityBindingCopyMode?: 'reuse' | 'omit'
+    entityBindingCopyMode?: 'reuse' | 'omit' | 'clone'
     expectedVersion?: number
 }
 
 export type CopyMetahubLayoutParams = {
     executor: DbExecutor
+    metahubId: string
     schemaName: string
     layoutId: string
     userId: string | null

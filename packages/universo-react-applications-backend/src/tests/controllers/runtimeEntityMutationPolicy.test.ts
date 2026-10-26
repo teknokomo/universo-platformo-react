@@ -1,5 +1,6 @@
 import {
     assertRuntimeEntityMutationAllowed,
+    restrictRuntimeEntityMutationPermissions,
     resolveValidatedRuntimeEntityRecordPolicy,
     validateRuntimeEntityRecordPolicy
 } from '../../shared/entityMutationPolicy'
@@ -45,6 +46,25 @@ describe('runtime Entity mutation policy', () => {
     it('preserves a valid deny policy for trusted maintenance decisions without permitting runtime writes', () => {
         expect(resolveValidatedRuntimeEntityRecordPolicy({ recordPolicy: deniedPolicy })).toEqual(deniedPolicy)
         expect(() => assertRuntimeEntityMutationAllowed({ recordPolicy: deniedPolicy })).toThrow()
+    })
+
+    it('removes runtime write capabilities for denied and malformed Entity policies only', () => {
+        const permissions = {
+            manageMembers: true,
+            manageApplication: true,
+            createContent: true,
+            editContent: true,
+            deleteContent: true,
+            readReports: true
+        }
+        const writeDenied = { ...permissions, createContent: false, editContent: false, deleteContent: false }
+
+        expect(restrictRuntimeEntityMutationPermissions(permissions, { recordPolicy: deniedPolicy })).toEqual(writeDenied)
+        expect(
+            restrictRuntimeEntityMutationPermissions(permissions, { recordPolicy: { ...allowedPolicy, runtimeMutation: 'invalid' } })
+        ).toEqual(writeDenied)
+        expect(restrictRuntimeEntityMutationPermissions(permissions, { recordPolicy: allowedPolicy })).toBe(permissions)
+        expect(restrictRuntimeEntityMutationPermissions(permissions, null)).toBe(permissions)
     })
 
     it('allows dedicated server-owned workflows to use valid protected Entities while rejecting malformed policy metadata', () => {

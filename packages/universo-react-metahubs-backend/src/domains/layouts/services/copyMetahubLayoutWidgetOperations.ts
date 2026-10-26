@@ -81,7 +81,8 @@ export const prepareWidgetCopyGraph = ({
     copyWidgets,
     shouldDeactivateWidgets,
     input,
-    isOverlayLayout
+    isOverlayLayout,
+    copiedRecordConfigs = new Map()
 }: {
     templateKey: ApplicationTemplateKey
     sourceWidgets: SourceWidgetRow[]
@@ -91,6 +92,7 @@ export const prepareWidgetCopyGraph = ({
     shouldDeactivateWidgets: boolean
     input: CopyMetahubLayoutInput
     isOverlayLayout: boolean
+    copiedRecordConfigs?: ReadonlyMap<string, Record<string, unknown>>
 }): PreparedWidgetCopyGraph => {
     const sourceOverrideByWidgetId = new Map(
         sourceOverrides
@@ -148,7 +150,12 @@ export const prepareWidgetCopyGraph = ({
             instanceKey: generateUuidV7(),
             parentWidgetId: parentWidgetId ?? null,
             slotKey: widget.slot_key ?? null,
-            config: prepareCopiedWidgetConfig(templateKey, widget.widget_key, widget.zone, widget.config),
+            config: prepareCopiedWidgetConfig(
+                templateKey,
+                widget.widget_key,
+                widget.zone,
+                copiedRecordConfigs.get(widget.id as string) ?? widget.config
+            ),
             isActive: shouldDeactivateWidgets ? false : widget.is_active !== false
         }
     })

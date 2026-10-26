@@ -31,7 +31,7 @@ type PreparedLayoutCopyWidget<TWidget extends LayoutCopyWidgetRow> = {
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
-type EntityBindingCopyMode = 'reuse' | 'omit'
+type EntityBindingCopyMode = 'reuse' | 'omit' | 'clone'
 
 interface ResolveLayoutCopyBindingsInput<TWidget extends LayoutCopyWidgetRow, TBase extends LayoutCopyWidgetRow & { id: string }> {
     templateKey: ApplicationTemplateKey
@@ -159,6 +159,7 @@ export const resolveLayoutCopyBindings = <TWidget extends LayoutCopyWidgetRow, T
     )
 
     // Reuse preserves semantic selectors inside the same metahub and owner.
+    // Clone rewrites registered single-record bindings to copied records.
     // Omit drops direct placements and tombstones bound base placements. When
     // overrides are not copied, classify against the base state that the copy
     // will actually inherit, not the source overlay's effective state.
@@ -170,7 +171,15 @@ export const resolveLayoutCopyBindings = <TWidget extends LayoutCopyWidgetRow, T
             details: { operation: 'copy-layout' }
         })
     }
-    if (isOverlayLayout && copyMode === 'reuse' && boundWidgets.size > 0) {
+    const overlayHasSharedDirectBindings =
+        isOverlayLayout &&
+        copyMode === 'clone' &&
+        [...boundWidgets].some(({ widget, config }) => {
+            if (typeof widget.widget_key !== 'string') return false
+            const definition = requireLayoutWidgetOwnership(templateKey, widget.widget_key, isRecord(config) ? config : undefined)
+            return definition.copyPolicy.binding !== 'clone-record'
+        })
+    if (isOverlayLayout && (copyMode === 'reuse' || overlayHasSharedDirectBindings) && boundWidgets.size > 0) {
         throw new MetahubDomainError({
             message: 'Overlay copies cannot own Entity bindings for source-managed placements',
             statusCode: 409,

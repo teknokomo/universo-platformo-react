@@ -64,6 +64,8 @@ export interface DashboardDetailsSlot {
     permissions?: AppDataResponse['permissions']
     banner?: React.ReactNode
     content?: React.ReactNode
+    /** Render host content as the current page, replacing center dashboard widgets. */
+    contentMode?: 'inline' | 'page'
     pageSizeOptions?: number[]
     /** Optional toolbar actions (e.g. Create button) rendered next to the title. */
     actions?: React.ReactNode

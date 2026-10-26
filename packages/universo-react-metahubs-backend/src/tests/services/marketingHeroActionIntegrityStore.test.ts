@@ -1,6 +1,7 @@
 import {
     buildSingleTargetWidgetBinding,
     encodeWidgetConfigEnvelope,
+    getMarketingActionSectionTargets,
     getLayoutWidgetDefinition,
     LAYOUT_WIDGET_DEFINITIONS,
     validateWidgetBindings
@@ -18,6 +19,7 @@ const heroWidgetId = '0190a9b5-3cde-7abc-8def-0123456789a3'
 const pricingWidgetId = '0190a9b5-3cde-7abc-8def-0123456789a4'
 const enterprisePricingWidgetId = '0190a9b5-3cde-7abc-8def-0123456789a7'
 const featureWidgetId = '0190a9b5-3cde-7abc-8def-0123456789a8'
+const secondHeroWidgetId = '0190a9b5-3cde-7abc-8def-0123456789a9'
 const heroObjectId = '0190a9b5-3cde-7abc-8def-0123456789a5'
 
 const localized = (en: string, ru: string) => ({
@@ -119,7 +121,8 @@ const createDb = (
     scopedHeroActive = true,
     includeEnterprisePricing = false,
     includeFeatureCollection = false,
-    scopedHeroConfig?: unknown
+    scopedHeroConfig?: unknown,
+    secondHeroInstanceKey?: string
 ) => {
     const query = jest.fn(async (sql: string, _params?: unknown[]) => {
         if (sql.includes('FROM') && sql.includes('"_mhb_layouts"')) {
@@ -133,11 +136,25 @@ const createDb = (
                 {
                     id: heroWidgetId,
                     layout_id: sourceLayoutId,
+                    instance_key: 'hero',
                     widget_key: 'marketing.hero',
                     zone: 'marketing-main',
                     config: heroConfig,
                     is_active: true
                 },
+                ...(secondHeroInstanceKey
+                    ? [
+                          {
+                              id: secondHeroWidgetId,
+                              layout_id: sourceLayoutId,
+                              instance_key: secondHeroInstanceKey,
+                              widget_key: 'marketing.hero',
+                              zone: 'marketing-main',
+                              config: heroConfig,
+                              is_active: true
+                          }
+                      ]
+                    : []),
                 {
                     id: pricingWidgetId,
                     layout_id: sourceLayoutId,
@@ -248,6 +265,21 @@ const createDb = (
 }
 
 describe('Marketing Hero anchor integrity store', () => {
+    it('accepts an action targeting a repeated active Hero placement by its instance anchor', async () => {
+        const targets = getMarketingActionSectionTargets([
+            { widgetKey: 'marketing.hero', instanceKey: 'hero', isActive: true },
+            { widgetKey: 'marketing.hero', instanceKey: 'hero-secondary', isActive: true }
+        ])
+        const secondaryHeroTarget = targets[1]
+        if (!secondaryHeroTarget) throw new Error('The second active Hero placement did not produce an action target')
+        const { db } = createDb(secondaryHeroTarget.href, true, true, false, false, undefined, 'hero-secondary')
+        const content = projectMarketingHeroContentData(heroRecordData(secondaryHeroTarget.href))
+
+        await expect(
+            assertMarketingHeroRecordActionsRemainValid(db, 'mhb_0123456789abcdef0123456789abcdef_b1', 'HeroKey', 'hero-default', content)
+        ).resolves.toBeUndefined()
+    })
+
     it('treats null optional Entity components as absent while keeping required actions strict', () => {
         const content = projectMarketingHeroContentData({
             ...heroRecordData('#pricing'),

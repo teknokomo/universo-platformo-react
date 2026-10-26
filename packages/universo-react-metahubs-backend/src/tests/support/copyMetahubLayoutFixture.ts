@@ -1,6 +1,7 @@
 import type { DbExecutor } from '@universo-react/utils/database'
 
 export const copyLayoutFixtureIds = {
+    metahub: '0190a9b5-3cde-7abc-8def-0123456789a0',
     source: '0190a9b5-3cde-7abc-8def-0123456789a1',
     created: '0190a9b5-3cde-7abc-8def-0123456789a2',
     copiedWidget: '0190a9b5-3cde-7abc-8def-0123456789a3',
