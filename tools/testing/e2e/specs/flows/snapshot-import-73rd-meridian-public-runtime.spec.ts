@@ -14,6 +14,7 @@ import {
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 import { installMarketingPageLocalMedia } from '../../support/marketingPageMedia'
 import { expectNoPageHorizontalOverflow, expectNoTechnicalLeakage } from '../../support/browser/runtimeUx'
+import { readPageResponseSnapshot } from '../../support/browser/network'
 import {
     expectAnswerUsesFullWidth,
     expectContentContainedInCards,
@@ -56,6 +57,11 @@ const readRunToken = (runId: string): string => {
     return token || 'playwright'
 }
 
+test('73rd Meridian alias tokens are unique across Playwright retries', () => {
+    const runId = 'meridian-public-runtime-run'
+    expect(readRunToken(`${runId}-retry-0`)).not.toBe(readRunToken(`${runId}-retry-1`))
+})
+
 const createAlias = async (api: BootstrapApiContext, applicationId: string, alias: string, makePrimary = false): Promise<void> => {
     const response = await sendWithCsrf(api, 'POST', '/api/v1/application-aliases', {
         applicationId,
@@ -93,18 +99,20 @@ const importFixtureThroughUi = async (page: Page): Promise<{ metahubId: string; 
     await dialog.locator('input[type="file"]').setInputFiles(fixturePath)
     await expect(dialog.getByText(path.basename(fixturePath), { exact: true })).toBeVisible()
 
-    const importResponsePromise = page.waitForResponse(
-        (response) => response.request().method() === 'POST' && /\/api\/v1\/metahubs\/import(?:\?|$)/.test(response.url()),
-        { timeout: 420_000 }
-    )
+    const importResponsePromise = page
+        .waitForResponse(
+            (response) => response.request().method() === 'POST' && /\/api\/v1\/metahubs\/import(?:\?|$)/.test(response.url()),
+            { timeout: 420_000 }
+        )
+        .then(readPageResponseSnapshot)
     await dialog
         .getByRole('button', { name: /import|импорт/i })
         .last()
         .click()
 
     const importResponse = await importResponsePromise
-    expect(importResponse.status()).toBe(201)
-    const body = (await importResponse.json()) as {
+    expect(importResponse.status).toBe(201)
+    const body = JSON.parse(importResponse.body) as {
         metahub?: { id?: unknown }
         publication?: { id?: unknown }
     }
@@ -141,7 +149,9 @@ const gotoPublicRuntime = async (page: Page, url: string): Promise<PublicRuntime
     await page.goto(url)
     const response = await responsePromise
     expect(response.status(), `Public runtime request failed for ${url}`).toBe(200)
-    return (await response.json()) as PublicRuntimePayload
+    const payloadResponse = await page.request.get(response.url(), { headers: { Accept: 'application/json' } })
+    expect(payloadResponse.status(), `Public runtime payload request failed for ${url}`).toBe(200)
+    return (await payloadResponse.json()) as PublicRuntimePayload
 }
 
 /**
@@ -333,7 +343,7 @@ test('@flow @marketing-page @snapshot imports the committed 73rd Meridian fixtur
         await expect.poll(async () => (await getApplication(api, applicationId))?.schemaStatus, { timeout: 120_000 }).toBe('synced')
 
         bootstrapApi = await createBootstrapApiContext()
-        const aliasToken = readRunToken(runManifest.runId)
+        const aliasToken = readRunToken(`${runManifest.runId}-retry-${testInfo.retry}`)
         const primaryAlias = 'meridian-' + aliasToken
         const secondaryAlias = 'meridian-alt-' + aliasToken
         await createAlias(bootstrapApi, applicationId, primaryAlias, true)

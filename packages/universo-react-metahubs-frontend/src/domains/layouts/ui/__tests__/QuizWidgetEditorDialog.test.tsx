@@ -80,11 +80,11 @@ const createModuleRecord = (overrides: Record<string, unknown> = {}) => ({
     attachedToId: null,
     moduleRole: 'widget',
     sourceKind: 'embedded',
-    sdkApiVersion: '1.0.0',
+    sdkApiVersion: '0.1.0',
     sourceCode: 'export default class SpaceQuizWidget extends ExtensionModule {}',
     manifest: {
         className: 'SpaceQuizWidget',
-        sdkApiVersion: '1.0.0',
+        sdkApiVersion: '0.1.0',
         moduleRole: 'widget',
         sourceKind: 'embedded',
         capabilities: ['rpc.client'],

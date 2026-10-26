@@ -353,7 +353,7 @@ describe('App.initDatabase', () => {
         expect(isApplicationRealtimeUpgradeOriginAllowed({ headers: {} } as never)).toBe(false)
     })
 
-    it('allows same-origin realtime WebSocket upgrades without relying on HTTP CORS wildcard fallback', () => {
+    it('rejects Host-derived same-origin realtime WebSocket upgrades without an explicit allowlist', () => {
         process.env.CORS_ORIGINS = '*'
 
         expect(
@@ -361,10 +361,10 @@ describe('App.initDatabase', () => {
                 headers: { host: '127.0.0.1:3100', origin: 'http://127.0.0.1:3100' },
                 socket: {}
             } as never)
-        ).toBe(true)
+        ).toBe(false)
     })
 
-    it('allows proxied HTTPS same-origin realtime WebSocket upgrades when trusted proxy headers are enabled', () => {
+    it('does not let trusted forwarded-host headers grant realtime WebSocket access', () => {
         process.env.CORS_ORIGINS = '*'
         process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS = 'true'
 
@@ -378,7 +378,7 @@ describe('App.initDatabase', () => {
                 },
                 socket: {}
             } as never)
-        ).toBe(true)
+        ).toBe(false)
     })
 
     it('uses strict explicit realtime WebSocket origins instead of a wildcard HTTP CORS fallback when configured', () => {
@@ -387,6 +387,42 @@ describe('App.initDatabase', () => {
 
         expect(isApplicationRealtimeUpgradeOriginAllowed({ headers: { origin: 'https://runtime.example.test' } } as never)).toBe(true)
         expect(isApplicationRealtimeUpgradeOriginAllowed({ headers: { origin: 'https://attacker.example.test' } } as never)).toBe(false)
+        expect(isApplicationRealtimeUpgradeOriginAllowed({ headers: { origin: 'https://runtime.example.test/path' } } as never)).toBe(false)
+        expect(isApplicationRealtimeUpgradeOriginAllowed({ headers: { origin: 'https://runtime.example.test/' } } as never)).toBe(false)
+    })
+
+    it('does not let Host or trusted forwarded-host equality bypass the explicit realtime origin allowlist', () => {
+        process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS = 'true'
+        process.env.APPLICATION_REALTIME_WS_ORIGINS = 'https://runtime.example.test'
+
+        expect(
+            isApplicationRealtimeUpgradeOriginAllowed({
+                headers: {
+                    host: 'internal:3100',
+                    'x-forwarded-host': 'attacker.example.test',
+                    'x-forwarded-proto': 'https',
+                    origin: 'https://attacker.example.test'
+                },
+                socket: {}
+            } as never)
+        ).toBe(false)
+        expect(
+            isApplicationRealtimeUpgradeOriginAllowed({
+                headers: { host: 'attacker.example.test', origin: 'https://attacker.example.test' },
+                socket: {}
+            } as never)
+        ).toBe(false)
+        expect(
+            isApplicationRealtimeUpgradeOriginAllowed({
+                headers: {
+                    host: 'internal:3100',
+                    'x-forwarded-host': 'runtime.example.test',
+                    'x-forwarded-proto': 'https',
+                    origin: 'https://runtime.example.test'
+                },
+                socket: {}
+            } as never)
+        ).toBe(true)
     })
 
     it('rejects wildcard realtime WebSocket origins because WebSocket upgrades require a strict whitelist', () => {

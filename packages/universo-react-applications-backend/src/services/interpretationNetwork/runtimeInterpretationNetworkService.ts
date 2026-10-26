@@ -7,15 +7,12 @@ import {
 } from '../runtimeLifecycleDispatch'
 import { buildLifecycleRequest, collectLifecycleFieldIds } from './runtimeInterpretationNetworkLifecycle'
 import {
-    TEMPLATE_POLICY_STRUCTURE_ONLY,
-    TEMPLATE_POLICY_WITH_MATERIALS,
     InterpretationNetworkCommandError,
     acquireCommandLock,
     acquireStructureModeLock,
     assertColumn,
     assertReadySurface,
     assertRuntimePermissions,
-    assertSingleInterpretation,
     assertStructureMode,
     getChildField,
     getField,
@@ -25,7 +22,6 @@ import {
     interpretationNetworkStructureDeleteRequestSchema,
     interpretationNetworkTemplateDeleteRequestSchema,
     interpretationNetworkTemplateInstantiateRequestSchema,
-    interpretationNetworkTemplateSaveRequestSchema,
     interpretationNetworkTemplateUpdateRequestSchema,
     loadChildRows,
     loadInterpretationsForStructure,
@@ -35,7 +31,6 @@ import {
     selectRowById,
     softDeleteRow,
     softDeleteChildRows,
-    softDeleteRowsByField,
     tableIdent,
     toTemplateSummary,
     updateRowValues,
@@ -43,12 +38,23 @@ import {
     type TemplateDetail,
     type TemplateSummary
 } from './runtimeInterpretationNetworkCore'
-import { cloneMaterials, loadMaterialsByIdsOrCellIds } from './runtimeInterpretationNetworkMaterials'
-import { loadMaterialsByIds } from './runtimeInterpretationNetworkCore'
+import {
+    cloneMaterials,
+    loadMaterialsByIdsOrCellIds,
+    loadMaterialsByTemplateOwner,
+    softDeleteMaterialAggregateRow
+} from './runtimeInterpretationNetworkMaterials'
+import { acquireInterpretationNetworkMatrixMembershipLock } from './runtimeInterpretationNetworkMatrixMembership'
+import { removeInterpretationNetworkFavoritesForCells } from './runtimeInterpretationNetworkFavorites'
+export { saveStructureAsTemplate } from './runtimeInterpretationNetworkTemplateSave'
+export {
+    applyTableTemplateToMatrix,
+    interpretationNetworkTemplateApplyRequestSchema,
+    interpretationNetworkTemplateApplyResponseSchema
+} from './runtimeInterpretationNetworkTemplateApply'
 import { planMatrixRowsCopy } from './runtimeInterpretationNetworkMatrixCopy'
 import {
     assertMaterialOwnership,
-    assertUniqueMaterialsByCellId,
     assertValidMaterialRefs,
     buildMatrixTitle,
     collectCellIds,
@@ -62,6 +68,9 @@ export {
     interpretationNetworkEnsureSystemStructureRequestSchema,
     interpretationNetworkStructureCreateRequestSchema,
     interpretationNetworkMaterialCreateRequestSchema,
+    interpretationNetworkMaterialDeleteRequestSchema,
+    interpretationNetworkMaterialPrimaryRequestSchema,
+    interpretationNetworkMaterialUpdateRequestSchema,
     interpretationNetworkStructureDeleteRequestSchema,
     interpretationNetworkStructureRouteParamsSchema,
     interpretationNetworkTemplateDeleteRequestSchema,
@@ -71,7 +80,14 @@ export {
     type InterpretationNetworkRuntimeSurface
 } from './runtimeInterpretationNetworkCore'
 export { resolveInterpretationNetworkRuntimeSurface } from './runtimeInterpretationNetworkSurface'
-export { createMaterialForCell } from './runtimeInterpretationNetworkMaterialCommands'
+export {
+    createMaterialForCell,
+    deleteMaterialForCell,
+    listMaterialAssociationsForInterpretation,
+    setPrimaryMaterialForCell,
+    updateMaterialForCell
+} from './runtimeInterpretationNetworkMaterialCommands'
+export { interpretationNetworkMaterialAssociationsQuerySchema } from './runtimeInterpretationNetworkMaterialCommands'
 export { createStructureAggregate, ensureSingleSystemStructure, getSingleSystemStructure } from './runtimeInterpretationNetworkStructures'
 
 export const listTableTemplates = async (
@@ -114,6 +130,7 @@ export const getTableTemplateDetail = async (
         workspaceId: ctx.currentWorkspaceId
     })
     const materialRefs = collectMaterialRefs(matrixRows, getChildField(surface.contracts.TableTemplate, 'MaterialRef')?.column_name)
+    assertValidMaterialRefs(materialRefs)
     const cellIdColumn = getChildField(surface.contracts.TableTemplate, 'CellId')?.column_name
     const parentCellIdColumn = getChildField(surface.contracts.TableTemplate, 'ParentCellId')?.column_name
     const parentByCellId = new Map<string, string | null>()
@@ -136,6 +153,32 @@ export const getTableTemplateDetail = async (
         }
         maxDepth = Math.max(maxDepth, depth)
     }
+    const templateCellIds = collectCellIds(matrixRows, cellIdColumn)
+    const includesMaterials = readTemplateIncludesMaterials(template, surface.contracts.TableTemplate)
+    const templateMaterials = await loadMaterialsByTemplateOwner(ctx.manager, {
+        schemaName: ctx.schemaName,
+        contract: surface.contracts.Material,
+        templateId,
+        workspaceId: ctx.currentWorkspaceId
+    })
+    if (!includesMaterials && (materialRefs.length > 0 || templateMaterials.length > 0)) {
+        throw new InterpretationNetworkCommandError(
+            409,
+            interpretationNetworkCommandErrorCodes.invalidMaterial,
+            'Structure-only template contains Material references'
+        )
+    }
+    if (templateMaterials.length > 0 || materialRefs.length > 0) {
+        assertMaterialOwnership({
+            materials: templateMaterials,
+            materialIds: materialRefs,
+            cellIds: templateCellIds,
+            materialCellIdColumn: getField(surface.contracts.Material, 'CellId')?.column_name,
+            templateOwnerColumn: getField(surface.contracts.Material, 'TemplateOwnerId')?.column_name,
+            templateOwnerId: templateId
+        })
+    }
+
     return {
         ...toTemplateSummary(template, surface.contracts.TableTemplate),
         matrix: {
@@ -143,215 +186,8 @@ export const getTableTemplateDetail = async (
             rootCount: roots,
             maxDepth
         },
-        materialCount: new Set(materialRefs).size
+        materialCount: templateMaterials.length
     }
-}
-
-export const saveStructureAsTemplate = async (
-    ctx: RuntimeSchemaContext,
-    surfaceInput: InterpretationNetworkRuntimeSurface,
-    input: z.infer<typeof interpretationNetworkTemplateSaveRequestSchema>
-): Promise<TemplateSummary> => {
-    assertRuntimePermissions(ctx, 'createContent', 'editContent')
-    const surface = assertReadySurface(surfaceInput, 'saveTemplate')
-    const structureContract = surface.contracts.Structure
-    const interpretationContract = surface.contracts.Interpretation
-    const templateContract = surface.contracts.TableTemplate
-    const materialContract = surface.contracts.Material
-    const templateNameColumn = assertColumn(getField(templateContract, 'Name'), 'TableTemplate.Name')
-    const materialPolicyColumn = assertColumn(getField(templateContract, 'MaterialPolicy'), 'TableTemplate.MaterialPolicy')
-    const templateDescriptionColumn = getField(templateContract, 'Description')?.column_name
-    let afterTemplateCreate: RuntimeLifecycleDispatchRequest | null = null
-    const afterMaterialCreates: RuntimeLifecycleDispatchRequest[] = []
-
-    const result = await ctx.manager.transaction(async (tx) => {
-        await acquireCommandLock(tx, surface, 'save-template')
-        const source = await selectRowById(tx, {
-            schemaName: ctx.schemaName,
-            contract: structureContract,
-            rowId: input.sourceStructureId,
-            workspaceId: ctx.currentWorkspaceId,
-            forUpdate: true
-        })
-        if (!source) {
-            throw new InterpretationNetworkCommandError(
-                404,
-                interpretationNetworkCommandErrorCodes.sourceNotFound,
-                'Source Structure was not found'
-            )
-        }
-        if (input.expectedVersion !== undefined && Number(source._upl_version ?? 1) !== input.expectedVersion) {
-            throw new InterpretationNetworkCommandError(
-                409,
-                interpretationNetworkCommandErrorCodes.versionConflict,
-                'Source Structure version conflict',
-                {
-                    expectedVersion: input.expectedVersion,
-                    actualVersion: Number(source._upl_version ?? 1)
-                }
-            )
-        }
-        const sourceInterpretations = await loadInterpretationsForStructure(tx, {
-            schemaName: ctx.schemaName,
-            surface,
-            structureId: input.sourceStructureId,
-            workspaceId: ctx.currentWorkspaceId,
-            forUpdate: true
-        })
-        const sourceInterpretation = assertSingleInterpretation(
-            sourceInterpretations,
-            interpretationNetworkCommandErrorCodes.invalidMatrix,
-            'Source Structure must have exactly one Matrix'
-        )
-        const sourceRows = await loadChildRows(tx, {
-            schemaName: ctx.schemaName,
-            contract: interpretationContract,
-            parentId: String(sourceInterpretation.id),
-            workspaceId: ctx.currentWorkspaceId,
-            forUpdate: true
-        })
-        const sourceCellIdColumn = getChildField(interpretationContract, 'CellId')?.column_name
-        const sourceCellIds = input.includeMaterials ? collectCellIds(sourceRows, sourceCellIdColumn) : []
-        const materialRefColumn = getChildField(interpretationContract, 'MaterialRef')?.column_name
-        const sourceMaterialIds = input.includeMaterials ? collectMaterialRefs(sourceRows, materialRefColumn) : []
-        if (input.includeMaterials) assertValidMaterialRefs(sourceMaterialIds)
-        const sourceMaterials = await loadMaterialsByIdsOrCellIds(tx, {
-            schemaName: ctx.schemaName,
-            contract: materialContract,
-            materialIds: sourceMaterialIds,
-            cellIds: sourceCellIds,
-            workspaceId: ctx.currentWorkspaceId,
-            forUpdate: true
-        })
-        if (input.includeMaterials) {
-            const materialCellIdColumn = getField(materialContract, 'CellId')?.column_name
-            assertUniqueMaterialsByCellId(sourceMaterials, materialCellIdColumn)
-            assertMaterialOwnership({
-                materials: sourceMaterials,
-                materialIds: sourceMaterialIds,
-                cellIds: sourceCellIds,
-                materialCellIdColumn
-            })
-        }
-        const templateValues = {
-            [templateNameColumn]: input.templateName,
-            [materialPolicyColumn]: input.includeMaterials ? TEMPLATE_POLICY_WITH_MATERIALS : TEMPLATE_POLICY_STRUCTURE_ONLY,
-            ...(templateDescriptionColumn && input.description !== undefined ? { [templateDescriptionColumn]: input.description } : {})
-        }
-        await dispatchRuntimeLifecycle(
-            tx,
-            buildLifecycleRequest(
-                ctx,
-                surface,
-                templateContract,
-                {
-                    eventName: 'beforeCreate',
-                    patch: templateValues,
-                    metadata: { aggregateCommand: 'saveStructureAsTemplate', sourceStructureId: input.sourceStructureId }
-                },
-                collectLifecycleFieldIds(templateContract, templateValues)
-            )
-        )
-        const templateId = await insertRow(tx, {
-            schemaName: ctx.schemaName,
-            contract: templateContract,
-            values: templateValues,
-            workspaceId: ctx.currentWorkspaceId,
-            userId: ctx.userId
-        })
-        afterTemplateCreate = buildLifecycleRequest(
-            ctx,
-            surface,
-            templateContract,
-            {
-                eventName: 'afterCreate',
-                row: { id: templateId, ...templateValues },
-                patch: templateValues,
-                metadata: { aggregateCommand: 'saveStructureAsTemplate', sourceStructureId: input.sourceStructureId }
-            },
-            collectLifecycleFieldIds(templateContract, templateValues)
-        )
-        const templateCellIdMap = new Map<string, string>()
-        planMatrixRowsCopy(sourceRows, interpretationContract, templateContract, new Map(), false, templateCellIdMap)
-        const materialIdMap = input.includeMaterials
-            ? await cloneMaterials(tx, {
-                  schemaName: ctx.schemaName,
-                  contract: materialContract,
-                  materials: sourceMaterials,
-                  cellIdMap: templateCellIdMap,
-                  templateOwnerId: templateId,
-                  workspaceId: ctx.currentWorkspaceId,
-                  userId: ctx.userId,
-                  onBeforeCreate: (sourceMaterial, values) =>
-                      dispatchRuntimeLifecycle(
-                          tx,
-                          buildLifecycleRequest(
-                              ctx,
-                              surface,
-                              materialContract,
-                              {
-                                  eventName: 'beforeCreate',
-                                  patch: values,
-                                  previousRow: sourceMaterial,
-                                  metadata: { aggregateCommand: 'saveStructureAsTemplate', templateId }
-                              },
-                              collectLifecycleFieldIds(materialContract, values)
-                          )
-                      ).then(() => undefined),
-                  onAfterCreate: (sourceMaterial, newId, values) => {
-                      afterMaterialCreates.push(
-                          buildLifecycleRequest(
-                              ctx,
-                              surface,
-                              materialContract,
-                              {
-                                  eventName: 'afterCreate',
-                                  row: { id: newId, ...values },
-                                  patch: values,
-                                  previousRow: sourceMaterial,
-                                  metadata: { aggregateCommand: 'saveStructureAsTemplate', templateId }
-                              },
-                              collectLifecycleFieldIds(materialContract, values)
-                          )
-                      )
-                  }
-              })
-            : new Map<string, string>()
-        const templateRows = planMatrixRowsCopy(
-            sourceRows,
-            interpretationContract,
-            templateContract,
-            materialIdMap,
-            input.includeMaterials,
-            templateCellIdMap
-        ).rows
-        await insertChildRows(tx, {
-            schemaName: ctx.schemaName,
-            contract: templateContract,
-            parentId: templateId,
-            rows: templateRows,
-            workspaceId: ctx.currentWorkspaceId,
-            userId: ctx.userId
-        })
-        const template = await loadTemplateRow(tx, {
-            schemaName: ctx.schemaName,
-            surface,
-            templateId,
-            workspaceId: ctx.currentWorkspaceId
-        })
-        return toTemplateSummary(
-            template ?? {
-                id: templateId,
-                [templateNameColumn]: input.templateName,
-                [materialPolicyColumn]: input.includeMaterials ? TEMPLATE_POLICY_WITH_MATERIALS : TEMPLATE_POLICY_STRUCTURE_ONLY
-            },
-            templateContract
-        )
-    })
-
-    dispatchRuntimeLifecycleAfterCommit(ctx.manager, afterTemplateCreate)
-    afterMaterialCreates.forEach((request) => dispatchRuntimeLifecycleAfterCommit(ctx.manager, request))
-    return result
 }
 
 export const updateTableTemplate = async (
@@ -496,10 +332,10 @@ export const deleteTableTemplate = async (
         })
         const materialIds = collectMaterialRefs(templateRows, materialRefColumn)
         assertValidMaterialRefs(materialIds)
-        const materials = await loadMaterialsByIds(tx, {
+        const materials = await loadMaterialsByTemplateOwner(tx, {
             schemaName: ctx.schemaName,
             contract: materialContract,
-            materialIds,
+            templateId,
             workspaceId: ctx.currentWorkspaceId,
             forUpdate: true
         })
@@ -537,20 +373,15 @@ export const deleteTableTemplate = async (
             workspaceId: ctx.currentWorkspaceId,
             userId: ctx.userId
         })
-        const deletedMaterialIds = await softDeleteRowsByField(tx, {
-            schemaName: ctx.schemaName,
-            contract: materialContract,
-            field: templateOwnerField!,
-            value: templateId,
-            workspaceId: ctx.currentWorkspaceId,
-            userId: ctx.userId
-        })
-        if (deletedMaterialIds.length !== materials.length) {
-            throw new InterpretationNetworkCommandError(
-                409,
-                interpretationNetworkCommandErrorCodes.invalidMaterial,
-                'Template material provenance changed during deletion'
-            )
+        for (const material of materials) {
+            await softDeleteMaterialAggregateRow(tx, {
+                schemaName: ctx.schemaName,
+                contract: materialContract,
+                materialId: String(material.id),
+                workspaceId: ctx.currentWorkspaceId,
+                userId: ctx.userId,
+                expectedVersion: Number(material._upl_version ?? 1)
+            })
         }
 
         await softDeleteRow(tx, {
@@ -640,8 +471,16 @@ export const instantiateTableTemplate = async (
         })
         const includesMaterials = readTemplateIncludesMaterials(template, templateContract)
         const materialRefColumn = getChildField(templateContract, 'MaterialRef')?.column_name
-        const templateMaterialIds = includesMaterials ? collectMaterialRefs(templateRows, materialRefColumn) : []
-        if (includesMaterials) assertValidMaterialRefs(templateMaterialIds)
+        const templateMaterialRefs = collectMaterialRefs(templateRows, materialRefColumn)
+        if (includesMaterials) assertValidMaterialRefs(templateMaterialRefs)
+        if (!includesMaterials && templateMaterialRefs.length > 0) {
+            throw new InterpretationNetworkCommandError(
+                409,
+                interpretationNetworkCommandErrorCodes.invalidMaterial,
+                'Structure-only template contains Material references'
+            )
+        }
+        const templateMaterialIds = includesMaterials ? templateMaterialRefs : []
         const templateCellIdColumn = getChildField(templateContract, 'CellId')?.column_name
         const templateCellIds = includesMaterials ? collectCellIds(templateRows, templateCellIdColumn) : []
         const structureValues = {
@@ -681,19 +520,46 @@ export const instantiateTableTemplate = async (
             },
             collectLifecycleFieldIds(structureContract, structureValues)
         )
-        const matrixCellIdMap = new Map<string, string>()
-        planMatrixRowsCopy(templateRows, templateContract, interpretationContract, new Map(), false, matrixCellIdMap)
-        const templateMaterials = await loadMaterialsByIdsOrCellIds(tx, {
+        const interpretationValues = {
+            [titleColumn]: buildMatrixTitle(input.structureName, normalizeLocale(input.locale)),
+            [parentColumn]: structureId
+        }
+        await dispatchRuntimeLifecycle(
+            tx,
+            buildLifecycleRequest(
+                ctx,
+                surface,
+                interpretationContract,
+                {
+                    eventName: 'beforeCreate',
+                    patch: interpretationValues,
+                    metadata: { aggregateCommand: 'instantiateTableTemplate', templateId, structureId }
+                },
+                collectLifecycleFieldIds(interpretationContract, interpretationValues)
+            )
+        )
+        const interpretationId = await insertRow(tx, {
             schemaName: ctx.schemaName,
-            contract: materialContract,
-            materialIds: templateMaterialIds,
-            cellIds: templateCellIds,
+            contract: interpretationContract,
+            values: interpretationValues,
             workspaceId: ctx.currentWorkspaceId,
-            forUpdate: true
+            userId: ctx.userId,
+            trustedAggregate: true
         })
+        const matrixCellIdMap = new Map<string, string>()
+        const matrixMode = surface.widgetConfig.matrixMode === 'independentRows' ? 'independentRows' : 'hierarchicalCells'
+        planMatrixRowsCopy(templateRows, templateContract, interpretationContract, new Map(), false, matrixCellIdMap, matrixMode)
+        const templateMaterials = includesMaterials
+            ? await loadMaterialsByTemplateOwner(tx, {
+                  schemaName: ctx.schemaName,
+                  contract: materialContract,
+                  templateId,
+                  workspaceId: ctx.currentWorkspaceId,
+                  forUpdate: true
+              })
+            : []
         if (includesMaterials) {
             const materialCellIdColumn = getField(materialContract, 'CellId')?.column_name
-            assertUniqueMaterialsByCellId(templateMaterials, materialCellIdColumn)
             assertMaterialOwnership({
                 materials: templateMaterials,
                 materialIds: templateMaterialIds,
@@ -708,6 +574,7 @@ export const instantiateTableTemplate = async (
             contract: materialContract,
             materials: templateMaterials,
             cellIdMap: matrixCellIdMap,
+            interpretationId,
             workspaceId: ctx.currentWorkspaceId,
             userId: ctx.userId,
             onBeforeCreate: (templateMaterial, values) =>
@@ -744,38 +611,14 @@ export const instantiateTableTemplate = async (
                 )
             }
         })
-        const interpretationValues = {
-            [titleColumn]: buildMatrixTitle(input.structureName, normalizeLocale(input.locale)),
-            [parentColumn]: structureId
-        }
-        await dispatchRuntimeLifecycle(
-            tx,
-            buildLifecycleRequest(
-                ctx,
-                surface,
-                interpretationContract,
-                {
-                    eventName: 'beforeCreate',
-                    patch: interpretationValues,
-                    metadata: { aggregateCommand: 'instantiateTableTemplate', templateId, structureId }
-                },
-                collectLifecycleFieldIds(interpretationContract, interpretationValues)
-            )
-        )
-        const interpretationId = await insertRow(tx, {
-            schemaName: ctx.schemaName,
-            contract: interpretationContract,
-            values: interpretationValues,
-            workspaceId: ctx.currentWorkspaceId,
-            userId: ctx.userId
-        })
         const matrixRows = planMatrixRowsCopy(
             templateRows,
             templateContract,
             interpretationContract,
             materialIdMap,
             includesMaterials,
-            matrixCellIdMap
+            matrixCellIdMap,
+            matrixMode
         ).rows
         await insertChildRows(tx, {
             schemaName: ctx.schemaName,
@@ -783,7 +626,8 @@ export const instantiateTableTemplate = async (
             parentId: interpretationId,
             rows: matrixRows,
             workspaceId: ctx.currentWorkspaceId,
-            userId: ctx.userId
+            userId: ctx.userId,
+            trustedAggregate: true
         })
         afterInterpretationCreate = buildLifecycleRequest(
             ctx,
@@ -864,6 +708,7 @@ export const deleteStructureAggregate = async (
             )
         }
         const interpretationId = String(interpretations[0].id)
+        await acquireInterpretationNetworkMatrixMembershipLock(tx, surface, interpretationId)
         const matrixRows = await loadChildRows(tx, {
             schemaName: ctx.schemaName,
             contract: interpretationContract,
@@ -879,6 +724,7 @@ export const deleteStructureAggregate = async (
             contract: materialContract,
             materialIds,
             cellIds: matrixCellIds,
+            interpretationId,
             workspaceId: ctx.currentWorkspaceId,
             forUpdate: true
         })
@@ -886,7 +732,9 @@ export const deleteStructureAggregate = async (
             materials,
             materialIds,
             cellIds: matrixCellIds,
-            materialCellIdColumn: getField(materialContract, 'CellId')?.column_name
+            materialCellIdColumn: getField(materialContract, 'CellId')?.column_name,
+            interpretationIdColumn: getField(materialContract, 'InterpretationId')?.column_name,
+            interpretationId
         })
 
         await dispatchRuntimeLifecycle(
@@ -915,20 +763,26 @@ export const deleteStructureAggregate = async (
                 })
             )
         }
+        await removeInterpretationNetworkFavoritesForCells(ctx, tx, surface, {
+            interpretationId,
+            cellIds: matrixCellIds
+        })
         await softDeleteChildRows(tx, {
             schemaName: ctx.schemaName,
             contract: interpretationContract,
             parentIds: [interpretationId],
             workspaceId: ctx.currentWorkspaceId,
-            userId: ctx.userId
+            userId: ctx.userId,
+            trustedAggregate: true
         })
         for (const material of materials) {
-            await softDeleteRow(tx, {
+            await softDeleteMaterialAggregateRow(tx, {
                 schemaName: ctx.schemaName,
                 contract: materialContract,
-                rowId: String(material.id),
+                materialId: String(material.id),
                 workspaceId: ctx.currentWorkspaceId,
-                userId: ctx.userId
+                userId: ctx.userId,
+                expectedVersion: Number(material._upl_version ?? 1)
             })
         }
         await softDeleteRow(tx, {
@@ -936,7 +790,8 @@ export const deleteStructureAggregate = async (
             contract: interpretationContract,
             rowId: interpretationId,
             workspaceId: ctx.currentWorkspaceId,
-            userId: ctx.userId
+            userId: ctx.userId,
+            trustedAggregate: true
         })
         await softDeleteRow(tx, {
             schemaName: ctx.schemaName,

@@ -363,12 +363,12 @@ const buildStructurePlan = (currentVersion: number, targetVersion: number): Stru
         const toDefs = SYSTEM_TABLE_VERSIONS.get(version + 1)
 
         if (!fromDefs || !toDefs) {
+            const fromVersionLabel = fromDefs ? structureVersionToSemver(version) : String(version)
+            const toVersionLabel = toDefs ? structureVersionToSemver(version + 1) : String(version + 1)
             blockers.push({
                 code: 'structure.missing_definitions',
-                params: { from: structureVersionToSemver(version), to: structureVersionToSemver(version + 1) },
-                message: `Missing structure definitions for version transition ${structureVersionToSemver(
-                    version
-                )} -> ${structureVersionToSemver(version + 1)}`
+                params: { from: fromVersionLabel, to: toVersionLabel },
+                message: `Missing structure definitions for version transition ${fromVersionLabel} -> ${toVersionLabel}`
             })
             break
         }
@@ -877,7 +877,7 @@ export function createMetahubMigrationsController(getDbExecutor: () => DbExecuto
             await releasePoolAdvisoryLock(lockKey)
         }
 
-        let structureVersion: string | number = structureVersionToSemver(CURRENT_STRUCTURE_VERSION)
+        let structureVersion = structureVersionToSemver(CURRENT_STRUCTURE_VERSION)
         let templateVersionId: string | null = migrationPlan.targetTemplateVersionId ?? null
         let latestMigrations: Array<{
             id: string
@@ -894,7 +894,7 @@ export function createMetahubMigrationsController(getDbExecutor: () => DbExecuto
                 findBranchByIdAndMetahub(exec, branch.id, metahubId),
                 findMetahubById(exec, metahub.id)
             ])
-            structureVersion = refreshedBranch?.structureVersion ?? structureVersionToSemver(CURRENT_STRUCTURE_VERSION)
+            if (refreshedBranch) structureVersion = structureVersionToSemver(refreshedBranch.structureVersion)
             templateVersionId = refreshedMetahub?.templateVersionId ?? null
 
             const hasMigrationTable = await hasPoolRuntimeHistoryTable(branch.schemaName, '_mhb_migrations')
@@ -938,7 +938,7 @@ export function createMetahubMigrationsController(getDbExecutor: () => DbExecuto
             plan: migrationPlan,
             branchId: branch.id,
             schemaName: branch.schemaName,
-            structureVersion: structureVersionToSemver(structureVersion),
+            structureVersion,
             templateVersionId,
             cleanupMode: parsed.data.cleanupMode,
             cleanup: cleanupResult,

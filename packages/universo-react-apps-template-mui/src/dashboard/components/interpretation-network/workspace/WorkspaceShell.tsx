@@ -23,7 +23,7 @@ const SPLIT_PANE_SEPARATOR_WIDTH = 24
 export interface WorkspaceShellProps {
     structure: StructurePaneProps
     details: DetailsPaneBridgeProps
-    dialogs: WorkspaceDialogsBridgeProps
+    dialogs?: WorkspaceDialogsBridgeProps
     splitPaneEnabled?: boolean
     singleSystemMode?: boolean
     structureReturnFocusId?: string | null
@@ -203,7 +203,7 @@ export function WorkspaceShell({
                     <DetailsPaneBridge {...details} />
                 </Stack>
             </Stack>
-            <WorkspaceDialogsBridge {...dialogs} />
+            {dialogs ? <WorkspaceDialogsBridge {...dialogs} /> : null}
         </Stack>
     )
 }

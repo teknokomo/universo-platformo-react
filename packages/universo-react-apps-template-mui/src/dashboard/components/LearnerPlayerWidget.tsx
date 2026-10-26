@@ -37,7 +37,7 @@ export default function LearnerPlayerWidget({ widget }: { widget: ZoneWidgetItem
     const parents = payload?.parents ?? []
     const defaultParentKey = parents[0]?.key ?? ''
     const parentSourceSignature = JSON.stringify({
-        widgetId: widget.id,
+        instanceKey: widget.instanceKey,
         parents: parents.map(({ key, target }) => [key, target.recordHandle]),
         items: items?.map(({ key, parentKey, progressTarget }) => [key, parentKey ?? '', progressTarget.recordHandle]) ?? []
     })

@@ -255,7 +255,7 @@ describe('generic runtime sibling row aliases', () => {
 
     it('soft-deletes removed keyed rows without repeating update audit columns', async () => {
         const key = '019f2000-0000-7000-8000-000000000006'
-        const query = jest.fn(async (sql: string) => {
+        const query = jest.fn(async (sql: string, _params?: unknown[]) => {
             if (sql.includes('SELECT id, "block_key"') && sql.includes('_upl_deleted = false')) {
                 return [{ id: 'removed-block-row-id', block_key: key }]
             }
@@ -310,7 +310,7 @@ describe('generic runtime sibling row aliases', () => {
     it('reuses a matching soft-deleted sibling row so a later parent restore cannot reveal duplicate keys', async () => {
         const key = '019f2000-0000-7000-8000-000000000006'
         const deletedRowId = 'deleted-block-row-id'
-        const query = jest.fn(async (sql: string) => {
+        const query = jest.fn(async (sql: string, _params?: unknown[]) => {
             if (sql.includes('SELECT id, "block_key"') && sql.includes('_upl_deleted = false')) return []
             if (sql.includes('SELECT id, "block_key"') && sql.includes('_upl_deleted = true')) {
                 return [{ id: deletedRowId, block_key: key }]
@@ -370,7 +370,7 @@ describe('generic runtime sibling row aliases', () => {
 
     it('rejects an existing active/deleted duplicate sibling key before changing any row', async () => {
         const duplicateKey = '019f2000-0000-7000-8000-000000000006'
-        const query = jest.fn(async (sql: string) => {
+        const query = jest.fn(async (sql: string, _params?: unknown[]) => {
             if (sql.includes('SELECT id, "block_key"') && sql.includes('_upl_deleted = false')) {
                 return [{ id: 'active-block-row-id', block_key: duplicateKey }]
             }

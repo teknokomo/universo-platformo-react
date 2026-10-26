@@ -17,10 +17,13 @@ import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
+import Tab from '@mui/material/Tab'
+import Tabs from '@mui/material/Tabs'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import AccountTreeRoundedIcon from '@mui/icons-material/AccountTreeRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
@@ -29,7 +32,6 @@ import SaveAltRoundedIcon from '@mui/icons-material/SaveAltRounded'
 import TableRowsRoundedIcon from '@mui/icons-material/TableRowsRounded'
 import ViewColumnRoundedIcon from '@mui/icons-material/ViewColumnRounded'
 import type { SensorDescriptor, SensorOptions } from '@dnd-kit/core'
-import { useMemo, type ReactNode } from 'react'
 import type { TFunction } from 'i18next'
 import type { InterpretationNetworkTableProjection, InterpretationNetworkToolbarLayout } from '@universo-react/types'
 import { extractRuntimeErrorMessage } from '../../../../utils/runtimeErrors'
@@ -47,6 +49,9 @@ import type { MatrixDragPreview, MatrixDropState, MatrixMode } from '../matrixDr
 import { createMatrixCollisionDetection } from './matrixCollisionDetection'
 import { HierarchicalMatrixTableView } from './HierarchicalMatrixTableView'
 import { MatrixTableView } from './MatrixTableView'
+import { FavoritesCellMenuItem } from './FavoritesCellMenuItem'
+import { useInterpretationNetworkFavoritesContext } from './InterpretationNetworkFavoritesContext'
+import { FavoritesWorkspacePanel } from './FavoritesWorkspacePanel'
 
 const fixedDropTargetsStrategy: SortingStrategy = () => null
 
@@ -69,6 +74,8 @@ export interface MatrixMenuMove {
     target: unknown
     action: () => void
 }
+
+export type MatrixWorkspaceTab = 'matrix' | 'favorites' | 'templates'
 
 export interface MatrixWorkspaceProps {
     t: TFunction<'interpretationNetwork'>
@@ -97,6 +104,8 @@ export interface MatrixWorkspaceProps {
     matrixAxisActionsDisabled?: boolean
     addCellDisabled?: boolean
     canSaveTemplate?: boolean
+    hasTemplates?: boolean
+    canInsertTemplate?: boolean
     isSavingCell: boolean
     isMovingCell: boolean
     matrixRowsError: unknown
@@ -110,8 +119,12 @@ export interface MatrixWorkspaceProps {
     menuMoves: MatrixMenuMove[]
     isDeletingCell: boolean
     sensors: SensorDescriptor<SensorOptions>[]
+    templatePanel?: ReactNode
+    selectedWorkspaceTab?: MatrixWorkspaceTab
+    onWorkspaceTabChange?: (tab: MatrixWorkspaceTab) => void
     onChangeMatrixView: (view: MatrixView) => void
     onOpenSaveTemplate?: () => void
+    onOpenTemplateInsert?: (targetCellId: string) => void
     onOpenCellDialog: (
         mode: 'create-child' | 'create-cell' | 'create-row' | 'edit',
         cellId?: string,
@@ -158,6 +171,8 @@ export function MatrixWorkspace({
     matrixAxisActionsDisabled = matrixMutationsDisabled,
     addCellDisabled = false,
     canSaveTemplate = false,
+    hasTemplates = false,
+    canInsertTemplate = false,
     isSavingCell,
     isMovingCell,
     matrixRowsError,
@@ -171,8 +186,12 @@ export function MatrixWorkspace({
     menuMoves,
     isDeletingCell,
     sensors,
+    templatePanel,
+    selectedWorkspaceTab,
+    onWorkspaceTabChange,
     onChangeMatrixView,
     onOpenSaveTemplate,
+    onOpenTemplateInsert,
     onOpenCellDialog,
     onAddTableRow,
     onAddTableColumn,
@@ -187,8 +206,54 @@ export function MatrixWorkspace({
     onDragCancel,
     onDragEnd
 }: MatrixWorkspaceProps) {
+    const favorites = useInterpretationNetworkFavoritesContext()
+    const [internalWorkspaceTab, setInternalWorkspaceTab] = useState<MatrixWorkspaceTab>('matrix')
+    const workspaceTab = selectedWorkspaceTab ?? internalWorkspaceTab
+    const setWorkspaceTab = onWorkspaceTabChange ?? setInternalWorkspaceTab
+    const workspaceId = useId()
+    const focusMatrixTabAfterNavigation = useRef(false)
+    const hasTemplatePanel = templatePanel !== null && templatePanel !== undefined
+    const hasWorkspaceTabs = Boolean(favorites?.enabled || hasTemplatePanel)
+    const matrixTabId = `${workspaceId}-matrix-tab`
+    const matrixPanelId = `${workspaceId}-matrix-panel`
+    const favoritesTabId = `${workspaceId}-favorites-tab`
+    const favoritesPanelId = `${workspaceId}-favorites-panel`
+    const templatesTabId = `${workspaceId}-templates-tab`
+    const templatesPanelId = `${workspaceId}-templates-panel`
+    const menuFavoriteTarget =
+        favorites?.selectedInterpretationId && menuCell
+            ? { interpretationId: favorites.selectedInterpretationId, cellId: menuCell.id }
+            : null
+    const feedbackMessageKey = favorites?.feedback
+        ? {
+              added: 'workspace.favorites.added',
+              alreadyPresent: 'workspace.favorites.alreadyPresent',
+              removed: 'workspace.favorites.removed',
+              alreadyAbsent: 'workspace.favorites.alreadyAbsent',
+              error: 'workspace.favorites.mutationError'
+          }[favorites.feedback]
+        : null
+
+    useEffect(() => {
+        if ((workspaceTab === 'favorites' && !favorites?.enabled) || (workspaceTab === 'templates' && !hasTemplatePanel)) {
+            setWorkspaceTab('matrix')
+        }
+    }, [favorites?.enabled, hasTemplatePanel, setWorkspaceTab, workspaceTab])
+
+    useEffect(() => {
+        if (workspaceTab !== 'matrix' || !focusMatrixTabAfterNavigation.current) return
+        focusMatrixTabAfterNavigation.current = false
+        document.getElementById(matrixTabId)?.focus()
+    }, [matrixTabId, workspaceTab])
+
     const hierarchicalMatrixIsEmpty = matrixMode === 'hierarchicalCells' && matrixCells.length === 0
     const createDisabled = !canCreateContent || !canEditContent
+    const canAddMatrixContent = canCreateContent && canEditContent
+    const showMatrixToolbar = allowedMatrixViews.length > 1 || canSaveTemplate || canAddMatrixContent
+    const showCellActionsMenu =
+        !matrixMutationsDisabled &&
+        (canCreateContent || canEditContent || canDeleteContent || canSaveTemplate || canInsertTemplate || Boolean(favorites?.enabled))
+    const showMatrixDragHandles = canEditContent && !matrixMutationsDisabled
     const hierarchicalAddDisabled = createDisabled || matrixMutationsDisabled || isSavingCell || !selectedCell || hierarchicalMatrixIsEmpty
     const tableAxisAddDisabled = createDisabled || matrixAxisActionsDisabled || isSavingCell || hierarchicalMatrixIsEmpty
     const showIndependentRowAdd = matrixMode === 'independentRows' && matrixView === 'horizontalRows'
@@ -258,7 +323,8 @@ export function MatrixWorkspace({
                     if (options.overlay) return
                     onOpenCellMenu(event.currentTarget, cell.id)
                 }}
-                disabled={matrixMutationsDisabled || isMovingCell}
+                showActionsMenu={showCellActionsMenu}
+                disabled={matrixMutationsDisabled || isMovingCell || !canEditContent}
                 depth={matrixMode === 'hierarchicalCells' && !isHorizontalHierarchy ? cell.depth : 0}
                 positionLabel={positionLabels.get(cell.id)}
                 isOriginMuted={!options.overlay && matrixDropState.activeCellId === cell.id}
@@ -303,366 +369,517 @@ export function MatrixWorkspace({
     const isPreviewPlaceholder = (cell: MatrixCell): boolean => matrixDragPreview?.activeCellId === cell.id
 
     return (
-        <Box data-testid='interpretation-network-matrix-workspace'>
-            <Stack
-                data-testid='interpretation-network-matrix-toolbar'
-                direction={toolbarLayout === 'vertical' ? 'column' : 'row'}
-                spacing={1}
-                sx={{
-                    mb: 1,
-                    alignItems: toolbarLayout === 'vertical' ? 'stretch' : 'center',
-                    justifyContent: toolbarLayout === 'vertical' ? 'flex-start' : 'space-between',
-                    flexWrap: 'wrap'
-                }}
-                useFlexGap
-            >
-                <Stack direction='row' spacing={1} useFlexGap sx={{ minWidth: 0, flexWrap: 'wrap' }}>
-                    {allowedMatrixViews.length > 1 ? (
-                        <ToggleButtonGroup
-                            exclusive
-                            size='small'
-                            value={matrixView}
-                            onChange={(_event, value: MatrixView | null) => {
-                                if (value) onChangeMatrixView(value)
-                            }}
-                            aria-label={t('workspace.display.mode', 'Matrix view')}
-                            sx={{
-                                height: 40,
-                                flexShrink: 0,
-                                '& .MuiToggleButton-root': {
-                                    width: 40,
-                                    minWidth: 40,
-                                    height: 40,
-                                    p: 0
-                                }
-                            }}
-                        >
-                            {allowedMatrixViews.includes('table') ? (
-                                <ToggleButton value='table' aria-label={t('workspace.display.table', 'Table view')}>
-                                    <Tooltip title={t('workspace.display.table', 'Table view')}>
-                                        <TableRowsRoundedIcon fontSize='small' />
-                                    </Tooltip>
-                                </ToggleButton>
-                            ) : null}
-                            {allowedMatrixViews.includes('horizontalRows') ? (
-                                <ToggleButton value='horizontalRows' aria-label={t('workspace.display.horizontalRows', 'Horizontal rows')}>
-                                    <Tooltip title={t('workspace.display.horizontalRows', 'Horizontal rows')}>
-                                        <ViewColumnRoundedIcon fontSize='small' />
-                                    </Tooltip>
-                                </ToggleButton>
-                            ) : null}
-                            {allowedMatrixViews.includes('verticalTree') ? (
-                                <ToggleButton value='verticalTree' aria-label={t('workspace.display.verticalTree', 'Vertical tree')}>
-                                    <Tooltip title={t('workspace.display.verticalTree', 'Vertical tree')}>
-                                        <AccountTreeRoundedIcon fontSize='small' />
-                                    </Tooltip>
-                                </ToggleButton>
-                            ) : null}
-                        </ToggleButtonGroup>
+        <Box data-testid='interpretation-network-matrix-workspace' sx={{ minWidth: 0, width: '100%' }}>
+            {hasWorkspaceTabs ? (
+                <Tabs
+                    value={workspaceTab}
+                    onChange={(_event, value: string) => {
+                        if (value !== 'matrix' && value !== 'favorites' && value !== 'templates') return
+                        if ((value === 'favorites' && !favorites?.enabled) || (value === 'templates' && !hasTemplatePanel)) return
+                        if (value !== 'matrix') onCloseCellMenu()
+                        setWorkspaceTab(value)
+                    }}
+                    aria-label={t('workspace.sectionTabs', 'Workspace sections')}
+                    variant='scrollable'
+                    scrollButtons='auto'
+                    allowScrollButtonsMobile
+                    sx={{ mb: 1, minHeight: 40, '& .MuiTab-root': { minHeight: 40 } }}
+                >
+                    <Tab id={matrixTabId} aria-controls={matrixPanelId} value='matrix' label={t('workspace.matrix', 'Matrix')} />
+                    <Tab
+                        id={favoritesTabId}
+                        aria-controls={favoritesPanelId}
+                        value='favorites'
+                        label={t('workspace.favorites.title', 'Favorites')}
+                    />
+                    {hasTemplatePanel ? (
+                        <Tab
+                            id={templatesTabId}
+                            aria-controls={templatesPanelId}
+                            value='templates'
+                            label={t('workspace.template.title', 'Templates')}
+                        />
                     ) : null}
-                </Stack>
-                {matrixMode === 'hierarchicalCells' ? (
-                    <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
-                        {canSaveTemplate ? (
-                            <Tooltip title={t('workspace.template.saveAsTemplate', 'Save as template')}>
-                                <span>
-                                    <IconButton
-                                        type='button'
-                                        aria-label={t('workspace.template.saveAsTemplate', 'Save as template')}
-                                        disabled={!onOpenSaveTemplate}
-                                        onClick={onOpenSaveTemplate}
-                                        sx={{ width: 40, height: 40 }}
-                                    >
-                                        <SaveAltRoundedIcon fontSize='small' />
-                                    </IconButton>
-                                </span>
-                            </Tooltip>
-                        ) : null}
-                        <Tooltip
-                            title={
-                                createDisabledReason ??
-                                (!selectedCell || hierarchicalMatrixIsEmpty
-                                    ? t('workspace.cell.addChildDisabled', 'Select a cell before adding a child.')
-                                    : '')
-                            }
-                        >
-                            <span>
-                                <Button
-                                    type='button'
-                                    variant='contained'
-                                    startIcon={<AddRoundedIcon />}
-                                    disabled={hierarchicalAddDisabled}
-                                    sx={{ height: 40, minHeight: 40, px: 2, flexShrink: 0 }}
-                                    onClick={() => onOpenCellDialog('create-child', selectedCell?.id)}
-                                >
-                                    {t('workspace.cell.add', 'Add')}
-                                </Button>
-                            </span>
-                        </Tooltip>
-                    </Stack>
-                ) : (
-                    <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
-                        {canSaveTemplate ? (
-                            <Tooltip title={t('workspace.template.saveAsTemplate', 'Save as template')}>
-                                <span>
-                                    <IconButton
-                                        type='button'
-                                        aria-label={t('workspace.template.saveAsTemplate', 'Save as template')}
-                                        disabled={!onOpenSaveTemplate}
-                                        onClick={onOpenSaveTemplate}
-                                        sx={{ width: 40, height: 40 }}
-                                    >
-                                        <SaveAltRoundedIcon fontSize='small' />
-                                    </IconButton>
-                                </span>
-                            </Tooltip>
-                        ) : null}
-                        {showIndependentRowAdd ? (
-                            <Tooltip
-                                title={
-                                    createDisabledReason ??
-                                    (!selectedCell ? t('workspace.table.selectCellBeforeAddRow', 'Select a cell before adding a row.') : '')
-                                }
-                            >
-                                <span>
-                                    <Button
-                                        type='button'
-                                        variant='outlined'
-                                        startIcon={<AddRoundedIcon />}
-                                        disabled={independentRowAddDisabled}
-                                        sx={{ height: 40, minHeight: 40, px: 2, flexShrink: 0 }}
-                                        onClick={onAddTableRow}
-                                    >
-                                        {t('workspace.table.addRow', 'Add row')}
-                                    </Button>
-                                </span>
-                            </Tooltip>
-                        ) : null}
-                        <Tooltip
-                            title={
-                                createDisabledReason ??
-                                (addCellDisabled
-                                    ? t('workspace.cell.addDisabledSelectCell', 'Select a cell before adding another cell.')
-                                    : '')
-                            }
-                        >
-                            <span>
-                                <Button
-                                    type='button'
-                                    variant='contained'
-                                    startIcon={<AddRoundedIcon />}
-                                    disabled={createDisabled || matrixMutationsDisabled || isSavingCell || addCellDisabled}
-                                    sx={{ height: 40, minHeight: 40, px: 2, flexShrink: 0 }}
-                                    onClick={() => onOpenCellDialog('create-cell')}
-                                >
-                                    {t('workspace.cell.add', 'Add')}
-                                </Button>
-                            </span>
-                        </Tooltip>
-                    </Stack>
-                )}
-            </Stack>
-            {matrixRowsError ? (
-                <Alert severity='error' sx={{ mb: 1 }}>
-                    {extractRuntimeErrorMessage(matrixRowsError, t('workspace.matrixError', 'Failed to load matrix cells'), locale)}
-                </Alert>
+                </Tabs>
             ) : null}
-            {saveCellError || moveCellError ? (
-                <Alert severity='error' sx={{ mb: 1 }}>
-                    {t('workspace.cell.error', 'Failed to update matrix cells')}
-                </Alert>
-            ) : null}
-            {matrixCells.length === 0 ? (
-                <Alert severity='info' sx={{ mb: 1 }}>
-                    {t('workspace.matrixEmpty', 'Create a structure again to restore its root matrix cell.')}
+            {favorites?.enabled && feedbackMessageKey ? (
+                <Alert severity={favorites.feedback === 'error' ? 'error' : 'success'} onClose={favorites.clearFeedback} sx={{ mb: 1 }}>
+                    {t(feedbackMessageKey, {
+                        defaultValue: {
+                            'workspace.favorites.added': 'Added to favorites.',
+                            'workspace.favorites.alreadyPresent': 'This cell is already in favorites.',
+                            'workspace.favorites.removed': 'Removed from favorites.',
+                            'workspace.favorites.alreadyAbsent': 'This favorite was already removed.',
+                            'workspace.favorites.mutationError': 'Could not update favorites.'
+                        }[feedbackMessageKey]
+                    })}
                 </Alert>
             ) : null}
             <Box
-                data-testid='interpretation-network-matrix'
-                sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 1,
-                    p: 0.5
-                }}
+                role={hasWorkspaceTabs ? 'tabpanel' : undefined}
+                id={hasWorkspaceTabs ? matrixPanelId : undefined}
+                aria-labelledby={hasWorkspaceTabs ? matrixTabId : undefined}
+                hidden={hasWorkspaceTabs ? workspaceTab !== 'matrix' : undefined}
+                tabIndex={hasWorkspaceTabs ? 0 : undefined}
+                sx={{ minWidth: 0, width: '100%' }}
             >
-                <DndContext
-                    sensors={sensors}
-                    collisionDetection={matrixCellCollisionDetection}
-                    measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
-                    onDragStart={onDragStart}
-                    onDragMove={onDragMove}
-                    onDragOver={onDragOver}
-                    onDragCancel={onDragCancel}
-                    onDragEnd={onDragEnd}
-                >
-                    <SortableContext
-                        items={matrixDisplayCellIds}
-                        strategy={
-                            isHorizontalHierarchy
-                                ? verticalListSortingStrategy
-                                : matrixMode === 'hierarchicalCells'
-                                ? fixedDropTargetsStrategy
-                                : rectSortingStrategy
-                        }
-                    >
-                        {isHierarchicalPathTable ? (
-                            <HierarchicalMatrixTableView
-                                t={t}
-                                model={hierarchicalTableModel}
-                                selectedCellId={selectedCell?.id}
-                                positionLabels={positionLabels}
-                                materialCountByCellId={materialCountByCellId}
-                                showColumnHeaders={showHierarchicalTableHeaders}
-                                showHeaderCard={showHierarchicalTableHeaderCard}
-                                colorBreadcrumbsByCell={colorBreadcrumbsByCell}
-                                mutationDisabled={matrixMutationsDisabled}
-                                isMovingCell={isMovingCell}
-                                dropTargetCellId={dropTargetCellId}
-                                dropPlacement={matrixDropState.placement}
-                                invalidDropTarget={Boolean(dropTargetCellId && !matrixDropState.isValid)}
-                                onSelectCell={onSelectCell}
-                                onOpenCellMenu={onOpenCellMenu}
-                            />
-                        ) : matrixView === 'table' ? (
-                            <MatrixTableView
-                                t={t}
-                                cells={tableVisibleCells}
-                                selectedCellId={selectedCell?.id}
-                                positionLabels={positionLabels}
-                                materialCountByCellId={materialCountByCellId}
-                                dropState={matrixDropState}
-                                mutationDisabled={matrixMutationsDisabled}
-                                isMovingCell={isMovingCell}
-                                addAxisDisabled={tableAxisAddDisabled}
-                                onSelectCell={onSelectCell}
-                                onOpenCellMenu={onOpenCellMenu}
-                                onAddRow={onAddTableRow}
-                                onAddColumn={onAddTableColumn}
-                                onMoveSelectedToSlot={onMoveSelectedToSlot}
-                            />
-                        ) : matrixMode === 'hierarchicalCells' ? (
-                            isHorizontalHierarchy ? (
-                                previewHierarchyRows.map((row, rowIndex) => (
-                                    <Box
-                                        key={`level-${rowIndex}`}
-                                        data-testid='interpretation-network-matrix-row'
+                <Box sx={{ minWidth: 0, width: '100%' }}>
+                    {showMatrixToolbar ? (
+                        <Stack
+                            data-testid='interpretation-network-matrix-toolbar'
+                            direction={toolbarLayout === 'vertical' ? 'column' : 'row'}
+                            spacing={1}
+                            sx={{
+                                mb: 1,
+                                alignItems: toolbarLayout === 'vertical' ? 'stretch' : 'center',
+                                justifyContent: toolbarLayout === 'vertical' ? 'flex-start' : 'space-between',
+                                flexWrap: 'wrap'
+                            }}
+                            useFlexGap
+                        >
+                            <Stack direction='row' spacing={1} useFlexGap sx={{ minWidth: 0, flexWrap: 'wrap' }}>
+                                {allowedMatrixViews.length > 1 ? (
+                                    <ToggleButtonGroup
+                                        exclusive
+                                        size='small'
+                                        value={matrixView}
+                                        onChange={(_event, value: MatrixView | null) => {
+                                            if (value) onChangeMatrixView(value)
+                                        }}
+                                        aria-label={t('workspace.display.mode', 'Matrix view')}
                                         sx={{
-                                            display: 'grid',
-                                            gridTemplateColumns: `repeat(${Math.max(row.length, 1)}, minmax(0, 1fr))`,
-                                            gap: 1,
-                                            minWidth: 0,
-                                            overflowWrap: 'anywhere'
+                                            height: 40,
+                                            flexShrink: 0,
+                                            '& .MuiToggleButton-root': {
+                                                width: 40,
+                                                minWidth: 40,
+                                                height: 40,
+                                                p: 0
+                                            }
                                         }}
                                     >
-                                        {row.map((cell) => renderMatrixCell(cell, { placeholder: isPreviewPlaceholder(cell) }))}
-                                    </Box>
-                                ))
-                            ) : (
-                                previewVisibleCells.map((cell) => (
-                                    <Box key={cell.id} data-testid='interpretation-network-matrix-row' sx={{ minWidth: 0 }}>
-                                        {renderMatrixCell(cell, { placeholder: isPreviewPlaceholder(cell) })}
-                                    </Box>
-                                ))
-                            )
-                        ) : (
-                            matrixRows.map((row) => (
-                                <Box
-                                    key={row.rowKey}
-                                    data-testid='interpretation-network-matrix-row'
-                                    sx={{
-                                        display: 'grid',
-                                        gridTemplateColumns: `repeat(${Math.max(row.cells.length, 1)}, minmax(0, 1fr))`,
-                                        gap: 1,
-                                        minWidth: 0
-                                    }}
-                                >
-                                    {row.cells.map((cell) => renderMatrixCell(cell))}
-                                </Box>
-                            ))
-                        )}
-                    </SortableContext>
-                    <DragOverlay>
-                        {(() => {
-                            const activeCell = matrixDropState.activeCellId
-                                ? visibleMatrixCells.find((cell) => cell.id === matrixDropState.activeCellId) ??
-                                  matrixCells.find((cell) => cell.id === matrixDropState.activeCellId)
-                                : undefined
-                            return activeCell ? renderMatrixCell(activeCell, { overlay: true }) : null
-                        })()}
-                    </DragOverlay>
-                </DndContext>
-                {showMatrixTreeTotalCells ? (
-                    <Paper
-                        variant='outlined'
-                        data-testid='interpretation-network-tree-total-cells'
+                                        {allowedMatrixViews.includes('table') ? (
+                                            <ToggleButton value='table' aria-label={t('workspace.display.table', 'Table view')}>
+                                                <Tooltip title={t('workspace.display.table', 'Table view')}>
+                                                    <TableRowsRoundedIcon fontSize='small' />
+                                                </Tooltip>
+                                            </ToggleButton>
+                                        ) : null}
+                                        {allowedMatrixViews.includes('horizontalRows') ? (
+                                            <ToggleButton
+                                                value='horizontalRows'
+                                                aria-label={t('workspace.display.horizontalRows', 'Horizontal rows')}
+                                            >
+                                                <Tooltip title={t('workspace.display.horizontalRows', 'Horizontal rows')}>
+                                                    <ViewColumnRoundedIcon fontSize='small' />
+                                                </Tooltip>
+                                            </ToggleButton>
+                                        ) : null}
+                                        {allowedMatrixViews.includes('verticalTree') ? (
+                                            <ToggleButton
+                                                value='verticalTree'
+                                                aria-label={t('workspace.display.verticalTree', 'Vertical tree')}
+                                            >
+                                                <Tooltip title={t('workspace.display.verticalTree', 'Vertical tree')}>
+                                                    <AccountTreeRoundedIcon fontSize='small' />
+                                                </Tooltip>
+                                            </ToggleButton>
+                                        ) : null}
+                                    </ToggleButtonGroup>
+                                ) : null}
+                            </Stack>
+                            {canSaveTemplate || canAddMatrixContent ? (
+                                matrixMode === 'hierarchicalCells' ? (
+                                    <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
+                                        {canSaveTemplate ? (
+                                            <Tooltip title={t('workspace.template.saveAsTemplate', 'Save as template')}>
+                                                <span>
+                                                    <IconButton
+                                                        type='button'
+                                                        aria-label={t('workspace.template.saveAsTemplate', 'Save as template')}
+                                                        disabled={!onOpenSaveTemplate}
+                                                        onClick={onOpenSaveTemplate}
+                                                        sx={{ width: 40, height: 40 }}
+                                                    >
+                                                        <SaveAltRoundedIcon fontSize='small' />
+                                                    </IconButton>
+                                                </span>
+                                            </Tooltip>
+                                        ) : null}
+                                        {canAddMatrixContent ? (
+                                            <Tooltip
+                                                title={
+                                                    createDisabledReason ??
+                                                    (!selectedCell || hierarchicalMatrixIsEmpty
+                                                        ? t('workspace.cell.addChildDisabled', 'Select a cell before adding a child.')
+                                                        : '')
+                                                }
+                                            >
+                                                <span>
+                                                    <Button
+                                                        type='button'
+                                                        variant='contained'
+                                                        startIcon={<AddRoundedIcon />}
+                                                        disabled={hierarchicalAddDisabled}
+                                                        sx={{ height: 40, minHeight: 40, px: 2, flexShrink: 0 }}
+                                                        onClick={() => onOpenCellDialog('create-child', selectedCell?.id)}
+                                                    >
+                                                        {t('workspace.cell.add', 'Add')}
+                                                    </Button>
+                                                </span>
+                                            </Tooltip>
+                                        ) : null}
+                                    </Stack>
+                                ) : (
+                                    <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
+                                        {canSaveTemplate ? (
+                                            <Tooltip title={t('workspace.template.saveAsTemplate', 'Save as template')}>
+                                                <span>
+                                                    <IconButton
+                                                        type='button'
+                                                        aria-label={t('workspace.template.saveAsTemplate', 'Save as template')}
+                                                        disabled={!onOpenSaveTemplate}
+                                                        onClick={onOpenSaveTemplate}
+                                                        sx={{ width: 40, height: 40 }}
+                                                    >
+                                                        <SaveAltRoundedIcon fontSize='small' />
+                                                    </IconButton>
+                                                </span>
+                                            </Tooltip>
+                                        ) : null}
+                                        {showIndependentRowAdd && canAddMatrixContent ? (
+                                            <Tooltip
+                                                title={
+                                                    createDisabledReason ??
+                                                    (!selectedCell
+                                                        ? t('workspace.table.selectCellBeforeAddRow', 'Select a cell before adding a row.')
+                                                        : '')
+                                                }
+                                            >
+                                                <span>
+                                                    <Button
+                                                        type='button'
+                                                        variant='outlined'
+                                                        startIcon={<AddRoundedIcon />}
+                                                        disabled={independentRowAddDisabled}
+                                                        sx={{ height: 40, minHeight: 40, px: 2, flexShrink: 0 }}
+                                                        onClick={onAddTableRow}
+                                                    >
+                                                        {t('workspace.table.addRow', 'Add row')}
+                                                    </Button>
+                                                </span>
+                                            </Tooltip>
+                                        ) : null}
+                                        {canAddMatrixContent ? (
+                                            <Tooltip
+                                                title={
+                                                    createDisabledReason ??
+                                                    (addCellDisabled
+                                                        ? t(
+                                                              'workspace.cell.addDisabledSelectCell',
+                                                              'Select a cell before adding another cell.'
+                                                          )
+                                                        : '')
+                                                }
+                                            >
+                                                <span>
+                                                    <Button
+                                                        type='button'
+                                                        variant='contained'
+                                                        startIcon={<AddRoundedIcon />}
+                                                        disabled={
+                                                            createDisabled || matrixMutationsDisabled || isSavingCell || addCellDisabled
+                                                        }
+                                                        sx={{ height: 40, minHeight: 40, px: 2, flexShrink: 0 }}
+                                                        onClick={() => onOpenCellDialog('create-cell')}
+                                                    >
+                                                        {t('workspace.cell.add', 'Add')}
+                                                    </Button>
+                                                </span>
+                                            </Tooltip>
+                                        ) : null}
+                                    </Stack>
+                                )
+                            ) : null}
+                        </Stack>
+                    ) : null}
+                    {matrixRowsError ? (
+                        <Alert severity='error' sx={{ mb: 1 }}>
+                            {extractRuntimeErrorMessage(matrixRowsError, t('workspace.matrixError', 'Failed to load matrix cells'), locale)}
+                        </Alert>
+                    ) : null}
+                    {saveCellError || moveCellError ? (
+                        <Alert severity='error' sx={{ mb: 1 }}>
+                            {t('workspace.cell.error', 'Failed to update matrix cells')}
+                        </Alert>
+                    ) : null}
+                    {matrixCells.length === 0 ? (
+                        <Alert severity='info' sx={{ mb: 1 }}>
+                            {t('workspace.matrixEmpty', 'Create a structure again to restore its root matrix cell.')}
+                        </Alert>
+                    ) : null}
+                    <Box
+                        data-testid='interpretation-network-matrix'
                         sx={{
-                            width: '100%',
-                            minWidth: 0,
-                            p: 1.25,
-                            borderRadius: 1,
-                            bgcolor: 'action.hover',
-                            boxShadow: 'none'
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 1,
+                            p: 0.5
                         }}
                     >
-                        <Typography
-                            variant='body2'
-                            sx={{
-                                color: 'text.secondary',
-                                fontWeight: 500
-                            }}
+                        <DndContext
+                            sensors={sensors}
+                            collisionDetection={matrixCellCollisionDetection}
+                            measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+                            onDragStart={onDragStart}
+                            onDragMove={onDragMove}
+                            onDragOver={onDragOver}
+                            onDragCancel={onDragCancel}
+                            onDragEnd={onDragEnd}
                         >
-                            {renderTreeTotalLabel(t, matrixCells.length)}
-                        </Typography>
-                    </Paper>
-                ) : null}
+                            <SortableContext
+                                items={matrixDisplayCellIds}
+                                strategy={
+                                    isHorizontalHierarchy
+                                        ? verticalListSortingStrategy
+                                        : matrixMode === 'hierarchicalCells'
+                                        ? fixedDropTargetsStrategy
+                                        : rectSortingStrategy
+                                }
+                            >
+                                {isHierarchicalPathTable ? (
+                                    <HierarchicalMatrixTableView
+                                        t={t}
+                                        model={hierarchicalTableModel}
+                                        selectedCellId={selectedCell?.id}
+                                        positionLabels={positionLabels}
+                                        materialCountByCellId={materialCountByCellId}
+                                        showColumnHeaders={showHierarchicalTableHeaders}
+                                        showHeaderCard={showHierarchicalTableHeaderCard}
+                                        colorBreadcrumbsByCell={colorBreadcrumbsByCell}
+                                        showCellActions={showCellActionsMenu}
+                                        showDragHandles={showMatrixDragHandles}
+                                        mutationDisabled={matrixMutationsDisabled}
+                                        isMovingCell={isMovingCell}
+                                        dropTargetCellId={dropTargetCellId}
+                                        dropPlacement={matrixDropState.placement}
+                                        invalidDropTarget={Boolean(dropTargetCellId && !matrixDropState.isValid)}
+                                        onSelectCell={onSelectCell}
+                                        onOpenCellMenu={onOpenCellMenu}
+                                    />
+                                ) : matrixView === 'table' ? (
+                                    <MatrixTableView
+                                        t={t}
+                                        cells={tableVisibleCells}
+                                        selectedCellId={selectedCell?.id}
+                                        positionLabels={positionLabels}
+                                        materialCountByCellId={materialCountByCellId}
+                                        dropState={matrixDropState}
+                                        mutationDisabled={matrixMutationsDisabled}
+                                        isMovingCell={isMovingCell}
+                                        showCellActions={showCellActionsMenu}
+                                        showDragHandles={showMatrixDragHandles}
+                                        showAxisActions={canAddMatrixContent && !matrixMutationsDisabled}
+                                        addAxisDisabled={tableAxisAddDisabled}
+                                        onSelectCell={onSelectCell}
+                                        onOpenCellMenu={onOpenCellMenu}
+                                        onAddRow={onAddTableRow}
+                                        onAddColumn={onAddTableColumn}
+                                        onMoveSelectedToSlot={onMoveSelectedToSlot}
+                                    />
+                                ) : matrixMode === 'hierarchicalCells' ? (
+                                    isHorizontalHierarchy ? (
+                                        previewHierarchyRows.map((row, rowIndex) => (
+                                            <Box
+                                                key={`level-${rowIndex}`}
+                                                data-testid='interpretation-network-matrix-row'
+                                                sx={{
+                                                    display: 'grid',
+                                                    gridTemplateColumns: `repeat(${Math.max(row.length, 1)}, minmax(0, 1fr))`,
+                                                    gap: 1,
+                                                    minWidth: 0,
+                                                    overflowWrap: 'anywhere'
+                                                }}
+                                            >
+                                                {row.map((cell) => renderMatrixCell(cell, { placeholder: isPreviewPlaceholder(cell) }))}
+                                            </Box>
+                                        ))
+                                    ) : (
+                                        previewVisibleCells.map((cell) => (
+                                            <Box key={cell.id} data-testid='interpretation-network-matrix-row' sx={{ minWidth: 0 }}>
+                                                {renderMatrixCell(cell, { placeholder: isPreviewPlaceholder(cell) })}
+                                            </Box>
+                                        ))
+                                    )
+                                ) : (
+                                    matrixRows.map((row) => (
+                                        <Box
+                                            key={row.rowKey}
+                                            data-testid='interpretation-network-matrix-row'
+                                            sx={{
+                                                display: 'grid',
+                                                gridTemplateColumns: `repeat(${Math.max(row.cells.length, 1)}, minmax(0, 1fr))`,
+                                                gap: 1,
+                                                minWidth: 0
+                                            }}
+                                        >
+                                            {row.cells.map((cell) => renderMatrixCell(cell))}
+                                        </Box>
+                                    ))
+                                )}
+                            </SortableContext>
+                            <DragOverlay>
+                                {(() => {
+                                    const activeCell = matrixDropState.activeCellId
+                                        ? visibleMatrixCells.find((cell) => cell.id === matrixDropState.activeCellId) ??
+                                          matrixCells.find((cell) => cell.id === matrixDropState.activeCellId)
+                                        : undefined
+                                    return activeCell ? renderMatrixCell(activeCell, { overlay: true }) : null
+                                })()}
+                            </DragOverlay>
+                        </DndContext>
+                        {showMatrixTreeTotalCells ? (
+                            <Paper
+                                variant='outlined'
+                                data-testid='interpretation-network-tree-total-cells'
+                                sx={{
+                                    width: '100%',
+                                    minWidth: 0,
+                                    p: 1.25,
+                                    borderRadius: 1,
+                                    bgcolor: 'action.hover',
+                                    boxShadow: 'none'
+                                }}
+                            >
+                                <Typography
+                                    variant='body2'
+                                    sx={{
+                                        color: 'text.secondary',
+                                        fontWeight: 500
+                                    }}
+                                >
+                                    {renderTreeTotalLabel(t, matrixCells.length)}
+                                </Typography>
+                            </Paper>
+                        ) : null}
+                    </Box>
+                    <Menu
+                        anchorReference='anchorPosition'
+                        anchorPosition={cellMenuAnchorPosition}
+                        open={cellMenuOpen}
+                        onClose={onCloseCellMenu}
+                    >
+                        <MenuItem disabled={!menuCell || !canEditContent} onClick={() => openMenuCellDialogAfterMenuClose('edit')}>
+                            <EditRoundedIcon fontSize='small' sx={{ mr: 1 }} />
+                            {t('workspace.cell.edit', 'Edit')}
+                        </MenuItem>
+                        {matrixMode === 'hierarchicalCells' ? (
+                            <MenuItem
+                                disabled={!menuCell || !canCreateContent || !canEditContent || matrixMutationsDisabled || isSavingCell}
+                                onClick={() => openMenuCellDialogAfterMenuClose('create-child')}
+                            >
+                                <AddRoundedIcon fontSize='small' sx={{ mr: 1 }} />
+                                {t('workspace.cell.add', 'Add')}
+                            </MenuItem>
+                        ) : null}
+                        {matrixMode === 'hierarchicalCells' && hasTemplates ? (
+                            <MenuItem
+                                disabled={!menuCell || !canInsertTemplate || matrixMutationsDisabled || isSavingCell}
+                                onClick={() => {
+                                    const targetCellId = menuCell?.id
+                                    onCloseCellMenu()
+                                    if (targetCellId) {
+                                        setWorkspaceTab('templates')
+                                        onOpenTemplateInsert?.(targetCellId)
+                                    }
+                                }}
+                            >
+                                <SaveAltRoundedIcon fontSize='small' sx={{ mr: 1 }} />
+                                {t('workspace.template.insertBelowCell', 'Insert saved template')}
+                            </MenuItem>
+                        ) : null}
+                        {matrixMode !== 'hierarchicalCells' ? (
+                            <MenuItem
+                                disabled={!menuCell || !canCreateContent || !canEditContent || matrixMutationsDisabled || isSavingCell}
+                                onClick={() => openMenuCellDialogAfterMenuClose('create-cell')}
+                            >
+                                <AddRoundedIcon fontSize='small' sx={{ mr: 1 }} />
+                                {t('workspace.cell.addSibling', 'Add cell in row')}
+                            </MenuItem>
+                        ) : null}
+                        {menuMoves.length > 0 ? <Divider /> : null}
+                        {menuMoves.map((move) => (
+                            <MenuItem key={move.label} disabled={matrixMutationsDisabled || isMovingCell} onClick={move.action}>
+                                {move.icon}
+                                <Box component='span' sx={{ ml: 1 }}>
+                                    {move.label}
+                                </Box>
+                            </MenuItem>
+                        ))}
+                        {favorites?.enabled ? <Divider /> : null}
+                        {favorites?.enabled ? (
+                            <FavoritesCellMenuItem
+                                t={t}
+                                isFavorite={favorites.isFavorite(menuFavoriteTarget)}
+                                disabled={!menuFavoriteTarget}
+                                pending={favorites.isMutationPending}
+                                onClick={() => {
+                                    onCloseCellMenu()
+                                    if (menuFavoriteTarget) void favorites.toggleFavorite(menuFavoriteTarget)
+                                }}
+                            />
+                        ) : null}
+                        <Divider />
+                        <MenuItem
+                            disabled={!menuCell || !canDeleteContent || isDeletingCell}
+                            onClick={() => {
+                                const targetId = menuCell?.id
+                                onCloseCellMenu()
+                                if (targetId) onRequestDeleteCell(targetId)
+                            }}
+                            sx={{ color: 'error.main' }}
+                        >
+                            <DeleteRoundedIcon fontSize='small' sx={{ mr: 1 }} />
+                            {t('workspace.cell.delete', 'Delete')}
+                        </MenuItem>
+                    </Menu>
+                </Box>
             </Box>
-            <Menu anchorReference='anchorPosition' anchorPosition={cellMenuAnchorPosition} open={cellMenuOpen} onClose={onCloseCellMenu}>
-                <MenuItem disabled={!menuCell || !canEditContent} onClick={() => openMenuCellDialogAfterMenuClose('edit')}>
-                    <EditRoundedIcon fontSize='small' sx={{ mr: 1 }} />
-                    {t('workspace.cell.edit', 'Edit')}
-                </MenuItem>
-                {matrixMode === 'hierarchicalCells' ? (
-                    <MenuItem
-                        disabled={!menuCell || !canCreateContent || !canEditContent || matrixMutationsDisabled || isSavingCell}
-                        onClick={() => openMenuCellDialogAfterMenuClose('create-child')}
-                    >
-                        <AddRoundedIcon fontSize='small' sx={{ mr: 1 }} />
-                        {t('workspace.cell.add', 'Add')}
-                    </MenuItem>
-                ) : null}
-                {matrixMode !== 'hierarchicalCells' ? (
-                    <MenuItem
-                        disabled={!menuCell || !canCreateContent || !canEditContent || matrixMutationsDisabled || isSavingCell}
-                        onClick={() => openMenuCellDialogAfterMenuClose('create-cell')}
-                    >
-                        <AddRoundedIcon fontSize='small' sx={{ mr: 1 }} />
-                        {t('workspace.cell.addSibling', 'Add cell in row')}
-                    </MenuItem>
-                ) : null}
-                {menuMoves.length > 0 ? <Divider /> : null}
-                {menuMoves.map((move) => (
-                    <MenuItem key={move.label} disabled={matrixMutationsDisabled || isMovingCell} onClick={move.action}>
-                        {move.icon}
-                        <Box component='span' sx={{ ml: 1 }}>
-                            {move.label}
-                        </Box>
-                    </MenuItem>
-                ))}
-                <Divider />
-                <MenuItem
-                    disabled={!menuCell || !canDeleteContent || isDeletingCell}
-                    onClick={() => {
-                        const targetId = menuCell?.id
-                        onCloseCellMenu()
-                        if (targetId) onRequestDeleteCell(targetId)
-                    }}
-                    sx={{ color: 'error.main' }}
+            {favorites?.enabled ? (
+                <Box
+                    role='tabpanel'
+                    id={favoritesPanelId}
+                    aria-labelledby={favoritesTabId}
+                    hidden={workspaceTab !== 'favorites'}
+                    tabIndex={0}
+                    sx={{ minWidth: 0, width: '100%' }}
                 >
-                    <DeleteRoundedIcon fontSize='small' sx={{ mr: 1 }} />
-                    {t('workspace.cell.delete', 'Delete')}
-                </MenuItem>
-            </Menu>
+                    {workspaceTab === 'favorites' ? (
+                        <FavoritesWorkspacePanel
+                            t={t}
+                            locale={locale}
+                            favorites={favorites}
+                            onNavigate={(favorite) => {
+                                favorites.onNavigateFavorite(favorite)
+                                focusMatrixTabAfterNavigation.current = true
+                                setWorkspaceTab('matrix')
+                            }}
+                        />
+                    ) : null}
+                </Box>
+            ) : null}
+            {hasTemplatePanel ? (
+                <Box
+                    role='tabpanel'
+                    id={templatesPanelId}
+                    aria-labelledby={templatesTabId}
+                    hidden={workspaceTab !== 'templates'}
+                    tabIndex={0}
+                    sx={{ minWidth: 0, width: '100%' }}
+                >
+                    {workspaceTab === 'templates' ? templatePanel : null}
+                </Box>
+            ) : null}
         </Box>
     )
 }

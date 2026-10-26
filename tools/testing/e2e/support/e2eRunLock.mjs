@@ -2,6 +2,25 @@ import { randomUUID } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+const DELEGATED_RUN_LOCK_ENV_KEYS = ['UNIVERSO_E2E_RUN_LOCK_OWNER_PID', 'UNIVERSO_E2E_RUN_LOCK_TOKEN']
+
+export function withoutE2eRunLockDelegation(environment = {}) {
+    const childEnvironment = { ...environment }
+    for (const key of DELEGATED_RUN_LOCK_ENV_KEYS) delete childEnvironment[key]
+    return childEnvironment
+}
+
+export function withE2eRunLockDelegation(environment = {}, lease = null) {
+    const childEnvironment = withoutE2eRunLockDelegation(environment)
+    if (!lease) return childEnvironment
+
+    return {
+        ...childEnvironment,
+        UNIVERSO_E2E_RUN_LOCK_OWNER_PID: String(lease.ownerPid),
+        UNIVERSO_E2E_RUN_LOCK_TOKEN: lease.token
+    }
+}
+
 function isProcessAlive(pid) {
     if (!Number.isInteger(pid) || pid <= 0) return false
 

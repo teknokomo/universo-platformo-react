@@ -15,10 +15,19 @@ import {
 } from './syncHelpers'
 import type { ApplicationSchemaSyncSource, SyncableApplicationRecord } from './syncTypes'
 
+export function assertCurrentApplicationStructureVersion(application: Pick<SyncableApplicationRecord, 'appStructureVersion'>): number {
+    if (application.appStructureVersion !== TARGET_APP_STRUCTURE_VERSION) {
+        throw new Error(`Unsupported application structure version: ${String(application.appStructureVersion)}`)
+    }
+
+    return TARGET_APP_STRUCTURE_VERSION
+}
+
 export function resolveRuntimeApplicationReleaseLineage(
     application: SyncableApplicationRecord,
     snapshotHash: string
 ): { releaseVersion: string; previousReleaseVersion: string | null } {
+    const structureVersion = assertCurrentApplicationStructureVersion(application)
     const installedReleaseVersion = extractInstalledReleaseVersion(application.installedReleaseMetadata)
     const installedSourceKind = extractInstalledReleaseMetadataString(application.installedReleaseMetadata, 'sourceKind')
     const installedSnapshotHash = extractInstalledReleaseMetadataString(application.installedReleaseMetadata, 'snapshotHash')
@@ -30,11 +39,6 @@ export function resolveRuntimeApplicationReleaseLineage(
             previousReleaseVersion
         }
     }
-
-    const structureVersion =
-        typeof application.appStructureVersion === 'number' && Number.isFinite(application.appStructureVersion)
-            ? application.appStructureVersion
-            : TARGET_APP_STRUCTURE_VERSION
 
     return {
         releaseVersion: `application-runtime-v${structureVersion}-${snapshotHash.slice(0, 12)}`,

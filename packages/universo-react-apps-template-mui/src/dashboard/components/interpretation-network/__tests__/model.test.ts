@@ -8,6 +8,7 @@ import {
     buildMatrixTableModel,
     buildRootUniverseMatrixCellData,
     flattenMatrixTree,
+    findMaterialsForCell,
     parseMatrixHierarchyLayout,
     parseMatrixHierarchyRowMode,
     parseMatrixMode,
@@ -60,6 +61,20 @@ const physicalMatrixChildColumns: RuntimeColumnLike[] = [
 ]
 
 describe('interpretation network model', () => {
+    it('merges server-projected material associations with the Primary Material without duplicates', () => {
+        const materials = [
+            { id: 'primary', Title: 'Primary' },
+            { id: 'secondary', Title: 'Secondary' },
+            { id: 'other-cell', Title: 'Other cell' }
+        ]
+
+        expect(
+            findMaterialsForCell(materials, undefined, 'cell-1', 'primary', ['secondary', 'primary', 'missing']).map(
+                (material) => material.id
+            )
+        ).toEqual(['primary', 'secondary'])
+    })
+
     it('appends a new hierarchical child after its existing siblings', () => {
         const parent = { id: 'parent', parentCellId: null, sortOrder: 0 } as MatrixCell
         const existingCells = [

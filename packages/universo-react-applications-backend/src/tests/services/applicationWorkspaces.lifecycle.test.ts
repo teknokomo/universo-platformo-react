@@ -28,6 +28,10 @@ describe('applicationWorkspaces lifecycle and seed reset', () => {
                 return id ? [{ id }] : []
             }
 
+            if (sql.includes(`INSERT INTO "${schemaName}"."_app_workspaces"`)) {
+                return [{ id: params?.[0] }]
+            }
+
             if (sql.includes(`INSERT INTO "${schemaName}"."_app_workspace_roles"`)) {
                 return [{ id: params?.[0] }]
             }

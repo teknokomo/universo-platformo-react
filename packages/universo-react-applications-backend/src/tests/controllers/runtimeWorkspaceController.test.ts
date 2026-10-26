@@ -22,6 +22,7 @@ const mockAddWorkspaceMember = jest.fn()
 const mockRemoveWorkspaceMember = jest.fn()
 const mockListWorkspaceMembers = jest.fn()
 const mockGetWorkspaceMembership = jest.fn()
+const mockLockWorkspaceMembershipForMutation = jest.fn((...args: unknown[]) => mockGetWorkspaceMembership(...args))
 const mockAssertRuntimeWorkspaceExists = jest.fn()
 const mockListRuntimeWorkspaceSettings = jest.fn()
 const mockUpdateWorkspaceSettingOverrides = jest.fn()
@@ -46,7 +47,8 @@ jest.mock('../../services/runtimeWorkspaceService', () => ({
         memberWorkspaceOwnershipBlocked: 'APPLICATION_MEMBER_WORKSPACE_OWNERSHIP_REQUIRED',
         lastOwnerRemovalBlocked: 'LAST_WORKSPACE_OWNER_REMOVAL_BLOCKED',
         workspaceCopyReferenceUnresolved: 'WORKSPACE_COPY_REFERENCE_UNRESOLVED',
-        workspaceCopyAccessLinkIntakeInvalid: 'WORKSPACE_COPY_ACCESS_LINK_INTAKE_INVALID'
+        workspaceCopyAccessLinkIntakeInvalid: 'WORKSPACE_COPY_ACCESS_LINK_INTAKE_INVALID',
+        workspaceCopyTemplateMaterialsExcluded: 'WORKSPACE_COPY_TEMPLATE_MATERIALS_EXCLUDED'
     },
     RuntimeWorkspaceError: class RuntimeWorkspaceError extends Error {
         code: string
@@ -69,6 +71,7 @@ jest.mock('../../services/runtimeWorkspaceService', () => ({
     removeWorkspaceMember: (...args: unknown[]) => mockRemoveWorkspaceMember(...args),
     listWorkspaceMembers: (...args: unknown[]) => mockListWorkspaceMembers(...args),
     getWorkspaceMembership: (...args: unknown[]) => mockGetWorkspaceMembership(...args),
+    lockWorkspaceMembershipForMutation: (...args: unknown[]) => mockLockWorkspaceMembershipForMutation(...args),
     assertRuntimeWorkspaceExists: (...args: unknown[]) => mockAssertRuntimeWorkspaceExists(...args)
 }))
 
@@ -77,8 +80,11 @@ jest.mock('../../services/workspaceSettingsService', () => ({
     WORKSPACE_SETTINGS_ERROR_CODES: {
         settingNotAllowed: 'WORKSPACE_SETTING_NOT_ALLOWED',
         settingConflict: 'WORKSPACE_SETTING_VERSION_CONFLICT',
-        settingNotFound: 'WORKSPACE_SETTING_NOT_FOUND'
+        settingNotFound: 'WORKSPACE_SETTING_NOT_FOUND',
+        settingTargetNotFound: 'WORKSPACE_SETTING_TARGET_NOT_FOUND',
+        settingValueInvalid: 'WORKSPACE_SETTING_VALUE_INVALID'
     },
+    workspaceSettingBatchUpdateSchema: jest.requireActual('../../services/workspaceSettingsService').workspaceSettingBatchUpdateSchema,
     WorkspaceSettingsError: class WorkspaceSettingsError extends Error {
         code: string
 
@@ -128,6 +134,8 @@ const vlc = (content: string) => ({
 describe('runtimeWorkspaceController', () => {
     const manager = { query: jest.fn() }
     const workspaceId = '2a15af4d-54ef-4b65-b5fd-8274d0d1de1a'
+    const settingsApplicationId = '018f8a78-7b8f-7c1d-a111-2222333344ac'
+    const settingsWorkspaceId = '018f8a78-7b8f-7c1d-a111-2222333344aa'
     const inaccessibleWorkspaceId = '2a15af4d-54ef-4b65-b5fd-8274d0d1de1c'
     const baseCtx = {
         schemaName: 'app_018f8a787b8f7c1da111222233334440',
@@ -139,15 +147,15 @@ describe('runtimeWorkspaceController', () => {
         baseApplicationSettings: {
             sectionLinksEnabled: true,
             workspaceOverrides: {
-                allowedKeys: ['sectionLinksEnabled'],
-                lockedKeys: []
+                allowedAddresses: [{ key: 'sectionLinksEnabled', target: { kind: 'global' } }],
+                lockedAddresses: []
             }
         },
         applicationSettings: {
             sectionLinksEnabled: false,
             workspaceOverrides: {
-                allowedKeys: ['sectionLinksEnabled'],
-                lockedKeys: []
+                allowedAddresses: [{ key: 'sectionLinksEnabled', target: { kind: 'global' } }],
+                lockedAddresses: []
             }
         },
         permissions: {
@@ -240,6 +248,7 @@ describe('runtimeWorkspaceController', () => {
             res
         )
 
+        expect(mockResolveRuntimeSchema.mock.calls.at(-1)?.[6]).toEqual({ workspaceLockStrategy: 'validate-only' })
         expect(mockCreateSharedWorkspace).toHaveBeenCalledWith(manager, {
             schemaName: baseCtx.schemaName,
             applicationId: 'app-1',
@@ -250,6 +259,113 @@ describe('runtimeWorkspaceController', () => {
         })
         expect(res.status).toHaveBeenCalledWith(201)
         expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ id: 'workspace-2' })
+    })
+
+    it('defers workspace update locking to the lifecycle service', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockGetWorkspaceMembership.mockResolvedValueOnce({ roleCodename: 'owner' })
+        mockUpdateWorkspace.mockResolvedValueOnce(undefined)
+
+        await controller.updateWorkspaceDetails(
+            {
+                method: 'PATCH',
+                params: { applicationId: 'app-1', workspaceId },
+                body: { description: vlc('Updated workspace description') }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockResolveRuntimeSchema).toHaveBeenCalledWith(
+            expect.any(Function),
+            expect.any(Function),
+            expect.anything(),
+            res,
+            'app-1',
+            workspaceId,
+            { workspaceLockStrategy: 'validate-only' }
+        )
+        expect(mockLockWorkspaceMembershipForMutation).toHaveBeenCalledWith(manager, {
+            schemaName: baseCtx.schemaName,
+            applicationId: 'app-1',
+            workspaceId,
+            userId: baseCtx.userId
+        })
+        expect(mockUpdateWorkspace).toHaveBeenCalledWith(manager, {
+            schemaName: baseCtx.schemaName,
+            applicationId: 'app-1',
+            workspaceId,
+            name: undefined,
+            description: vlc('Updated workspace description'),
+            actorUserId: baseCtx.userId
+        })
+        expect(res.json).toHaveBeenCalledWith({ ok: true })
+    })
+
+    it('defers workspace deletion locking to the lifecycle service', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockGetWorkspaceMembership.mockResolvedValueOnce({ roleCodename: 'owner' })
+        mockDeleteSharedWorkspace.mockResolvedValueOnce(undefined)
+
+        await controller.deleteWorkspaceDetails(
+            {
+                method: 'DELETE',
+                params: { applicationId: 'app-1', workspaceId }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockResolveRuntimeSchema).toHaveBeenCalledWith(
+            expect.any(Function),
+            expect.any(Function),
+            expect.anything(),
+            res,
+            'app-1',
+            workspaceId,
+            { workspaceLockStrategy: 'validate-only' }
+        )
+        expect(mockLockWorkspaceMembershipForMutation).toHaveBeenCalledWith(manager, {
+            schemaName: baseCtx.schemaName,
+            applicationId: 'app-1',
+            workspaceId,
+            userId: baseCtx.userId
+        })
+        expect(mockDeleteSharedWorkspace).toHaveBeenCalledWith(manager, {
+            schemaName: baseCtx.schemaName,
+            applicationId: 'app-1',
+            workspaceId,
+            applicationSettings: baseCtx.baseApplicationSettings,
+            actorUserId: baseCtx.userId
+        })
+        expect(res.json).toHaveBeenCalledWith({ ok: true })
+    })
+
+    it('returns a localized authorization code when the creator is no longer an application member', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockCreateSharedWorkspace.mockRejectedValueOnce(
+            new RuntimeWorkspaceError('USER_NOT_MEMBER', 'An active application membership is required to create a workspace')
+        )
+        mockResolveRuntimeSchema.mockResolvedValueOnce({
+            ...baseCtx,
+            permissions: { ...baseCtx.permissions, manageApplication: true }
+        })
+
+        await controller.createWorkspace(
+            {
+                params: { applicationId: 'app-1' },
+                body: { name: vlc('Class A'), description: vlc('Class A description') }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockResolveRuntimeSchema.mock.calls.at(-1)?.[6]).toEqual({ workspaceLockStrategy: 'validate-only' })
+        expect(res.status).toHaveBeenCalledWith(403)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'An active application membership is required to create a workspace',
+            code: 'APPLICATION_MEMBER_REQUIRED'
+        })
     })
 
     it('forbids a workspace member from creating a shared workspace', async () => {
@@ -291,6 +407,15 @@ describe('runtimeWorkspaceController', () => {
             res
         )
 
+        expect(mockResolveRuntimeSchema).toHaveBeenCalledWith(
+            expect.any(Function),
+            expect.any(Function),
+            expect.anything(),
+            res,
+            'app-1',
+            '018f8a78-7b8f-7c1d-a111-222233334400',
+            { workspaceLockStrategy: 'validate-only' }
+        )
         expect(mockConvertPersonalWorkspaceToShared).toHaveBeenCalledWith(manager, {
             schemaName: baseCtx.schemaName,
             applicationId: 'app-1',
@@ -501,6 +626,21 @@ describe('runtimeWorkspaceController', () => {
             res
         )
 
+        expect(mockResolveRuntimeSchema).toHaveBeenCalledWith(
+            expect.any(Function),
+            expect.any(Function),
+            expect.anything(),
+            res,
+            'app-1',
+            workspaceId,
+            { workspaceLockStrategy: 'schema-first-copy' }
+        )
+        expect(mockGetWorkspaceMembership).toHaveBeenCalledWith(manager, {
+            schemaName: baseCtx.schemaName,
+            workspaceId,
+            userId: baseCtx.userId
+        })
+        expect(mockLockWorkspaceMembershipForMutation).not.toHaveBeenCalled()
         expect(res.status).toHaveBeenCalledWith(409)
         expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -542,6 +682,42 @@ describe('runtimeWorkspaceController', () => {
             expect.objectContaining({
                 error: 'Workspace copy contains an invalid guest intake configuration',
                 code: 'WORKSPACE_COPY_ACCESS_LINK_INTAKE_INVALID'
+            })
+        )
+    })
+
+    it('maps excluded TableTemplate Materials during workspace copy to a conflict response', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockGetWorkspaceMembership.mockResolvedValue({
+            id: 'membership-1',
+            userId: 'user-1',
+            workspaceId,
+            roleCodename: 'owner',
+            isDefault: true,
+            workspaceType: 'shared',
+            personalUserId: null
+        })
+        mockCopyWorkspace.mockRejectedValue(
+            new RuntimeWorkspaceError(
+                RUNTIME_WORKSPACE_ERROR_CODES.workspaceCopyTemplateMaterialsExcluded,
+                'Workspace copy cannot preserve TableTemplate Material relationships across excluded records'
+            )
+        )
+
+        await controller.copyWorkspaceDetails(
+            {
+                params: { applicationId: 'app-1', workspaceId },
+                body: { name: vlc('Workspace copy'), description: vlc('Description') }
+            } as unknown as Request,
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith(
+            expect.objectContaining({
+                error: 'Workspace copy cannot preserve TableTemplate Material relationships across excluded records',
+                code: 'WORKSPACE_COPY_TEMPLATE_MATERIALS_EXCLUDED'
             })
         )
     })
@@ -638,7 +814,8 @@ describe('runtimeWorkspaceController', () => {
             workspaceId,
             limit: 10,
             offset: 20,
-            search: 'member'
+            search: 'member',
+            canViewEmails: true
         })
         expect(res.json).toHaveBeenCalledWith({
             items: [
@@ -648,6 +825,77 @@ describe('runtimeWorkspaceController', () => {
             total: 2,
             limit: 10,
             offset: 20
+        })
+    })
+
+    it('allows application managers to view workspace member emails', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockResolveRuntimeSchema.mockResolvedValueOnce({
+            ...baseCtx,
+            permissions: { ...baseCtx.permissions, manageApplication: true }
+        })
+        mockGetWorkspaceMembership.mockResolvedValue(null)
+        mockAssertRuntimeWorkspaceExists.mockResolvedValue(undefined)
+        mockListWorkspaceMembers.mockResolvedValue({
+            items: [{ userId: 'member-user', roleCodename: 'member', email: 'member@example.com', nickname: 'Member', canRemove: false }],
+            total: 1
+        })
+
+        await controller.getMembers(
+            {
+                params: { applicationId: 'app-1', workspaceId },
+                query: { search: 'member@example.com' }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockListWorkspaceMembers).toHaveBeenCalledWith(
+            manager,
+            expect.objectContaining({ canViewEmails: true, search: 'member@example.com' })
+        )
+        expect(mockAssertRuntimeWorkspaceExists).toHaveBeenCalledWith(manager, {
+            schemaName: baseCtx.schemaName,
+            workspaceId
+        })
+        expect(res.json).toHaveBeenCalledWith({
+            items: [{ userId: 'member-user', roleCodename: 'member', email: 'member@example.com', nickname: 'Member', canRemove: false }],
+            total: 1,
+            limit: 100,
+            offset: 0
+        })
+    })
+
+    it('keeps the member list available while withholding email access from ordinary members', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockResolveRuntimeSchema.mockResolvedValueOnce({ ...baseCtx, role: 'member' })
+        mockGetWorkspaceMembership.mockResolvedValue({
+            id: 'membership-1',
+            userId: 'user-1',
+            workspaceId,
+            roleCodename: 'member',
+            isDefault: true
+        })
+        mockListWorkspaceMembers.mockResolvedValue({
+            items: [{ userId: 'user-2', roleCodename: 'member', email: null, nickname: 'Member', canRemove: false }],
+            total: 1
+        })
+
+        await controller.getMembers(
+            {
+                params: { applicationId: 'app-1', workspaceId },
+                query: { search: 'Member' }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockListWorkspaceMembers).toHaveBeenCalledWith(manager, expect.objectContaining({ canViewEmails: false, search: 'Member' }))
+        expect(res.json).toHaveBeenCalledWith({
+            items: [{ userId: 'user-2', roleCodename: 'member', email: null, nickname: 'Member', canRemove: false }],
+            total: 1,
+            limit: 100,
+            offset: 0
         })
     })
 
@@ -717,6 +965,7 @@ describe('runtimeWorkspaceController', () => {
             res
         )
 
+        expect(mockResolveRuntimeSchema.mock.calls.at(-1)?.[6]).toEqual({ workspaceLockStrategy: 'validate-only' })
         expect(mockAddWorkspaceMember).toHaveBeenCalledWith(manager, {
             schemaName: baseCtx.schemaName,
             applicationId: 'app-1',
@@ -826,6 +1075,7 @@ describe('runtimeWorkspaceController', () => {
             res
         )
 
+        expect(mockResolveRuntimeSchema.mock.calls.at(-1)?.[6]).toEqual({ workspaceLockStrategy: 'validate-only' })
         expect(res.status).toHaveBeenCalledWith(409)
         expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -919,40 +1169,105 @@ describe('runtimeWorkspaceController', () => {
             workspaceType: 'shared',
             personalUserId: null
         })
-        mockListRuntimeWorkspaceSettings.mockResolvedValue([
-            {
-                key: 'sectionLinksEnabled',
-                value: true,
-                source: 'application',
-                isInherited: true,
-                definition: { key: 'sectionLinksEnabled' },
-                allowed: true,
-                version: 1
-            }
-        ])
+        mockListRuntimeWorkspaceSettings.mockResolvedValue({
+            items: [
+                {
+                    key: 'sectionLinksEnabled',
+                    value: true,
+                    source: 'application',
+                    isInherited: true,
+                    definition: { key: 'sectionLinksEnabled' },
+                    target: { kind: 'global' },
+                    allowed: true,
+                    version: 1
+                }
+            ],
+            widgetOverrides: [],
+            layoutToken: null,
+            effectiveWidgetConfigs: []
+        })
 
         await controller.listSettings(
             {
-                params: { applicationId: 'app-1', workspaceId }
+                params: { applicationId: settingsApplicationId, workspaceId: settingsWorkspaceId },
+                query: {}
             } as unknown as Request,
             res
         )
 
         expect(mockListRuntimeWorkspaceSettings).toHaveBeenCalledWith(manager, {
             schemaName: baseCtx.schemaName,
-            workspaceId,
-            applicationSettings: baseCtx.baseApplicationSettings
+            workspaceId: settingsWorkspaceId,
+            applicationSettings: baseCtx.baseApplicationSettings,
+            authContext: { applicationId: settingsApplicationId, userId: baseCtx.userId, role: baseCtx.role },
+            runtimeTarget: { applicationId: settingsApplicationId, targetKind: null, workspaceId: settingsWorkspaceId, locale: 'en' }
         })
         expect(res.json).toHaveBeenCalledWith({
             items: [
                 expect.objectContaining({
                     key: 'sectionLinksEnabled',
+                    target: { kind: 'global' },
                     allowed: true,
                     version: 1
                 })
             ],
+            widgetOverrides: [],
+            layoutToken: null,
+            effectiveWidgetConfigs: [],
             canManage: false
         })
+    })
+
+    it('resolves page-scoped workspace settings from the semantic runtime target and rejects layout ids', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockGetWorkspaceMembership.mockResolvedValue({
+            id: 'membership-1',
+            userId: 'user-1',
+            workspaceId: settingsWorkspaceId,
+            roleCodename: 'owner',
+            isDefault: false,
+            workspaceType: 'shared',
+            personalUserId: null
+        })
+        mockListRuntimeWorkspaceSettings.mockResolvedValue({
+            items: [],
+            widgetOverrides: [],
+            layoutToken: 'layout-token',
+            effectiveWidgetConfigs: []
+        })
+
+        await controller.listSettings(
+            {
+                params: { applicationId: settingsApplicationId, workspaceId: settingsWorkspaceId },
+                query: { targetKind: 'page', entityTypeCodename: 'workspace-home', locale: 'ru' }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockListRuntimeWorkspaceSettings).toHaveBeenCalledWith(
+            manager,
+            expect.objectContaining({
+                runtimeTarget: {
+                    applicationId: settingsApplicationId,
+                    targetKind: 'page',
+                    entityTypeCodename: 'workspace-home',
+                    workspaceId: settingsWorkspaceId,
+                    locale: 'ru'
+                }
+            })
+        )
+
+        const invalidRes = createResponse()
+        await controller.listSettings(
+            {
+                params: { applicationId: settingsApplicationId, workspaceId: settingsWorkspaceId },
+                query: { targetKind: 'page', entityTypeCodename: 'workspace-home', layoutId: 'untrusted-layout' }
+            } as unknown as Request,
+            invalidRes
+        )
+        expect(invalidRes.status).toHaveBeenCalledWith(400)
+        expect(mockListRuntimeWorkspaceSettings).toHaveBeenCalledTimes(1)
     })
 
     it('allows application administrators to manage workspace settings without workspace membership', async () => {
@@ -964,33 +1279,42 @@ describe('runtimeWorkspaceController', () => {
         })
         mockGetWorkspaceMembership.mockResolvedValue(null)
         mockAssertRuntimeWorkspaceExists.mockResolvedValue(undefined)
-        mockListRuntimeWorkspaceSettings.mockResolvedValue([
-            {
-                key: 'sectionLinksEnabled',
-                value: true,
-                source: 'application',
-                isInherited: true,
-                definition: { key: 'sectionLinksEnabled' },
-                allowed: true,
-                version: null
-            }
-        ])
+        mockListRuntimeWorkspaceSettings.mockResolvedValue({
+            items: [
+                {
+                    key: 'sectionLinksEnabled',
+                    value: true,
+                    source: 'application',
+                    isInherited: true,
+                    definition: { key: 'sectionLinksEnabled' },
+                    target: { kind: 'global' },
+                    allowed: true,
+                    version: null
+                }
+            ],
+            widgetOverrides: [],
+            layoutToken: null,
+            effectiveWidgetConfigs: []
+        })
 
         await controller.listSettings(
             {
-                params: { applicationId: 'app-1', workspaceId }
+                params: { applicationId: settingsApplicationId, workspaceId: settingsWorkspaceId },
+                query: {}
             } as unknown as Request,
             res
         )
 
         expect(mockAssertRuntimeWorkspaceExists).toHaveBeenCalledWith(manager, {
             schemaName: baseCtx.schemaName,
-            workspaceId
+            workspaceId: settingsWorkspaceId
         })
         expect(mockListRuntimeWorkspaceSettings).toHaveBeenCalledWith(manager, {
             schemaName: baseCtx.schemaName,
-            workspaceId,
-            applicationSettings: baseCtx.baseApplicationSettings
+            workspaceId: settingsWorkspaceId,
+            applicationSettings: baseCtx.baseApplicationSettings,
+            authContext: { applicationId: settingsApplicationId, userId: baseCtx.userId, role: baseCtx.role },
+            runtimeTarget: { applicationId: settingsApplicationId, targetKind: null, workspaceId: settingsWorkspaceId, locale: 'en' }
         })
         expect(res.json).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -1014,9 +1338,10 @@ describe('runtimeWorkspaceController', () => {
 
         await controller.updateSettings(
             {
-                params: { applicationId: 'app-1', workspaceId },
+                params: { applicationId: settingsApplicationId, workspaceId: settingsWorkspaceId },
+                query: {},
                 body: {
-                    settings: [{ key: 'sectionLinksEnabled', value: false }]
+                    settings: [{ key: 'sectionLinksEnabled', target: { kind: 'global' }, value: false }]
                 }
             } as unknown as Request,
             res
@@ -1052,21 +1377,72 @@ describe('runtimeWorkspaceController', () => {
 
         await controller.updateSettings(
             {
-                params: { applicationId: 'app-1', workspaceId },
+                params: { applicationId: settingsApplicationId, workspaceId: settingsWorkspaceId },
+                query: {},
                 body: {
-                    settings: [{ key: 'sectionLinksEnabled', value: false }]
+                    settings: [{ key: 'sectionLinksEnabled', target: { kind: 'global' }, value: false }]
                 }
             } as unknown as Request,
             res
         )
 
         expect(res.status).toHaveBeenLastCalledWith(409)
+        expect(mockResolveRuntimeSchema.mock.calls.at(-1)?.[6]).toEqual({ workspaceLockStrategy: 'validate-only' })
         expect(res.status.mock.results.at(-1)?.value.json).toHaveBeenCalledWith(
             expect.objectContaining({
                 error: 'Workspace setting "sectionLinksEnabled" version conflict',
                 code: 'WORKSPACE_SETTING_VERSION_CONFLICT'
             })
         )
+    })
+
+    it('keeps the existing v1 key-only settings request scoped to the global target', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockGetWorkspaceMembership.mockResolvedValue({
+            id: 'membership-1',
+            userId: 'user-1',
+            workspaceId: settingsWorkspaceId,
+            roleCodename: 'owner',
+            isDefault: false,
+            workspaceType: 'shared',
+            personalUserId: null
+        })
+        mockUpdateWorkspaceSettingOverrides.mockResolvedValue({
+            items: [],
+            widgetSettings: [],
+            widgetOverrides: [],
+            layoutToken: null,
+            effectiveWidgetConfigs: []
+        })
+
+        await controller.updateSettings(
+            {
+                params: { applicationId: settingsApplicationId, workspaceId: settingsWorkspaceId },
+                query: {},
+                body: {
+                    settings: [{ key: 'sectionLinksEnabled', value: false }],
+                    resetKeys: ['dashboardDefaultMode']
+                }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockUpdateWorkspaceSettingOverrides).toHaveBeenCalledWith(
+            manager,
+            expect.objectContaining({
+                settings: [{ key: 'sectionLinksEnabled', target: { kind: 'global' }, value: false }],
+                resets: [{ key: 'dashboardDefaultMode', target: { kind: 'global' } }],
+                runtimeTarget: {
+                    applicationId: settingsApplicationId,
+                    targetKind: null,
+                    workspaceId: settingsWorkspaceId,
+                    locale: 'en'
+                }
+            })
+        )
+        expect(res.status).not.toHaveBeenCalled()
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ canManage: true }))
     })
 
     it('resets only seeded workspace content for an owner or application administrator', async () => {
@@ -1099,7 +1475,8 @@ describe('runtimeWorkspaceController', () => {
             expect.anything(),
             res,
             'app-1',
-            workspaceId
+            workspaceId,
+            { workspaceLockStrategy: 'validate-only' }
         )
         expect(mockResetWorkspaceSeededElements).toHaveBeenCalledWith(manager, {
             schemaName: baseCtx.schemaName,

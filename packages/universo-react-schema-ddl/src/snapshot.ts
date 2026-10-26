@@ -2,7 +2,7 @@ import type { EntityDefinition, SchemaSnapshot } from './types'
 import { resolveFieldColumnName, resolveEntityTableName, generateChildTableName } from './naming'
 import { hasPhysicalRuntimeTable } from './builtinEntityKinds'
 
-export const CURRENT_SCHEMA_SNAPSHOT_VERSION = 2
+export const CURRENT_SCHEMA_SNAPSHOT_VERSION = 1
 
 export const buildSchemaSnapshot = (entities: EntityDefinition[]): SchemaSnapshot => {
     const snapshot: SchemaSnapshot = {

@@ -28,6 +28,7 @@ import {
     fetchRuntimeEffectiveLayout,
     getRuntimeLayoutErrorCode,
     resolveDashboardRuntimeLayoutTarget,
+    toAuthenticatedRuntimePlacementScopes,
     toDashboardZoneWidgets,
     updateLearningContentProgress
 } from '../api/api'
@@ -197,6 +198,10 @@ function DashboardRuntimeContent({ effectiveLayout, onRuntimeDataChanged, onNavi
         if (!effectiveZoneWidgets || !isWorkspacesRoute) return effectiveZoneWidgets
         return withoutWorkspaceDashboardContent(effectiveZoneWidgets)
     }, [effectiveZoneWidgets, isWorkspacesRoute])
+    const authenticatedPlacementScopes = useMemo(
+        () => (effectiveDashboardLayout ? toAuthenticatedRuntimePlacementScopes(effectiveDashboardLayout) : undefined),
+        [effectiveDashboardLayout]
+    )
     const detailsTitle = isWorkspacesRoute
         ? t('workspace.title', 'Workspaces')
         : detailsAppData?.objectCollection?.name ??
@@ -653,7 +658,12 @@ function DashboardRuntimeContent({ effectiveLayout, onRuntimeDataChanged, onNavi
 
     return (
         <AppMainLayout>
-            <Dashboard layoutConfig={runtimeLayoutConfig} zoneWidgets={dashboardZoneWidgets} details={details} />
+            <Dashboard
+                layoutConfig={runtimeLayoutConfig}
+                zoneWidgets={dashboardZoneWidgets}
+                placementScopes={authenticatedPlacementScopes}
+                details={details}
+            />
 
             {!isWorkspacesRoute ? (
                 <>

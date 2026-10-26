@@ -2,10 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Autocomplete from '@mui/material/Autocomplete'
 import Button from '@mui/material/Button'
-import Dialog from '@mui/material/Dialog'
-import DialogActions from '@mui/material/DialogActions'
-import DialogContent from '@mui/material/DialogContent'
-import DialogTitle from '@mui/material/DialogTitle'
 import FormControl from '@mui/material/FormControl'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import FormLabel from '@mui/material/FormLabel'
@@ -21,11 +17,13 @@ import type { TFunction } from 'i18next'
 import {
     calculateInterpretationNetworkContrastRatio,
     parseInterpretationNetworkHexColor,
+    type InterpretationNetworkCellStylePolicy,
     type MatrixColor,
     type VersionedLocalizedContent
 } from '@universo-react/types'
 import { createLocalizedContent, normalizeLocale } from '@universo-react/utils'
 import { LocalizedInlineField } from '../../../components/forms/LocalizedInlineField'
+import { StandardDialog } from '../../../components/dialogs/StandardDialog'
 import type { FieldConfig } from '../../../components/dialogs/FormDialog'
 import type { MatrixAxisOption } from './model'
 import { MATRIX_CELL_PLACEMENT_FIELD, type MatrixCellPlacement } from './matrixCellData'
@@ -41,6 +39,7 @@ export interface CellEditDialogProps {
     locale: string
     fields: FieldConfig[]
     styleFields: FieldConfig[]
+    cellStylePolicy?: InterpretationNetworkCellStylePolicy
     initialData: Record<string, unknown>
     axisOptions?: {
         rows: MatrixAxisOption[]
@@ -141,6 +140,7 @@ export function CellEditDialog({
     locale,
     fields,
     styleFields,
+    cellStylePolicy,
     initialData,
     axisOptions,
     initialPlacement,
@@ -423,140 +423,143 @@ export function CellEditDialog({
     }
 
     return (
-        <Dialog open={open} onClose={isSubmitting ? undefined : onClose} maxWidth='sm' fullWidth>
-            <DialogTitle>
-                {mode === 'edit' ? t('workspace.cell.editTitle', 'Edit cell') : t('workspace.cell.createTitle', 'Add cell')}
-            </DialogTitle>
-            <DialogContent>
-                <Stack spacing={2} sx={{ pt: 0.5 }}>
-                    {error ? <Alert severity='error'>{error}</Alert> : null}
-                    <Tabs value={tab} onChange={(_event, next) => setTab(next)} aria-label={t('workspace.cell.tabs', 'Cell settings')}>
-                        <Tab value='basic' label={t('workspace.cell.basicTab', 'Basic')} />
-                        <Tab value='style' label={t('workspace.cell.styleTab', 'Style')} />
-                    </Tabs>
-                    {tab === 'basic' ? (
-                        <Stack spacing={2}>
-                            {mode === 'create' ? (
-                                placementIsSystemManaged ? null : (
-                                    <Stack spacing={2}>
-                                        <Typography variant='subtitle2'>{t('workspace.cell.placementTitle', 'Placement')}</Typography>
-                                        {renderAxisPlacement({
-                                            axis: 'row',
-                                            field: rowLabelField,
-                                            kind: rowKind,
-                                            selected: selectedRow,
-                                            options: axisOptions?.rows ?? [],
-                                            title: t('workspace.cell.rowPlacement', 'Row'),
-                                            existingLabel: t('workspace.cell.useExistingRow', 'Existing row'),
-                                            newLabel: t('workspace.cell.useNewRow', 'New row'),
-                                            selectLabel: t('workspace.cell.existingRowField', 'Select row'),
-                                            newFieldLabel: t('workspace.cell.newRowField', 'New row name'),
-                                            error: validationErrors.__rowPlacement
-                                        })}
-                                        {renderAxisPlacement({
-                                            axis: 'column',
-                                            field: columnLabelField,
-                                            kind: columnKind,
-                                            selected: selectedColumn,
-                                            options: axisOptions?.columns ?? [],
-                                            title: t('workspace.cell.columnPlacement', 'Column'),
-                                            existingLabel: t('workspace.cell.useExistingColumn', 'Existing column'),
-                                            newLabel: t('workspace.cell.useNewColumn', 'New column'),
-                                            selectLabel: t('workspace.cell.existingColumnField', 'Select column'),
-                                            newFieldLabel: t('workspace.cell.newColumnField', 'New column name'),
-                                            error: validationErrors.__columnPlacement
-                                        })}
-                                    </Stack>
-                                )
-                            ) : (
-                                <>
-                                    {rowLabelField && !rowLabelIsHidden ? (
-                                        <LocalizedInlineField
-                                            mode='localized'
-                                            label={t('workspace.cell.rowLabelField', 'Row label')}
-                                            value={toLocalizedValue(draft[rowLabelField.id], normalizedLocale)}
-                                            onChange={(value) => handleFieldChange(rowLabelField, value)}
-                                            uiLocale={normalizedLocale}
-                                            autoInitialize={false}
-                                            error={validationErrors[rowLabelField.id]}
-                                            required
-                                        />
-                                    ) : null}
-                                    {columnLabelField && !columnLabelIsHidden ? (
-                                        <LocalizedInlineField
-                                            mode='localized'
-                                            label={t('workspace.cell.columnLabelField', 'Column label')}
-                                            value={toLocalizedValue(draft[columnLabelField.id], normalizedLocale)}
-                                            onChange={(value) => handleFieldChange(columnLabelField, value)}
-                                            uiLocale={normalizedLocale}
-                                            autoInitialize={false}
-                                            error={validationErrors[columnLabelField.id]}
-                                            required
-                                        />
-                                    ) : null}
-                                </>
-                            )}
-                            {titleField ? (
-                                <LocalizedInlineField
-                                    mode='localized'
-                                    label={t('workspace.cell.titleField', 'Title')}
-                                    value={toLocalizedValue(draft[titleField.id], normalizedLocale)}
-                                    onChange={(value) => handleFieldChange(titleField, value)}
-                                    uiLocale={normalizedLocale}
-                                    autoInitialize={false}
-                                    error={validationErrors[titleField.id]}
-                                    required
-                                />
-                            ) : null}
-                            {descriptionField ? (
-                                <LocalizedInlineField
-                                    mode='localized'
-                                    label={t('workspace.cell.descriptionField', 'Description')}
-                                    value={toLocalizedValue(draft[descriptionField.id], normalizedLocale)}
-                                    onChange={(value) => handleFieldChange(descriptionField, value)}
-                                    uiLocale={normalizedLocale}
-                                    autoInitialize={false}
-                                    multiline
-                                    rows={4}
-                                />
-                            ) : null}
-                            {!rowLabelField && !columnLabelField && !titleField && !descriptionField ? (
-                                <Alert severity='warning'>
-                                    {t('workspace.cell.metadataUnavailable', 'Cell metadata fields are not available.')}
-                                </Alert>
-                            ) : null}
-                        </Stack>
-                    ) : null}
-                    {tab === 'style' ? (
-                        <Stack spacing={2}>
-                            {styleFields.length > 0 ? (
-                                <InterpretationNetworkCellStyleEditor
-                                    t={t}
-                                    fields={styleFields}
-                                    draft={draft}
-                                    disabled={isSubmitting}
-                                    resetKey={styleEditorResetKey}
-                                    validationErrors={validationErrors}
-                                    themePaper={theme.palette.background.paper}
-                                    onChange={handleFieldChange}
-                                />
-                            ) : (
-                                <Alert severity='info'>
-                                    {t('workspace.cellStyle.unavailable', 'Cell style fields are not available.')}
-                                </Alert>
-                            )}
-                        </Stack>
-                    ) : null}
-                </Stack>
-            </DialogContent>
-            <DialogActions sx={{ px: 3, pb: 2 }}>
-                <Button type='button' onClick={onClose} disabled={isSubmitting} color='inherit'>
-                    {t('workspace.actions.cancel', 'Cancel')}
-                </Button>
-                <Button type='button' onClick={handleSubmit} disabled={isSubmitting} variant='contained'>
-                    {mode === 'edit' ? t('workspace.actions.save', 'Save') : t('workspace.actions.create', 'Create')}
-                </Button>
-            </DialogActions>
-        </Dialog>
+        <StandardDialog
+            open={open}
+            onClose={onClose}
+            maxWidth='sm'
+            fullWidth
+            isBusy={isSubmitting}
+            title={mode === 'edit' ? t('workspace.cell.editTitle', 'Edit cell') : t('workspace.cell.createTitle', 'Add cell')}
+            actions={
+                <>
+                    <Button type='button' onClick={onClose} disabled={isSubmitting} color='inherit'>
+                        {t('workspace.actions.cancel', 'Cancel')}
+                    </Button>
+                    <Button type='button' onClick={handleSubmit} disabled={isSubmitting} variant='contained'>
+                        {mode === 'edit' ? t('workspace.actions.save', 'Save') : t('workspace.actions.create', 'Create')}
+                    </Button>
+                </>
+            }
+        >
+            <Stack spacing={2} sx={{ pt: 0.5 }}>
+                {error ? <Alert severity='error'>{error}</Alert> : null}
+                <Tabs value={tab} onChange={(_event, next) => setTab(next)} aria-label={t('workspace.cell.tabs', 'Cell settings')}>
+                    <Tab value='basic' label={t('workspace.cell.basicTab', 'Basic')} />
+                    <Tab value='style' label={t('workspace.cell.styleTab', 'Style')} />
+                </Tabs>
+                {tab === 'basic' ? (
+                    <Stack spacing={2}>
+                        {mode === 'create' ? (
+                            placementIsSystemManaged ? null : (
+                                <Stack spacing={2}>
+                                    <Typography variant='subtitle2'>{t('workspace.cell.placementTitle', 'Placement')}</Typography>
+                                    {renderAxisPlacement({
+                                        axis: 'row',
+                                        field: rowLabelField,
+                                        kind: rowKind,
+                                        selected: selectedRow,
+                                        options: axisOptions?.rows ?? [],
+                                        title: t('workspace.cell.rowPlacement', 'Row'),
+                                        existingLabel: t('workspace.cell.useExistingRow', 'Existing row'),
+                                        newLabel: t('workspace.cell.useNewRow', 'New row'),
+                                        selectLabel: t('workspace.cell.existingRowField', 'Select row'),
+                                        newFieldLabel: t('workspace.cell.newRowField', 'New row name'),
+                                        error: validationErrors.__rowPlacement
+                                    })}
+                                    {renderAxisPlacement({
+                                        axis: 'column',
+                                        field: columnLabelField,
+                                        kind: columnKind,
+                                        selected: selectedColumn,
+                                        options: axisOptions?.columns ?? [],
+                                        title: t('workspace.cell.columnPlacement', 'Column'),
+                                        existingLabel: t('workspace.cell.useExistingColumn', 'Existing column'),
+                                        newLabel: t('workspace.cell.useNewColumn', 'New column'),
+                                        selectLabel: t('workspace.cell.existingColumnField', 'Select column'),
+                                        newFieldLabel: t('workspace.cell.newColumnField', 'New column name'),
+                                        error: validationErrors.__columnPlacement
+                                    })}
+                                </Stack>
+                            )
+                        ) : (
+                            <>
+                                {rowLabelField && !rowLabelIsHidden ? (
+                                    <LocalizedInlineField
+                                        mode='localized'
+                                        label={t('workspace.cell.rowLabelField', 'Row label')}
+                                        value={toLocalizedValue(draft[rowLabelField.id], normalizedLocale)}
+                                        onChange={(value) => handleFieldChange(rowLabelField, value)}
+                                        uiLocale={normalizedLocale}
+                                        autoInitialize={false}
+                                        error={validationErrors[rowLabelField.id]}
+                                        required
+                                    />
+                                ) : null}
+                                {columnLabelField && !columnLabelIsHidden ? (
+                                    <LocalizedInlineField
+                                        mode='localized'
+                                        label={t('workspace.cell.columnLabelField', 'Column label')}
+                                        value={toLocalizedValue(draft[columnLabelField.id], normalizedLocale)}
+                                        onChange={(value) => handleFieldChange(columnLabelField, value)}
+                                        uiLocale={normalizedLocale}
+                                        autoInitialize={false}
+                                        error={validationErrors[columnLabelField.id]}
+                                        required
+                                    />
+                                ) : null}
+                            </>
+                        )}
+                        {titleField ? (
+                            <LocalizedInlineField
+                                mode='localized'
+                                label={t('workspace.cell.titleField', 'Title')}
+                                value={toLocalizedValue(draft[titleField.id], normalizedLocale)}
+                                onChange={(value) => handleFieldChange(titleField, value)}
+                                uiLocale={normalizedLocale}
+                                autoInitialize={false}
+                                error={validationErrors[titleField.id]}
+                                required
+                            />
+                        ) : null}
+                        {descriptionField ? (
+                            <LocalizedInlineField
+                                mode='localized'
+                                label={t('workspace.cell.descriptionField', 'Description')}
+                                value={toLocalizedValue(draft[descriptionField.id], normalizedLocale)}
+                                onChange={(value) => handleFieldChange(descriptionField, value)}
+                                uiLocale={normalizedLocale}
+                                autoInitialize={false}
+                                multiline
+                                rows={4}
+                            />
+                        ) : null}
+                        {!rowLabelField && !columnLabelField && !titleField && !descriptionField ? (
+                            <Alert severity='warning'>
+                                {t('workspace.cell.metadataUnavailable', 'Cell metadata fields are not available.')}
+                            </Alert>
+                        ) : null}
+                    </Stack>
+                ) : null}
+                {tab === 'style' ? (
+                    <Stack spacing={2}>
+                        {styleFields.length > 0 ? (
+                            <InterpretationNetworkCellStyleEditor
+                                t={t}
+                                fields={styleFields}
+                                policy={cellStylePolicy}
+                                draft={draft}
+                                disabled={isSubmitting}
+                                resetKey={styleEditorResetKey}
+                                validationErrors={validationErrors}
+                                themePaper={theme.palette.background.paper}
+                                onChange={handleFieldChange}
+                            />
+                        ) : (
+                            <Alert severity='info'>{t('workspace.cellStyle.unavailable', 'Cell style fields are not available.')}</Alert>
+                        )}
+                    </Stack>
+                ) : null}
+            </Stack>
+        </StandardDialog>
     )
 }

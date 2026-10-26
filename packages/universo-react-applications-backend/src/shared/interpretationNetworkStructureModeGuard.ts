@@ -1,6 +1,6 @@
 import { qColumn, qSchemaTable } from '@universo-react/database'
 import type { DbExecutor } from '@universo-react/utils'
-import { acquireAdvisoryXactLock } from '@universo-react/utils/database'
+import { acquireAdvisoryXactLock, acquireAdvisoryXactSharedLock } from '@universo-react/utils/database'
 
 export const INTERPRETATION_NETWORK_WIDGET_KEY = 'interpretationNetworkWorkspace'
 
@@ -11,6 +11,10 @@ export const interpretationNetworkStructureModeLockKey = (schemaName: string): s
 
 export const lockInterpretationNetworkStructureMode = async (executor: DbExecutor, schemaName: string): Promise<void> => {
     await acquireAdvisoryXactLock(executor, interpretationNetworkStructureModeLockKey(schemaName))
+}
+
+export const lockInterpretationNetworkStructureModeShared = async (executor: DbExecutor, schemaName: string): Promise<void> => {
+    await acquireAdvisoryXactSharedLock(executor, interpretationNetworkStructureModeLockKey(schemaName))
 }
 
 type WidgetModeState = {

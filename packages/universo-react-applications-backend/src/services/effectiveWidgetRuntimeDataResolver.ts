@@ -262,25 +262,25 @@ const selectEffectiveWidgetCandidates = async (
     return selection
 }
 
-/** Fail closed before runtime reads when the requested workspace does not belong to this scope. */
+/** Fail closed for Entity-backed widget reads when the requested workspace is unavailable or invalid. */
 const applyRuntimeWorkspacePermissionFilter = (
     scope: EffectiveWidgetRuntimeReadScope,
     selection: RuntimeWidgetCandidateSelection,
     result: Map<string, EffectiveWidgetRuntimeData>
 ): boolean => {
-    if (!selection.preparedWidgets.length && !selection.generatedMenus.length) return true
+    if (!selection.preparedWidgets.length) return true
     const invalidWorkspaceScope =
         (scope.workspacesEnabled && (!scope.workspaceId || !isUuidV7(scope.workspaceId))) ||
         (!scope.workspacesEnabled && scope.workspaceId !== null)
     if (!invalidWorkspaceScope) return true
 
-    for (const widget of [...selection.preparedWidgets, ...selection.generatedMenus]) {
+    for (const widget of selection.preparedWidgets) {
         result.set(widget.candidate.id, state('permission-denied'))
     }
     return false
 }
 
-/** Resolve one generated menu payload for every generated-menu placement in the batch. */
+/** Resolve generated navigation from published application metadata, independently of a selected workspace. */
 const resolveGeneratedMenuBatch = async (
     executor: DbExecutor,
     scope: EffectiveWidgetRuntimeReadScope,
@@ -553,9 +553,8 @@ export const resolveEffectiveWidgetRuntimeData = async (
     const selection = await selectEffectiveWidgetCandidates(executor, scope, widgets, locale, result)
 
     if (!selection.preparedWidgets.length && !selection.generatedMenus.length) return result
-    if (!applyRuntimeWorkspacePermissionFilter(scope, selection, result)) return result
-
     await resolveGeneratedMenuBatch(executor, scope, selection.generatedMenus, locale, result)
+    if (!applyRuntimeWorkspacePermissionFilter(scope, selection, result)) return result
     if (!selection.preparedWidgets.length) return result
 
     const metadataBatch = await loadAuthorizedWidgetMetadataBatch(executor, scope, selection.preparedWidgets, result)

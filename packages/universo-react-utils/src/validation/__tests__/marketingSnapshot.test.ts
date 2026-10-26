@@ -463,7 +463,7 @@ describe('validateMarketingSnapshotLayouts', () => {
         expect(() => validateMarketingSnapshotLayouts(missingBinding)).toThrow('widget binding is invalid')
 
         const currentBinding = createSnapshot([heroWidget(ids.widget, 'hero')])
-        currentBinding.versionEnvelope = { snapshotFormatVersion: 4 }
+        currentBinding.versionEnvelope = { snapshotFormatVersion: 1 }
         expect(() => validateMarketingSnapshotLayouts(currentBinding)).not.toThrow()
 
         const missingEntity = createSnapshot([heroWidget(ids.widget, 'hero')])

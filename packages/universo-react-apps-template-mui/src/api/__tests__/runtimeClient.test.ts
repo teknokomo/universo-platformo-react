@@ -9,6 +9,7 @@ import {
     normalizeRuntimeLayoutTarget,
     resolveDashboardRuntimeLayoutTarget,
     runtimeZoneWidgetsSchema,
+    toAuthenticatedRuntimePlacementScopes,
     toDashboardZoneWidgets
 } from '../api'
 
@@ -259,6 +260,13 @@ describe('target-aware runtime client', () => {
         expect(runtimeZoneWidgetsSchema.safeParse(toDashboardZoneWidgets(parsed as Extract<typeof parsed, { status: 'ok' }>)).success).toBe(
             true
         )
+        const rendererPlacements = toDashboardZoneWidgets(parsed as Extract<typeof parsed, { status: 'ok' }>)
+        expect(rendererPlacements.left[0]).not.toHaveProperty('id')
+        expect(rendererPlacements.left[0]).not.toHaveProperty('layoutId')
+        expect(toAuthenticatedRuntimePlacementScopes(parsed as Extract<typeof parsed, { status: 'ok' }>)?.['main-menu']).toEqual({
+            widgetId: '0190a9b5-3cde-7abc-8def-0123456789b1',
+            layoutId
+        })
         expect(
             effectiveLayoutResultSchema.safeParse({
                 ...runtimeTemplate,

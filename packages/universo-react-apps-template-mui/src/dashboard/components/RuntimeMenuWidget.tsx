@@ -258,20 +258,8 @@ const projectWorkspaceNavigation = (
             : activeWorkspaceRoot && currentPath === activeWorkspaceRoot
             ? ''
             : undefined
-    const isWorkspaceListSelected = currentPath === workspaceRoot
     const workspaceLabel = (key: string, fallback: string) => String(t(key, fallback))
-    const items: RuntimeMenuViewItem[] = [
-        {
-            key: 'runtime-workspaces-list',
-            label: workspaceLabel('workspace.title', 'Workspaces'),
-            icon: 'apps',
-            href: buildWorkspacesRuntimeHref(applicationRoot, '', details, workspaceId),
-            selected: isWorkspaceListSelected,
-            dividerBefore: true
-        }
-    ]
-
-    if (!workspaceId || !activeWorkspaceRoot) return items
+    if (!workspaceId || !activeWorkspaceRoot) return []
 
     const selectedSection =
         selectedWorkspaceRoute === '/access' ? 'access' : selectedWorkspaceRoute === '/settings' ? 'settings' : 'dashboard'
@@ -281,16 +269,14 @@ const projectWorkspaceNavigation = (
         { section: 'settings', label: workspaceLabel('workspace.settings', 'Settings'), icon: 'settings', suffix: '/settings' }
     ] as const
 
-    return [
-        ...items,
-        ...workspaceRoutes.map(({ section, label, icon, suffix }) => ({
-            key: `runtime-workspace-${section}`,
-            label,
-            icon,
-            href: buildWorkspacesRuntimeHref(applicationRoot, `/${encodeURIComponent(workspaceId)}${suffix}`, details, workspaceId),
-            selected: selectedWorkspaceRoute !== undefined && selectedSection === section
-        }))
-    ]
+    return workspaceRoutes.map(({ section, label, icon, suffix }) => ({
+        key: `runtime-workspace-${section}`,
+        label,
+        icon,
+        href: buildWorkspacesRuntimeHref(applicationRoot, `/${encodeURIComponent(workspaceId)}${suffix}`, details, workspaceId),
+        selected: selectedWorkspaceRoute !== undefined && selectedSection === section,
+        dividerBefore: section === 'dashboard'
+    }))
 }
 
 export default function RuntimeMenuWidget({ widget, variant }: { widget: ZoneWidgetItem; variant: 'wide' | 'compact' }): ReactNode {
@@ -315,13 +301,14 @@ export default function RuntimeMenuWidget({ widget, variant }: { widget: ZoneWid
         .filter((item) => item.kind !== 'workspaces' && !isSameApplicationWorkspaceListHref(item.href, applicationRoot))
         .map((item, index) => projectRuntimeMenuItem(item, `runtime-menu-overflow-item-${index}`, applicationRoot, details))
         .filter((item): item is RuntimeMenuViewItem => item !== undefined)
+    const isPublicRuntime = details?.runtimeAccessMode === 'public'
     const viewModel: RuntimeMenuViewModel = {
         title: payload.title,
         showTitle: payload.showTitle,
         overflowLabel: payload.overflowLabel,
-        items: [...runtimeItems, ...workspaceItems],
-        overflowItems: runtimeOverflowItems
+        items: isPublicRuntime ? [...runtimeItems, ...runtimeOverflowItems].slice(0, 1) : [...runtimeItems, ...workspaceItems],
+        overflowItems: isPublicRuntime ? [] : runtimeOverflowItems
     }
 
-    return <MenuContent key={widget.id} viewModel={viewModel} variant={variant} onNavigate={details?.navigate} />
+    return <MenuContent key={widget.instanceKey} viewModel={viewModel} variant={variant} onNavigate={details?.navigate} />
 }

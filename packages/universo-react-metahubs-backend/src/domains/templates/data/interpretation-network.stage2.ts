@@ -15,7 +15,7 @@
 //   - `INTERPRETATION_NETWORK_RELATION_OBJECT_COMPONENTS` — Relation Object preset
 //     (SourceKind, SourceId, TargetKind, TargetId, RelationType, Description)
 //   - `INTERPRETATION_NETWORK_MATERIAL_OBJECT_COMPONENTS` — Material Object preset
-//     (Title, Description, Body Editor.js block content, hidden CellId attachment)
+//     (Title, Description, Body Editor.js block content, hidden CellId + InterpretationId attachment)
 //   - `INTERPRETATION_NETWORK_DEFAULT_HUB_CODENAME` — default hub codename (Main)
 //   - `INTERPRETATION_NETWORK_SEED_ENTITIES` — the Interpretation Network entity/page definitions
 //     (InterpretationNetworkIntro page, Structure / Interpretation / Relation /
@@ -40,15 +40,6 @@ const buildEditorText = (en: string, ru: string) => ({
     locales: {
         en: { content: en, version: 1, isActive: true },
         ru: { content: ru, version: 1, isActive: true }
-    }
-})
-
-const buildEditorHeaderBlock = (id: string, level: number, en: string, ru: string) => ({
-    id,
-    type: 'header',
-    data: {
-        level,
-        text: buildEditorText(en, ru)
     }
 })
 
@@ -275,11 +266,15 @@ const INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS: TemplateSee
     {
         codename: 'MaterialRef',
         dataType: 'REF',
-        name: vlc('Attached Material', 'Прикреплённый материал'),
+        name: vlc('Primary Material', 'Основной материал'),
+        description: vlc(
+            'Optional explicitly selected material that opens first when this cell is selected.',
+            'Необязательный выбранный материал, который открывается первым при выборе этой ячейки.'
+        ),
         sortOrder: 23,
         targetEntityCodename: 'Material',
         targetEntityKind: 'object',
-        uiConfig: { enumPresentationMode: 'label', serverOwned: true }
+        uiConfig: { enumPresentationMode: 'label', serverOwned: true, runtimeReadable: true }
     }
 ]
 
@@ -491,8 +486,8 @@ const INTERPRETATION_NETWORK_MATERIAL_OBJECT_COMPONENTS: TemplateSeedComponent[]
         dataType: 'JSON',
         name: vlc('Body', 'Содержимое'),
         description: vlc(
-            'Structured Editor.js content attached to a Structure or Interpretation cell.',
-            'Структурированный контент Editor.js, прикрепляемый к ячейке структуры или трактовки.'
+            'Structured Editor.js content attached to an Interpretation Matrix cell.',
+            'Структурированный контент Editor.js, прикрепляемый к ячейке матрицы трактовок.'
         ),
         sortOrder: 3,
         uiConfig: {
@@ -513,6 +508,18 @@ const INTERPRETATION_NETWORK_MATERIAL_OBJECT_COMPONENTS: TemplateSeedComponent[]
         uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true }
     },
     {
+        codename: 'InterpretationId',
+        dataType: 'STRING',
+        name: vlc('Interpretation ID', 'ID трактовки'),
+        description: vlc(
+            'Server-owned Interpretation row ID that scopes this Material to one Matrix.',
+            'Серверный ID записи трактовки, связывающий материал с конкретной матрицей.'
+        ),
+        sortOrder: 5,
+        validationRules: { maxLength: 36 },
+        uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true }
+    },
+    {
         codename: 'TemplateOwnerId',
         dataType: 'STRING',
         name: vlc('Template owner ID', 'ID шаблона-владельца'),
@@ -520,8 +527,35 @@ const INTERPRETATION_NETWORK_MATERIAL_OBJECT_COMPONENTS: TemplateSeedComponent[]
             'Server-owned provenance for a Material copied into a reusable table template.',
             'Серверный признак происхождения материала, скопированного в переиспользуемый шаблон таблицы.'
         ),
-        sortOrder: 5,
+        sortOrder: 6,
         validationRules: { maxLength: 64 },
+        uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true }
+    }
+]
+
+const INTERPRETATION_NETWORK_FAVORITE_OBJECT_COMPONENTS: TemplateSeedComponent[] = [
+    {
+        codename: 'OwnerUserId',
+        dataType: 'STRING',
+        name: vlc('Owner User ID', 'ID пользователя-владельца'),
+        sortOrder: 1,
+        validationRules: { maxLength: 128 },
+        uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true }
+    },
+    {
+        codename: 'TargetInterpretationId',
+        dataType: 'STRING',
+        name: vlc('Target Interpretation ID', 'ID целевой трактовки'),
+        sortOrder: 2,
+        validationRules: { maxLength: 36 },
+        uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true }
+    },
+    {
+        codename: 'TargetCellId',
+        dataType: 'STRING',
+        name: vlc('Target Cell ID', 'ID целевой ячейки'),
+        sortOrder: 3,
+        validationRules: { maxLength: 36 },
         uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true }
     }
 ]
@@ -538,16 +572,10 @@ const INTERPRETATION_NETWORK_SEED_ENTITIES: TemplateSeedEntity[] = [
         hubs: [],
         config: {
             blockContent: buildEditorBlockContent([
-                buildEditorHeaderBlock('interpretationNetwork-intro-title', 2, 'Interpretation Network', 'Трактовочная сеть'),
                 buildEditorParagraphBlock(
                     'interpretationNetwork-intro-purpose',
                     'The interpretation network helps build a hierarchy of structures, cells, relations, and Editor.js materials for analyzing meanings across contexts.',
                     'Трактовочная сеть помогает создавать иерархию структур, ячеек, связей и материалов Editor.js для анализа смыслов в разных контекстах.'
-                ),
-                buildEditorParagraphBlock(
-                    'interpretationNetwork-intro-start',
-                    'Use the workspace below to build the matrix. Add cells, then attach materials to a selected cell in the pane on the right.',
-                    'Создавайте матрицу в рабочей области ниже. Добавляйте ячейки, затем прикрепляйте материалы к выбранной ячейке в правой панели.'
                 )
             ]),
             runtime: {
@@ -585,7 +613,15 @@ const INTERPRETATION_NETWORK_SEED_ENTITIES: TemplateSeedEntity[] = [
         ),
         hubs: [INTERPRETATION_NETWORK_DEFAULT_HUB_CODENAME],
         components: INTERPRETATION_NETWORK_INTERPRETATION_OBJECT_COMPONENTS,
-        config: { recordBehavior: 'reference' }
+        config: {
+            recordBehavior: 'reference',
+            recordPolicy: {
+                version: 1,
+                runtimeMutation: 'deny',
+                denyDeleteWhenBound: false,
+                immutableSemanticKeyWhenBound: false
+            }
+        }
     },
     {
         codename: 'Relation',
@@ -604,12 +640,45 @@ const INTERPRETATION_NETWORK_SEED_ENTITIES: TemplateSeedEntity[] = [
         kind: 'object',
         name: vlc('Materials', 'Материалы'),
         description: vlc(
-            'Editor.js material records attached to Structure or Interpretation cells via REF fields.',
-            'Записи материалов Editor.js, прикрепляемые к ячейкам структур или трактовок через REF-поля.'
+            'Editor.js materials attach to Interpretation Matrix cells; Matrix.MaterialRef selects the optional Primary Material.',
+            'Материалы Editor.js прикрепляются к ячейкам матрицы трактовок; Matrix.MaterialRef задаёт необязательный основной материал.'
         ),
         hubs: [INTERPRETATION_NETWORK_DEFAULT_HUB_CODENAME],
         components: INTERPRETATION_NETWORK_MATERIAL_OBJECT_COMPONENTS,
-        config: { recordBehavior: 'reference' }
+        config: {
+            recordBehavior: 'reference',
+            recordPolicy: {
+                version: 1,
+                runtimeMutation: 'deny',
+                workspaceCopy: 'exclude',
+                denyDeleteWhenBound: false,
+                immutableSemanticKeyWhenBound: false
+            },
+            runtime: { menuVisibility: 'hidden' }
+        }
+    },
+    {
+        codename: 'Favorite',
+        kind: 'object',
+        name: vlc('Favorites', 'Избранное'),
+        description: vlc(
+            'Private references to Interpretation Matrix cells, scoped to their owner and Workspace.',
+            'Личные ссылки на ячейки матрицы трактовок, доступные только владельцу в его Рабочем пространстве.'
+        ),
+        hubs: [],
+        components: INTERPRETATION_NETWORK_FAVORITE_OBJECT_COMPONENTS,
+        config: {
+            recordBehavior: 'reference',
+            runtimeRecordAccess: { mode: 'ownerOnly', ownerFieldCodename: 'OwnerUserId' },
+            recordPolicy: {
+                version: 1,
+                runtimeMutation: 'deny',
+                workspaceCopy: 'exclude',
+                denyDeleteWhenBound: false,
+                immutableSemanticKeyWhenBound: false
+            },
+            runtime: { menuVisibility: 'hidden' }
+        }
     },
     {
         codename: 'TableTemplate',

@@ -13,6 +13,7 @@ import {
     listRecords
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
+import { buildExecutionRunId } from '../../support/runIdentity'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
 import { expectLocatorFullyFitsViewport, expectNoPageHorizontalOverflow, expectNoTechnicalLeakage } from '../../support/browser/runtimeUx'
@@ -39,7 +40,7 @@ test('@flow @combined @marketing-page browser widget lifecycle persists semantic
 }, testInfo: TestInfo) => {
     test.setTimeout(240_000)
 
-    const executionRunId = `${runManifest.runId}-widget-lifecycle-${testInfo.workerIndex}-${testInfo.repeatEachIndex}-${testInfo.retry}`
+    const executionRunId = `${buildExecutionRunId(runManifest.runId, testInfo)}-widget-lifecycle`
     const metahubName = `E2E ${executionRunId} marketing widgets`
     const metahubCodename = `${executionRunId}-marketing-widgets`
     const api = await createLoggedInApiContext({
@@ -245,7 +246,7 @@ test('@flow @combined @marketing-page browser widget lifecycle persists semantic
             layoutId,
             (widget) => {
                 const config = readConfig(widget)
-                const instanceKey = readString(config.instanceKey)
+                const instanceKey = readString(widget.instanceKey)
                 return (
                     widget.widgetKey === 'marketing.collection' &&
                     config.variant === 'faq' &&

@@ -234,12 +234,12 @@ describe('WorkspaceSwitcher', () => {
 
         const workspaceSelect = await screen.findByTestId('runtime-workspace-switcher')
         expect(screen.getByRole('combobox', { name: 'Switch workspace' })).toBeInTheDocument()
-        expect(workspaceSelect).toHaveValue(personalWorkspaceId)
+        expect(workspaceSelect).toHaveValue('0')
         expect(screen.getByRole('option', { name: /Main/ })).toBeInTheDocument()
         expect(screen.getByRole('option', { name: /Manage workspaces/ })).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: /Manage workspaces/ })).not.toBeInTheDocument()
 
-        fireEvent.change(workspaceSelect, { target: { value: sharedWorkspaceId } })
+        fireEvent.change(workspaceSelect, { target: { value: '1' } })
 
         await waitFor(() => {
             expect(mocks.fetchWithCsrf).toHaveBeenCalledWith(
@@ -296,7 +296,7 @@ describe('WorkspaceSwitcher', () => {
         )
 
         const workspaceSelect = await screen.findByTestId('runtime-workspace-switcher')
-        expect(workspaceSelect).toHaveValue(personalWorkspaceId)
+        expect(workspaceSelect).toHaveValue('0')
         expect(screen.getByTestId('runtime-workspace-switcher-value')).toHaveTextContent('Основное')
         expect(screen.getByRole('option', { name: /Основное/ })).toBeInTheDocument()
         expect(screen.getByRole('option', { name: /Класс А/ })).toBeInTheDocument()
@@ -358,9 +358,11 @@ describe('WorkspaceSwitcher', () => {
         )
 
         const switcherValue = await screen.findByTestId('runtime-workspace-switcher-value')
+        const workspaceSelect = screen.getByTestId('runtime-workspace-switcher')
         expect(switcherValue).toHaveTextContent('Untitled workspace')
         expect(screen.getByRole('option', { name: /Untitled workspace/ })).toBeInTheDocument()
         expect(document.body).not.toHaveTextContent(rawWorkspaceId)
+        expect(workspaceSelect).toHaveValue('0')
     })
 
     it('uses the host navigation callback for the manage workspaces menu item', async () => {

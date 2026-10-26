@@ -23,7 +23,13 @@ import {
     watchInterpretationNetworkBrowserRegressionIssues
 } from '../../support/interpretationNetworkRuntime'
 import { importInterpretationNetworkSnapshot } from '../../support/interpretationNetworkSnapshotImport'
-import { expectSingleSystemMatrix, openStructures } from '../../support/interpretationNetworkFocused'
+import {
+    ensureSystemStructure,
+    expectSingleSystemMatrix,
+    openStructures,
+    resolveRuntimeIds,
+    setInterpretationNetworkWidgetConfig
+} from '../../support/interpretationNetworkFocused'
 
 const uuidV7Pattern = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -40,8 +46,14 @@ const expectRuSingleSystemMatrix = async (page: Page): Promise<void> => {
     const structurePane = page.getByTestId('interpretation-network-structure-pane')
     await expect(page.getByTestId('interpretation-network-workspace')).toBeVisible({ timeout: 30_000 })
     await expect(page.getByTestId('interpretation-network-matrix-workspace')).toBeVisible({ timeout: 30_000 })
-    await expect(structurePane.getByRole('tab', { name: 'Матрица' })).toBeVisible()
-    await expect(structurePane.getByRole('tab', { name: 'Шаблоны' })).toBeVisible()
+    const workspaceTabs = page
+        .getByTestId('interpretation-network-matrix-workspace')
+        .getByRole('tablist', { name: 'Разделы рабочего пространства', exact: true })
+    await expect(workspaceTabs.getByRole('tab', { name: 'Матрица', exact: true })).toBeVisible()
+    await expect(workspaceTabs.getByRole('tab', { name: 'Избранное', exact: true })).toBeVisible()
+    await expect(workspaceTabs.getByRole('tab', { name: 'Шаблоны', exact: true })).toBeVisible()
+    await expect(workspaceTabs.getByRole('tab')).toHaveCount(3)
+    await expect(structurePane.getByRole('tablist', { name: 'Разделы списка структур' })).toHaveCount(0)
     await expect(structurePane.getByRole('heading', { name: 'Структуры' })).toHaveCount(0)
     await expect(page.getByTestId('interpretation-network-structure-header')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Структуры' })).toHaveCount(0)
@@ -68,6 +80,13 @@ const expectRuHiddenPlacementChildCellCreate = async (page: Page, applicationId:
 
     const dialog = page.getByRole('dialog', { name: 'Добавить ячейку' })
     await expect(dialog).toBeVisible({ timeout: 30_000 })
+    await expectNoTechnicalLeakage(dialog, {
+        label: 'RU Add Cell dialog',
+        checkUuidSubstrings: true
+    })
+    await expectSemanticFieldControls(dialog, {
+        forbiddenEditableIdLabels: ['CellId', 'ParentCellId', 'RowKey', 'ColKey', 'MaterialRef']
+    })
     await expect(dialog.getByText('Размещение')).toHaveCount(0)
     await expect(dialog.getByRole('radio', { name: 'Новая строка' })).toHaveCount(0)
     await expect(dialog.getByRole('radio', { name: 'Новая колонка' })).toHaveCount(0)
@@ -143,6 +162,10 @@ test.describe('Interpretation Network imported snapshot child cell @flow @interp
                 name: 'Interpretation Network child-cell focused flow',
                 codename: `interpretation-network-child-cell-${runManifest.runId}`
             })
+
+            const runtimeIds = await resolveRuntimeIds(api, imported.applicationId)
+            await setInterpretationNetworkWidgetConfig(api, imported.applicationId, { structureMode: 'singleSystem' })
+            await ensureSystemStructure(api, imported.applicationId, runtimeIds.workspaceId)
 
             await page.goto(`/a/${imported.applicationId}`)
             await expect(page.getByTestId('runtime-side-menu-docked').getByTestId('runtime-workspace-switcher')).toBeVisible({

@@ -43,9 +43,9 @@ const createRuVlc = (content: string): VersionedLocalizedContent<string> => ({
 describe('applicationReleaseBundle', () => {
     const snapshot: PublishedApplicationSnapshot = {
         versionEnvelope: {
-            structureVersion: '53.0.0',
+            structureVersion: '0.1.0',
             templateVersion: null,
-            snapshotFormatVersion: 4 as const
+            snapshotFormatVersion: 1 as const
         },
         entities: {
             object_products: {
@@ -90,8 +90,8 @@ describe('applicationReleaseBundle', () => {
             applicationKey: 'products-app',
             releaseVersion: 'publication-version-1',
             manifest: expect.objectContaining({
-                engineVersion: 'metahub-snapshot/v4',
-                structureVersion: '53.0.0',
+                engineVersion: 'metahub-snapshot/v1',
+                structureVersion: '0.1.0',
                 sourceKind: 'publication',
                 generatedAt: '2026-03-13T10:00:00.000Z',
                 applicationId: 'application-1',
@@ -422,7 +422,7 @@ describe('applicationReleaseBundle', () => {
             versionEnvelope: {
                 structureVersion: '0.1.0',
                 templateVersion: null,
-                snapshotFormatVersion: 4 as const
+                snapshotFormatVersion: 1 as const
             },
             metahubId: 'metahub-1',
             entities: {
@@ -522,9 +522,9 @@ describe('applicationReleaseBundle', () => {
     it('preserves compatibility metadata and explicit table names inside executable release bundle payloads', () => {
         const compatibilitySnapshot = {
             versionEnvelope: {
-                structureVersion: '53.0.0',
+                structureVersion: '0.1.0',
                 templateVersion: null,
-                snapshotFormatVersion: 4 as const
+                snapshotFormatVersion: 1 as const
             },
             entities: {
                 'object-compatible': {
@@ -604,9 +604,9 @@ describe('applicationReleaseBundle', () => {
 
         const repeatedFieldSnapshot: PublishedApplicationSnapshot = {
             versionEnvelope: {
-                structureVersion: '53.0.0',
+                structureVersion: '0.1.0',
                 templateVersion: null,
-                snapshotFormatVersion: 4 as const
+                snapshotFormatVersion: 1 as const
             },
             entities: {
                 'object-alpha': {
@@ -673,9 +673,9 @@ describe('applicationReleaseBundle', () => {
                     entities: [],
                     snapshot: {
                         versionEnvelope: {
-                            structureVersion: '53.0.0',
+                            structureVersion: '0.1.0',
                             templateVersion: null,
-                            snapshotFormatVersion: 4
+                            snapshotFormatVersion: 1
                         },
                         entities: {
                             'object-main': {
@@ -792,9 +792,9 @@ describe('applicationReleaseBundle', () => {
 
         const complexSnapshot: PublishedApplicationSnapshot = {
             versionEnvelope: {
-                structureVersion: '53.0.0',
+                structureVersion: '0.1.0',
                 templateVersion: null,
-                snapshotFormatVersion: 4 as const
+                snapshotFormatVersion: 1 as const
             },
             entities: {
                 'object-resources': {

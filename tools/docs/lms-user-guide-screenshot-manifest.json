@@ -1170,8 +1170,8 @@
                 },
                 "guest-access-step-2": {
                     "requiredVisibleText": {
-                        "en": ["Прозвища лицеистов", "You have 45 minutes", "Continue"],
-                        "ru": ["Прозвища лицеистов", "45 мин.", "Продолжить"]
+                        "en": ["Прозвища лицеистов", "You have 30 minutes", "Continue"],
+                        "ru": ["Прозвища лицеистов", "30 мин.", "Продолжить"]
                     }
                 },
                 "guest-access-step-3": {

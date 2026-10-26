@@ -109,7 +109,9 @@ test.describe('Interpretation Network template lifecycle @flow @interpretation-n
             expect(await listTemplates(api, unrelated.applicationId, unrelatedRuntimeIds.workspaceId)).toEqual([])
 
             await page.goto(`/a/${imported.applicationId}`)
-            await expect(page.getByTestId('runtime-workspace-switcher')).toBeVisible({ timeout: 30_000 })
+            await expect(page.getByTestId('runtime-side-menu-docked').getByTestId('runtime-workspace-switcher')).toBeVisible({
+                timeout: 30_000
+            })
             await openStructures(page)
             await expectSingleSystemMatrix(page)
             const saveButton = page.getByTestId('interpretation-network-structure-pane').getByRole('button', { name: 'Save as template' })
@@ -170,7 +172,6 @@ test.describe('Interpretation Network template lifecycle @flow @interpretation-n
             }
             const createdSourceMaterial = await createMaterialForCell(api, imported.applicationId, runtimeIds, {
                 interpretationId: system.interpretationId,
-                matrixRowId: sourceMaterialCell.rowId,
                 cellId: sourceMaterialCell.cellId,
                 title: 'Focused source material',
                 description: 'Real Material attached before saving the with-materials template',
@@ -178,19 +179,37 @@ test.describe('Interpretation Network template lifecycle @flow @interpretation-n
             })
             const sourceRowsWithMaterial = await getMatrixRows(api, imported.applicationId, runtimeIds, system.interpretationId)
             const sourceMaterialMatrixRow = findMatrixRowByTitle(sourceRowsWithMaterial, 'Universe')
-            expect(sourceMaterialMatrixRow.materialRef).toBe(createdSourceMaterial.id)
+            expect(sourceMaterialMatrixRow.materialRef).toBeNull()
+            const expectedCellVersion = sourceMaterialMatrixRow.row._upl_version
+            expect(typeof expectedCellVersion).toBe('number')
+            const setPrimaryResponse = await sendWithCsrf(
+                api,
+                'PUT',
+                `/api/v1/applications/${
+                    imported.applicationId
+                }/runtime/interpretation-network/materials/primary?workspaceId=${encodeURIComponent(runtimeIds.workspaceId)}`,
+                {
+                    interpretationId: system.interpretationId,
+                    cellId: sourceMaterialCell.cellId,
+                    materialId: createdSourceMaterial.id,
+                    expectedCellVersion
+                }
+            )
+            expect(setPrimaryResponse.status).toBe(200)
+            const sourceRowsWithPrimary = await getMatrixRows(api, imported.applicationId, runtimeIds, system.interpretationId)
+            expect(findMatrixRowByTitle(sourceRowsWithPrimary, 'Universe').materialRef).toBe(createdSourceMaterial.id)
             const sourceMaterial = (await getMaterialRows(api, imported.applicationId, runtimeIds)).find(
                 (material) => material.rowId === createdSourceMaterial.id
             )
             expect(sourceMaterial).toMatchObject({
                 rowId: createdSourceMaterial.id,
-                cellId: sourceMaterialCell.cellId,
-                templateOwnerId: null,
                 title: 'Focused source material'
             })
             expect(sourceMaterial?.body).toEqual(authoredMaterialBody)
             await page.goto(`/a/${imported.applicationId}`)
-            await expect(page.getByTestId('runtime-workspace-switcher')).toBeVisible({ timeout: 30_000 })
+            await expect(page.getByTestId('runtime-side-menu-docked').getByTestId('runtime-workspace-switcher')).toBeVisible({
+                timeout: 30_000
+            })
             await openStructures(page)
             await expectSingleSystemMatrix(page)
             await page.getByTestId('interpretation-network-structure-pane').getByRole('button', { name: 'Save as template' }).click()
@@ -223,8 +242,6 @@ test.describe('Interpretation Network template lifecycle @flow @interpretation-n
             expect(templateMaterial).toBeDefined()
             expect(templateMaterial!.rowId).toMatch(uuidV7Pattern)
             expect(templateMaterial).toMatchObject({
-                cellId: templateMaterialMatrixRow.cellId,
-                templateOwnerId: materialsTemplate!.id,
                 title: sourceMaterial?.title,
                 description: sourceMaterial?.description,
                 body: sourceMaterial?.body
@@ -288,15 +305,13 @@ test.describe('Interpretation Network template lifecycle @flow @interpretation-n
             expect(clonedMaterial).toBeDefined()
             expect(clonedMaterial!.rowId).toMatch(uuidV7Pattern)
             expect(clonedMaterial).toMatchObject({
-                cellId: clonedMaterialMatrixRow.cellId,
-                templateOwnerId: null,
                 title: sourceMaterial?.title,
                 description: sourceMaterial?.description,
                 body: sourceMaterial?.body
             })
 
             const sourceMatrixRowsAfter = await getMatrixRows(api, imported.applicationId, runtimeIds, system.interpretationId)
-            expect(sourceMatrixRowsAfter).toEqual(sourceRowsWithMaterial)
+            expect(sourceMatrixRowsAfter).toEqual(sourceRowsWithPrimary)
             expect(await getTemplateMatrixRows(api, imported.applicationId, runtimeIds, materialsTemplate!.id)).toEqual(templateRows)
             const sourceMaterialAfter = (await getMaterialRows(api, imported.applicationId, runtimeIds)).find(
                 (material) => material.rowId === createdSourceMaterial.id

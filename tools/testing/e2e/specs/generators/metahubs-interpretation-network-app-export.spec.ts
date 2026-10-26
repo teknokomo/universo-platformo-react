@@ -19,6 +19,7 @@ import {
     disposeApiContext,
     listLayouts,
     listLayoutZoneWidgets,
+    listObjectCollections,
     sendWithCsrf
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
@@ -40,9 +41,18 @@ const resolveFixtureOutputPath = () =>
     resolveSafeFixtureOutputPath('INTERPRETATION_NETWORK_FIXTURE_OUTPUT_PATH', INTERPRETATION_NETWORK_FIXTURE_FILENAME)
 
 const configureInterpretationNetworkProductFixture = async (api: ApiContext, metahubId: string) => {
-    const layoutsPayload = await listLayouts(api, metahubId, { limit: 100, offset: 0 })
+    const objectsPayload = await listObjectCollections(api, metahubId, { kindKey: 'object', limit: 200, offset: 0 })
+    const structure = (objectsPayload?.items ?? []).find((candidate: Record<string, unknown>) => {
+        const codename = candidate.codename
+        if (typeof codename === 'string') return codename === 'Structure'
+        if (!codename || typeof codename !== 'object' || Array.isArray(codename)) return false
+        const locales = (codename as { locales?: Record<string, { content?: unknown }> }).locales
+        return locales?.en?.content === 'Structure'
+    })
+    expect(structure?.id).toBeTruthy()
+    const layoutsPayload = await listLayouts(api, metahubId, { limit: 100, offset: 0, scopeEntityId: structure.id })
     const layouts = Array.isArray(layoutsPayload?.items) ? layoutsPayload.items : []
-    const layout = layouts.find((candidate) => candidate?.isDefault === true) ?? layouts[0]
+    const layout = layouts.find((candidate) => candidate?.scopeEntityId === structure.id && candidate?.templateKey === 'dashboard')
     expect(layout?.id).toBeTruthy()
 
     const widgetsPayload = await listLayoutZoneWidgets(api, metahubId, layout.id)

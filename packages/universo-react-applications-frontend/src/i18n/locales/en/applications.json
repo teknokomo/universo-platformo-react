@@ -261,6 +261,7 @@
         "settings": {
             "title": "Application Settings",
             "tabs": {
+                "ariaLabel": "Application settings sections",
                 "general": "General",
                 "matrix": "Matrix",
                 "learningContent": "Learning Content",
@@ -334,8 +335,12 @@
                 "title": "Workspace overrides",
                 "description": "Choose which application settings workspace owners can override inside a published workspace.",
                 "resetDefaults": "Reset defaults",
+                "allowSetting": "Allow workspace overrides for {{setting}}",
                 "allowed": "Allowed",
-                "locked": "Locked"
+                "locked": "Locked",
+                "widgetSettingsTitle": "Interpretation Network widget settings",
+                "widgetSettingsDescription": "Choose which cell style settings workspace owners can override for each active widget placement.",
+                "widgetTitle": "Interpretation Network widget {{number}} — {{zone}}"
             },
             "keys": {
                 "dialogSizePreset": "Popup window size",
@@ -487,6 +492,26 @@
                 "includeRoot": "Include root",
                 "startIndex": "Start number",
                 "startIndexDescription": "Choose the first number used for each sibling group.",
+                "remove": "Remove",
+                "cellStylePolicy": {
+                    "title": "Cell style policy",
+                    "description": "Choose which cell colors users may apply, which parts they can change, and whether custom colors are available.",
+                    "fillColor": "Allow fill color changes",
+                    "textColor": "Allow text color changes",
+                    "borderColor": "Allow border color changes",
+                    "borderWidth": "Allow border width changes",
+                    "borderStyle": "Allow border style changes",
+                    "customColors": "Allow custom colors",
+                    "allowedColors": "Allowed colors",
+                    "noAllowedColors": "No preset colors are available.",
+                    "newColor": "New color (HEX)",
+                    "colorPicker": "Choose color for {{label}}",
+                    "invalidHexColor": "Enter a valid HEX color, such as #1E88E5.",
+                    "addColor": "Add color",
+                    "moveColorUp": "Move {{color}} up",
+                    "moveColorDown": "Move {{color}} down",
+                    "removeColor": "Remove {{color}}"
+                },
                 "saved": "Matrix settings saved",
                 "saveError": "Failed to save matrix settings",
                 "singleSystemStructuresExist": "Single-system mode cannot be enabled while ordinary Structures exist. Delete them first.",

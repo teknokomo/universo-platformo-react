@@ -10,6 +10,7 @@ describe('copyMetahubLayout', () => {
 
         const copiedLayout = await copyMetahubLayout({
             executor,
+            metahubId: copyLayoutFixtureIds.metahub,
             schemaName: copyLayoutFixtureSchema,
             layoutId: copyLayoutFixtureIds.source,
             userId: 'test-user-id',
@@ -50,6 +51,7 @@ describe('copyMetahubLayout', () => {
         await expect(
             copyMetahubLayout({
                 executor,
+                metahubId: copyLayoutFixtureIds.metahub,
                 schemaName: copyLayoutFixtureSchema,
                 layoutId: copyLayoutFixtureIds.source,
                 userId: 'test-user-id',
@@ -102,6 +104,7 @@ describe('copyMetahubLayout', () => {
 
         const copiedLayout = await copyMetahubLayout({
             executor,
+            metahubId: copyLayoutFixtureIds.metahub,
             schemaName: copyLayoutFixtureSchema,
             layoutId: copyLayoutFixtureIds.source,
             userId: 'test-user-id',
@@ -151,6 +154,7 @@ describe('copyMetahubLayout', () => {
         await expect(
             copyMetahubLayout({
                 executor,
+                metahubId: copyLayoutFixtureIds.metahub,
                 schemaName: copyLayoutFixtureSchema,
                 layoutId: copyLayoutFixtureIds.source,
                 userId: 'test-user-id',
@@ -191,6 +195,7 @@ describe('copyMetahubLayout', () => {
 
         await copyMetahubLayout({
             executor,
+            metahubId: copyLayoutFixtureIds.metahub,
             schemaName: copyLayoutFixtureSchema,
             layoutId: copyLayoutFixtureIds.source,
             userId: 'test-user-id',
@@ -256,6 +261,7 @@ describe('copyMetahubLayout', () => {
 
         await copyMetahubLayout({
             executor,
+            metahubId: copyLayoutFixtureIds.metahub,
             schemaName: copyLayoutFixtureSchema,
             layoutId: copyLayoutFixtureIds.source,
             userId: 'test-user-id',
@@ -305,6 +311,7 @@ describe('copyMetahubLayout', () => {
         await expect(
             copyMetahubLayout({
                 executor,
+                metahubId: copyLayoutFixtureIds.metahub,
                 schemaName: copyLayoutFixtureSchema,
                 layoutId: copyLayoutFixtureIds.source,
                 userId: 'test-user-id',
@@ -334,6 +341,7 @@ describe('copyMetahubLayout', () => {
         await expect(
             copyMetahubLayout({
                 executor,
+                metahubId: copyLayoutFixtureIds.metahub,
                 schemaName: copyLayoutFixtureSchema,
                 layoutId: copyLayoutFixtureIds.source,
                 userId: 'test-user-id',

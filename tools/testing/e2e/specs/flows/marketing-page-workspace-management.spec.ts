@@ -20,7 +20,8 @@ import {
 } from '../../support/backend/api-session.mjs'
 import { createBootstrapApiContext, disposeBootstrapApiContext } from '../../support/backend/bootstrap.mjs'
 import { withE2eDatabaseClient } from '../../support/backend/e2eDatabase.mjs'
-import { findRuntimeEntityRowByComponentValue, flattenMarketingPageRecords } from '../../support/marketingPageRuntimeMaterialization'
+import { getSingleRuntimeEntityRow, flattenMarketingPageRecords } from '../../support/marketingPageRuntimeMaterialization'
+import { buildExecutionRunId } from '../../support/runIdentity'
 import {
     recordCreatedApplication,
     recordCreatedGlobalUser,
@@ -123,6 +124,7 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
     runManifest
 }, testInfo) => {
     test.setTimeout(360_000)
+    const executionRunId = buildExecutionRunId(runManifest.runId, testInfo)
 
     const ownerApi = await createLoggedInApiContext(runManifest.testUser)
     const bootstrapApi = await createBootstrapApiContext()
@@ -132,13 +134,13 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
     let copiedWorkspace: { id: string } | null = null
     let applicationId: string | null = null
 
-    const memberEmail = `e2e+${runManifest.runId}.marketing-workspace-member@example.test`
+    const memberEmail = `e2e+${executionRunId}.marketing-workspace-member@example.test`
     const memberPassword = process.env.E2E_TEST_USER_PASSWORD || 'ChangeMe_E2E-123456!'
 
     try {
-        const metahubCodename = `${runManifest.runId}-marketing-workspace`
+        const metahubCodename = `${executionRunId}-marketing-workspace`
         const metahub = await createMetahub(ownerApi, {
-            name: { en: `E2E ${runManifest.runId} marketing workspace` },
+            name: { en: `E2E ${executionRunId} marketing workspace` },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', metahubCodename),
             templateCodename: 'marketing-page'
@@ -147,10 +149,10 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
         await recordCreatedMetahub({ id: metahub.id, name: metahubCodename, codename: metahubCodename })
 
         const publication = await createPublication(ownerApi, metahub.id, {
-            name: { en: `E2E ${runManifest.runId} marketing workspace publication` },
+            name: { en: `E2E ${executionRunId} marketing workspace publication` },
             namePrimaryLocale: 'en',
             autoCreateApplication: true,
-            applicationName: { en: `E2E ${runManifest.runId} marketing workspace application` },
+            applicationName: { en: `E2E ${executionRunId} marketing workspace application` },
             applicationNamePrimaryLocale: 'en',
             runtimePolicy: { workspaceMode: 'required', requiredWorkspaceModeAcknowledged: true }
         })
@@ -174,7 +176,7 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
             email: memberEmail,
             password: memberPassword,
             roleIds: resolveRoleIds(await getAssignableRoles(bootstrapApi), roleCodenames),
-            comment: `Marketing workspace lifecycle ${runManifest.runId}`
+            comment: `Marketing workspace lifecycle ${executionRunId}`
         })
         if (!createdMember?.userId) throw new Error('Marketing workspace member was not created')
         await recordCreatedGlobalUser({ userId: createdMember.userId, email: memberEmail })
@@ -187,12 +189,12 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
         expect(isUuidV7(personalWorkspace?.id)).toBe(true)
 
         const memberCreateResponse = await sendWithCsrf(memberApi, 'POST', workspacePath(application.id), {
-            name: createLocalizedContent('en', `Forbidden ${runManifest.runId}`),
+            name: createLocalizedContent('en', `Forbidden ${executionRunId}`),
             description: createLocalizedContent('en', 'Member must not create a shared workspace')
         })
         expect(memberCreateResponse.status).toBe(403)
 
-        const sharedName = `Marketing shared ${runManifest.runId}`
+        const sharedName = `Marketing shared ${executionRunId}`
         const sharedCreateResponse = await sendWithCsrf(ownerApi, 'POST', workspacePath(application.id), {
             name: createLocalizedContent('en', sharedName),
             description: createLocalizedContent('en', 'Seeded marketing workspace')
@@ -290,8 +292,8 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
         )
         expect(siteSettingsCollection?.id).toEqual(copiedSiteSettingsCollection?.id)
         expect(isUuidV7(siteSettingsCollection?.id)).toBe(true)
-        const sharedSiteSettingsRowMetadata = findRuntimeEntityRowByComponentValue(sharedGenericRuntime, 'SiteKey', 'site-settings')
-        const copiedSiteSettingsRowMetadata = findRuntimeEntityRowByComponentValue(copiedGenericRuntime, 'SiteKey', 'site-settings')
+        const sharedSiteSettingsRowMetadata = getSingleRuntimeEntityRow(sharedGenericRuntime)
+        const copiedSiteSettingsRowMetadata = getSingleRuntimeEntityRow(copiedGenericRuntime)
         const sharedSiteSettingsId = String(sharedSiteSettingsRowMetadata.id)
         const copiedSiteSettingsId = String(copiedSiteSettingsRowMetadata.id)
         expect(isUuidV7(sharedSiteSettingsId)).toBe(true)

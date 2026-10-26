@@ -16,7 +16,7 @@ Source-only modules authoring primitives для runtime-модулей Universo.
 -   `AtServer()` помечает server-методы, которые остаются в server bundle.
 -   `AtServerAndClient()` оставляет метод доступным и в server bundle, и в client bundle.
 -   `OnEvent(...)` помечает server lifecycle handlers и не может сочетаться с client-exposed targets.
--   `sdkApiVersion` сейчас ограничен значением `1.0.0`.
+-   `sdkApiVersion` сейчас ограничен значением `0.1.0`.
 -   Только non-lifecycle server-методы или shared-методы из модулей с `rpc.client` доступны через `this.ctx.callServerMethod(...)`.
 -   Embedded-модули могут импортировать только `@universo-react/extension-sdk`; external или relative imports, `require()`, dynamic `import()` и `import.meta` не входят в поддерживаемый authoring contract.
 -   Декораторы должны оставаться внутри module authoring sources; обычные frontend bundles их не включают.

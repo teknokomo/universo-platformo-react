@@ -243,6 +243,12 @@ pnpm start:allclean:local-supabase:minimal
 pnpm run test:e2e:smoke:local-supabase
 ```
 
+Для полного приёмочного прогона трактовочной сети используйте проверку на минимальном Supabase. Она собирает E2E-приложение, проверяет сгенерированный fixture и инварианты PostgreSQL, проходит авторизованные и анонимные сценарии на английском и русском, обновляет скриншоты GitBook, проверяет документацию и останавливает профиль E2E Supabase даже при ошибке проверки:
+
+```bash
+pnpm run test:e2e:interpretation-network:verify:local-supabase
+```
+
 Полезные команды жизненного цикла:
 
 ```bash

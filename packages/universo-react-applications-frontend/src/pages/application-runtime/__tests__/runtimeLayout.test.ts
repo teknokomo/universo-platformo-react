@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import type { ApplicationEffectiveLayoutResponse } from '../../../types'
-import { toDashboardZoneWidgets } from '../runtimeLayout'
+import { toAuthenticatedRuntimePlacementScopes, toDashboardZoneWidgets } from '../runtimeLayout'
 
 describe('runtime layout conversion', () => {
-    it('groups dashboard placements by zone and preserves graph identity plus runtime data', () => {
+    it('keeps renderer placements persistence-free and returns authenticated scopes separately', () => {
         const layoutId = '0190a9b5-3cde-7abc-8def-0123456789a1'
         const effectiveLayout = {
             status: 'ok',
@@ -107,8 +107,6 @@ describe('runtime layout conversion', () => {
             left: [],
             top: [
                 {
-                    id: '0190a9b5-3cde-7abc-8def-0123456789a4',
-                    layoutId,
                     widgetKey: 'header',
                     sortOrder: 0,
                     config: { variant: 'compact' },
@@ -121,8 +119,6 @@ describe('runtime layout conversion', () => {
             ],
             right: [
                 {
-                    id: '0190a9b5-3cde-7abc-8def-0123456789a7',
-                    layoutId,
                     widgetKey: 'infoCard',
                     sortOrder: 0,
                     config: {},
@@ -136,8 +132,6 @@ describe('runtime layout conversion', () => {
             bottom: [],
             center: [
                 {
-                    id: '0190a9b5-3cde-7abc-8def-0123456789a6',
-                    layoutId,
                     widgetKey: 'detailsTable',
                     sortOrder: 0,
                     config: {},
@@ -148,8 +142,6 @@ describe('runtime layout conversion', () => {
                     slotKey: null
                 },
                 {
-                    id: '0190a9b5-3cde-7abc-8def-0123456789a5',
-                    layoutId,
                     widgetKey: 'detailsTable',
                     sortOrder: 1,
                     config: {},
@@ -160,8 +152,6 @@ describe('runtime layout conversion', () => {
                     slotKey: null
                 },
                 {
-                    id: '0190a9b5-3cde-7abc-8def-0123456789a3',
-                    layoutId,
                     widgetKey: 'detailsTable',
                     sortOrder: 2,
                     config: { showSearch: true },
@@ -180,6 +170,13 @@ describe('runtime layout conversion', () => {
                     }
                 }
             ]
+        })
+        expect(toAuthenticatedRuntimePlacementScopes(effectiveLayout)).toEqual({
+            'details-primary': { widgetId: '0190a9b5-3cde-7abc-8def-0123456789a3', layoutId },
+            header: { widgetId: '0190a9b5-3cde-7abc-8def-0123456789a4', layoutId },
+            'details-secondary': { widgetId: '0190a9b5-3cde-7abc-8def-0123456789a5', layoutId },
+            'details-disabled': { widgetId: '0190a9b5-3cde-7abc-8def-0123456789a6', layoutId },
+            'help-card': { widgetId: '0190a9b5-3cde-7abc-8def-0123456789a7', layoutId }
         })
 
         expect(() =>

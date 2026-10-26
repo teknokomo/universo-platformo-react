@@ -197,19 +197,15 @@ export const flattenMarketingPageRecords = (payload: RuntimePayload): RuntimeRec
     })
 }
 
-/** Read a physical row from the generic runtime table payload using its semantic component value. */
-export const findRuntimeEntityRowByComponentValue = (
-    payload: unknown,
-    componentCodename: string,
-    expectedValue: string
-): Record<string, unknown> => {
+/** Read the only seeded physical row without relying on hidden verifier fields. */
+export const getSingleRuntimeEntityRow = (payload: unknown): Record<string, unknown> => {
     const runtimeData = asRecord(payload)
-    const columns = Array.isArray(runtimeData.columns) ? runtimeData.columns.map(asRecord) : []
-    const field = columns.find((column) => column.codename === componentCodename)?.field
-    if (typeof field !== 'string') throw new Error(`Runtime component ${componentCodename} must be available`)
     const rows = Array.isArray(runtimeData.rows) ? runtimeData.rows.map(asRecord) : []
-    const row = rows.find((candidate) => candidate[field] === expectedValue)
-    if (!row) throw new Error(`Runtime row ${componentCodename}=${expectedValue} must be available`)
+    const pagination = asRecord(runtimeData.pagination)
+    if (pagination.total !== 1 || rows.length !== 1) {
+        throw new Error(`Expected one seeded runtime row, received total=${String(pagination.total)} and rows=${rows.length}`)
+    }
+    const row = rows[0]
     if (typeof row.id !== 'string') throw new Error('Generic runtime row must include its physical ID')
     return row
 }

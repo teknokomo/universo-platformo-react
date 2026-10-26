@@ -34,7 +34,11 @@ This page is for an application owner or administrator who controls Structure mo
 
 ## Expected Result
 
-The published application reflects the saved settings. In one-system mode, users go directly to the Matrix. In multiple-Structure mode, users first choose or create a Structure.
+The published application reflects the saved settings. In one-system mode, users go directly to the Matrix. In multiple-Structure mode, users first choose or create a Structure. The anonymous public view follows the same Structure mode, Matrix display settings, and pane layout while omitting content-changing actions.
+
+Workspace style overrides are target-aware. The application policy can define an allowed palette, whether custom colors are allowed, and which fill, text, and border properties users may edit. A setting can target the global Workspace or a specific widget instance; an instance-targeted setting is available only when that widget is active and the application policy allows that exact target. Locked or unlisted settings continue to use the application policy.
+
+Allowed colors are entered and selected in HEX form. The picker has no RGB mode, so users can read and enter the same `#RRGGBB` values stored by the policy.
 
 ## What To Check
 
@@ -42,6 +46,7 @@ The published application reflects the saved settings. In one-system mode, users
 -   The default view is included in the allowed views.
 -   Template placement matches the authoring workflow you want to expose.
 -   Reset is available only when the application has a real override to discard.
+-   Workspace style permissions apply to the intended active widget instance, rather than to every Interpretation Network widget by accident.
 
 ## Related Pages
 

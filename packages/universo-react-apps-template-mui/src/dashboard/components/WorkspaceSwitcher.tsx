@@ -158,8 +158,10 @@ export default function WorkspaceSwitcher({ variant = 'inline' }: WorkspaceSwitc
             }
             return
         }
-        if (value && value !== currentWorkspaceId) {
-            switchMutation.mutate(value)
+        const workspaceIndex = Number(value)
+        const selectedWorkspace = Number.isInteger(workspaceIndex) ? workspaces[workspaceIndex] : undefined
+        if (selectedWorkspace && selectedWorkspace.id !== currentWorkspaceId) {
+            switchMutation.mutate(selectedWorkspace.id)
         }
         setOpen(false)
     }
@@ -167,7 +169,12 @@ export default function WorkspaceSwitcher({ variant = 'inline' }: WorkspaceSwitc
     const switcher = (
         <Select
             data-testid='runtime-workspace-switcher'
-            value={currentWorkspace.id}
+            value={String(
+                Math.max(
+                    0,
+                    workspaces.findIndex((workspace) => workspace.id === currentWorkspace.id)
+                )
+            )}
             open={open}
             onOpen={() => setOpen(true)}
             onClose={() => setOpen(false)}
@@ -215,13 +222,13 @@ export default function WorkspaceSwitcher({ variant = 'inline' }: WorkspaceSwitc
             }}
         >
             <ListSubheader sx={{ pt: 0 }}>{t('workspace.title', 'Workspaces')}</ListSubheader>
-            {workspaces.map((ws) => {
+            {workspaces.map((ws, index) => {
                 const name = readName(ws.name, locale) || untitledWorkspaceLabel
                 const isPersonal = ws.workspaceType === 'personal'
                 const typeLabel = isPersonal ? t('workspace.personal', 'Personal') : t('workspace.shared', 'Shared')
                 const roleLabel = ws.roleCodename === 'owner' ? t('workspace.roleOwner', 'Owner') : t('workspace.roleMember', 'Member')
                 return (
-                    <MenuItem key={ws.id} value={ws.id}>
+                    <MenuItem key={ws.id} value={String(index)}>
                         <WorkspaceListItemAvatar>
                             <WorkspaceAvatar alt={name}>
                                 {isPersonal ? (

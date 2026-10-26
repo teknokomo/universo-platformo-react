@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express'
 import type { DbExecutor } from '@universo-react/utils'
+import { qSchemaTable } from '@universo-react/database'
 import { withTransactionSavepoint } from '@universo-react/utils/database'
 import { assertRuntimeRecordMutable } from '../../services/runtimeRecordBehavior'
 import {
@@ -71,6 +72,7 @@ import {
 } from '../runtimeRowSupport/relationScope'
 import { resolveRuntimeRelationOwnedFieldCodenames } from '../../services/runtimeRowSupport/list'
 import { lockGuestAccessLinkWorkspace, revokeGuestSessionsForAccessLink } from '../../services/guestAccessLinkRevocation'
+import { getRuntimeTableTemplateGenericMutationFailure } from '../runtimeChildRowsInterpretationNetworkGuard'
 
 import { buildBulkUpdateTableEntries, replaceRuntimeTableChildRows } from './bulkUpdateTableChildren'
 export { buildBulkUpdateTableEntries, prepareBulkUpdateTableChildRows, replaceRuntimeTableChildRows } from './bulkUpdateTableChildren'
@@ -317,6 +319,34 @@ export const applyBulkUpdateInTransaction = async (params: {
         throw new UpdateFailure(404, {
             error: 'Row not found'
         })
+    }
+    if (params.tableDataEntries.some((entry) => entry.cmp.validation_rules?.matrixUniqueCoordinates === true)) {
+        throw new UpdateFailure(409, {
+            error: 'Matrix cells must be changed through aggregate Matrix commands so associated Materials remain consistent',
+            code: 'INTERPRETATION_NETWORK_MATRIX_AGGREGATE_COMMAND_REQUIRED'
+        })
+    }
+    const templateChildReplacementFailure =
+        params.tableDataEntries.length > 0
+            ? getRuntimeTableTemplateGenericMutationFailure(params.objectCollection.codename, 'child-replacement')
+            : null
+    if (templateChildReplacementFailure) {
+        const lockedParentRows = (await params.executor.query(
+            `SELECT id FROM ${params.dataTableIdent} WHERE id = $1 AND ${params.runtimeRowCondition} FOR UPDATE`,
+            [params.rowId]
+        )) as Array<{ id: string }>
+        if (lockedParentRows.length === 0) throw new UpdateFailure(404, { error: 'Row not found' })
+
+        for (const entry of params.tableDataEntries) {
+            const tabTableIdent = qSchemaTable(params.ctx.schemaName, entry.tabTableName)
+            const currentChildRows = await params.executor.query<{ id: string }>(
+                `SELECT id FROM ${tabTableIdent} WHERE _tp_parent_id = $1 AND ${params.runtimeRowCondition} FOR UPDATE`,
+                [params.rowId]
+            )
+            if (currentChildRows.length > 0) {
+                throw new UpdateFailure(templateChildReplacementFailure.statusCode, templateChildReplacementFailure.body)
+            }
+        }
     }
     if (relationScope && previousRow[relationScope.parentFieldAttr.column_name] !== relationScope.request.parentRecordId) {
         throw new UpdateFailure(404, { error: 'Row not found' })

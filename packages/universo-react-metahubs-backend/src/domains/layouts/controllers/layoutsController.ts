@@ -60,7 +60,7 @@ const copyLayoutSchema = z
         descriptionPrimaryLocale: z.string().optional(),
         copyWidgets: z.boolean().optional(),
         deactivateAllWidgets: z.boolean().optional(),
-        entityBindingCopyMode: z.enum(['reuse', 'omit']).optional(),
+        entityBindingCopyMode: z.enum(['reuse', 'omit', 'clone']).optional(),
         expectedVersion: z.number().int().positive().optional()
     })
     .strict()
@@ -103,14 +103,23 @@ const toStoredLocalizedRecord = (value: unknown): Record<string, string> => {
     return result
 }
 
-const listQuerySchema = z.object({
-    limit: z.coerce.number().int().positive().max(100).optional(),
-    offset: z.coerce.number().int().min(0).optional(),
-    sortBy: z.enum(['name', 'created', 'updated']).optional(),
-    sortOrder: z.enum(['asc', 'desc']).optional(),
-    scopeEntityId: uuidV7Schema.optional(),
-    search: z.string().optional()
-})
+const listQuerySchema = z
+    .object({
+        limit: z.coerce.number().int().positive().max(100).optional(),
+        offset: z.coerce.number().int().min(0).optional(),
+        sortBy: z.enum(['name', 'created', 'updated']).optional(),
+        sortOrder: z.enum(['asc', 'desc']).optional(),
+        scopeEntityId: uuidV7Schema.optional(),
+        includeAllScopes: z
+            .enum(['true', 'false'])
+            .transform((value) => value === 'true')
+            .optional(),
+        search: z.string().optional()
+    })
+    .refine((query) => !(query.includeAllScopes && query.scopeEntityId), {
+        path: ['includeAllScopes'],
+        message: 'includeAllScopes cannot be combined with scopeEntityId'
+    })
 
 const updateWidgetScopeVisibilitySchema = z
     .object({
@@ -198,6 +207,7 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
             const schemaName = await schemaService.ensureSchema(metahubId, userId)
             const created = await copyMetahubLayout({
                 executor: exec,
+                metahubId,
                 schemaName,
                 layoutId,
                 userId,

@@ -103,14 +103,24 @@ describe('browser runtime issue filtering', () => {
 
 describe('DataGrid technical leakage checks', () => {
     const createSurface = (
-        options: { scrollerCount?: number; failScrollerMeasurement?: boolean; failScrollerWrite?: boolean; failGridText?: boolean } = {}
+        options: {
+            scrollerCount?: number
+            failScrollerMeasurement?: boolean
+            failScrollerWrite?: boolean
+            failGridText?: boolean
+            scrollPoints?: number[]
+            delayedScrollReads?: number
+            onGridTextRead?: (scrollLeft: number) => void
+        } = {}
     ) => {
         const page = { evaluate: async () => undefined } as unknown as Page
         let scrollerEvaluationCount = 0
+        let pendingScrollLeft = 0
+        let scrollReadsAfterWrite = 0
         const scroller = {
             count: async () => options.scrollerCount ?? 1,
             first: () => scroller,
-            evaluate: async () => {
+            evaluate: async (_callback: unknown, nextScrollLeft?: unknown) => {
                 scrollerEvaluationCount += 1
                 if (options.failScrollerMeasurement && scrollerEvaluationCount === 1) {
                     throw new Error('forced DataGrid scroller measurement failure')
@@ -118,7 +128,15 @@ describe('DataGrid technical leakage checks', () => {
                 if (options.failScrollerWrite && scrollerEvaluationCount === 2) {
                     throw new Error('forced DataGrid scroll failure')
                 }
-                return scrollerEvaluationCount === 1 ? [0] : 0
+                if (scrollerEvaluationCount === 1) return options.scrollPoints ?? [0]
+                if (typeof nextScrollLeft === 'number') {
+                    pendingScrollLeft = nextScrollLeft
+                    scrollReadsAfterWrite = 0
+                    return undefined
+                }
+                scrollReadsAfterWrite += 1
+                if (pendingScrollLeft > 0 && scrollReadsAfterWrite <= (options.delayedScrollReads ?? 0)) return 0
+                return pendingScrollLeft
             }
         } as unknown as Locator
         let gridEvaluationCount = 0
@@ -126,6 +144,9 @@ describe('DataGrid technical leakage checks', () => {
             evaluate: async () => {
                 gridEvaluationCount += 1
                 if (gridEvaluationCount === 1) return true
+                const isScrollSettled = pendingScrollLeft === 0 || scrollReadsAfterWrite > (options.delayedScrollReads ?? 0)
+                options.onGridTextRead?.(pendingScrollLeft)
+                if (!isScrollSettled) throw new Error('DataGrid text was read before horizontal scrolling settled')
                 if (options.failGridText) throw new Error('forced DataGrid text read failure')
                 return ''
             },
@@ -158,6 +179,22 @@ describe('DataGrid technical leakage checks', () => {
 
     it('fails when horizontal scrolling cannot be applied', async () => {
         await assert.rejects(expectNoDataGridTechnicalLeakage(createSurface({ failScrollerWrite: true })), /forced DataGrid scroll failure/)
+    })
+
+    it('waits for a DataGrid horizontal scroll position to settle before checking visible cells', async () => {
+        const scrollPositionsWhenTextIsRead: number[] = []
+
+        await assert.doesNotReject(
+            expectNoDataGridTechnicalLeakage(
+                createSurface({
+                    scrollPoints: [0, 7, 14],
+                    delayedScrollReads: 1,
+                    onGridTextRead: (scrollLeft) => scrollPositionsWhenTextIsRead.push(scrollLeft)
+                })
+            )
+        )
+
+        assert.deepEqual(scrollPositionsWhenTextIsRead, [0, 7, 14])
     })
 
     it('fails when virtual scroller measurements cannot be read', async () => {

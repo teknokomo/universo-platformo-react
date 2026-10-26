@@ -206,14 +206,15 @@ export const metahubsQueryKeys = {
     layoutsListBase: (metahubId: string, scopeEntityId?: string | null) =>
         [...metahubsQueryKeys.layouts(metahubId, scopeEntityId), 'list'] as const,
 
-    layoutsList: (metahubId: string, params?: PaginationParams & { scopeEntityId?: string | null }) => {
+    layoutsList: (metahubId: string, params?: PaginationParams & { scopeEntityId?: string | null; includeAllScopes?: boolean }) => {
         const normalized = {
             limit: params?.limit ?? 100,
             offset: params?.offset ?? 0,
             sortBy: params?.sortBy ?? 'updated',
             sortOrder: params?.sortOrder ?? 'desc',
             search: params?.search?.trim() || undefined,
-            scopeEntityId: normalizeLayoutScopeEntityId(params?.scopeEntityId)
+            scopeEntityId: normalizeLayoutScopeEntityId(params?.scopeEntityId),
+            includeAllScopes: params?.includeAllScopes === true
         }
         return [...metahubsQueryKeys.layoutsListBase(metahubId, normalized.scopeEntityId), normalized] as const
     },

@@ -334,18 +334,20 @@ export function MaterialContentEditor({ t, locale, bodyField, value, readOnly, i
 
             {error || validationError ? <Alert severity='error'>{validationError ?? error}</Alert> : null}
 
-            <Stack direction='row' sx={{ justifyContent: 'flex-end' }}>
-                <Button
-                    type='button'
-                    size='small'
-                    variant='contained'
-                    startIcon={<SaveRoundedIcon />}
-                    disabled={readOnly || isSaving || Boolean(validationError)}
-                    onClick={handleSave}
-                >
-                    {t('workspace.actions.save', 'Save')}
-                </Button>
-            </Stack>
+            {!readOnly ? (
+                <Stack direction='row' sx={{ justifyContent: 'flex-end' }}>
+                    <Button
+                        type='button'
+                        size='small'
+                        variant='contained'
+                        startIcon={<SaveRoundedIcon />}
+                        disabled={isSaving || Boolean(validationError)}
+                        onClick={handleSave}
+                    >
+                        {t('workspace.actions.save', 'Save')}
+                    </Button>
+                </Stack>
+            ) : null}
         </Stack>
     )
 }

@@ -36,6 +36,32 @@ export const resolveValidatedRuntimeEntityRecordPolicy = (config: unknown) => {
     }
 }
 
+/** Apply an Entity's persisted mutation policy to the runtime's effective UI capabilities. */
+export const restrictRuntimeEntityMutationPermissions = <
+    T extends {
+        createContent: boolean
+        editContent: boolean
+        deleteContent: boolean
+    }
+>(
+    permissions: T,
+    config: unknown
+): T => {
+    try {
+        const policy = resolveEntityRecordPolicy(config)
+        if (policy?.runtimeMutation !== 'deny') return permissions
+    } catch {
+        // Invalid policy metadata must never leave mutation controls enabled.
+    }
+
+    return {
+        ...permissions,
+        createContent: false,
+        editContent: false,
+        deleteContent: false
+    }
+}
+
 const resolveRuntimeEntityMutationPolicyFailure = (config: unknown): RuntimeEntityMutationPolicyFailure | null => {
     try {
         const policy = resolveEntityRecordPolicy(config)

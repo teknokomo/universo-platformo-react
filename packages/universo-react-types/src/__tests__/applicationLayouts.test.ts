@@ -17,6 +17,8 @@ import {
     INTERPRETATION_NETWORK_SPLIT_PANE_DEFAULT,
     INTERPRETATION_NETWORK_SPLIT_PANE_MAX_PERCENT,
     INTERPRETATION_NETWORK_SPLIT_PANE_MIN_PERCENT,
+    INTERPRETATION_NETWORK_DEFAULT_CELL_STYLE_COLORS,
+    interpretationNetworkCellStylePolicySchema,
     normalizeInterpretationNetworkSplitPaneSettings,
     normalizeInterpretationNetworkTableSettings,
     normalizeInterpretationNetworkMatrixViewSettings,
@@ -33,6 +35,54 @@ import { APPLICATION_TEMPLATE_REGISTRY } from '../common/applicationTemplates'
 import { marketingLayoutWidgetReferenceSchema } from '../common/marketingPage'
 
 describe('application layout widget config contracts', () => {
+    it('normalizes strict cell-style policies while allowing an empty preset list', () => {
+        expect(interpretationNetworkCellStylePolicySchema.parse(undefined)).toEqual({
+            allowedColors: [...INTERPRETATION_NETWORK_DEFAULT_CELL_STYLE_COLORS],
+            allowCustomColors: true,
+            editable: { fillColor: true, textColor: true, borderColor: true, borderWidth: true, borderStyle: true }
+        })
+        expect(
+            interpretationNetworkCellStylePolicySchema.parse({
+                allowedColors: ['#abc', '#1e88e5'],
+                allowCustomColors: false,
+                editable: { fillColor: true, textColor: false, borderColor: false, borderWidth: false, borderStyle: false }
+            })
+        ).toEqual({
+            allowedColors: ['#AABBCC', '#1E88E5'],
+            allowCustomColors: false,
+            editable: { fillColor: true, textColor: false, borderColor: false, borderWidth: false, borderStyle: false }
+        })
+        expect(
+            interpretationNetworkCellStylePolicySchema.parse({
+                allowedColors: [],
+                allowCustomColors: false,
+                editable: { fillColor: false, textColor: false, borderColor: false, borderWidth: false, borderStyle: false }
+            }).allowedColors
+        ).toEqual([])
+        expect(
+            interpretationNetworkCellStylePolicySchema.safeParse({
+                allowedColors: ['#abc', '#AABBCC'],
+                allowCustomColors: false,
+                editable: { fillColor: true, textColor: true, borderColor: true, borderWidth: true, borderStyle: true }
+            }).success
+        ).toBe(false)
+        expect(
+            interpretationNetworkCellStylePolicySchema.safeParse({
+                allowedColors: ['#FF0000'],
+                allowCustomColors: false,
+                editable: { fillColor: true, textColor: true, borderColor: true, borderWidth: true, borderStyle: true },
+                persistenceId: 'must-not-leak'
+            }).success
+        ).toBe(false)
+        expect(
+            interpretationNetworkCellStylePolicySchema.safeParse({
+                allowedColors: ['#FF0000'],
+                allowCustomColors: false,
+                editableProperties: { background: true, text: true, border: true }
+            }).success
+        ).toBe(false)
+    })
+
     it('keeps one complete widget metadata registry for metahub and application authoring', () => {
         const marketingWidgets = LAYOUT_WIDGET_DEFINITIONS.filter((widget) => widget.templateKey === 'marketing-page')
 

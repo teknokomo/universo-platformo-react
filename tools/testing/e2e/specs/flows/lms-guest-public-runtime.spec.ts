@@ -1,6 +1,12 @@
 import { createLocalizedContent, generateUuidV7 } from '@universo-react/utils'
+import { request as playwrightRequest } from '@playwright/test'
 import { expect, test } from '../../fixtures/test'
-import { expectNoPageHorizontalOverflow, expectNoTechnicalLeakage, expectRuntimeUxViewportMatrix } from '../../support/browser/runtimeUx'
+import {
+    expectDataGridHorizontalScrollConstrained,
+    expectNoPageHorizontalOverflow,
+    expectNoTechnicalLeakage,
+    expectRuntimeUxViewportMatrix
+} from '../../support/browser/runtimeUx'
 import {
     createLoggedInApiContext,
     createMetahub,
@@ -10,8 +16,10 @@ import {
     createRuntimeRow,
     disposeApiContext,
     getApplicationRuntime,
+    listApplicationWorkspaces,
     listObjectCollections,
     sendWithCsrf,
+    setApplicationPublicEntryWorkspace,
     syncApplicationSchema,
     syncPublication,
     waitForPublicationReady
@@ -120,7 +128,11 @@ const expectGuestProgressIntentRequest = (request, expected: Record<string, unkn
     return body
 }
 
-test('@flow public lms guest links enforce the guest journey through the browser', async ({ page, runManifest }, testInfo) => {
+test('@flow public lms dashboard and guest links enforce anonymous and guest journeys through the browser', async ({
+    page,
+    browser,
+    runManifest
+}, testInfo) => {
     test.setTimeout(900_000)
 
     const api = await createLoggedInApiContext({
@@ -218,6 +230,197 @@ test('@flow public lms guest links enforce the guest journey through the browser
         if (typeof workspaceId !== 'string') {
             throw new Error('Public LMS guest shared workspace creation did not return an id')
         }
+        await setApplicationPublicEntryWorkspace(api, applicationId, workspaceId)
+
+        const ownerWorkspaces = (await listApplicationWorkspaces(api, applicationId)) as {
+            items?: Array<{
+                id?: string
+                workspaceType?: string
+                personalUserId?: string | null
+                roleCodename?: string
+            }>
+        }
+        const personalWorkspace = ownerWorkspaces.items?.find(
+            (candidate) => candidate.workspaceType === 'personal' && candidate.roleCodename === 'owner'
+        )
+        if (!personalWorkspace?.id || personalWorkspace.personalUserId !== runManifest.testUser.userId) {
+            throw new Error('The LMS public runtime test requires the owner personal workspace')
+        }
+        const privateUserScopedTitle = `E2E ${runManifest.runId} private user scoped LMS content`
+        const privateUserScopedRow = await createRuntimeRow(api, applicationId, {
+            workspaceId: personalWorkspace.id,
+            objectCollectionId: learningResourcesCatalogId,
+            data: {
+                SortOrder: 1,
+                Title: privateUserScopedTitle,
+                Description: 'Personal LMS data that must not enter the public Dashboard projection',
+                ResourceType: pageResourceTypeValueId,
+                Source: { type: 'page', pageCodename: 'LearnerHome' },
+                PublicationStatus: publishedPublicationStatusValueId,
+                EstimatedTimeMinutes: 1,
+                ContentItems: []
+            }
+        })
+        await waitForApplicationRuntimeRow(api, applicationId, learningResourcesCatalogId, privateUserScopedRow.id, personalWorkspace.id)
+        const recentRelationResponse = await sendWithCsrf(
+            api,
+            'POST',
+            `/api/v1/applications/${applicationId}/runtime/rows/${privateUserScopedRow.id}/library/recent?workspaceId=${personalWorkspace.id}`,
+            { objectCollectionId: learningResourcesCatalogId, active: true }
+        )
+        if (!recentRelationResponse.ok) {
+            throw new Error(`Registering the personal LMS row in Recent failed with ${recentRelationResponse.status}`)
+        }
+        expect(await recentRelationResponse.json(), 'The private row is registered in the owner personal Recent library').toMatchObject({
+            relationKey: 'recent',
+            active: true
+        })
+
+        const baseURL = testInfo.project.use.baseURL
+        if (typeof baseURL !== 'string') throw new Error('The LMS public runtime test project must define the E2E base URL')
+        const publicDashboardPath = `/api/v1/public/applications/${applicationId}/runtime?${new URLSearchParams({
+            targetKind: 'page',
+            entityTypeCodename: 'LearnerHome',
+            locale: 'en'
+        })}`
+        const readAnonymousDashboardDto = async () => {
+            const publicDtoContext = await playwrightRequest.newContext({
+                baseURL,
+                storageState: { cookies: [], origins: [] }
+            })
+            try {
+                const response = await publicDtoContext.get(publicDashboardPath)
+                expect(response.status(), 'The isolated cookie-free API context receives the public Dashboard DTO').toBe(200)
+                return await response.json()
+            } finally {
+                await publicDtoContext.dispose()
+            }
+        }
+        const anonymousContext = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] } })
+        try {
+            const anonymousPage = await anonymousContext.newPage()
+            const memberRuntimeRequests: string[] = []
+            const anonymousMutationRequests: string[] = []
+            anonymousContext.on('request', (request) => {
+                const url = new URL(request.url())
+                if (/^\/api\/v1\/applications\/[^/]+\/runtime(?:\/|$)/u.test(url.pathname)) {
+                    memberRuntimeRequests.push(`${request.method()} ${url.pathname}`)
+                }
+                if (url.pathname.startsWith('/api/') && request.method() !== 'GET') {
+                    anonymousMutationRequests.push(`${request.method()} ${url.pathname}`)
+                }
+            })
+            const dashboardResponsePromise = anonymousPage.waitForResponse((response) => {
+                const url = new URL(response.url())
+                return response.request().method() === 'GET' && url.pathname === `/api/v1/public/applications/${applicationId}/runtime`
+            })
+            await anonymousPage.goto(`/a/${applicationId}?targetKind=page&entityTypeCodename=LearnerHome&locale=en`)
+            const dashboardResponse = await dashboardResponsePromise
+            expect(dashboardResponse.status(), 'A published LMS Dashboard loads through its anonymous runtime').toBe(200)
+            const dashboardPayload = await readAnonymousDashboardDto()
+            const menuProjection = dashboardPayload.dashboard?.placements?.find(
+                (placement: { widgetKey?: string }) => placement.widgetKey === 'menuWidget'
+            )
+            expect(menuProjection?.runtimeData?.status, 'The LMS menu projection is resolved').toBe('ready')
+            expect(
+                menuProjection?.runtimeData?.data,
+                'The first configured LMS section exposes the next configured semantic destination'
+            ).toMatchObject({
+                navigationAction: {
+                    label: 'Course Overview',
+                    source: { kind: 'page', codename: 'LearnerHome' },
+                    target: { kind: 'page', codename: 'CourseOverview' }
+                }
+            })
+            expect(JSON.stringify(dashboardPayload), 'Anonymous responses never include the owner personal-workspace row').not.toContain(
+                privateUserScopedTitle
+            )
+            await expect(anonymousPage).not.toHaveURL(/\/auth(?:\?|$)/u)
+            await expect(anonymousPage.getByTestId('runtime-main-content')).toBeVisible()
+            const navigation = anonymousPage.getByRole('navigation', { name: 'Application navigation', exact: true })
+            const mainContent = anonymousPage.getByRole('main')
+            await expect(mainContent.getByRole('heading', { name: 'Welcome to your learning portal', exact: true })).toBeVisible()
+            await expect(navigation.getByRole('listitem'), 'Anonymous LMS navigation keeps one configured menu item').toHaveCount(1)
+            await expect(navigation.getByRole('listitem')).toContainText('Learning')
+            await expect(navigation.getByRole('link')).toHaveCount(0)
+            await expect(anonymousPage.getByText(privateUserScopedTitle, { exact: true })).toHaveCount(0)
+            await expect(mainContent.getByText('No dashboard content is available yet.')).toHaveCount(0)
+            await expect(mainContent.getByRole('heading', { name: /^(?:LMS|Learning Management System)$/iu })).toHaveCount(0)
+            await expect(mainContent.getByRole('tab', { name: 'My Courses', exact: true })).toBeVisible()
+            const recentTab = mainContent.getByRole('tab', { name: 'Recent', exact: true })
+            await expect(recentTab).toBeVisible()
+            await recentTab.click()
+            await expect(recentTab).toHaveAttribute('aria-selected', 'true')
+            await expect(mainContent.getByText(privateUserScopedTitle, { exact: true })).toHaveCount(0)
+            await expect(anonymousPage.getByRole('alert').filter({ hasText: 'No matching content was found.' }).first()).toBeVisible()
+            await expect(
+                anonymousPage.getByRole('button', {
+                    name: /^(?:Create|Add|Edit|Delete|Save|Создать|Добавить|Изменить|Удалить|Сохранить)/iu
+                })
+            ).toHaveCount(0)
+            await expectNoTechnicalLeakage(anonymousPage.locator('body'), {
+                label: 'Anonymous LMS Dashboard',
+                checkUuidSubstrings: true
+            })
+            for (const viewport of [
+                { name: 'desktop', width: 1440, height: 900 },
+                { name: 'wide-desktop', width: 1920, height: 1080 },
+                { name: 'tablet', width: 768, height: 1024 },
+                { name: 'mobile', width: 390, height: 844 }
+            ]) {
+                await anonymousPage.setViewportSize({ width: viewport.width, height: viewport.height })
+                await expectNoPageHorizontalOverflow(anonymousPage, `Anonymous LMS Dashboard at ${viewport.width}px`)
+                if (viewport.width < 900) {
+                    const openMenuButton = anonymousPage.getByRole('button', { name: /^(?:Open menu|Открыть меню)$/u })
+                    await expect(openMenuButton, `Anonymous LMS navigation opens at ${viewport.width}px`).toBeVisible()
+                    await openMenuButton.click()
+                }
+                await expect(navigation, `The first LMS navigation entry is visible at ${viewport.width}px`).toBeVisible()
+                const menuItems = navigation.getByRole('listitem')
+                await expect(menuItems, 'Anonymous LMS navigation keeps only its first configured item').toHaveCount(1)
+                await expect(menuItems).toBeVisible()
+                await expect(menuItems).toContainText('Learning')
+                await anonymousPage.screenshot({
+                    path: testInfo.outputPath(`lms-public-dashboard-${viewport.name}.png`),
+                    fullPage: true,
+                    animations: 'disabled'
+                })
+                if (viewport.width < 900) {
+                    await anonymousPage.keyboard.press('Escape')
+                    await expect(navigation).toBeHidden()
+                }
+            }
+            await anonymousPage.setViewportSize({ width: 1440, height: 900 })
+            const courseOverviewLink = anonymousPage.getByTestId('public-dashboard-next-section')
+            await expect(courseOverviewLink, 'The configured second LMS page is available through the Dashboard CTA').toHaveText(
+                'Course Overview'
+            )
+            await expect(courseOverviewLink).toHaveAttribute('href', /targetKind=page.*entityTypeCodename=CourseOverview.*locale=en/u)
+            const courseOverviewResponsePromise = anonymousPage.waitForResponse((response) => {
+                const url = new URL(response.url())
+                return (
+                    response.request().method() === 'GET' &&
+                    url.pathname === `/api/v1/public/applications/${applicationId}/runtime` &&
+                    url.searchParams.get('targetKind') === 'page' &&
+                    url.searchParams.get('entityTypeCodename') === 'CourseOverview'
+                )
+            })
+            await courseOverviewLink.click()
+            const courseOverviewResponse = await courseOverviewResponsePromise
+            expect(courseOverviewResponse.status(), 'The semantic CTA opens the configured LMS page anonymously').toBe(200)
+            const courseOverviewUrl = new URL(anonymousPage.url())
+            expect(courseOverviewUrl.searchParams.get('targetKind')).toBe('page')
+            expect(courseOverviewUrl.searchParams.get('entityTypeCodename')).toBe('CourseOverview')
+            await expect(mainContent.getByRole('heading', { name: 'Course overview', exact: true })).toBeVisible()
+            await expect(navigation.getByRole('listitem'), 'The secondary page does not add a second sidebar item').toHaveCount(1)
+            expect(
+                memberRuntimeRequests,
+                'User-scoped LMS rows must never use the authenticated runtime API for an anonymous visitor'
+            ).toEqual([])
+            expect(anonymousMutationRequests, 'Anonymous LMS Dashboard navigation must not submit API mutations').toEqual([])
+        } finally {
+            await anonymousContext.close()
+        }
 
         const quizRow = await createRuntimeRow(api, applicationId, {
             workspaceId,
@@ -292,6 +495,101 @@ test('@flow public lms guest links enforce the guest journey through the browser
             }
         })
         await waitForApplicationRuntimeRow(api, applicationId, learningResourcesCatalogId, contentRow.id, workspaceId)
+
+        const populatedDashboardContext = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] } })
+        try {
+            const populatedDashboardPage = await populatedDashboardContext.newPage()
+            const memberRuntimeRequests: string[] = []
+            const anonymousMutationRequests: string[] = []
+            populatedDashboardContext.on('request', (request) => {
+                const url = new URL(request.url())
+                if (/^\/api\/v1\/applications\/[^/]+\/runtime(?:\/|$)/u.test(url.pathname)) {
+                    memberRuntimeRequests.push(`${request.method()} ${url.pathname}`)
+                }
+                if (url.pathname.startsWith('/api/') && request.method() !== 'GET') {
+                    anonymousMutationRequests.push(`${request.method()} ${url.pathname}`)
+                }
+            })
+            const populatedRuntimeResponsePromise = populatedDashboardPage.waitForResponse((response) => {
+                const url = new URL(response.url())
+                return response.request().method() === 'GET' && url.pathname === `/api/v1/public/applications/${applicationId}/runtime`
+            })
+            await populatedDashboardPage.goto(`/a/${applicationId}?targetKind=page&entityTypeCodename=LearnerHome&locale=en`)
+            const populatedRuntimeResponse = await populatedRuntimeResponsePromise
+            expect(
+                populatedRuntimeResponse.status(),
+                'The anonymous Dashboard projects public LMS records through the public endpoint'
+            ).toBe(200)
+            const populatedRuntimePayload = await readAnonymousDashboardDto()
+            expect(
+                JSON.stringify(populatedRuntimePayload),
+                'The populated anonymous response excludes the owner personal-workspace row'
+            ).not.toContain(privateUserScopedTitle)
+            const populatedMain = populatedDashboardPage.getByRole('main')
+            await expect(populatedMain.getByRole('heading', { name: 'Welcome to your learning portal', exact: true })).toBeVisible()
+            const populatedRecentTab = populatedMain.getByRole('tab', { name: 'Recent', exact: true })
+            await expect(populatedRecentTab).toBeVisible()
+            await populatedRecentTab.click()
+            await expect(populatedRecentTab).toHaveAttribute('aria-selected', 'true')
+            await expect(
+                populatedDashboardPage.getByRole('alert').filter({ hasText: 'No matching content was found.' }).first(),
+                'The actor-scoped Recent view renders its explicit empty state for an anonymous visitor'
+            ).toBeVisible()
+            await expect(populatedDashboardPage.getByText(privateUserScopedTitle, { exact: true })).toHaveCount(0)
+            await expect(
+                populatedMain.getByText('Guest photosynthesis lesson', { exact: true }),
+                'The public Dashboard does not expose a user-scoped Library row to an anonymous visitor'
+            ).toHaveCount(0)
+            await expect(populatedMain.getByText('Public LMS lesson with embedded quiz', { exact: true })).toHaveCount(0)
+            await expect(populatedMain.getByText(/\[object Object\]|\{\s*"(?:ContentItems|Source|Body)"/u)).toHaveCount(0)
+            await expect(
+                populatedDashboardPage.getByRole('button', {
+                    name: /^(?:Create|Add|Edit|Delete|Save|Создать|Добавить|Изменить|Удалить|Сохранить)/iu
+                })
+            ).toHaveCount(0)
+            await expectNoTechnicalLeakage(populatedDashboardPage.locator('body'), {
+                label: 'Anonymous LMS Dashboard with published content',
+                checkUuidSubstrings: true
+            })
+            for (const viewport of [
+                { name: 'wide-desktop', width: 1920, height: 1080 },
+                { name: 'tablet', width: 768, height: 1024 },
+                { name: 'mobile', width: 390, height: 844 }
+            ]) {
+                await populatedDashboardPage.setViewportSize({ width: viewport.width, height: viewport.height })
+                await expectNoPageHorizontalOverflow(populatedDashboardPage, `Populated anonymous LMS at ${viewport.width}px`)
+                await expect(populatedMain.getByRole('heading', { name: 'Welcome to your learning portal', exact: true })).toBeVisible()
+                if (viewport.width < 900) {
+                    const openMenuButton = populatedDashboardPage.getByRole('button', { name: /^(?:Open menu|Открыть меню)$/u })
+                    await expect(openMenuButton).toBeVisible()
+                    await openMenuButton.click()
+                }
+                const navigation = populatedDashboardPage.getByRole('navigation', { name: 'Application navigation', exact: true })
+                const menuItems = navigation.getByRole('listitem')
+                await expect(menuItems, 'Populated anonymous LMS navigation keeps only its first configured item').toHaveCount(1)
+                await expect(menuItems).toBeVisible()
+                await expect(menuItems).toContainText('Learning')
+                if ((await populatedDashboardPage.locator('.MuiDataGrid-root:visible').count()) > 0) {
+                    await expectDataGridHorizontalScrollConstrained(
+                        populatedDashboardPage,
+                        `Populated anonymous LMS DataGrid at ${viewport.width}px`
+                    )
+                }
+                await populatedDashboardPage.screenshot({
+                    path: testInfo.outputPath(`lms-public-dashboard-populated-${viewport.name}.png`),
+                    fullPage: true,
+                    animations: 'disabled'
+                })
+                if (viewport.width < 900) {
+                    await populatedDashboardPage.keyboard.press('Escape')
+                    await expect(navigation).toBeHidden()
+                }
+            }
+            expect(memberRuntimeRequests, 'Anonymous populated LMS reads must not use member runtime APIs').toEqual([])
+            expect(anonymousMutationRequests, 'Anonymous populated LMS browsing must not submit API mutations').toEqual([])
+        } finally {
+            await populatedDashboardContext.close()
+        }
 
         const accessLinkRow = await createRuntimeRow(api, applicationId, {
             workspaceId,

@@ -1,10 +1,14 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
 import type { DbExecutor } from '@universo-react/utils'
+import { uuidV7Schema } from '@universo-react/types'
 import { ensureRuntimePermission, createQueryHelper, resolveRuntimeSchema } from '../shared/runtimeHelpers'
 import {
     interpretationNetworkEnsureSystemStructureRequestSchema,
     interpretationNetworkMaterialCreateRequestSchema,
+    interpretationNetworkMaterialDeleteRequestSchema,
+    interpretationNetworkMaterialPrimaryRequestSchema,
+    interpretationNetworkMaterialUpdateRequestSchema,
     interpretationNetworkStructureDeleteRequestSchema,
     interpretationNetworkStructureCreateRequestSchema,
     interpretationNetworkStructureRouteParamsSchema,
@@ -15,15 +19,19 @@ import {
     InterpretationNetworkCommandError,
     createMaterialForCell,
     createStructureAggregate,
+    deleteMaterialForCell,
     deleteStructureAggregate,
     deleteInterpretationNetworkTemplate,
     ensureSingleSystemStructure,
     getInterpretationNetworkTemplateDetail,
-    getSingleSystemStructure,
     instantiateStructureFromTemplate,
     listInterpretationNetworkTemplates,
+    listMaterialAssociationsForInterpretation,
+    interpretationNetworkMaterialAssociationsQuerySchema,
     resolveInterpretationNetworkRuntimeSurface,
     saveStructureAsTemplate,
+    setPrimaryMaterialForCell,
+    updateMaterialForCell,
     updateInterpretationNetworkTemplate
 } from '../services/interpretationNetwork/runtimeInterpretationNetworkService'
 
@@ -36,6 +44,13 @@ const interpretationNetworkTemplateRouteParamsSchema = z
     .object({
         applicationId: z.string().min(1),
         templateId: z.string().uuid()
+    })
+    .strict()
+
+const interpretationNetworkMaterialRouteParamsSchema = z
+    .object({
+        applicationId: z.string().min(1),
+        materialId: uuidV7Schema
     })
     .strict()
 
@@ -120,14 +135,6 @@ export function createRuntimeInterpretationNetworkController(getDbExecutor: () =
         }
 
         try {
-            const existing = await getSingleSystemStructure(resolved.ctx, resolved.surface)
-            if (existing) {
-                return res.status(200).json({
-                    ...existing,
-                    canCreate: resolved.ctx.permissions.createContent === true && resolved.ctx.permissions.editContent === true
-                })
-            }
-
             const result = await ensureSingleSystemStructure(resolved.ctx, resolved.surface, parsedBody.data)
             return res.status(result.created ? 201 : 200).json({
                 ...result,
@@ -181,6 +188,32 @@ export function createRuntimeInterpretationNetworkController(getDbExecutor: () =
 
         try {
             return res.json({ items: await listInterpretationNetworkTemplates(resolved.ctx, resolved.surface) })
+        } catch (error) {
+            if (error instanceof InterpretationNetworkCommandError) return sendCommandError(res, error)
+            throw error
+        }
+    }
+
+    const listMaterialAssociations = async (req: Request, res: Response) => {
+        const parsedQuery = interpretationNetworkMaterialAssociationsQuerySchema.safeParse({
+            ...(typeof req.query.interpretationId === 'string' ? { interpretationId: req.query.interpretationId } : {}),
+            ...(typeof req.query.limit === 'string' ? { limit: req.query.limit } : {}),
+            ...(typeof req.query.offset === 'string' ? { offset: req.query.offset } : {})
+        })
+        if (!parsedQuery.success) {
+            return sendValidationError(
+                res,
+                parsedQuery.error,
+                interpretationNetworkControllerErrorCodes.invalidRouteParameters,
+                'Invalid material association query'
+            )
+        }
+
+        const resolved = await resolveRuntimeSurface(req, res, req.params.applicationId)
+        if (!resolved) return
+
+        try {
+            return res.json(await listMaterialAssociationsForInterpretation(resolved.ctx, resolved.surface, parsedQuery.data))
         } catch (error) {
             if (error instanceof InterpretationNetworkCommandError) return sendCommandError(res, error)
             throw error
@@ -390,6 +423,88 @@ export function createRuntimeInterpretationNetworkController(getDbExecutor: () =
         }
     }
 
+    const updateMaterial = async (req: Request, res: Response) => {
+        const params = interpretationNetworkMaterialRouteParamsSchema.safeParse(req.params)
+        if (!params.success) {
+            return sendValidationError(
+                res,
+                params.error,
+                interpretationNetworkControllerErrorCodes.invalidRouteParameters,
+                'Invalid route parameters'
+            )
+        }
+        const parsedBody = interpretationNetworkMaterialUpdateRequestSchema.safeParse(req.body)
+        if (!parsedBody.success) {
+            return sendValidationError(
+                res,
+                parsedBody.error,
+                interpretationNetworkControllerErrorCodes.invalidRequestBody,
+                'Invalid request body'
+            )
+        }
+        const resolved = await resolveRuntimeSurface(req, res, params.data.applicationId)
+        if (!resolved) return
+        if (!ensureRuntimePermission(res, resolved.ctx, 'editContent')) return
+        try {
+            return res.json(await updateMaterialForCell(resolved.ctx, resolved.surface, params.data.materialId, parsedBody.data))
+        } catch (error) {
+            if (error instanceof InterpretationNetworkCommandError) return sendCommandError(res, error)
+            throw error
+        }
+    }
+
+    const deleteMaterial = async (req: Request, res: Response) => {
+        const params = interpretationNetworkMaterialRouteParamsSchema.safeParse(req.params)
+        if (!params.success) {
+            return sendValidationError(
+                res,
+                params.error,
+                interpretationNetworkControllerErrorCodes.invalidRouteParameters,
+                'Invalid route parameters'
+            )
+        }
+        const parsedBody = interpretationNetworkMaterialDeleteRequestSchema.safeParse(req.body)
+        if (!parsedBody.success) {
+            return sendValidationError(
+                res,
+                parsedBody.error,
+                interpretationNetworkControllerErrorCodes.invalidRequestBody,
+                'Invalid request body'
+            )
+        }
+        const resolved = await resolveRuntimeSurface(req, res, params.data.applicationId)
+        if (!resolved) return
+        if (!ensureRuntimePermission(res, resolved.ctx, 'deleteContent')) return
+        try {
+            await deleteMaterialForCell(resolved.ctx, resolved.surface, params.data.materialId, parsedBody.data)
+            return res.status(204).send()
+        } catch (error) {
+            if (error instanceof InterpretationNetworkCommandError) return sendCommandError(res, error)
+            throw error
+        }
+    }
+
+    const setPrimaryMaterial = async (req: Request, res: Response) => {
+        const parsedBody = interpretationNetworkMaterialPrimaryRequestSchema.safeParse(req.body)
+        if (!parsedBody.success) {
+            return sendValidationError(
+                res,
+                parsedBody.error,
+                interpretationNetworkControllerErrorCodes.invalidRequestBody,
+                'Invalid request body'
+            )
+        }
+        const resolved = await resolveRuntimeSurface(req, res, req.params.applicationId)
+        if (!resolved) return
+        if (!ensureRuntimePermission(res, resolved.ctx, 'editContent')) return
+        try {
+            return res.json(await setPrimaryMaterialForCell(resolved.ctx, resolved.surface, parsedBody.data))
+        } catch (error) {
+            if (error instanceof InterpretationNetworkCommandError) return sendCommandError(res, error)
+            throw error
+        }
+    }
+
     const deleteStructure = async (req: Request, res: Response) => {
         const params = interpretationNetworkStructureRouteParamsSchema.safeParse(req.params)
         if (!params.success) {
@@ -427,12 +542,16 @@ export function createRuntimeInterpretationNetworkController(getDbExecutor: () =
         createStructure,
         ensureSystemStructure,
         listTemplates,
+        listMaterialAssociations,
         getTemplateDetail,
         saveTemplate,
         updateTemplate,
         deleteTemplate,
         instantiateTemplate,
         deleteStructure,
-        createMaterial
+        createMaterial,
+        updateMaterial,
+        deleteMaterial,
+        setPrimaryMaterial
     }
 }

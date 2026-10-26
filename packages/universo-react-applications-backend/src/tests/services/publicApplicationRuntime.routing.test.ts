@@ -3,7 +3,8 @@ import { type DbExecutor } from '@universo-react/utils'
 import {
     parsePublicApplicationRef,
     PublicApplicationUnavailableError,
-    resolvePublicApplication
+    resolvePublicApplication,
+    toPublicApplicationRouteResolution
 } from '../../services/publicApplicationRuntime'
 
 const applicationId = '0190a9b5-3cde-7abc-8def-0123456789ab'
@@ -40,6 +41,28 @@ const readyApplication = (overrides: Partial<PublicRuntimeApplicationRow> = {}):
 })
 
 describe('public application reference parsing and routing', () => {
+    it('projects route metadata without exposing the internal application UUID', () => {
+        const route = {
+            applicationId,
+            matchedBy: 'alias' as const,
+            matchedAlias: 'seventy-third-meridian',
+            routingMode: 'direct' as const,
+            primaryAlias: 'seventy-third-meridian',
+            canonicalAlias: null
+        }
+
+        const publicRoute = toPublicApplicationRouteResolution(route)
+
+        expect(publicRoute).toEqual({
+            matchedBy: 'alias',
+            matchedAlias: 'seventy-third-meridian',
+            routingMode: 'direct',
+            primaryAlias: 'seventy-third-meridian',
+            canonicalAlias: null
+        })
+        expect(publicRoute).not.toHaveProperty('applicationId')
+    })
+
     it('accepts canonical UUID v7 and lowercase aliases only', () => {
         expect(parsePublicApplicationRef(applicationId)).toEqual({ kind: 'uuid', value: applicationId })
         expect(parsePublicApplicationRef('seventy-third-meridian')).toEqual({ kind: 'alias', value: 'seventy-third-meridian' })

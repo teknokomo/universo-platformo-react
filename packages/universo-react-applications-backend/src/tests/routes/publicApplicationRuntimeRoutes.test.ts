@@ -6,7 +6,12 @@ const request = require('supertest') as typeof import('supertest')
 
 const mockResolvePublicApplication = jest.fn()
 const mockResolvePublicEntryWorkspace = jest.fn()
+const mockResolvePublicDashboardWorkspace = jest.fn()
 const mockResolveEffectiveLayout = jest.fn()
+const mockResolvePublicLayoutStructure = jest.fn()
+const mockProjectPublicDashboardRuntime = jest.fn()
+const mockResolveInterpretationNetworkRuntimeSurface = jest.fn()
+const mockReadPublicInterpretationNetwork = jest.fn()
 const mockCreateMarketingController = jest.fn()
 const mockCreatePublicMarketingBindingRecordLoader = jest.fn()
 const mockSerializePublicMarketingRuntime = jest.fn()
@@ -21,12 +26,37 @@ jest.mock('../../services/publicApplicationRuntime', () => ({
 jest.mock('../../services/applicationWorkspaces', () => ({
     __esModule: true,
     ...jest.requireActual('../../services/applicationWorkspaces'),
-    resolvePublicEntryWorkspace: (...args: unknown[]) => mockResolvePublicEntryWorkspace(...args)
+    resolvePublicEntryWorkspace: (...args: unknown[]) => mockResolvePublicEntryWorkspace(...args),
+    resolvePublicDashboardWorkspace: (...args: unknown[]) => mockResolvePublicDashboardWorkspace(...args)
 }))
 
 jest.mock('../../services/effectiveLayoutResolver', () => ({
     __esModule: true,
     resolveEffectiveLayoutForPublicTransaction: (...args: unknown[]) => mockResolveEffectiveLayout(...args)
+}))
+
+jest.mock('../../services/effectiveLayoutResolverCore', () => ({
+    __esModule: true,
+    ...jest.requireActual('../../services/effectiveLayoutResolverCore'),
+    resolveEffectiveLayoutForPublicTransactionWithRuntimeData: (...args: unknown[]) => mockResolvePublicLayoutStructure(...args)
+}))
+
+jest.mock('../../services/publicDashboardRuntime', () => ({
+    __esModule: true,
+    ...jest.requireActual('../../services/publicDashboardRuntime'),
+    projectPublicDashboardRuntime: (...args: unknown[]) => mockProjectPublicDashboardRuntime(...args)
+}))
+
+jest.mock('../../services/interpretationNetwork/runtimeInterpretationNetworkSurface', () => ({
+    __esModule: true,
+    ...jest.requireActual('../../services/interpretationNetwork/runtimeInterpretationNetworkSurface'),
+    resolveInterpretationNetworkRuntimeSurface: (...args: unknown[]) => mockResolveInterpretationNetworkRuntimeSurface(...args)
+}))
+
+jest.mock('../../services/publicInterpretationNetworkRuntime', () => ({
+    __esModule: true,
+    ...jest.requireActual('../../services/publicInterpretationNetworkRuntime'),
+    readPublicInterpretationNetwork: (...args: unknown[]) => mockReadPublicInterpretationNetwork(...args)
 }))
 
 jest.mock('../../controllers/runtimeMarketingPageController', () => ({
@@ -52,7 +82,31 @@ import { EffectiveLayoutError } from '../../services/effectiveLayoutContract'
 
 const applicationId = '0190a9b5-3cde-7abc-8def-0123456789ab'
 const layoutId = '0190a9b5-3cde-7abc-8def-0123456789ac'
+const interpretationNetworkWidgetId = '0190a9b5-3cde-7abc-8def-0123456789ad'
 const schemaName = 'app_0190a9b53cde7abc8def0123456789ab'
+const workspaceId = '0190a9b5-3cde-7abc-8def-0123456789ae'
+const interpretationNetworkInstanceKey = 'interpretation-workspace'
+
+const dashboardLayout = () => ({
+    status: 'ok',
+    target: { applicationId, targetKind: null, locale: 'en' },
+    layout: { id: layoutId, templateKey: 'dashboard' },
+    widgets: [
+        {
+            id: interpretationNetworkWidgetId,
+            layoutId,
+            instanceKey: interpretationNetworkInstanceKey,
+            parentInstanceKey: null,
+            slotKey: null,
+            zone: 'center',
+            semanticRegion: 'main',
+            widgetKey: 'interpretationNetworkWorkspace',
+            sortOrder: 0,
+            config: {},
+            isActive: true
+        }
+    ]
+})
 
 const publicMarketingPayload = {
     route: {
@@ -146,7 +200,25 @@ describe('public application runtime routes', () => {
         jest.clearAllMocks()
         mockResolvePublicApplication.mockResolvedValue(resolvedApplication())
         mockResolvePublicEntryWorkspace.mockResolvedValue(null)
+        mockResolvePublicDashboardWorkspace.mockResolvedValue(null)
         mockResolveEffectiveLayout.mockResolvedValue({ layout: { id: layoutId }, widgets: [] })
+        mockResolvePublicLayoutStructure.mockResolvedValue({ layout: { id: layoutId, templateKey: 'marketing-page' }, widgets: [] })
+        mockProjectPublicDashboardRuntime.mockResolvedValue({ locale: 'en', workspaceAvailability: 'none', placements: [] })
+        mockResolveInterpretationNetworkRuntimeSurface.mockResolvedValue({
+            featureState: 'ready',
+            applicationId,
+            schemaName,
+            workspaceId: null,
+            layoutId,
+            widgetId: interpretationNetworkWidgetId,
+            widgetKey: 'interpretationNetworkWorkspace'
+        })
+        mockReadPublicInterpretationNetwork.mockResolvedValue({
+            locale: 'en',
+            view: 'structures',
+            items: [],
+            page: { offset: 0, limit: 100, hasMore: false }
+        })
         mockCreatePublicMarketingBindingRecordLoader.mockReturnValue(mockPublicMarketingRecordLoader)
         mockSerializePublicMarketingRuntime.mockReturnValue(publicMarketingPayload)
         mockCreateMarketingController.mockImplementation((_getExecutor, options) => ({
@@ -177,9 +249,10 @@ describe('public application runtime routes', () => {
         expect(mockSerializePublicMarketingRuntime).toHaveBeenCalledWith({
             route: resolvedApplication().route,
             locale: 'en',
-            effectiveLayout: { layout: { id: layoutId }, widgets: [] },
+            effectiveLayout: { layout: { id: layoutId, templateKey: 'marketing-page' }, widgets: [] },
             loadRecords: mockPublicMarketingRecordLoader
         })
+        expect(mockResolveEffectiveLayout).not.toHaveBeenCalled()
         expect(response.body.route).toEqual({
             matchedBy: 'uuid',
             matchedAlias: null,
@@ -200,15 +273,184 @@ describe('public application runtime routes', () => {
         const workspaceId = '0190a9b5-3cde-7abc-8def-0123456789ad'
         mockResolvePublicApplication.mockResolvedValue(resolvedApplication({ workspacesEnabled: true }))
         mockResolvePublicEntryWorkspace.mockResolvedValue({ workspaceId })
+        mockResolvePublicDashboardWorkspace.mockResolvedValue({ workspaceId })
         const app = express()
         app.use(createPublicApplicationRuntimeRoutes(() => executor, readLimiter))
 
         await request(app).get(`/public/applications/${applicationId}/runtime?locale=en`).expect(200)
 
         expect(mockResolvePublicEntryWorkspace).toHaveBeenCalledWith(tx, schemaName)
-        expect(mockResolveEffectiveLayout).toHaveBeenCalledWith(tx, expect.any(Object), workspaceId)
+        expect(mockResolvePublicEntryWorkspace).toHaveBeenCalledTimes(1)
+        expect(mockResolveEffectiveLayout).not.toHaveBeenCalled()
         expect(mockCreatePublicMarketingBindingRecordLoader).toHaveBeenCalledWith(tx, { schemaName, workspaceId })
         expect(mockCreateMarketingController).not.toHaveBeenCalled()
+    })
+
+    it('dispatches Dashboard through the public projection after structure-only layout resolution', async () => {
+        const { executor, tx } = createExecutor()
+        mockResolvePublicApplication.mockResolvedValue(resolvedApplication({ workspacesEnabled: true }))
+        mockResolvePublicEntryWorkspace.mockResolvedValue({ workspaceId })
+        mockResolvePublicLayoutStructure.mockResolvedValue(dashboardLayout())
+        mockProjectPublicDashboardRuntime.mockResolvedValue({ locale: 'ru', workspaceAvailability: 'available', placements: [] })
+        const app = express()
+        app.use(createPublicApplicationRuntimeRoutes(() => executor, readLimiter))
+
+        const response = await request(app).get(`/public/applications/${applicationId}/runtime?locale=ru`).expect(200)
+
+        expect(response.headers['cache-control']).toBe('no-store')
+        expect(response.body).toEqual({
+            route: {
+                matchedBy: 'uuid',
+                matchedAlias: null,
+                routingMode: 'direct',
+                primaryAlias: null,
+                canonicalAlias: null
+            },
+            templateKey: 'dashboard',
+            dashboard: { locale: 'ru', workspaceAvailability: 'available', placements: [] }
+        })
+        expect(mockResolvePublicLayoutStructure).toHaveBeenCalledWith(tx, expect.any(Object), workspaceId, expect.any(Function))
+        expect(mockProjectPublicDashboardRuntime).toHaveBeenCalledWith({
+            executor: tx,
+            resolved: resolvedApplication({ workspacesEnabled: true }),
+            workspaceId,
+            workspaceAvailable: true,
+            locale: 'ru',
+            effectiveLayout: dashboardLayout()
+        })
+        expect(mockSerializePublicMarketingRuntime).not.toHaveBeenCalled()
+        expect(mockResolveEffectiveLayout).not.toHaveBeenCalled()
+    })
+
+    it('renders a public Dashboard empty state when no shared workspace is available', async () => {
+        const { executor, tx } = createExecutor()
+        mockResolvePublicApplication.mockResolvedValue(resolvedApplication({ workspacesEnabled: true }))
+        mockResolvePublicLayoutStructure.mockResolvedValue(dashboardLayout())
+        mockProjectPublicDashboardRuntime.mockResolvedValue({ locale: 'en', workspaceAvailability: 'none', placements: [] })
+        const app = express()
+        app.use(createPublicApplicationRuntimeRoutes(() => executor, readLimiter))
+
+        const response = await request(app).get(`/public/applications/${applicationId}/runtime?locale=en`).expect(200)
+
+        expect(response.body.templateKey).toBe('dashboard')
+        expect(response.body.dashboard.workspaceAvailability).toBe('none')
+        expect(mockResolvePublicEntryWorkspace).toHaveBeenCalledWith(tx, schemaName)
+        expect(mockResolvePublicDashboardWorkspace).toHaveBeenCalledWith(tx, schemaName)
+        expect(mockResolvePublicLayoutStructure).toHaveBeenCalledWith(tx, expect.any(Object), null, expect.any(Function), {
+            allowMissingWorkspace: true
+        })
+        expect(mockProjectPublicDashboardRuntime).toHaveBeenCalledWith(
+            expect.objectContaining({ workspaceId: null, workspaceAvailable: false })
+        )
+    })
+
+    it('re-resolves public workspace, target, active placement and ready IN surface for each specialized read', async () => {
+        const { executor, tx } = createExecutor()
+        mockResolvePublicApplication.mockResolvedValue(resolvedApplication({ workspacesEnabled: true }))
+        mockResolvePublicDashboardWorkspace.mockResolvedValue({ workspaceId })
+        mockResolvePublicLayoutStructure.mockResolvedValue(dashboardLayout())
+        mockResolveInterpretationNetworkRuntimeSurface.mockResolvedValue({
+            featureState: 'ready',
+            applicationId,
+            schemaName,
+            workspaceId,
+            layoutId,
+            widgetId: interpretationNetworkWidgetId,
+            widgetKey: 'interpretationNetworkWorkspace'
+        })
+        const app = express()
+        app.use(createPublicApplicationRuntimeRoutes(() => executor, readLimiter))
+
+        const response = await request(app)
+            .get(
+                `/public/applications/${applicationId}/runtime/widgets/${interpretationNetworkInstanceKey}/interpretation-network?locale=en&view=structures`
+            )
+            .expect(200)
+
+        expect(response.headers['cache-control']).toBe('no-store')
+        expect(response.body).toEqual({ locale: 'en', view: 'structures', items: [], page: { offset: 0, limit: 100, hasMore: false } })
+        expect(executor.transaction).toHaveBeenCalledTimes(1)
+        expect(tx.query).toHaveBeenCalledWith('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ')
+        expect(mockResolvePublicApplication).toHaveBeenCalledWith(tx, applicationId)
+        expect(mockResolvePublicDashboardWorkspace).toHaveBeenCalledWith(tx, schemaName)
+        expect(mockResolvePublicLayoutStructure).toHaveBeenCalledWith(tx, expect.any(Object), workspaceId, expect.any(Function))
+        expect(mockResolveInterpretationNetworkRuntimeSurface).toHaveBeenCalledWith(tx, {
+            applicationId,
+            schemaName,
+            workspaceId,
+            scopeEntityId: null,
+            layoutId,
+            widgetId: interpretationNetworkWidgetId
+        })
+        expect(mockReadPublicInterpretationNetwork).toHaveBeenCalledWith(
+            expect.objectContaining({
+                executor: tx,
+                layoutId,
+                widgetId: interpretationNetworkWidgetId,
+                instanceKey: interpretationNetworkInstanceKey
+            })
+        )
+        const payload = JSON.stringify(response.body)
+        for (const internalId of [applicationId, layoutId, interpretationNetworkWidgetId, workspaceId])
+            expect(payload).not.toContain(internalId)
+    })
+
+    it('returns the same private/unready 404 for inactive placement and mismatched RLS surface', async () => {
+        const { executor } = createExecutor()
+        mockResolvePublicLayoutStructure.mockResolvedValue(dashboardLayout())
+        const app = express()
+        app.use(createPublicApplicationRuntimeRoutes(() => executor, readLimiter))
+
+        const inactive = await request(app)
+            .get(`/public/applications/${applicationId}/runtime/widgets/other-widget/interpretation-network?locale=en`)
+            .expect(404)
+        expect(inactive.body).toEqual({ code: 'PUBLIC_APPLICATION_NOT_AVAILABLE' })
+        expect(inactive.headers['cache-control']).toBe('no-store')
+        expect(mockResolveInterpretationNetworkRuntimeSurface).not.toHaveBeenCalled()
+
+        mockResolvePublicApplication.mockResolvedValue(resolvedApplication({ workspacesEnabled: true }))
+        mockResolvePublicEntryWorkspace.mockResolvedValue({ workspaceId })
+        mockResolveInterpretationNetworkRuntimeSurface.mockResolvedValue({
+            featureState: 'ready',
+            applicationId,
+            schemaName,
+            workspaceId: '0190a9b5-3cde-7abc-8def-0123456789af',
+            layoutId,
+            widgetId: interpretationNetworkWidgetId,
+            widgetKey: 'interpretationNetworkWorkspace'
+        })
+        const mismatched = await request(app)
+            .get(
+                `/public/applications/${applicationId}/runtime/widgets/${interpretationNetworkInstanceKey}/interpretation-network?locale=en`
+            )
+            .expect(404)
+        expect(mismatched.body).toEqual(inactive.body)
+        expect(mismatched.headers['cache-control']).toBe('no-store')
+        expect(mockReadPublicInterpretationNetwork).not.toHaveBeenCalled()
+    })
+
+    it('keeps specialized read failures retryable and applies the public runtime limiter', async () => {
+        const { executor } = createExecutor()
+        mockResolvePublicLayoutStructure.mockResolvedValue(dashboardLayout())
+        mockReadPublicInterpretationNetwork.mockRejectedValue(new Error('temporary read failure'))
+        const limiter = Object.assign(
+            jest.fn((_req: Request, _res: Response, next: NextFunction) => next()),
+            {
+                resetKey: (_key: string) => undefined,
+                getKey: (_key: string) => undefined
+            }
+        ) satisfies RateLimitRequestHandler
+        const app = express()
+        app.use(createPublicApplicationRuntimeRoutes(() => executor, limiter))
+
+        const failure = await request(app)
+            .get(
+                `/public/applications/${applicationId}/runtime/widgets/${interpretationNetworkInstanceKey}/interpretation-network?locale=en`
+            )
+            .expect(503)
+        expect(failure.body).toEqual({ code: 'PUBLIC_APPLICATION_RUNTIME_FAILED' })
+        expect(failure.headers['cache-control']).toBe('no-store')
+        expect(limiter).toHaveBeenCalledTimes(1)
     })
 
     it('normalizes malformed, unknown and private/unready references to the same 404 contract', async () => {
@@ -245,7 +487,7 @@ describe('public application runtime routes', () => {
 
     it('keeps transient layout query failures retryable as 503', async () => {
         const { executor } = createExecutor()
-        mockResolveEffectiveLayout.mockRejectedValue(new EffectiveLayoutError('LAYOUT_RUNTIME_QUERY_FAILED'))
+        mockResolvePublicLayoutStructure.mockRejectedValue(new EffectiveLayoutError('LAYOUT_RUNTIME_QUERY_FAILED'))
         const app = express()
         app.use(createPublicApplicationRuntimeRoutes(() => executor, readLimiter))
 

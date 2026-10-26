@@ -2,6 +2,7 @@ import { buildVLC, createLocalizedContent, generateUuidV7 } from '@universo-reac
 import {
     normalizeInterpretationNetworkSplitPaneSettings,
     normalizeInterpretationNetworkTemplatePanelSettings,
+    normalizeInterpretationNetworkCellStylePolicy,
     normalizeInterpretationNetworkMatrixViewSettings,
     normalizeInterpretationNetworkTableSettings,
     parseInterpretationNetworkStructureMode,
@@ -9,6 +10,7 @@ import {
     resolveInterpretationNetworkDisplayColor,
     resolveInterpretationNetworkMaximumContrastForeground,
     type InterpretationNetworkBreadcrumbDepth,
+    type InterpretationNetworkCellStylePolicy,
     type InterpretationNetworkMatrixView,
     type InterpretationNetworkStructureMode,
     type InterpretationNetworkTemplatePanelSettings,
@@ -70,6 +72,7 @@ export type InterpretationNetworkWorkspaceConfig = {
         enabled: boolean
     }
     templatePanel?: InterpretationNetworkTemplatePanelSettings
+    cellStylePolicy?: InterpretationNetworkCellStylePolicy
     hierarchyRowMode?: MatrixHierarchyRowMode
     positionNumbering?: MatrixPositionNumberingConfig
     allowNewAxesInCellDialog?: boolean
@@ -235,6 +238,7 @@ const DEFAULT_CONFIG: Required<InterpretationNetworkWorkspaceConfig> = {
     showHierarchicalTableHeaderCard: true,
     showMatrixTreeTotalCells: true,
     colorBreadcrumbsByCell: true,
+    cellStylePolicy: normalizeInterpretationNetworkCellStylePolicy(undefined),
     splitPane: { enabled: true },
     templatePanel: { showInStructureList: true, showInMatrix: true },
     hierarchyRowMode: 'focusedPath',
@@ -298,6 +302,7 @@ export const toConfig = (config: Record<string, unknown> | undefined): Required<
             ...tableSettings,
             splitPane: normalizeInterpretationNetworkSplitPaneSettings(config?.splitPane),
             templatePanel: normalizeInterpretationNetworkTemplatePanelSettings(config?.templatePanel),
+            cellStylePolicy: normalizeInterpretationNetworkCellStylePolicy(config?.cellStylePolicy),
             hierarchyRowMode: parseMatrixHierarchyRowMode(config?.hierarchyRowMode),
             positionNumbering: parseMatrixPositionNumbering(config?.positionNumbering),
             allowNewAxesInCellDialog: config?.allowNewAxesInCellDialog === true
@@ -914,7 +919,8 @@ export const findMaterialsForCell = (
     materials: RuntimeRow[],
     materialColumns: RuntimeColumnLike[] | undefined,
     cellId: string | undefined,
-    activeMaterialRef: string | null
+    activeMaterialRef: string | null,
+    associatedMaterialIds: readonly string[] = []
 ): RuntimeRow[] => {
     const seen = new Set<string>()
     const result: RuntimeRow[] = []
@@ -926,6 +932,10 @@ export const findMaterialsForCell = (
 
     if (activeMaterialRef) {
         push(materials.find((material) => material.id === activeMaterialRef))
+    }
+
+    for (const materialId of associatedMaterialIds) {
+        push(materials.find((material) => material.id === materialId))
     }
 
     if (!cellId) return result

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { MatrixWorkspaceBridge, type MatrixWorkspaceBridgeProps } from './MatrixWorkspaceBridge'
 import { WorkspaceShell, type WorkspaceShellProps } from './WorkspaceShell'
 
@@ -5,7 +6,8 @@ export interface InterpretationNetworkWorkspaceContentProps {
     matrix: MatrixWorkspaceBridgeProps | null
     structure: Omit<WorkspaceShellProps['structure'], 'matrixWorkspace'>
     details: WorkspaceShellProps['details']
-    dialogs: WorkspaceShellProps['dialogs']
+    dialogs?: WorkspaceShellProps['dialogs']
+    matrixFallback?: ReactNode
     splitPaneEnabled?: boolean
     singleSystemMode?: boolean
     structureReturnFocusId?: string | null
@@ -17,6 +19,7 @@ export function InterpretationNetworkWorkspaceContent({
     structure,
     details,
     dialogs,
+    matrixFallback,
     splitPaneEnabled,
     singleSystemMode,
     structureReturnFocusId,
@@ -26,7 +29,8 @@ export function InterpretationNetworkWorkspaceContent({
         <WorkspaceShell
             structure={{
                 ...structure,
-                matrixWorkspace: matrix ? <MatrixWorkspaceBridge {...matrix} /> : null
+                matrixWorkspace: (templatePanel) =>
+                    matrix ? <MatrixWorkspaceBridge {...matrix} templatePanel={templatePanel} /> : matrixFallback ?? null
             }}
             details={details}
             dialogs={dialogs}

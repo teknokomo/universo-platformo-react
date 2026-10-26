@@ -4,9 +4,11 @@ import {
     createRuntimeWorkspace,
     fetchRuntimeWorkspace,
     fetchRuntimeWorkspaceMembers,
+    fetchRuntimeWorkspaceSettings,
     fetchRuntimeWorkspaces,
     resetRuntimeWorkspaceSeededContent,
-    RuntimeWorkspaceApiError
+    RuntimeWorkspaceApiError,
+    updateRuntimeWorkspaceSettings
 } from '../workspaces'
 
 const workspaceId = '019f7f10-0000-7000-8000-000000000002'
@@ -60,6 +62,23 @@ const resetOptions = {
     apiBaseUrl: '/api/v1',
     applicationId: 'app-1',
     workspaceId
+}
+
+const widgetStyleSettingsResponse = {
+    items: [],
+    widgetSettings: [
+        {
+            key: 'interpretationNetwork.cellStylePolicy.editable.fillColor',
+            target: { kind: 'widget' as const, instanceKey: 'matrix-main' },
+            value: true,
+            source: 'application' as const,
+            isInherited: true,
+            allowed: true as const,
+            version: null
+        }
+    ],
+    effectiveWidgetConfigs: [],
+    canManage: true
 }
 
 const stubWorkspaceResponse = (workspaceResponse: Response): ReturnType<typeof vi.fn> => {
@@ -208,6 +227,53 @@ describe('runtime workspace member API helper', () => {
             name: 'RuntimeWorkspaceApiError',
             message: 'Failed to load workspace members'
         })
+    })
+})
+
+describe('runtime workspace settings API helpers', () => {
+    beforeEach(() => {
+        vi.restoreAllMocks()
+        window.sessionStorage.clear()
+    })
+
+    it('requests the current semantic layout target and parses delegated widget settings', async () => {
+        const fetchMock = stubWorkspaceResponse(jsonResponse(widgetStyleSettingsResponse))
+
+        await expect(
+            fetchRuntimeWorkspaceSettings({
+                ...workspaceOptions,
+                targetKind: 'page',
+                entityTypeId: '018f8a78-7b8f-7c1d-a111-2222333344cc'
+            })
+        ).resolves.toEqual(widgetStyleSettingsResponse)
+
+        const requestUrl = new URL(String(fetchMock.mock.calls[0]?.[0]))
+        expect(requestUrl.searchParams.get('targetKind')).toBe('page')
+        expect(requestUrl.searchParams.get('entityTypeId')).toBe('018f8a78-7b8f-7c1d-a111-2222333344cc')
+    })
+
+    it('sends widget setting updates with the semantic target and expected version', async () => {
+        const fetchMock = stubWorkspaceResponse(jsonResponse(widgetStyleSettingsResponse))
+        const setting = {
+            key: 'interpretationNetwork.cellStylePolicy.editable.fillColor',
+            target: { kind: 'widget' as const, instanceKey: 'matrix-main' },
+            value: false,
+            expectedVersion: 4
+        }
+
+        await updateRuntimeWorkspaceSettings({
+            ...workspaceOptions,
+            targetKind: 'object',
+            entityTypeId: '018f8a78-7b8f-7c1d-a111-2222333344cc',
+            settings: [setting]
+        })
+
+        const [requestUrl, requestInit] = fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === 'PUT') ?? []
+        const request = requestInit as RequestInit
+        const parsedUrl = new URL(String(requestUrl))
+        expect(parsedUrl.searchParams.get('targetKind')).toBe('object')
+        expect(parsedUrl.searchParams.get('entityTypeId')).toBe('018f8a78-7b8f-7c1d-a111-2222333344cc')
+        expect(JSON.parse(String(request.body))).toEqual({ settings: [setting], resets: [] })
     })
 })
 

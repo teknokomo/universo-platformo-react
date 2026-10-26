@@ -1,4 +1,4 @@
-import type { APIRequestContext, Locator, TestInfo } from '@playwright/test'
+import type { APIRequestContext, Locator } from '@playwright/test'
 import { createLocalizedContent } from '@universo-react/utils'
 import { expect, test } from '../../fixtures/test'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
@@ -15,6 +15,7 @@ import {
     listPublications
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
+import { buildExecutionRunId } from '../../support/runIdentity'
 import { applicationSelectors, entityDialogSelectors, toolbarSelectors } from '../../support/selectors/contracts'
 
 type PublicationRecord = {
@@ -34,15 +35,6 @@ async function openCreateDialog(page: import('@playwright/test').Page) {
 
 async function fillLocalizedField(dialog: Locator, label: string, value: string) {
     await dialog.getByLabel(label).first().fill(value)
-}
-
-function buildExecutionRunId(runId: string, testInfo: TestInfo) {
-    const normalizedProject =
-        testInfo.project.name
-            .replace(/[^a-zA-Z0-9]/g, '')
-            .toLowerCase()
-            .slice(-6) || 'proj'
-    return `${runId}-${normalizedProject}-r${testInfo.retry}-p${testInfo.repeatEachIndex}-w${testInfo.workerIndex}`
 }
 
 async function enableSwitch(dialog: Locator, name: string) {

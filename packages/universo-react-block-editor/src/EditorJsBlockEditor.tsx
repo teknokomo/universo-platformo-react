@@ -508,7 +508,7 @@ export function EditorJsBlockEditor({
                 }}
             />
 
-            {loadError ? (
+            {loadError && !readOnly ? (
                 <TextField
                     label={mergedLabels.fallbackLabel}
                     value={fallbackText}

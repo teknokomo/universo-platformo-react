@@ -15,6 +15,7 @@ export default defineConfig({
     fullyParallel: false,
     forbidOnly: Boolean(process.env.CI),
     retries: process.env.CI ? 1 : 0,
+    failOnFlakyTests: true,
     workers: process.env.CI ? 2 : 1,
     outputDir: path.resolve(repoRoot, 'test-results'),
     reporter: [
@@ -91,7 +92,7 @@ export default defineConfig({
         {
             name: 'en-light',
             dependencies: ['setup'],
-            testMatch: matrixPattern,
+            testMatch: [matrixPattern, /.*contracts\/runtime-ux-oracles\.spec\.ts/],
             use: {
                 storageState: { cookies: [], origins: [] },
                 locale: 'en-US',

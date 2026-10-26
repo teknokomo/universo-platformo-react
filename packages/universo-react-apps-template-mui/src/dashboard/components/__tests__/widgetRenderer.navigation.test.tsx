@@ -6,7 +6,6 @@ vi.mock('../../../shared-theme/ColorModeIconDropdown', async () => {
     const { MockColorModeIconDropdown } = await import('./widgetRenderer.test-mocks')
     return { default: MockColorModeIconDropdown }
 })
-
 import { placement, renderRuntimeWidget, resetRuntimeLanguage } from './widgetRenderer.test-support'
 import type { ZoneWidgetItem } from './widgetRenderer.test-support'
 import { DashboardDetailsProvider } from '../../DashboardDetailsContext'
@@ -93,8 +92,8 @@ describe('Dashboard runtime widget ownership renderers', () => {
         expect(coursesUrl.searchParams.get('themeVariant')).toBe('dark')
         expect(screen.getByRole('link', { name: 'Courses' })).toHaveAttribute('aria-current', 'page')
         expect(screen.getByRole('link', { name: 'Help' })).toHaveAttribute('href', '/help')
+        expect(screen.queryByRole('link', { name: 'Рабочие пространства' })).not.toBeInTheDocument()
         const workspaceLinks = [
-            ['Рабочие пространства', '/a/runtime-alias/workspaces', 'AppsRoundedIcon'],
             ['Дашборд', '/a/runtime-alias/workspaces/workspace-alpha', 'DashboardRoundedIcon'],
             ['Доступ', '/a/runtime-alias/workspaces/workspace-alpha/access', 'PeopleRoundedIcon'],
             ['Настройки', '/a/runtime-alias/workspaces/workspace-alpha/settings', 'SettingsRoundedIcon']
@@ -142,10 +141,11 @@ describe('Dashboard runtime widget ownership renderers', () => {
             </DashboardDetailsProvider>
         )
 
-        fireEvent.click(screen.getByRole('link', { name: 'Workspaces' }))
+        expect(screen.queryByRole('link', { name: 'Workspaces' })).not.toBeInTheDocument()
+        fireEvent.click(screen.getByRole('link', { name: 'Dashboard' }))
 
         expect(navigate).toHaveBeenCalledOnce()
-        expect(navigate).toHaveBeenCalledWith('/a/runtime-alias/workspaces?locale=en&workspaceId=workspace-alpha')
+        expect(navigate).toHaveBeenCalledWith('/a/runtime-alias/workspaces/workspace-alpha?locale=en&workspaceId=workspace-alpha')
         expect(window.location.pathname).toBe('/a/runtime-alias')
     })
 

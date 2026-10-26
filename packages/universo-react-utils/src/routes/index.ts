@@ -77,6 +77,7 @@ const publicApplicationRuntimePathPatterns = publicApplicationRuntimePaths.map(
 export const API_WHITELIST_PATH_PATTERNS = [
     /^\/api\/v1\/metahub\/[^/]+\/packages\/[^/]+\/editor-artifact-token\/[^/]+\//,
     /^\/api\/v1\/public\/applications\/[^/]+\/runtime$/,
+    /^\/api\/v1\/public\/applications\/[^/]+\/runtime\/widgets\/[^/]+\/interpretation-network$/,
     new RegExp(`^/api/v1/public/l/${globalShortLinkSlugRoutePattern}$`),
     ...publicApplicationRuntimePathPatterns
 ] as const

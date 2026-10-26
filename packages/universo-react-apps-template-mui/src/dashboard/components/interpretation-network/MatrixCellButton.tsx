@@ -1,9 +1,11 @@
+import { useId } from 'react'
 import type React from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
 import Stack from '@mui/material/Stack'
 import Tooltip from '@mui/material/Tooltip'
+import Typography from '@mui/material/Typography'
 import DragIndicatorRoundedIcon from '@mui/icons-material/DragIndicatorRounded'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import { useSortable } from '@dnd-kit/sortable'
@@ -18,13 +20,19 @@ export function MatrixCellContent({
     children,
     positionLabel,
     textColor,
-    compact = false
+    compact = false,
+    description,
+    descriptionId
 }: {
     children: React.ReactNode
     positionLabel?: string
     textColor?: string | null
     compact?: boolean
+    description?: string
+    descriptionId?: string
 }) {
+    const normalizedDescription = description?.trim() ? description : undefined
+
     return (
         <Box sx={{ minWidth: 0, width: '100%', position: 'relative', pt: positionLabel && compact ? 2.25 : 0 }}>
             {positionLabel ? (
@@ -68,6 +76,25 @@ export function MatrixCellContent({
             >
                 {children}
             </Box>
+            {normalizedDescription ? (
+                <Typography
+                    component='span'
+                    data-testid='interpretation-network-cell-description'
+                    id={descriptionId}
+                    variant={compact ? 'caption' : 'body2'}
+                    sx={{
+                        display: 'block',
+                        mt: 0.25,
+                        mb: 0,
+                        color: textColor ?? 'text.secondary',
+                        whiteSpace: 'pre-wrap',
+                        overflowWrap: 'anywhere',
+                        textAlign: compact ? 'left' : 'center'
+                    }}
+                >
+                    {normalizedDescription}
+                </Typography>
+            ) : null}
         </Box>
     )
 }
@@ -81,6 +108,7 @@ export function MatrixCellButton({
     menuLabel,
     accessibleLabel,
     onOpenMenu,
+    showActionsMenu = true,
     disabled = false,
     depth = 0,
     positionLabel,
@@ -100,6 +128,7 @@ export function MatrixCellButton({
     onOpenMenu: (event: React.MouseEvent<HTMLElement>) => void
     accessibleLabel?: string
     disabled?: boolean
+    showActionsMenu?: boolean
     depth?: number
     positionLabel?: string
     isOriginMuted?: boolean
@@ -109,6 +138,7 @@ export function MatrixCellButton({
     isOverlay?: boolean
     freezeSortableTransform?: boolean
 }) {
+    const cellDescriptionId = useId()
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: cell.id,
         disabled: disabled || isOverlay
@@ -223,32 +253,35 @@ export function MatrixCellButton({
         >
             {showDropIndicator ? <Box data-testid='interpretation-network-drop-indicator' sx={{ position: 'absolute', inset: 0 }} /> : null}
             <Stack direction='row' spacing={0} sx={{ minHeight: 64, minWidth: 0, alignItems: 'stretch' }}>
-                <Tooltip title={dragLabel}>
-                    <Box
-                        aria-label={dragLabel}
-                        sx={{
-                            width: 28,
-                            alignSelf: 'stretch',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: 'text.secondary',
-                            bgcolor: 'action.hover',
-                            flexShrink: 0,
-                            cursor: 'grab'
-                        }}
-                        {...(isOverlay ? {} : attributes)}
-                        {...(isOverlay ? {} : listeners)}
-                    >
-                        <DragIndicatorRoundedIcon fontSize='small' />
-                    </Box>
-                </Tooltip>
+                {!disabled && !isOverlay ? (
+                    <Tooltip title={dragLabel}>
+                        <Box
+                            aria-label={dragLabel}
+                            sx={{
+                                width: 28,
+                                alignSelf: 'stretch',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'text.secondary',
+                                bgcolor: 'action.hover',
+                                flexShrink: 0,
+                                cursor: 'grab'
+                            }}
+                            {...attributes}
+                            {...listeners}
+                        >
+                            <DragIndicatorRoundedIcon fontSize='small' />
+                        </Box>
+                    </Tooltip>
+                ) : null}
                 <Button
                     type='button'
                     variant='text'
                     data-testid='interpretation-network-cell-title'
                     data-position-label-overlay={positionLabel ? 'true' : undefined}
                     aria-label={accessibleLabel}
+                    aria-describedby={cell.description.trim() ? cellDescriptionId : undefined}
                     aria-pressed={selected}
                     onClick={onSelect}
                     sx={{
@@ -270,27 +303,33 @@ export function MatrixCellButton({
                         }
                     }}
                 >
-                    <MatrixCellContent positionLabel={positionLabel} textColor={cell.style.text}>
+                    <MatrixCellContent
+                        positionLabel={positionLabel}
+                        textColor={cell.style.text}
+                        description={cell.description}
+                        descriptionId={cellDescriptionId}
+                    >
                         {children}
                     </MatrixCellContent>
                 </Button>
             </Stack>
-            <IconButton
-                type='button'
-                size='small'
-                aria-label={menuLabel}
-                disabled={isOverlay}
-                onPointerDown={(event) => event.stopPropagation()}
-                onMouseDown={(event) => event.stopPropagation()}
-                onKeyDown={(event) => event.stopPropagation()}
-                onClick={(event) => {
-                    event.stopPropagation()
-                    onOpenMenu(event)
-                }}
-                sx={{ position: 'absolute', zIndex: 2, top: 4, right: 4, width: 28, height: 28, p: 0.25 }}
-            >
-                <MoreVertRoundedIcon sx={{ fontSize: 18 }} />
-            </IconButton>
+            {showActionsMenu && !isOverlay ? (
+                <IconButton
+                    type='button'
+                    size='small'
+                    aria-label={menuLabel}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                        event.stopPropagation()
+                        onOpenMenu(event)
+                    }}
+                    sx={{ position: 'absolute', zIndex: 2, top: 4, right: 4, width: 28, height: 28, p: 0.25 }}
+                >
+                    <MoreVertRoundedIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+            ) : null}
         </Box>
     )
 }

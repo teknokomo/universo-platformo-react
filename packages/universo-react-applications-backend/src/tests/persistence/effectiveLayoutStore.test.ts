@@ -2,6 +2,7 @@ import {
     findEffectiveLayoutBaseWidgets,
     findEffectiveLayoutEntity,
     findEffectiveLayoutHomePages,
+    findEffectiveLayoutPageBlockContent,
     listEffectiveLayoutCandidates,
     listEffectiveLayoutWidgets
 } from '../../persistence/effectiveLayoutStore'
@@ -61,6 +62,24 @@ describe('effectiveLayoutStore', () => {
         expect(sql).toContain('"_upl_archived" = false')
         expect(sql).toContain('"_app_archived" = false')
         expect(sql).toContain('"_app_published" = true')
+    })
+
+    it('reads only a published, layout-capable Page block payload by bound id', async () => {
+        const { executor } = createMockDbExecutor()
+        const pageId = '018f8a78-7b8f-7c1d-a111-2222333344a1'
+
+        await findEffectiveLayoutPageBlockContent(executor, schemaName, pageId, 'public')
+
+        const [sql, params] = executor.query.mock.calls[0] as [string, unknown[]]
+        expect(sql).toContain("SELECT o.config->'blockContent' AS block_content")
+        expect(sql).toContain("o.kind = 'page'")
+        expect(sql).toContain("lower(o.config->'capabilities'->'layoutConfig'->>'enabled') = 'true'")
+        expect(sql).toContain('"_upl_archived" = false')
+        expect(sql).toContain('"_app_archived" = false')
+        expect(sql).toContain('"_app_published" = true')
+        expect(sql).toContain('o.id = $1')
+        expect(sql).toContain('LIMIT 2')
+        expect(params).toEqual([pageId])
     })
 
     it('selects the source-state baseline and keeps the layout id bound', async () => {

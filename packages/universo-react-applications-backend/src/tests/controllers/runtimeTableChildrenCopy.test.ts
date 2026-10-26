@@ -7,12 +7,13 @@ const oldBlockKey = '019f2000-0000-7000-8000-000000000011'
 const parentId = '019f2000-0000-7000-8000-000000000012'
 const copiedParentId = '019f2000-0000-7000-8000-000000000013'
 
-const blocksTable = {
+const blocksTableValues = {
     id: 'blocks-id',
     codename: 'Blocks',
     column_name: 'blocks_rows',
     validation_rules: {}
-} as never
+}
+const blocksTable = blocksTableValues as never
 
 const questionsTable = {
     id: 'questions-id',
@@ -94,11 +95,11 @@ describe('runtime child TABLE copy', () => {
 
     it('remaps generated UUID v7 keys in dependent rows independent of TABLE order', async () => {
         const { executor } = createMockDbExecutor()
-        const localizedBlockTable = { ...blocksTable, codename: createCodenameVLC('en', 'Blocks') }
+        const localizedBlockTable = { ...blocksTableValues, codename: createCodenameVLC('en', 'Blocks') } as never
         const localizedBlockKeyMetadata = { ...blockKeyMetadata, codename: createCodenameVLC('en', 'BlockKey') }
         executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
             if (sql.includes('SELECT codename, column_name, data_type, validation_rules, ui_config')) {
-                return params?.[0] === blocksTable.id
+                return params?.[0] === blocksTableValues.id
                     ? [
                           localizedBlockKeyMetadata,
                           { codename: 'Title', column_name: 'title', data_type: 'STRING', validation_rules: {}, ui_config: {} }
@@ -172,7 +173,7 @@ describe('runtime child TABLE copy', () => {
         const { executor } = createMockDbExecutor()
         executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
             if (sql.includes('SELECT codename, column_name, data_type, validation_rules, ui_config')) {
-                return params?.[0] === blocksTable.id ? [blockKeyMetadata] : []
+                return params?.[0] === blocksTableValues.id ? [blockKeyMetadata] : []
             }
             if (sql.includes('FROM runtime_schema."blocks_rows"')) {
                 return [

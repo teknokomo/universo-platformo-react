@@ -46,6 +46,7 @@ import { assertRuntimeEntityMutationAllowed, denyRuntimeEntityMutation } from '.
 import { assertMarketingRuntimeRowCap } from '../../services/marketingRowCap'
 import { lockGuestAccessLinkWorkspace } from '../../services/guestAccessLinkRevocation'
 import { lockApplicationLayoutMutationFamily } from '../../persistence/applicationLayoutStoreSupport'
+import { lockInterpretationNetworkStructureModeShared } from '../../shared/interpretationNetworkStructureModeGuard'
 import { resolveAccessLinkIntakePolicy } from '../../services/guestAccessLinkIntakePolicy'
 import {
     applyRuntimeDateOffsetDerivations,
@@ -377,6 +378,7 @@ export const executeCopyRowTransaction = async (params: {
     copyRelationsConfig: RuntimeWriteCopyRelationsConfig
     insertColumns: string[]
     relationScope?: ResolvedRuntimeRelationScope
+    structureModeLockHeld?: boolean
 }): Promise<{ copiedId: string; afterCopyLifecycleRequest: RuntimeLifecycleDispatchRequest }> => {
     const relationScope = params.relationScope
         ? await revalidateRuntimeRelationWriteScope({
@@ -392,7 +394,9 @@ export const executeCopyRowTransaction = async (params: {
         await lockRuntimeRelationParentRecord({ executor: params.executor, ctx: params.ctx, scope: relationScope })
     }
     await assertInterpretationNetworkGenericCopyAllowed(params.executor, params.ctx, params.applicationId, params.objectCollection.id)
-    await assertInterpretationNetworkGenericCreateAllowed(params.executor, params.ctx, params.applicationId, params.objectCollection.id)
+    await assertInterpretationNetworkGenericCreateAllowed(params.executor, params.ctx, params.applicationId, params.objectCollection.id, {
+        structureModeLockHeld: params.structureModeLockHeld
+    })
     await assertMarketingRuntimeRowCap({
         manager: params.executor,
         schemaName: params.ctx.schemaName,
@@ -657,6 +661,7 @@ export const createCopyRowHandler = ({ getDbExecutor, query }: RuntimeRowWriteDe
 
         try {
             const copyResult = await withTransactionSavepoint(ctx.manager, async (tx) => {
+                await lockInterpretationNetworkStructureModeShared(tx, ctx.schemaName)
                 if (resolveRuntimeCodenameText(objectCollection.codename) === 'AccessLinks') {
                     await lockGuestAccessLinkWorkspace({
                         executor: tx,
@@ -751,7 +756,8 @@ export const createCopyRowHandler = ({ getDbExecutor, query }: RuntimeRowWriteDe
                     copyChildTables,
                     copyRelationsConfig,
                     insertColumns,
-                    relationScope: relationScope ?? undefined
+                    relationScope: relationScope ?? undefined,
+                    structureModeLockHeld: true
                 })
             })
             afterCopyLifecycleRequest = copyResult.afterCopyLifecycleRequest

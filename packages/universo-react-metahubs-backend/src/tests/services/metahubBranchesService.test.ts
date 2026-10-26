@@ -26,6 +26,7 @@ const mockFindMetahubForUpdate = jest.fn()
 const mockFindBranchByIdAndMetahub = jest.fn()
 const mockFindBranchBySchemaName = jest.fn()
 const mockCreateBranchRow = jest.fn()
+const mockCloneSchema = jest.fn(async () => undefined)
 const mockUpdateBranchRow = jest.fn()
 const mockUpdateMetahubFieldsRaw = jest.fn()
 const mockGetMaxBranchNumber = jest.fn()
@@ -90,7 +91,7 @@ jest.mock('../../domains/ddl', () => ({
     acquireAdvisoryLock: (...args: unknown[]) => mockAcquireAdvisoryLock(...args),
     releaseAdvisoryLock: (...args: unknown[]) => mockReleaseAdvisoryLock(...args),
     getDDLServices: () => ({
-        cloner: { clone: jest.fn(async () => undefined) },
+        cloner: { clone: (...args: unknown[]) => mockCloneSchema(...args) },
         generator: { dropSchema: (...args: unknown[]) => mockDropSchema(...args) }
     })
 }))
@@ -135,6 +136,8 @@ describe('MetahubBranchesService', () => {
         mockReleaseAdvisoryLock.mockResolvedValue(undefined)
         mockInitializeSchema.mockResolvedValue(undefined)
         mockDropSchema.mockResolvedValue(undefined)
+        mockCloneSchema.mockReset()
+        mockCloneSchema.mockResolvedValue(undefined)
         mockSetUserBranchCache.mockReset()
         mockClearUserBranchCache.mockReset()
         mockEntityTypeService.listEditableTypesInSchema.mockResolvedValue([])
@@ -186,6 +189,36 @@ describe('MetahubBranchesService', () => {
 
         expect(queryMock).toHaveBeenCalled()
         expect(queryMock.mock.calls[0][0]).toContain('b._upl_deleted = false AND b._app_deleted = false')
+    })
+
+    it('rejects an unsupported source structure version before cloning a branch schema', async () => {
+        mockFindMetahubForUpdate.mockResolvedValue({
+            id: TEST_METAHUB_ID,
+            lastBranchNumber: 1,
+            templateVersionId: null
+        })
+        mockGetMaxBranchNumber.mockResolvedValue(1)
+        mockFindBranchByIdAndMetahub.mockResolvedValue({
+            id: 'source-branch-1',
+            metahubId: TEST_METAHUB_ID,
+            schemaName: TEST_METAHUB_BRANCH_SCHEMA_1,
+            structureVersion: '0.2.0'
+        })
+
+        const service = new MetahubBranchesService(createMockExecutor())
+
+        await expect(
+            service.createBranch({
+                metahubId: TEST_METAHUB_ID,
+                sourceBranchId: 'source-branch-1',
+                codename: createLocalizedName('copy'),
+                name: createLocalizedName('Copy')
+            })
+        ).rejects.toMatchObject({ statusCode: 400, code: 'VALIDATION_ERROR' })
+
+        expect(mockCloneSchema).not.toHaveBeenCalled()
+        expect(mockCreateBranchRow).not.toHaveBeenCalled()
+        expect(mockDropSchema).not.toHaveBeenCalled()
     })
 
     it('createInitialBranch throws explicit rollback cleanup error when schema cleanup fails', async () => {

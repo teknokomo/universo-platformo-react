@@ -81,6 +81,7 @@ export interface LayoutListOptions {
     sortOrder?: 'asc' | 'desc'
     search?: string
     scopeEntityId?: string
+    includeAllScopes?: boolean
     includeDeleted?: boolean
 }
 

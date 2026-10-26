@@ -36,12 +36,15 @@ This page is for owners and editors who need to understand a failed save, missin
 
 The user can identify whether the problem is a visible validation issue, a permission issue, or a deployment setting issue. Errors should remain user-facing and should not require knowledge of backend field names.
 
+The public view is intentionally read-only. Use an authenticated application membership for editing, templates, Favorites, or Workspace selection. If a Workspace style control is unavailable, check that the target widget is active and that the application policy permits the exact Workspace setting address; a missing or locked override keeps the application-level value.
+
 ## What To Check
 
 -   The active workspace is the workspace where the content was created.
 -   The user's role allows the action they are trying to perform.
 -   Matrix settings show the expected Structure mode and template placement.
 -   A reset conflict is resolved before retrying the reset.
+-   A public visitor is not expected to see authoring actions or personal Favorites.
 
 ## Related Pages
 

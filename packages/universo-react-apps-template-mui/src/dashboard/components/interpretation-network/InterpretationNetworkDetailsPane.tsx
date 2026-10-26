@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import CardActionArea from '@mui/material/CardActionArea'
 import CardContent from '@mui/material/CardContent'
+import Chip from '@mui/material/Chip'
 import IconButton from '@mui/material/IconButton'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
@@ -12,11 +13,15 @@ import Stack from '@mui/material/Stack'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
+import StarBorderRoundedIcon from '@mui/icons-material/StarBorderRounded'
+import StarRoundedIcon from '@mui/icons-material/StarRounded'
 import type { GridColDef, GridLocaleText } from '@mui/x-data-grid'
 import type { TFunction } from 'i18next'
 import type { FieldConfig } from '../../../components/dialogs/FormDialog'
+import { ConfirmDeleteDialog } from '../../../components/dialogs/ConfirmDeleteDialog'
 import CustomizedDataGrid from '../CustomizedDataGrid'
 import { CatalogToolbar } from './CatalogToolbar'
 import { MaterialContentEditor } from './MaterialContentEditor'
@@ -30,6 +35,7 @@ interface MaterialSummary {
     title: string
     description: string
     body: string
+    isPrimary: boolean
 }
 
 export interface InterpretationNetworkDetailsPaneProps {
@@ -42,16 +48,27 @@ export interface InterpretationNetworkDetailsPaneProps {
     selectedMaterialId: string | null
     materialBodyField?: FieldConfig
     materialBodyValue: unknown
+    primaryMaterialId: string | null
     materialSectionId?: string
     dataGridLocaleText?: Partial<GridLocaleText>
     canCreateContent: boolean
     canEditContent: boolean
+    canDeleteContent: boolean
     isSavingMaterial: boolean
+    isUpdatingPrimary: boolean
+    isDeletingMaterial: boolean
+    isLoadingMaterialAssociations?: boolean
+    materialAssociationsError?: string | null
     materialEditorError: string | null
+    primaryActionError: string | null
+    deleteMaterialError: string | null
     onOpenCreateMaterial: () => void
     onOpenEditMaterial: (materialId: string) => void
     onSelectMaterial: (materialId: string) => void
     onCloseMaterial: () => void
+    onSetPrimaryMaterial: (materialId: string) => void
+    onClearPrimaryMaterial: () => void
+    onDeleteMaterial: (materialId: string) => Promise<void>
     onSaveMaterialBody: (data: Record<string, unknown>) => Promise<void>
 }
 
@@ -65,23 +82,42 @@ export function InterpretationNetworkDetailsPane({
     selectedMaterialId,
     materialBodyField,
     materialBodyValue,
+    primaryMaterialId,
     materialSectionId,
     dataGridLocaleText,
     canCreateContent,
     canEditContent,
+    canDeleteContent,
     isSavingMaterial,
+    isUpdatingPrimary,
+    isDeletingMaterial,
+    isLoadingMaterialAssociations = false,
+    materialAssociationsError = null,
     materialEditorError,
+    primaryActionError,
+    deleteMaterialError,
     onOpenCreateMaterial,
     onOpenEditMaterial,
     onSelectMaterial,
     onCloseMaterial,
+    onSetPrimaryMaterial,
+    onClearPrimaryMaterial,
+    onDeleteMaterial,
     onSaveMaterialBody
 }: InterpretationNetworkDetailsPaneProps) {
     const [viewMode, setViewMode] = useState<MaterialViewMode>('table')
     const [filter, setFilter] = useState('')
-    const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null)
+    const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null)
     const [menuMaterialId, setMenuMaterialId] = useState<string | null>(null)
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+    const materialTriggerRefs = useRef(new Map<string, HTMLElement>())
+    const listRegionRef = useRef<HTMLDivElement | null>(null)
+    const focusMaterialOnReturnRef = useRef<string | null>(null)
+    const focusListOnReturnRef = useRef(false)
     const normalizedFilter = filter.trim().toLowerCase()
+    const selectedMaterialDescription = selectedMaterial
+        ? (materialSummaries.find((material) => material.id === selectedMaterial.id)?.description ?? '').trim()
+        : ''
     const filteredMaterials = useMemo(
         () =>
             normalizedFilter
@@ -91,18 +127,51 @@ export function InterpretationNetworkDetailsPane({
                 : materialSummaries,
         [materialSummaries, normalizedFilter]
     )
+    const setMaterialTriggerRef = useCallback((materialId: string, element: HTMLElement | null) => {
+        if (element) materialTriggerRefs.current.set(materialId, element)
+        else materialTriggerRefs.current.delete(materialId)
+    }, [])
+    useEffect(() => {
+        if (selectedMaterial || (!focusMaterialOnReturnRef.current && !focusListOnReturnRef.current)) return
+        const materialId = focusMaterialOnReturnRef.current
+        if (focusListOnReturnRef.current) {
+            listRegionRef.current?.focus()
+            focusListOnReturnRef.current = false
+            return
+        }
+
+        listRegionRef.current?.focus()
+        const timeout = window.setTimeout(() => {
+            const trigger = materialId ? materialTriggerRefs.current.get(materialId) : undefined
+            if (trigger?.isConnected) trigger.focus()
+            focusMaterialOnReturnRef.current = null
+        }, 0)
+
+        return () => window.clearTimeout(timeout)
+    }, [selectedMaterial])
+    const handleSelectMaterial = useCallback(
+        (materialId: string) => {
+            focusMaterialOnReturnRef.current = materialId
+            onSelectMaterial(materialId)
+        },
+        [onSelectMaterial]
+    )
+    const handleCloseMaterial = useCallback(() => {
+        focusMaterialOnReturnRef.current = selectedMaterialId
+        onCloseMaterial()
+    }, [onCloseMaterial, selectedMaterialId])
     const closeMaterialMenu = () => {
-        setMenuPosition(null)
+        setMenuAnchor(null)
         setMenuMaterialId(null)
     }
     const openMaterialMenu = (event: React.MouseEvent<HTMLElement>, materialId: string) => {
         event.preventDefault()
         event.stopPropagation()
-        setMenuPosition({ top: event.clientY + 4, left: event.clientX })
+        setMenuAnchor(event.currentTarget)
         setMenuMaterialId(materialId)
     }
-    const materialColumns = useMemo<GridColDef[]>(
-        () => [
+    const materialColumns = useMemo<GridColDef[]>(() => {
+        const columns: GridColDef[] = [
             {
                 field: '__rowNumber',
                 headerName: '#',
@@ -116,67 +185,83 @@ export function InterpretationNetworkDetailsPane({
                 headerName: t('workspace.material.columns.title', 'Title'),
                 flex: 1,
                 minWidth: 180,
-                renderCell: (params) => (
-                    <Button
-                        type='button'
-                        size='small'
-                        variant='text'
-                        onClick={() => onSelectMaterial(String(params.row.id))}
-                        sx={{ justifyContent: 'flex-start', px: 0, minWidth: 0, maxWidth: '100%', textAlign: 'left' }}
-                    >
-                        <Typography variant='body2' noWrap sx={{ maxWidth: '100%' }}>
-                            {String(params.value ?? '')}
-                        </Typography>
-                    </Button>
-                )
-            },
-            {
-                field: 'description',
-                headerName: t('workspace.material.columns.description', 'Description'),
-                flex: 1,
-                minWidth: 220,
-                renderCell: (params) => (
-                    <Typography
-                        variant='body2'
-                        sx={{
-                            color: 'text.secondary',
-                            whiteSpace: 'pre-wrap',
-                            overflowWrap: 'anywhere'
-                        }}
-                    >
-                        {String(params.value || '—')}
-                    </Typography>
-                )
-            },
-            {
-                field: 'actions',
-                headerName: t('workspace.material.columns.actions', 'Actions'),
-                width: 56,
-                sortable: false,
-                filterable: false,
-                disableColumnMenu: true,
-                align: 'center',
-                headerAlign: 'center',
-                renderHeader: () => <MoreVertRoundedIcon sx={{ fontSize: 18, color: 'text.secondary', opacity: 0.6 }} />,
-                renderCell: (params) => (
-                    <IconButton
-                        type='button'
-                        size='small'
-                        aria-label={t('workspace.material.actionsFor', {
-                            defaultValue: 'Material actions: {{title}}',
-                            title: String(params.row.title || t('workspace.material.untitled', 'Untitled material'))
-                        })}
-                        disabled={!canEditContent}
-                        onClick={(event) => openMaterialMenu(event, String(params.row.id))}
-                        sx={{ width: 28, height: 28, p: 0.25 }}
-                    >
-                        <MoreVertRoundedIcon sx={{ fontSize: 18 }} />
-                    </IconButton>
-                )
+                renderCell: (params) => {
+                    const materialId = String(params.row.id)
+                    const title = String(params.value || t('workspace.material.untitled', 'Untitled material'))
+                    return (
+                        <Stack direction='row' spacing={1} sx={{ minWidth: 0, alignItems: 'center' }}>
+                            <Button
+                                ref={(element) => setMaterialTriggerRef(materialId, element)}
+                                type='button'
+                                size='small'
+                                variant='text'
+                                onClick={() => handleSelectMaterial(materialId)}
+                                sx={{ justifyContent: 'flex-start', px: 0, minWidth: 0, maxWidth: '100%', textAlign: 'left' }}
+                            >
+                                <Typography variant='body2' noWrap sx={{ maxWidth: '100%' }}>
+                                    {title}
+                                </Typography>
+                            </Button>
+                            {params.row.isPrimary ? (
+                                <Chip size='small' color='primary' label={t('workspace.material.primaryBadge', 'Primary Material')} />
+                            ) : null}
+                        </Stack>
+                    )
+                }
             }
-        ],
-        [canEditContent, filteredMaterials, onSelectMaterial, t]
-    )
+        ]
+
+        if (canEditContent) {
+            columns.push(
+                {
+                    field: 'description',
+                    headerName: t('workspace.material.columns.description', 'Description'),
+                    flex: 1,
+                    minWidth: 220,
+                    renderCell: (params) => (
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary',
+                                whiteSpace: 'pre-wrap',
+                                overflowWrap: 'anywhere'
+                            }}
+                        >
+                            {String(params.value || '—')}
+                        </Typography>
+                    )
+                },
+                {
+                    field: 'actions',
+                    headerName: t('workspace.material.columns.actions', 'Actions'),
+                    width: 56,
+                    sortable: false,
+                    filterable: false,
+                    disableColumnMenu: true,
+                    align: 'center',
+                    headerAlign: 'center',
+                    renderHeader: () => <MoreVertRoundedIcon sx={{ fontSize: 18, color: 'text.secondary', opacity: 0.6 }} />,
+                    renderCell: (params) => (
+                        <IconButton
+                            type='button'
+                            size='small'
+                            aria-label={t('workspace.material.actionsFor', {
+                                defaultValue: 'Material actions: {{title}}',
+                                title: String(params.row.title || t('workspace.material.untitled', 'Untitled material'))
+                            })}
+                            disabled={isUpdatingPrimary}
+                            onClick={(event) => openMaterialMenu(event, String(params.row.id))}
+                            sx={{ width: 28, height: 28, p: 0.25 }}
+                        >
+                            <MoreVertRoundedIcon sx={{ fontSize: 18 }} />
+                        </IconButton>
+                    )
+                }
+            )
+        }
+
+        return columns
+    }, [canEditContent, filteredMaterials, handleSelectMaterial, isUpdatingPrimary, setMaterialTriggerRef, t])
 
     if (selectedMaterial) {
         return (
@@ -200,7 +285,7 @@ export function InterpretationNetworkDetailsPane({
                                 type='button'
                                 size='small'
                                 aria-label={t('workspace.material.backToMaterials', 'Back to materials')}
-                                onClick={onCloseMaterial}
+                                onClick={handleCloseMaterial}
                             >
                                 <ArrowBackRoundedIcon fontSize='small' />
                             </IconButton>
@@ -210,7 +295,39 @@ export function InterpretationNetworkDetailsPane({
                                 {materialTitle || t('workspace.material.untitled', 'Untitled material')}
                             </Typography>
                         </Box>
+                        {primaryMaterialId && selectedMaterialId === primaryMaterialId ? (
+                            <Chip size='small' color='primary' label={t('workspace.material.primaryBadge', 'Primary Material')} />
+                        ) : null}
+                        {canDeleteContent ? (
+                            <Tooltip title={t('workspace.material.delete', 'Delete material')}>
+                                <IconButton
+                                    type='button'
+                                    size='small'
+                                    aria-label={t('workspace.material.delete', 'Delete material')}
+                                    disabled={isDeletingMaterial}
+                                    onClick={() => setDeleteDialogOpen(true)}
+                                >
+                                    <DeleteOutlineRoundedIcon fontSize='small' />
+                                </IconButton>
+                            </Tooltip>
+                        ) : null}
                     </Stack>
+                    {selectedMaterialDescription ? (
+                        <Typography
+                            data-testid='interpretation-network-material-description'
+                            variant='body2'
+                            sx={{ color: 'text.secondary', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
+                        >
+                            {selectedMaterialDescription}
+                        </Typography>
+                    ) : null}
+                    {primaryActionError ? <Alert severity='error'>{primaryActionError}</Alert> : null}
+                    {materialAssociationsError ? <Alert severity='error'>{materialAssociationsError}</Alert> : null}
+                    {isLoadingMaterialAssociations ? (
+                        <Alert severity='info' role='status'>
+                            {t('workspace.material.loading', 'Loading materials…')}
+                        </Alert>
+                    ) : null}
                     {materialBodyField ? (
                         <MaterialContentEditor
                             t={t}
@@ -226,6 +343,26 @@ export function InterpretationNetworkDetailsPane({
                         <Alert severity='warning'>{t('workspace.material.bodyUnavailable', 'Material body field is not available.')}</Alert>
                     )}
                 </Stack>
+                <ConfirmDeleteDialog
+                    open={deleteDialogOpen}
+                    title={t('workspace.material.deleteTitle', 'Delete material?')}
+                    description={t('workspace.material.deleteDescription', {
+                        defaultValue: 'Delete “{{title}}”? If this is the Primary Material, the cell will return to the materials list.',
+                        title: materialTitle || t('workspace.material.untitled', 'Untitled material')
+                    })}
+                    confirmButtonText={t('workspace.material.delete', 'Delete material')}
+                    deletingButtonText={t('workspace.material.deleting', 'Deleting material...')}
+                    cancelButtonText={t('workspace.actions.cancel', 'Cancel')}
+                    loading={isDeletingMaterial}
+                    error={deleteMaterialError ?? undefined}
+                    onCancel={() => setDeleteDialogOpen(false)}
+                    onConfirm={async () => {
+                        await onDeleteMaterial(selectedMaterial.id)
+                        setDeleteDialogOpen(false)
+                        focusMaterialOnReturnRef.current = null
+                        focusListOnReturnRef.current = true
+                    }}
+                />
             </Box>
         )
     }
@@ -262,6 +399,10 @@ export function InterpretationNetworkDetailsPane({
 
     return (
         <Box
+            ref={listRegionRef}
+            tabIndex={-1}
+            role='region'
+            aria-label={t('workspace.material.title', 'Materials')}
             data-testid='interpretation-network-details-pane'
             sx={{
                 flex: '1 1 0%',
@@ -290,7 +431,15 @@ export function InterpretationNetworkDetailsPane({
                     onCreate={onOpenCreateMaterial}
                 />
 
-                {filteredMaterials.length === 0 ? (
+                {primaryActionError ? <Alert severity='error'>{primaryActionError}</Alert> : null}
+                {materialAssociationsError ? <Alert severity='error'>{materialAssociationsError}</Alert> : null}
+                {isLoadingMaterialAssociations ? (
+                    <Alert severity='info' role='status'>
+                        {t('workspace.material.loading', 'Loading materials…')}
+                    </Alert>
+                ) : null}
+
+                {filteredMaterials.length === 0 && !isLoadingMaterialAssociations && !materialAssociationsError ? (
                     <Alert severity='info'>
                         {normalizedFilter
                             ? t('workspace.material.noFilterResults', 'No materials match the current filter.')
@@ -308,7 +457,8 @@ export function InterpretationNetworkDetailsPane({
                                 id: material.id,
                                 title: material.title,
                                 description: material.description,
-                                selected: material.id === selectedMaterialId
+                                selected: material.id === selectedMaterialId,
+                                isPrimary: material.isPrimary
                             }))}
                             columns={materialColumns}
                             rowHeight='auto'
@@ -343,13 +493,23 @@ export function InterpretationNetworkDetailsPane({
                                 }}
                             >
                                 <CardActionArea
-                                    onClick={() => onSelectMaterial(material.id)}
+                                    ref={(element) => setMaterialTriggerRef(material.id, element)}
+                                    onClick={() => handleSelectMaterial(material.id)}
                                     sx={{ alignItems: 'stretch', display: 'flex', width: '100%', minHeight: 128, textAlign: 'left' }}
                                 >
                                     <CardContent sx={{ width: '100%', pr: 5 }}>
-                                        <Typography variant='subtitle2' sx={{ fontWeight: 700 }} noWrap>
-                                            {material.title}
-                                        </Typography>
+                                        <Stack direction='row' spacing={1} sx={{ minWidth: 0, alignItems: 'center', mb: 0.5 }}>
+                                            <Typography variant='subtitle2' sx={{ fontWeight: 700, minWidth: 0 }} noWrap>
+                                                {material.title}
+                                            </Typography>
+                                            {material.isPrimary ? (
+                                                <Chip
+                                                    size='small'
+                                                    color='primary'
+                                                    label={t('workspace.material.primaryBadge', 'Primary Material')}
+                                                />
+                                            ) : null}
+                                        </Stack>
                                         <Typography
                                             variant='body2'
                                             sx={{
@@ -361,29 +521,26 @@ export function InterpretationNetworkDetailsPane({
                                         </Typography>
                                     </CardContent>
                                 </CardActionArea>
-                                <IconButton
-                                    type='button'
-                                    size='small'
-                                    aria-label={t('workspace.material.actionsFor', {
-                                        defaultValue: 'Material actions: {{title}}',
-                                        title: material.title
-                                    })}
-                                    disabled={!canEditContent}
-                                    onClick={(event) => openMaterialMenu(event, material.id)}
-                                    sx={{ position: 'absolute', top: 8, right: 8, width: 28, height: 28, p: 0.25 }}
-                                >
-                                    <MoreVertRoundedIcon sx={{ fontSize: 18 }} />
-                                </IconButton>
+                                {canEditContent ? (
+                                    <IconButton
+                                        type='button'
+                                        size='small'
+                                        aria-label={t('workspace.material.actionsFor', {
+                                            defaultValue: 'Material actions: {{title}}',
+                                            title: material.title
+                                        })}
+                                        disabled={isUpdatingPrimary}
+                                        onClick={(event) => openMaterialMenu(event, material.id)}
+                                        sx={{ position: 'absolute', top: 8, right: 8, width: 28, height: 28, p: 0.25 }}
+                                    >
+                                        <MoreVertRoundedIcon sx={{ fontSize: 18 }} />
+                                    </IconButton>
+                                ) : null}
                             </Card>
                         ))}
                     </Box>
                 ) : null}
-                <Menu
-                    anchorReference='anchorPosition'
-                    anchorPosition={menuPosition ?? undefined}
-                    open={Boolean(menuPosition)}
-                    onClose={closeMaterialMenu}
-                >
+                <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeMaterialMenu}>
                     <MenuItem
                         disabled={!menuMaterialId || !canEditContent}
                         onClick={() => {
@@ -395,6 +552,32 @@ export function InterpretationNetworkDetailsPane({
                         <EditRoundedIcon fontSize='small' sx={{ mr: 1 }} />
                         {t('workspace.material.edit', 'Edit material')}
                     </MenuItem>
+                    {menuMaterialId && materialSummaries.find((material) => material.id === menuMaterialId)?.isPrimary ? (
+                        <MenuItem
+                            disabled={isUpdatingPrimary}
+                            onClick={() => {
+                                closeMaterialMenu()
+                                onClearPrimaryMaterial()
+                            }}
+                        >
+                            <StarBorderRoundedIcon fontSize='small' sx={{ mr: 1 }} />
+                            {t('workspace.material.clearPrimary', 'Clear Primary Material')}
+                        </MenuItem>
+                    ) : menuMaterialId ? (
+                        <MenuItem
+                            disabled={isUpdatingPrimary}
+                            onClick={() => {
+                                const targetId = menuMaterialId
+                                closeMaterialMenu()
+                                onSetPrimaryMaterial(targetId)
+                            }}
+                        >
+                            <StarRoundedIcon fontSize='small' sx={{ mr: 1 }} />
+                            {primaryMaterialId
+                                ? t('workspace.material.replacePrimary', 'Replace Primary Material')
+                                : t('workspace.material.setPrimary', 'Set as Primary Material')}
+                        </MenuItem>
+                    ) : null}
                 </Menu>
             </Stack>
         </Box>

@@ -4,8 +4,7 @@ import {
     dashboardWidgetConfigSchemaByKey,
     effectiveWidgetRuntimeDataSchema,
     effectiveLayoutParentageSchema,
-    type EffectiveWidgetRuntimeData,
-    uuidV7Schema
+    type EffectiveWidgetRuntimeData
 } from '@universo-react/types'
 
 export const runtimeWidgetDataSchema = effectiveWidgetRuntimeDataSchema
@@ -14,14 +13,12 @@ export type RuntimeWidgetPayload = Extract<EffectiveWidgetRuntimeData, { status:
 
 export const runtimePlacementSchema = z
     .object({
-        id: uuidV7Schema,
         instanceKey: z
             .string()
             .trim()
             .min(1)
             .max(128)
             .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/u),
-        layoutId: z.string().uuid().optional(),
         widgetKey: z.string().trim().min(1).max(128),
         zone: z.enum(['left', 'top', 'right', 'bottom', 'center']),
         sortOrder: z.number().int(),
@@ -186,6 +183,6 @@ export function rootPlacements(graph: readonly RuntimePlacement[], zone: Runtime
 
     return roots.filter((placement) => {
         const definition = widgetDefinition(placement.widgetKey)
-        return definition?.multiInstance !== false || singletonWinners.get(placement.widgetKey)?.id === placement.id
+        return definition?.multiInstance !== false || singletonWinners.get(placement.widgetKey)?.instanceKey === placement.instanceKey
     })
 }

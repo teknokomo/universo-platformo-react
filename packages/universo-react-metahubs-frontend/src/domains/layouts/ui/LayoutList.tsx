@@ -403,7 +403,7 @@ export const LayoutListContent = ({
                 descriptionPrimaryLocale,
                 copyWidgets: copyOptions.copyWidgets,
                 deactivateAllWidgets: copyOptions.deactivateAllWidgets,
-                entityBindingCopyMode: 'reuse' as const
+                entityBindingCopyMode: 'clone' as const
             }
         },
         [t]

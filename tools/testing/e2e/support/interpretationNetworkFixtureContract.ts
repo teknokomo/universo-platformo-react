@@ -28,7 +28,7 @@ export const buildInterpretationNetworkLiveMetahubName = (runId: string): { en: 
     en: `E2E ${runId} Interpretation Network`
 })
 
-export const buildInterpretationNetworkLiveMetahubCodename = (runId: string): { en: string } =>
+export const buildInterpretationNetworkLiveMetahubCodename = (runId: string): ReturnType<typeof createLocalizedContent> =>
     createLocalizedContent('en', `${runId.toLowerCase().replace(/[^a-z0-9]+/g, '')}-interpretation-network`.slice(0, 60))
 
 /** Selects which set of assertions the contract runs. */
@@ -268,18 +268,36 @@ const assertInterpretationNetworkLayoutContract = (snapshot: Record<string, unkn
         ? (snapshot.layoutZoneWidgets as Array<Record<string, unknown>>)
         : []
     const layouts = Array.isArray(snapshot.layouts) ? (snapshot.layouts as Array<Record<string, unknown>>) : []
+    const scopedLayouts = Array.isArray(snapshot.scopedLayouts) ? (snapshot.scopedLayouts as Array<Record<string, unknown>>) : []
+    const entities = Object.values((snapshot.entities ?? {}) as Record<string, Record<string, unknown>>)
     const defaultLayoutId = typeof snapshot.defaultLayoutId === 'string' ? snapshot.defaultLayoutId : null
     const defaultLayout = layouts.find((layout) => layout.id === defaultLayoutId)
     if (!defaultLayout || defaultLayout.templateKey !== 'dashboard') {
         throw new Error('Interpretation Network fixture contract failed: defaultLayoutId must resolve to the Dashboard layout')
     }
     const defaultPlacements = layoutZoneWidgets.filter((widget) => widget.layoutId === defaultLayoutId)
-    const workspaceWidget = defaultPlacements.find(
+    if (defaultPlacements.some((widget) => widget.widgetKey === 'interpretationNetworkWorkspace')) {
+        throw new Error('Interpretation Network fixture contract failed: Start must not contain the Structures workspace widget')
+    }
+    const structureEntity = findEntityByCodename(entities, 'Structure')
+    const structureLayout = scopedLayouts.find((layout) => layout.scopeEntityId === structureEntity?.id)
+    if (
+        !structureEntity ||
+        structureLayout?.templateKey !== 'dashboard' ||
+        structureLayout.baseLayoutId !== defaultLayoutId ||
+        structureLayout.compositionMode !== 'overlay'
+    ) {
+        throw new Error(
+            'Interpretation Network fixture contract failed: Structure must have a Dashboard overlay based on the default layout'
+        )
+    }
+    const structurePlacements = layoutZoneWidgets.filter((widget) => widget.layoutId === structureLayout.id)
+    const workspaceWidget = structurePlacements.find(
         (widget) => widget.zone === 'center' && widget.widgetKey === 'interpretationNetworkWorkspace'
     )
     if (!workspaceWidget) {
         throw new Error(
-            'Interpretation Network fixture contract failed: default Dashboard layout center must include interpretationNetworkWorkspace'
+            'Interpretation Network fixture contract failed: Structure-scoped Dashboard center must include interpretationNetworkWorkspace'
         )
     }
     if (workspaceWidget.isActive !== true) {
@@ -397,7 +415,7 @@ const assertInterpretationNetworkLayoutContract = (snapshot: Record<string, unkn
     }
     if (Object.hasOwn(workspaceConfig, 'visibleFor')) {
         throw new Error(
-            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace must not use the removed visibleFor config; its source is the default layout placement'
+            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace must not use the removed visibleFor config; it is scoped to Structure'
         )
     }
     const menuWidget = defaultPlacements.find((widget) => widget.zone === 'left' && widget.widgetKey === 'menuWidget')
@@ -416,9 +434,7 @@ const assertInterpretationNetworkLayoutContract = (snapshot: Record<string, unkn
     if (Object.hasOwn(menuConfig, 'startPage') || Object.hasOwn(menuConfig, 'items')) {
         throw new Error('Interpretation Network fixture contract failed: generated menu config must not store startPage or menu items')
     }
-    const entities = Object.values((snapshot.entities ?? {}) as Record<string, Record<string, unknown>>)
     for (const [codename, kind] of [
-        ['WelcomePage', 'page'],
         ['Main', 'hub'],
         ['InterpretationNetworkIntro', 'page'],
         ['Structure', 'object']
@@ -491,11 +507,22 @@ const assertIntroPageContract = (entityList: Array<Record<string, unknown>>): vo
         config.blockContent && typeof config.blockContent === 'object' ? (config.blockContent as Record<string, unknown>) : {}
     const blocks = Array.isArray(blockContent.blocks) ? blockContent.blocks : []
     const serialized = JSON.stringify(blockContent)
-    if (blockContent.format !== 'editorjs' || blocks.length < 2) {
-        throw new Error('Interpretation Network fixture contract failed: InterpretationNetworkIntro must use Editor.js-compatible content')
+    if (blockContent.format !== 'editorjs' || blocks.length !== 1 || (blocks[0] as { type?: unknown })?.type !== 'paragraph') {
+        throw new Error(
+            'Interpretation Network fixture contract failed: InterpretationNetworkIntro must contain only its localized basic description'
+        )
     }
-    if (!serialized.includes('Interpretation Network') || !serialized.includes('Трактовочная сеть')) {
-        throw new Error('Interpretation Network fixture contract failed: InterpretationNetworkIntro must include localized intro text')
+    if (
+        !serialized.includes('helps build a hierarchy of structures') ||
+        !serialized.includes('помогает создавать иерархию структур') ||
+        serialized.includes('interpretationNetwork-intro-title')
+    ) {
+        throw new Error(
+            'Interpretation Network fixture contract failed: Start must retain its localized description without a repeated app-title heading'
+        )
+    }
+    if (/workspace below|рабочей области ниже/iu.test(serialized)) {
+        throw new Error('Interpretation Network fixture contract failed: Start page must not refer to the Structures workspace')
     }
 }
 
@@ -570,7 +597,12 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
     if (!materialEntity || materialEntity.kind !== 'object') {
         throw new Error('Interpretation Network fixture contract failed: missing object type "Material"')
     }
-    if (!findEntityByCodename(entityList, 'Main') || !findEntityByCodename(entityList, 'WelcomePage')) {
+    if (findEntityByCodename(entityList, 'WelcomePage')) {
+        throw new Error(
+            'Interpretation Network fixture contract failed: generic WelcomePage must be absent from the product template snapshot'
+        )
+    }
+    if (!findEntityByCodename(entityList, 'Main') || !findEntityByCodename(entityList, 'InterpretationNetworkIntro')) {
         throw new Error('Interpretation Network fixture contract failed: base template Hub/Page entities are incomplete')
     }
     assertIntroPageContract(entityList)
@@ -702,7 +734,7 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
     for (const fieldCodename of ['SourceKind', 'SourceId', 'TargetKind', 'TargetId']) {
         assertHiddenSystemFieldUiConfig(requireFieldByCodename(relationFields, fieldCodename, 'Relation'), `Relation.${fieldCodename}`)
     }
-    for (const fieldCodename of ['Title', 'Description', 'Body', 'CellId', 'TemplateOwnerId']) {
+    for (const fieldCodename of ['Title', 'Description', 'Body', 'CellId', 'InterpretationId', 'TemplateOwnerId']) {
         requireFieldByCodename(materialFields, fieldCodename, 'Material')
     }
     assertLocalizedVersionedField(requireFieldByCodename(materialFields, 'Title', 'Material'), 'Material.Title')
@@ -710,6 +742,7 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
     assertLocalizedVersionedField(materialDescriptionField, 'Material.Description')
     assertTextareaFieldUiConfig(materialDescriptionField, 'Material.Description')
     assertHiddenSystemFieldUiConfig(requireFieldByCodename(materialFields, 'CellId', 'Material'), 'Material.CellId')
+    assertHiddenSystemFieldUiConfig(requireFieldByCodename(materialFields, 'InterpretationId', 'Material'), 'Material.InterpretationId')
     assertHiddenSystemFieldUiConfig(requireFieldByCodename(materialFields, 'TemplateOwnerId', 'Material'), 'Material.TemplateOwnerId')
     for (const fieldCodename of ['Name', 'Description', 'MaterialPolicy', 'TemplateMatrix']) {
         requireFieldByCodename(tableTemplateFields, fieldCodename, 'TableTemplate')
@@ -754,8 +787,10 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
     ] as const) {
         const materialRef = requireFieldByCodename(fields, 'MaterialRef', label)
         const uiConfig = materialRef.uiConfig && typeof materialRef.uiConfig === 'object' ? materialRef.uiConfig : {}
-        if ((uiConfig as Record<string, unknown>).serverOwned !== true) {
-            throw new Error(`Interpretation Network fixture contract failed: ${label}.uiConfig.serverOwned must be true`)
+        if ((uiConfig as Record<string, unknown>).serverOwned !== true || (uiConfig as Record<string, unknown>).runtimeReadable !== true) {
+            throw new Error(
+                `Interpretation Network fixture contract failed: ${label}.uiConfig must keep MaterialRef server-owned and runtime-readable`
+            )
         }
     }
     if (findFieldByCodename(templateMatrixFields, 'Depth')) {

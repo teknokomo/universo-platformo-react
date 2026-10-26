@@ -5,6 +5,7 @@ const mockListResponses = jest.fn()
 const mockUpdateAttempt = jest.fn()
 
 jest.mock('@universo-react/utils/database', () => ({
+    ...jest.requireActual('@universo-react/utils/database'),
     acquireAdvisoryXactLock: (...args: unknown[]) => mockAcquireAdvisoryLock(...args)
 }))
 

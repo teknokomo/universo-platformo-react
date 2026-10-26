@@ -76,6 +76,22 @@ jobs:
               run: pnpm run test:e2e:mmoomm-app-gate:local-supabase
             - name: Check entity-backed Dashboard authoring and published runtime
               run: pnpm run test:e2e:dashboard-entity-backed:verify:local-supabase
+            - name: Check Interpretation Network runtime, workspace policies, and GitBook evidence
+              run: pnpm run test:e2e:interpretation-network:verify:local-supabase
+            - name: Upload Interpretation Network verification evidence
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: interpretation-network-verification-evidence
+                  path: |
+                      test-results/
+                      playwright-report/
+                      tools/testing/e2e/.artifacts/interpretation-network-verification/
+                      tools/testing/e2e/.artifacts/interpretation-network-ux-review/
+                      docs/en/.gitbook/assets/interpretation-network/
+                      docs/ru/.gitbook/assets/interpretation-network/
+                  if-no-files-found: warn
+                  retention-days: 7
             - name: Upload Dashboard browser verification evidence
               if: always()
               uses: actions/upload-artifact@v4

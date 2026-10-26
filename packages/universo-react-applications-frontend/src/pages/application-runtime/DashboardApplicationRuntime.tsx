@@ -27,6 +27,7 @@ import {
     type PendingDashboardRowTarget
 } from '@universo-react/apps-template-mui'
 import { APPLICATION_TEMPLATE_REGISTRY, sanitizeApplicationLearningContentSettings } from '@universo-react/types'
+import { resolveObjectCollectionLayoutBehaviorConfig } from '@universo-react/utils'
 import { createRuntimeAdapter } from '../../api/runtimeAdapter'
 import {
     buildPendingRuntimeCellMap,
@@ -36,16 +37,23 @@ import {
 } from '../../api/mutations'
 import type { ApplicationEffectiveLayoutResponse } from '../../types'
 import { useHostedDashboardBoundRowActions } from './useHostedDashboardBoundRowActions'
-import { UUID_PATH_SEGMENT_REGEX, buildLearningContentCreateDefaultContext, toDashboardZoneWidgets } from './runtimeLayout'
+import {
+    UUID_PATH_SEGMENT_REGEX,
+    buildLearningContentCreateDefaultContext,
+    toAuthenticatedRuntimePlacementScopes,
+    toDashboardZoneWidgets
+} from './runtimeLayout'
 
 const DEFAULT_PAGE_SIZE = 50
 
 export const DashboardApplicationRuntime = ({
+    applicationIdOverride,
     effectiveLayout,
     locale,
     footerMetadata,
     onRuntimeDataChanged
 }: {
+    applicationIdOverride?: string
     effectiveLayout: ApplicationEffectiveLayoutResponse
     locale: string
     footerMetadata?: DashboardDetailsSlot['footerMetadata']
@@ -53,7 +61,7 @@ export const DashboardApplicationRuntime = ({
 }) => {
     const routeParams = useParams<{ applicationId: string; '*': string }>()
     const navigate = useNavigate()
-    const applicationId = routeParams.applicationId
+    const applicationId = applicationIdOverride ?? routeParams.applicationId
     const runtimeSubRoute = routeParams['*'] ?? ''
     const runtimeRouteSegments = runtimeSubRoute.split('/').filter(Boolean)
     const [searchParams, setSearchParams] = useSearchParams()
@@ -142,10 +150,26 @@ export const DashboardApplicationRuntime = ({
         createDefaultContext: buildLearningContentCreateDefaultContext
     })
 
+    const runtimeLayoutConfig = useMemo(
+        () =>
+            effectiveLayout.layout.templateKey === 'dashboard'
+                ? (effectiveLayout.layout.config as Partial<DashboardLayoutConfig>)
+                : undefined,
+        [effectiveLayout.layout.config, effectiveLayout.layout.templateKey]
+    )
+    const layoutRuntimeBehavior = useMemo(
+        () =>
+            resolveObjectCollectionLayoutBehaviorConfig({
+                layoutConfig: runtimeLayoutConfig as Record<string, unknown> | undefined
+            }),
+        [runtimeLayoutConfig]
+    )
+
     const effectiveDashboardZoneWidgets = useMemo(() => {
         const placements = toDashboardZoneWidgets(effectiveLayout)
         return isWorkspacesRoute ? withoutWorkspaceDashboardContent(placements) : placements
     }, [effectiveLayout, isWorkspacesRoute])
+    const authenticatedPlacementScopes = useMemo(() => toAuthenticatedRuntimePlacementScopes(effectiveLayout), [effectiveLayout])
 
     const activeRuntimeSection = state.appData?.section ?? state.appData?.objectCollection
     const activeRuntimeConfig = activeRuntimeSection?.runtimeConfig
@@ -162,7 +186,7 @@ export const DashboardApplicationRuntime = ({
     const canEditContent = contentPermissions?.editContent === true
     const canDeleteContent = contentPermissions?.deleteContent === true
     canEditContentRef.current = canEditContent
-    const showCreateButton = activeRuntimeConfig?.showCreateButton !== false && canCreateContent
+    const showCreateButton = layoutRuntimeBehavior.showCreateButton && activeRuntimeConfig?.showCreateButton !== false && canCreateContent
     const currentWorkspaceId = state.appData?.currentWorkspaceId ?? null
     const learningContentSettings = useMemo(
         () => sanitizeApplicationLearningContentSettings(state.appData?.settings?.learningContent as Record<string, unknown> | undefined),
@@ -603,14 +627,6 @@ export const DashboardApplicationRuntime = ({
     const detailsTitle = isWorkspacesRoute
         ? t('workspace.title', 'Workspaces')
         : activeRuntimeSection?.name ?? t('common.details', 'Details')
-    const runtimeLayoutConfig = useMemo(
-        () =>
-            effectiveLayout.layout.templateKey === 'dashboard'
-                ? (effectiveLayout.layout.config as Partial<DashboardLayoutConfig>)
-                : undefined,
-        [effectiveLayout.layout.config, effectiveLayout.layout.templateKey]
-    )
-
     const runtimeHandleOpenCreate = runtimeState.handleOpenCreate
     const createActions = useMemo(
         () =>
@@ -753,6 +769,7 @@ export const DashboardApplicationRuntime = ({
             permissions: state.appData?.permissions,
             banner: workspaceLimitBanner,
             content: pageSurfaceContent,
+            contentMode: pageSurfaceContent ? 'page' : 'inline',
             pageSizeOptions: state.pageSizeOptions,
             localeText: state.localeText,
             actions: createActions,
@@ -845,7 +862,12 @@ export const DashboardApplicationRuntime = ({
 
     return (
         <>
-            <AppsDashboard layoutConfig={runtimeLayoutConfig} zoneWidgets={effectiveDashboardZoneWidgets} details={details} />
+            <AppsDashboard
+                layoutConfig={runtimeLayoutConfig}
+                zoneWidgets={effectiveDashboardZoneWidgets}
+                placementScopes={authenticatedPlacementScopes}
+                details={details}
+            />
 
             {!isWorkspacesRoute ? (
                 <>

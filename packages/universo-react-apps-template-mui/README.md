@@ -1,5 +1,7 @@
 # @universo-react/apps-template-mui
 
+The [public Dashboard runtime](src/public-runtime/README.md) renders anonymous Interpretation Network navigation and Materials using strict public DTOs and credential-free GET requests. It uses a separate read-only component tree and the `publicInterpretationNetwork` EN/RU namespace.
+
 The existing TABLE editors support metadata-driven sibling selectors, hidden UUID v7 keys and row-menu ordering. First-group and last-group changes use the canonical confirmation shell and update both TABLE drafts before one parent Save. Deferred runtime editors reconcile accepted external drafts and rejected candidates without losing the visible question assignments. Each configured group must contain a related row before persistence.
 
 > 🎨 **Modern Package** — TypeScript-first dashboard and marketing-page templates with Material UI v9
@@ -95,8 +97,8 @@ Runtime dashboard template for published applications in the Universo Platformo 
 -   **Workspace route shell**: Workspace management keeps registry-declared Dashboard host controls and filters content widgets from every shell zone; the content footer is hidden on this route.
 -   **Workspace APIs**: Typed helpers and query keys for paginated workspace lists, member lists, default switching, shared workspace creation, email-based member invitation, member removal, and owner-only one-way in-place personal-to-shared conversion.
 -   **Personal-to-shared conversion**: A workspace owner converts their personal workspace in place through the workspace card actions menu ("Make shared"). The canonical `StandardDialog` confirmation is destructive-framed (warning alert, four consequence bullets, Cancel autofocus, red confirm), shows a localized error inline without closing on failure, and the workspace id/records/links stay preserved while it becomes visible to all application members with `member` baseline rights.
--   **Navigation placement**: Published app menus can keep the workspace entry in the primary menu, move it to overflow, or hide it while preserving the standalone switcher.
--   **Workspace Settings**: Allowed per-workspace overrides are rendered through the existing workspace page cards and use localized labels from the runtime `apps` bundle. Locked keys stay controlled by Application Settings.
+-   **Workspace navigation**: The WorkspaceSwitcher owns workspace selection and management. Runtime menus suppress a duplicate global workspace-list link while retaining navigation for the active workspace.
+-   **Workspace Settings**: Allowed global overrides use the existing workspace setting cards. Interpretation Network style overrides are returned only for active widget placements and explicitly delegated subkeys; mutations carry the semantic widget target and expected version. The HEX-only color input and picker save the complete validated palette atomically. Locked keys stay controlled by Application Settings.
 
 ### 🔌 Route Factory
 

@@ -103,6 +103,8 @@ type BrowserRuntimeIssue = {
     method?: string
     status?: number
     url?: string
+    pageUrl?: string
+    location?: string
 }
 type RuntimeMutationResponse = {
     id?: string
@@ -765,15 +767,19 @@ function watchBrowserRuntimeIssues(page: Page): BrowserRuntimeIssue[] {
     page.on('console', (message) => {
         if (message.type() !== 'error') return
         if (message.text().startsWith('Failed to load resource:')) return
+        const location = message.location()
         issues.push({
             source: 'console',
-            text: message.text()
+            text: message.text(),
+            pageUrl: page.url(),
+            location: location.url ? `${location.url}:${location.lineNumber}:${location.columnNumber}` : undefined
         })
     })
     page.on('pageerror', (error) => {
         issues.push({
             source: 'pageerror',
-            text: error.message
+            text: error.message,
+            pageUrl: page.url()
         })
     })
     page.on('response', (response) => {
@@ -806,7 +812,12 @@ function watchBrowserRuntimeIssues(page: Page): BrowserRuntimeIssue[] {
 function expectNoBrowserRuntimeIssues(issues: BrowserRuntimeIssue[], label: string): void {
     expect(
         issues,
-        `${label} produced browser runtime issues:\n${issues.map((issue) => `[${issue.source}] ${issue.text}`).join('\n')}`
+        `${label} produced browser runtime issues:\n${issues
+            .map((issue) => {
+                const context = [issue.pageUrl, issue.location].filter(Boolean).join(' at ')
+                return `[${issue.source}]${context ? ` ${context}` : ''} ${issue.text}`
+            })
+            .join('\n')}`
     ).toEqual([])
 }
 
@@ -4026,12 +4037,13 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             screenshotPath: testInfo.outputPath('lms-course-item-create-persisted-en.png')
         })
 
-        const workspacesLink = page.getByRole('link', { name: 'Workspaces', exact: true })
-        await expect(workspacesLink, 'The generated dashboard must expose one Workspaces navigation link').toHaveCount(1)
-        const workspacesHref = await workspacesLink.getAttribute('href')
-        expect(workspacesHref, 'Workspaces navigation must expose its runtime route').not.toBeNull()
-        expect(new URL(workspacesHref ?? '', 'http://runtime.local').pathname).toBe(`/a/${applicationId}/workspaces`)
-        await workspacesLink.click()
+        const workspaceSwitcher = page.getByTestId('runtime-workspace-switcher').filter({ visible: true }).first()
+        await expect(workspaceSwitcher, 'The generated dashboard must expose the workspace switcher').toBeVisible()
+        await workspaceSwitcher.click()
+        const manageWorkspacesOption = page.getByRole('option', { name: /Manage workspaces/u })
+        await expect(manageWorkspacesOption, 'The workspace switcher must expose workspace management').toBeVisible()
+        await manageWorkspacesOption.click()
+        await expect(page).toHaveURL(new RegExp(`/a/${applicationId}/workspaces(?:[/?#]|$)`))
         await expect(page.getByTestId('runtime-workspaces-page')).toBeVisible({ timeout: 30_000 })
         await expect(page.getByTestId('runtime-workspaces-card-view')).toBeVisible({ timeout: 30_000 })
         await expect(page.getByTestId('runtime-pagination-surface')).toBeVisible({ timeout: 30_000 })

@@ -138,11 +138,22 @@ const SettingsPage = () => {
 
     const layoutsQuery = useQuery({
         queryKey: metahubId
-            ? [...metahubsQueryKeys.layoutsList(metahubId, { limit: 100, offset: 0 }), 'settings-aggregate']
+            ? [...metahubsQueryKeys.layoutsList(metahubId, { limit: 100, offset: 0, includeAllScopes: true }), 'settings-aggregate']
             : ['metahub-layout-settings-empty'],
         queryFn: async () => {
-            const layoutsResponse = await listLayouts(metahubId!, { limit: 100, offset: 0 })
-            const activeLayouts = layoutsResponse.items.filter((layout) => layout.isActive)
+            const layouts: Awaited<ReturnType<typeof listLayouts>>['items'] = []
+            const limit = 100
+            let offset = 0
+            let hasMore = true
+            while (hasMore) {
+                const response = await listLayouts(metahubId!, { limit, offset, includeAllScopes: true })
+                layouts.push(...response.items)
+                hasMore = response.pagination.hasMore
+                offset += response.items.length
+                if (response.items.length === 0) break
+            }
+
+            const activeLayouts = layouts.filter((layout) => layout.isActive)
             const widgetGroups = await Promise.all(
                 activeLayouts.map(async (layout) => {
                     const widgets = await listLayoutZoneWidgets(metahubId!, layout.id)
@@ -500,6 +511,11 @@ const SettingsPage = () => {
                                             >
                                                 {t('settings.layoutWidgets.layoutLabel', 'Layout: {{layout}}', { layout: layoutTitle })}
                                             </Typography>
+                                            {item.layout.scopeEntityId ? (
+                                                <Typography variant='body2' sx={{ color: 'text.secondary' }}>
+                                                    {t('settings.layoutWidgets.scopedLayout', 'For a specific entity type')}
+                                                </Typography>
+                                            ) : null}
                                             <Typography
                                                 variant='body2'
                                                 sx={{

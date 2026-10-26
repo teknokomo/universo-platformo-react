@@ -24,8 +24,16 @@ describe('public UI route matching', () => {
 describe('public API route matching', () => {
     it('allows only the exact public application runtime endpoint', () => {
         expect(isWhitelistedApiPath('/api/v1/public/applications/consortium/runtime')).toBe(true)
+        expect(
+            isWhitelistedApiPath('/api/v1/public/applications/consortium/runtime/widgets/interpretation-workspace/interpretation-network')
+        ).toBe(true)
         expect(isWhitelistedApiPath('/api/v1/public/applications/consortium/runtime?locale=ru')).toBe(false)
         expect(isWhitelistedApiPath('/api/v1/public/applications/consortium/runtime/extra')).toBe(false)
+        expect(
+            isWhitelistedApiPath(
+                '/api/v1/public/applications/consortium/runtime/widgets/interpretation-workspace/interpretation-network/extra'
+            )
+        ).toBe(false)
         expect(isWhitelistedApiPath('/api/v1/public/applications/consortium/runtime-malicious')).toBe(false)
     })
 

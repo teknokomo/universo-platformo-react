@@ -9,10 +9,6 @@ import {
     Checkbox,
     Chip,
     CircularProgress,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
     FormControl,
     FormControlLabel,
     FormHelperText,
@@ -874,7 +870,6 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     hiddenFieldIds
 }) => {
     const dialogInstanceId = React.useId().replace(/[^a-zA-Z0-9_-]/g, '')
-    const dialogTitleId = `runtime-form-dialog-title-${dialogInstanceId}`
     const dialogDescriptionId = `runtime-form-dialog-description-${dialogInstanceId}`
     const dialogDescriptionTargetId = contentHeaderId || (contentHeader ? dialogDescriptionId : undefined)
     const { t: tCommon } = useCommonTranslations()
@@ -2985,22 +2980,21 @@ export const FormDialog: React.FC<FormDialogProps> = ({
 
     return (
         <>
-            <Dialog
+            <StandardDialog
                 open={open}
-                onClose={isSubmitting ? undefined : onClose}
-                scroll='paper'
+                onClose={onClose}
+                title={title}
                 maxWidth={dialogMaxWidth}
                 fullWidth
-                aria-labelledby={dialogTitleId}
-                aria-describedby={dialogDescriptionTargetId}
-                slotProps={{ paper: { sx: { borderRadius: 1, minWidth: 0 } } }}
+                isBusy={isSubmitting}
+                ariaDescribedBy={dialogDescriptionTargetId}
+                paperSx={{ borderRadius: 1, minWidth: 0 }}
+                contentSx={{ minHeight: 0, maxWidth: '100%', minWidth: 0 }}
+                actionsSx={{ p: 3, pt: 2, gap: 1, justifyContent: showDeleteButton ? 'space-between' : 'flex-end' }}
+                actions={actionButtons}
             >
-                <DialogTitle id={dialogTitleId}>{title}</DialogTitle>
-                <DialogContent sx={{ minHeight: 0, maxWidth: '100%', minWidth: 0 }}>{formBody}</DialogContent>
-                <DialogActions sx={{ p: 3, pt: 2, justifyContent: showDeleteButton ? 'space-between' : 'flex-end' }}>
-                    {actionButtons}
-                </DialogActions>
-            </Dialog>
+                {formBody}
+            </StandardDialog>
             {groupingConfirmation}
         </>
     )

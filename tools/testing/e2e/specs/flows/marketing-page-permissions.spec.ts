@@ -47,7 +47,8 @@ import {
     waitForPublicationReady
 } from '../../support/backend/api-session.mjs'
 import { createBootstrapApiContext, disposeBootstrapApiContext } from '../../support/backend/bootstrap.mjs'
-import { findRuntimeEntityRowByComponentValue, flattenMarketingPageRecords } from '../../support/marketingPageRuntimeMaterialization'
+import { getSingleRuntimeEntityRow, flattenMarketingPageRecords } from '../../support/marketingPageRuntimeMaterialization'
+import { buildExecutionRunId } from '../../support/runIdentity'
 import {
     recordCreatedApplication,
     recordCreatedGlobalUser,
@@ -114,6 +115,7 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
     runManifest
 }, testInfo) => {
     test.setTimeout(240_000)
+    const executionRunId = buildExecutionRunId(runManifest.runId, testInfo)
 
     const ownerCredentials = runManifest.testUser
     const password = process.env.E2E_TEST_USER_PASSWORD || 'ChangeMe_E2E-123456!'
@@ -134,9 +136,9 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
     let anonymousContext: Awaited<ReturnType<typeof browser.newContext>> | null = null
 
     try {
-        const metahubCodename = `${runManifest.runId}-marketing-permissions`
+        const metahubCodename = `${executionRunId}-marketing-permissions`
         const metahub = await createMetahub(ownerApi, {
-            name: { en: `E2E ${runManifest.runId} marketing permissions` },
+            name: { en: `E2E ${executionRunId} marketing permissions` },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', metahubCodename),
             templateCodename: 'marketing-page'
@@ -145,10 +147,10 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         await recordCreatedMetahub({ id: metahub.id, name: metahubCodename, codename: metahubCodename })
 
         const publication = await createPublication(ownerApi, metahub.id, {
-            name: { en: `E2E ${runManifest.runId} marketing permissions publication` },
+            name: { en: `E2E ${executionRunId} marketing permissions publication` },
             namePrimaryLocale: 'en',
             autoCreateApplication: true,
-            applicationName: { en: `E2E ${runManifest.runId} marketing permissions application` },
+            applicationName: { en: `E2E ${executionRunId} marketing permissions application` },
             applicationNamePrimaryLocale: 'en',
             runtimePolicy: {
                 workspaceMode: 'required',
@@ -169,9 +171,9 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
             }
         })
 
-        const crossApplicationMetahubCodename = `${runManifest.runId}-cross-application-marketing-permissions`
+        const crossApplicationMetahubCodename = `${executionRunId}-cross-application-marketing-permissions`
         const crossApplicationMetahub = await createMetahub(ownerApi, {
-            name: { en: `E2E ${runManifest.runId} cross-application marketing permissions` },
+            name: { en: `E2E ${executionRunId} cross-application marketing permissions` },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', crossApplicationMetahubCodename),
             templateCodename: 'marketing-page'
@@ -184,10 +186,10 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         })
 
         const crossApplicationPublication = await createPublication(ownerApi, crossApplicationMetahub.id, {
-            name: { en: `E2E ${runManifest.runId} cross-application marketing permission canary` },
+            name: { en: `E2E ${executionRunId} cross-application marketing permission canary` },
             namePrimaryLocale: 'en',
             autoCreateApplication: true,
-            applicationName: { en: `E2E ${runManifest.runId} cross-application marketing permission canary` },
+            applicationName: { en: `E2E ${executionRunId} cross-application marketing permission canary` },
             applicationNamePrimaryLocale: 'en',
             runtimePolicy: {
                 workspaceMode: 'required',
@@ -214,15 +216,15 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         const roleIds = resolveRoleIds(await getAssignableRoles(bootstrapApi), roleCodenames)
         const users = {
             admin: {
-                email: `e2e+${runManifest.runId}.marketing-admin@example.test`,
+                email: `e2e+${executionRunId}.marketing-admin@example.test`,
                 role: 'admin' as const
             },
             editor: {
-                email: `e2e+${runManifest.runId}.marketing-editor@example.test`,
+                email: `e2e+${executionRunId}.marketing-editor@example.test`,
                 role: 'editor' as const
             },
             member: {
-                email: `e2e+${runManifest.runId}.marketing-member@example.test`,
+                email: `e2e+${executionRunId}.marketing-member@example.test`,
                 role: 'member' as const
             }
         }
@@ -232,7 +234,7 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
                 email: value.email,
                 password,
                 roleIds,
-                comment: `Marketing-page ${key} permission coverage ${runManifest.runId}`
+                comment: `Marketing-page ${key} permission coverage ${executionRunId}`
             })
             if (!created?.userId) throw new Error(`Permission user ${key} was not created`)
             await recordCreatedGlobalUser({ userId: created.userId, email: value.email })
@@ -331,7 +333,8 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
             (collection: { codename?: string; id?: string }) => collection.codename === 'MarketingPageSiteSettings'
         )
         if (!memberSiteSettingsCollection?.id) throw new Error('Permission fixture member site-settings collection was not materialized')
-        const memberSiteSettingsRow = findRuntimeEntityRowByComponentValue(memberRuntimeData, 'SiteKey', 'site-settings')
+        expect(memberRuntimeData.columns?.some((column: { codename?: string }) => column.codename === 'SiteKey')).toBe(false)
+        const memberSiteSettingsRow = getSingleRuntimeEntityRow(memberRuntimeData)
         if (!isUuidV7(memberSiteSettingsRow.id)) throw new Error('Permission fixture member site-settings row was not materialized')
         const memberSiteSettingsRowId = memberSiteSettingsRow.id
         const memberRowBefore = await getRuntimeRow(memberApi, application.id, memberSiteSettingsRowId, {
@@ -388,14 +391,15 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
             (collection: { codename?: string; id?: string }) => collection.codename === 'MarketingPageSiteSettings'
         )
         if (!editorSiteSettingsCollection?.id) throw new Error('Permission fixture editor site-settings collection was not materialized')
-        const editorSiteSettingsRow = findRuntimeEntityRowByComponentValue(editorRuntimeData, 'SiteKey', 'site-settings')
+        expect(editorRuntimeData.columns?.some((column: { codename?: string }) => column.codename === 'SiteKey')).toBe(false)
+        const editorSiteSettingsRow = getSingleRuntimeEntityRow(editorRuntimeData)
         if (!isUuidV7(editorSiteSettingsRow.id)) throw new Error('Permission fixture editor site-settings row was not materialized')
         const editorSiteSettingsRowId = editorSiteSettingsRow.id
         const editorRowBefore = await getRuntimeRow(editorApi, application.id, editorSiteSettingsRowId, {
             objectCollectionId: editorSiteSettingsCollection.id,
             workspaceId: editorWorkspaceId
         })
-        expect(editorRuntimeData.permissions).toMatchObject({ createContent: true, editContent: true, deleteContent: false })
+        expect(editorRuntimeData.permissions).toMatchObject({ createContent: false, editContent: false, deleteContent: false })
         expect(editorRowBefore).toBeTruthy()
         const editorBrandName = editorRowBefore?.data?.[brandColumn.field]
         expect(editorBrandName).toBeDefined()
@@ -438,14 +442,12 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         const editorHeroCollection = (editorHeroRuntimeData.objectCollections ?? []).find(
             (collection: { codename?: string; id?: string }) => collection.codename === 'MarketingPageHero'
         )
-        const heroKeyColumn = editorHeroRuntimeData.columns?.find((column: { codename?: string }) => column.codename === 'HeroKey')
         const titleColumn = editorHeroRuntimeData.columns?.find((column: { codename?: string }) => column.codename === 'Title')
-        if (!heroKeyColumn?.field || !titleColumn?.field) {
-            throw new Error('Permission fixture editor Hero runtime did not expose its semantic data columns')
+        if (!titleColumn?.field) {
+            throw new Error('Permission fixture editor Hero runtime did not expose its editable content column')
         }
-        const editorHeroListingRow = (editorHeroRuntimeData.rows ?? []).find(
-            (row: Record<string, unknown>) => row[heroKeyColumn.field] === 'default'
-        ) as { id?: string } | undefined
+        expect(editorHeroRuntimeData.columns?.some((column: { codename?: string }) => column.codename === 'HeroKey')).toBe(false)
+        const editorHeroListingRow = getSingleRuntimeEntityRow(editorHeroRuntimeData) as { id?: string }
         if (!editorHeroCollection?.id || !editorHeroListingRow?.id) {
             throw new Error('Permission fixture editor runtime did not expose its Hero record for the policy probe')
         }
@@ -902,9 +904,9 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         expect(resetResult.items?.[0].config).toEqual(resetResult.items?.[0].sourceConfig)
 
         const safeCopySourceResult = await createApplicationLayout(ownerApi, application.id, {
-            templateKey: 'marketing-page',
+            templateKey: 'dashboard',
             scopeEntityId: null,
-            name: { en: `E2E ${runManifest.runId} presentation-only copy source`, ru: `Источник копирования ${runManifest.runId}` },
+            name: { en: `E2E ${executionRunId} presentation-only copy source`, ru: `Источник копирования ${executionRunId}` },
             isActive: true,
             isDefault: false,
             sortOrder: 100,
@@ -915,16 +917,16 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
             throw new Error('The presentation-only layout did not return a versioned identity')
         }
         await upsertApplicationLayoutWidget(ownerApi, application.id, safeCopySource.id, {
-            widgetKey: 'marketing.auth',
-            zone: 'marketing-header',
+            widgetKey: 'divider',
+            zone: 'top',
             sortOrder: 0,
-            config: {},
+            config: { orientation: 'horizontal' },
             expectedVersion: safeCopySource.version
         })
         const safeSourceDetail = await getApplicationLayout(ownerApi, application.id, safeCopySource.id)
-        const sourceAuthWidget = safeSourceDetail.widgets?.find((widget: { widgetKey?: string }) => widget.widgetKey === 'marketing.auth')
-        if (!sourceAuthWidget?.id || typeof safeSourceDetail.item?.version !== 'number') {
-            throw new Error('The presentation-only source layout did not persist its Authentication widget')
+        const sourceDividerWidget = safeSourceDetail.widgets?.find((widget: { widgetKey?: string }) => widget.widgetKey === 'divider')
+        if (!sourceDividerWidget?.id || typeof safeSourceDetail.item?.version !== 'number') {
+            throw new Error('The presentation-only source layout did not persist its structural Divider widget')
         }
         const copiedLayoutResponse = await copyApplicationLayout(ownerApi, application.id, safeCopySource.id, safeSourceDetail.item.version)
         const copiedLayoutId = copiedLayoutResponse.item?.id
@@ -933,10 +935,16 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         }
         expect(isUuidV7(copiedLayoutId)).toBe(true)
         const copiedDetail = await getApplicationLayout(ownerApi, application.id, copiedLayoutId)
-        const copiedAuthWidget = copiedDetail.widgets?.find((widget: { widgetKey?: string }) => widget.widgetKey === 'marketing.auth')
-        expect(copiedAuthWidget?.id).toBeTruthy()
-        expect(isUuidV7(copiedAuthWidget?.id)).toBe(true)
-        expect(copiedAuthWidget?.id).not.toBe(sourceAuthWidget.id)
+        const copiedDividerWidget = copiedDetail.widgets?.find((widget: { widgetKey?: string }) => widget.widgetKey === 'divider')
+        expect(copiedDividerWidget?.id).toBeTruthy()
+        expect(isUuidV7(copiedDividerWidget?.id)).toBe(true)
+        expect(copiedDividerWidget?.id).not.toBe(sourceDividerWidget.id)
+        expect(copiedDividerWidget).toMatchObject({
+            widgetKey: sourceDividerWidget.widgetKey,
+            zone: sourceDividerWidget.zone,
+            sortOrder: sourceDividerWidget.sortOrder,
+            config: sourceDividerWidget.config
+        })
 
         await deleteApplicationLayout(ownerApi, application.id, copiedLayoutId, copiedDetail.item.version)
         const deletedCopyResponse = await requestApi(ownerApi, `/api/v1/applications/${application.id}/layouts/${copiedLayoutId}`, {

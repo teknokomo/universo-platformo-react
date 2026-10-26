@@ -625,13 +625,15 @@ export class MetahubBranchesService {
                 if (sourceBranchId && !sourceBranch) {
                     throw new MetahubNotFoundError('Source branch', sourceBranchId)
                 }
+                const branchStructureVersion = sourceBranch
+                    ? structureVersionToSemver(sourceBranch.structureVersion)
+                    : structureVersionToSemver(CURRENT_STRUCTURE_VERSION)
 
                 const maxBranchNumber = await getMaxBranchNumber(tx, metahubId)
                 const baseBranchNumber = Math.max(metahub.lastBranchNumber ?? 0, Number.isFinite(maxBranchNumber) ? maxBranchNumber : 0)
                 const nextNumber = baseBranchNumber + 1
                 schemaName = this.buildSchemaName(metahubId, nextNumber)
 
-                let branchStructureVersion: string
                 let templateVersionSyncId: string | null = null
                 let templateVersionSyncLabel: string | null = null
                 let templateSyncedAt: Date | null = null
@@ -650,7 +652,6 @@ export class MetahubBranchesService {
                     if (!normalizedCopyOptions.fullCopy) {
                         await this.pruneClonedSchema(tx, schemaName, normalizedCopyOptions, compatibility)
                     }
-                    branchStructureVersion = structureVersionToSemver(sourceBranch.structureVersion)
                     templateVersionSyncId = sourceBranch.lastTemplateVersionId ?? null
                     templateVersionSyncLabel = sourceBranch.lastTemplateVersionLabel ?? null
                     templateSyncedAt = sourceBranch.lastTemplateSyncedAt ?? null
@@ -658,7 +659,6 @@ export class MetahubBranchesService {
                     // Load template manifest for new branch from scratch
                     const manifest = await this.loadManifestForMetahub(metahub, tx)
                     await schemaService.initializeSchema(schemaName, manifest)
-                    branchStructureVersion = structureVersionToSemver(CURRENT_STRUCTURE_VERSION)
                     const templateVersionInfo = await this.resolveTemplateVersionInfo(metahub.templateVersionId ?? null, tx)
                     templateVersionSyncId = templateVersionInfo.templateVersionId
                     templateVersionSyncLabel = templateVersionInfo.templateVersionLabel

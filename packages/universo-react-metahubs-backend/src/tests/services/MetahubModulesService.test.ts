@@ -76,11 +76,11 @@ const createStoredModuleRow = (overrides: Record<string, unknown> = {}) => ({
     attached_to_id: null,
     module_role: 'widget',
     source_kind: 'embedded',
-    sdk_api_version: '1.0.0',
+    sdk_api_version: '0.1.0',
     source_code: 'export default class QuizWidgetModule {}',
     manifest: {
         className: 'QuizWidgetModule',
-        sdkApiVersion: '1.0.0',
+        sdkApiVersion: '0.1.0',
         moduleRole: 'widget',
         sourceKind: 'embedded',
         capabilities: ['metadata.read', 'rpc.client'],
@@ -124,7 +124,7 @@ describe('MetahubModulesService', () => {
         mockCompileModuleSource.mockResolvedValue({
             manifest: {
                 className: 'QuizWidgetModule',
-                sdkApiVersion: '1.0.0',
+                sdkApiVersion: '0.1.0',
                 moduleRole: 'widget',
                 sourceKind: 'embedded',
                 capabilities: ['metadata.read', 'rpc.client'],
@@ -190,7 +190,7 @@ describe('MetahubModulesService', () => {
                 module_role: 'library',
                 manifest: {
                     className: 'SharedHelpers',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'library',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read'],
@@ -862,7 +862,7 @@ describe('MetahubModulesService', () => {
                 sdkApiVersion: '2.0.0',
                 sourceCode: 'export default class QuizWidgetModule {}'
             })
-        ).rejects.toThrow('Unsupported module sdkApiVersion "2.0.0". Supported versions: 1.0.0')
+        ).rejects.toThrow('Unsupported module sdkApiVersion "2.0.0". Supported versions: 0.1.0')
 
         expect(mockCompileModuleSource).not.toHaveBeenCalled()
         expect(mockInsertStoredMetahubModule).not.toHaveBeenCalled()
@@ -875,7 +875,7 @@ describe('MetahubModulesService', () => {
                 source_code: 'export default class ExistingModule extends ExtensionModule {}',
                 manifest: {
                     className: 'ExistingModule',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'module',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read'],
@@ -889,7 +889,7 @@ describe('MetahubModulesService', () => {
                 source_code: 'export default class RuntimeQuizWidget extends ExtensionModule {}',
                 manifest: {
                     className: 'QuizWidgetModule',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'widget',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read', 'rpc.client'],
@@ -928,7 +928,7 @@ describe('MetahubModulesService', () => {
                 attached_to_id: null,
                 module_role: 'widget',
                 source_code: 'export default class RuntimeQuizWidget extends ExtensionModule {}',
-                sdk_api_version: '1.0.0',
+                sdk_api_version: '0.1.0',
                 client_bundle: 'module.exports = class QuizWidgetModule {}',
                 _upl_updated_by: 'user-2'
             })
@@ -2047,7 +2047,7 @@ describe('MetahubModulesService', () => {
                 module_role: 'library',
                 manifest: {
                     className: 'SharedHelpers',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'library',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read'],
@@ -2087,7 +2087,7 @@ describe('MetahubModulesService', () => {
                 module_role: 'library',
                 manifest: {
                     className: 'LegacySharedModule',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'library',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read'],
@@ -2427,7 +2427,7 @@ describe('MetahubModulesService', () => {
                 source_code: "import SharedHelpers from '@shared/shared-helpers'\nexport default class ConsumerModule {}",
                 manifest: {
                     className: 'ConsumerModule',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'module',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read'],
@@ -2451,7 +2451,7 @@ describe('MetahubModulesService', () => {
                 source_code: "import SharedCore from '@shared/shared-core'\nexport default class SharedHelpers {}",
                 manifest: {
                     className: 'SharedHelpers',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'library',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read'],
@@ -2475,7 +2475,7 @@ describe('MetahubModulesService', () => {
                 source_code: 'export default class PlainModule {}',
                 manifest: {
                     className: 'PlainModule',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'module',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read'],
@@ -2499,7 +2499,7 @@ describe('MetahubModulesService', () => {
                 source_code: 'export default class SharedCore {}',
                 manifest: {
                     className: 'SharedCore',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'library',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read'],
@@ -2512,7 +2512,7 @@ describe('MetahubModulesService', () => {
         mockCompileModuleSource.mockImplementation((input: Record<string, unknown>) => ({
             manifest: {
                 className: String(input.codename),
-                sdkApiVersion: '1.0.0',
+                sdkApiVersion: '0.1.0',
                 moduleRole: input.moduleRole,
                 sourceKind: 'embedded',
                 capabilities: ['metadata.read'],
@@ -2613,7 +2613,7 @@ describe('MetahubModulesService', () => {
                 source_code: "import SharedB from '@shared/shared-b'\nexport default class SharedA {}",
                 manifest: {
                     className: 'SharedA',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'library',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read'],
@@ -2635,7 +2635,7 @@ describe('MetahubModulesService', () => {
                 source_code: "import SharedA from '@shared/shared-a'\nexport default class SharedB {}",
                 manifest: {
                     className: 'SharedB',
-                    sdkApiVersion: '1.0.0',
+                    sdkApiVersion: '0.1.0',
                     moduleRole: 'library',
                     sourceKind: 'embedded',
                     capabilities: ['metadata.read'],

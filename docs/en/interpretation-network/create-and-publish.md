@@ -36,11 +36,14 @@ This page is for an owner who prepares the application shell, synchronizes the s
 
 Editors open one application URL, choose a workspace, and work in the Matrix. The source configuration remains owned by the template and publication, while user content is authored inside the application workspace.
 
+Public visibility is a separate access mode: anonymous visitors receive the published Dashboard and the same shared Interpretation Network workspace controls in read-only mode. The public view follows the placement's Structure mode, allowed Matrix views, and pane layout. The server uses the configured public-entry Workspace, or the only active shared Workspace when exactly one exists. With no shared Workspace or an ambiguous choice, the app remains public and shows a localized empty state. The visitor cannot select a Workspace or mutate cells, Materials, templates, Favorites, or settings. Keep the authenticated member route for authoring and workspace selection. See [Applications](../platform/applications.md) for the application access boundary.
+
 ## What To Check
 
 -   The application opens through the normal published app route.
 -   The Structures item leads to the Matrix workspace.
 -   No setup screen asks editors to edit technical configuration.
+-   Verify public visibility and the intended published entry view separately from authenticated editor access.
 
 ## Related Pages
 

@@ -132,7 +132,8 @@ export const projectRecordsTable = async (
             userId: scope.currentUserId ?? null,
             role: scope.role ?? null,
             permissions: scope.permissions ?? noRuntimePermissions,
-            currentWorkspaceId: scope.workspaceId
+            currentWorkspaceId: scope.workspaceId,
+            publishedRecordsOnly: scope.publishedRecordsOnly === true
         },
         applicationId,
         datasource,

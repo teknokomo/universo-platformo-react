@@ -3,6 +3,14 @@ import { render, screen } from '@testing-library/react'
 import Header from '../Header'
 
 describe('Dashboard Header', () => {
+    it('omits the header and actions region when both slots are empty', () => {
+        const { container } = render(<Header leading={[]} actions={[]} />)
+
+        expect(container.firstChild).toBeNull()
+        expect(screen.queryByTestId('runtime-header')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('runtime-header-actions')).not.toBeInTheDocument()
+    })
+
     it('right-aligns actions when the leading widget list is empty', () => {
         render(<Header leading={[]} actions={<span>Runtime controls</span>} />)
 

@@ -5,6 +5,7 @@ import { acquireE2eRunLock, releaseE2eRunLock } from './e2eRunLock.mjs'
 import { withLocalSupabaseE2eEnv } from './env/localSupabaseE2eEnv.mjs'
 import { coordinateLocalSupabaseE2eGate } from './localSupabaseE2eGateCoordinator.mjs'
 import { createManagedE2eCommandRunner } from './managedE2eCommand.mjs'
+import { collectPlaywrightTests } from './playwrightResults.mjs'
 
 let stackMayStillBeInUse = false
 const commandRunner = createManagedE2eCommandRunner({
@@ -37,25 +38,6 @@ async function preserveRunnerArtifacts(label) {
             throw error
         }
     }
-}
-
-const collectPlaywrightTests = (suites, pathParts = [], collected = []) => {
-    for (const suite of suites ?? []) {
-        const nextPath = suite.title ? [...pathParts, suite.title] : pathParts
-        for (const spec of suite.specs ?? []) {
-            for (const test of spec.tests ?? []) {
-                collected.push({
-                    title: [...nextPath, spec.title].filter(Boolean).join(' > '),
-                    projectName: test.projectName ?? test.projectId ?? 'unknown',
-                    expectedStatus: test.expectedStatus ?? 'unknown',
-                    annotations: test.annotations ?? [],
-                    results: test.results ?? []
-                })
-            }
-        }
-        collectPlaywrightTests(suite.suites, nextPath, collected)
-    }
-    return collected
 }
 
 async function summarizePlaywrightResults(label) {

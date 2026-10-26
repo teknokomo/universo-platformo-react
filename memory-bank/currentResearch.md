@@ -1,5 +1,18 @@
 # Current Research
 
+## 2026-10-22: Interpretation Network public runtime and advanced workspace research
+
+-   Research artifact created and reviewed: memory-bank/research/interpretation-network-public-runtime-advanced-workspace-research-2026-10-22.md, based on the QA-refined Manager input/spec, current public-runtime/alias/effective-layout source, prior Interpretation Network research, exact dependency versions, Context7 MUI 9.2.0 guidance, WAI-ARIA/OWASP/PostgreSQL primary sources and independent read-only subagent reviews.
+-   Public-runtime decision: reuse existing UUID/alias resolver, public-entry Workspace selection, RLS/effective-layout transaction and fail-closed unavailable contract. Add a discriminated public Dashboard DTO with explicit widget-projector allowlist; interpretationNetworkWorkspace needs dedicated server-side public read projection and must not call authenticated runtime APIs from anonymous UI.
+-   Anonymous UX decision: runtimeAccessMode=public must omit mutation/admin affordances entirely, including Structure/cell/template/Material mutations, style controls, Favorites, Access and Settings. Server-side authorization remains authoritative.
+-   Settings decision: generic Workspace settings infrastructure now exists, but source-managed Interpretation Network widget policy still lacks widget-scoped Workspace override/delegation. Preserve metahub source config -> Application presentation override -> explicitly delegated Workspace widget override, default-locked, while publication/aliases/security remain Application-owned.
+-   Style decision: add strict typed cell-style policy with ordered preset colors, arbitrary-color enablement and per-capability edit flags; enforce effective policy in both create and edit mutation paths so direct API calls cannot bypass hidden controls.
+-   Template decision: selected-branch save copies only chosen cell subtree; copied branch root must be rebased to ParentCellId=null before hierarchy validation and UUID v7 remapping, with Materials restricted to copied subtree.
+-   Material decision: allow many Materials per Material.CellId; treat existing Matrix.MaterialRef as optional Primary Material pointer constrained to a Material owned by the same cell. Deleting Primary clears the pointer rather than choosing an arbitrary replacement.
+-   Favorites decision: use personal, Workspace/user-scoped entity-backed Favorite references with human-readable navigation and no anonymous Favorites in this slice; do not use localStorage or a shared flag on Matrix cells.
+-   Fixture decision: canonical metadata/entity changes go through template/generator source, then regenerate tools/fixtures/metahubs-interpretation-network-app-snapshot.json and update fixture-contract/drift/imported/public-runtime evidence. No legacy compatibility code and no schema/metahub-template version bump.
+-   At research completion, PLAN remained the next step. The finalized design and implementation evidence are recorded in the dated plan and progress entries.
+
 ## 2026-10-17: LMS quiz blocks and “Sixth Muse” research
 
 -   Research artifact created and reviewed: `memory-bank/research/lms-quiz-blocks-sixth-muse-research-2026-10-17.md`, based on the QA-refined Manager brief/spec, current LMS template/guest-attempt/reporting code, prior 2026-10-11 guest-quiz research, current project Skills, Context7 for the pinned Playwright/Zod stack, W3C WCAG 2.2, 1EdTech QTI 3, and independent read-only subagent reviews.

@@ -2263,13 +2263,9 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 userId
             )
 
-            const importedVersionEnvelope = (
-                importedSnapshot as {
-                    versionEnvelope?: { structureVersion?: string; templateVersion?: string }
-                }
-            )?.versionEnvelope
+            const importedVersionEnvelope = (importedSnapshot as MetahubSnapshotTransportEnvelope['snapshot']).versionEnvelope
             const schemaService = new MetahubSchemaService(exec, freshMetahub.defaultBranchId)
-            await schemaService.rewriteBaselineMigrationVersion(branch.schemaName, importedVersionEnvelope?.structureVersion)
+            await schemaService.rewriteBaselineMigrationVersion(branch.schemaName, importedVersionEnvelope.structureVersion)
 
             const objectsService = new MetahubObjectsService(exec, schemaService)
             const componentsService = new MetahubComponentsService(exec, schemaService)
@@ -2299,12 +2295,8 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 new PlayCanvasProjectSnapshotService(exec, schemaService)
             )
             const canonicalPublicationSnapshot = await serializer.serializeMetahub(metahub.id, {
-                structureVersion:
-                    typeof importedVersionEnvelope?.structureVersion === 'string'
-                        ? importedVersionEnvelope.structureVersion
-                        : await schemaService.resolvePublicStructureVersion(branch.schemaName, branch.structureVersion),
-                templateVersion:
-                    typeof importedVersionEnvelope?.templateVersion === 'string' ? importedVersionEnvelope.templateVersion : undefined,
+                structureVersion: importedVersionEnvelope.structureVersion,
+                templateVersion: importedVersionEnvelope.templateVersion,
                 ...(importedRuntimePolicy ? { runtimePolicy: importedRuntimePolicy } : {}),
                 playCanvasMode: 'runtime'
             })

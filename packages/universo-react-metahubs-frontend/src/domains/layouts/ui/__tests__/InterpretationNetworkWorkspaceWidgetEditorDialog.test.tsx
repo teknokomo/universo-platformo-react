@@ -1,9 +1,17 @@
 import type { ComponentProps, ReactNode } from 'react'
-import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
+import enMetahubs from '../../../../i18n/locales/en/metahubs.json'
+import ruMetahubs from '../../../../i18n/locales/ru/metahubs.json'
 import InterpretationNetworkWorkspaceWidgetEditorDialog from '../InterpretationNetworkWorkspaceWidgetEditorDialog'
+
+const translationHarness = vi.hoisted(() => ({
+    language: 'en',
+    resources: {} as Record<string, unknown>,
+    t: vi.fn()
+}))
 
 vi.mock('react-i18next', async (importOriginal) => {
     const actual = await importOriginal<typeof import('react-i18next')>()
@@ -11,46 +19,73 @@ vi.mock('react-i18next', async (importOriginal) => {
     return {
         ...actual,
         useTranslation: () => ({
-            t: (_key: string, fallback?: string) => fallback ?? _key,
-            i18n: { language: 'en' }
+            t: translationHarness.t,
+            i18n: { language: translationHarness.language }
         })
     }
 })
 
-vi.mock('@universo-react/template-mui', () => ({
-    EntityFormDialog: ({
-        open,
-        title,
-        extraFields,
-        onSave,
-        onClose,
-        saveButtonText,
-        cancelButtonText
-    }: {
-        open: boolean
-        title: string
-        extraFields: () => ReactNode
-        onSave: () => void
-        onClose: () => void
-        saveButtonText: string
-        cancelButtonText: string
-    }) =>
-        open ? (
-            <div role='dialog' aria-label={title}>
-                {extraFields()}
-                <button type='button' onClick={onClose}>
-                    {cancelButtonText}
-                </button>
-                <button type='button' onClick={onSave}>
-                    {saveButtonText}
-                </button>
-            </div>
-        ) : null
-}))
+vi.mock('@universo-react/template-mui', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@universo-react/template-mui')>()
+
+    return {
+        ...actual,
+        EntityFormDialog: ({
+            open,
+            title,
+            extraFields,
+            onSave,
+            onClose,
+            saveButtonText,
+            cancelButtonText
+        }: {
+            open: boolean
+            title: string
+            extraFields: () => ReactNode
+            onSave: () => void
+            onClose: () => void
+            saveButtonText: string
+            cancelButtonText: string
+        }) =>
+            open ? (
+                <div role='dialog' aria-label={title}>
+                    {extraFields()}
+                    <button type='button' onClick={onClose}>
+                        {cancelButtonText}
+                    </button>
+                    <button type='button' onClick={onSave}>
+                        {saveButtonText}
+                    </button>
+                </div>
+            ) : null
+    }
+})
 
 vi.mock('../WidgetScopeVisibilityPanel', () => ({
     default: ({ widgetId }: { widgetId: string }) => <div data-testid='scope-visibility-panel'>{widgetId}</div>
 }))
+
+const getLocaleValue = (value: unknown, path: string): unknown =>
+    path.split('.').reduce<unknown>((current, key) => {
+        if (current === null || typeof current !== 'object') {
+            return undefined
+        }
+        return (current as Record<string, unknown>)[key]
+    }, value)
+
+const translateFromLocale = (key: string, fallbackOrOptions?: unknown): string => {
+    const translationKey = key.includes(':') ? key.slice(key.indexOf(':') + 1) : key
+    const translation = getLocaleValue(translationHarness.resources[translationHarness.language], translationKey)
+    if (typeof translation === 'string') {
+        const options =
+            fallbackOrOptions !== null && typeof fallbackOrOptions === 'object' ? (fallbackOrOptions as Record<string, unknown>) : {}
+        return translation.replace(/\{\{\s*(\w+)\s*\}\}/g, (placeholder, name: string) => String(options[name] ?? placeholder))
+    }
+    return typeof fallbackOrOptions === 'string' ? fallbackOrOptions : key
+}
+
+const cellStyleMessage = (language: 'en' | 'ru', path: string) =>
+    String(getLocaleValue(language === 'en' ? enMetahubs : ruMetahubs, `layouts.interpretationNetworkEditor.cellStylePolicy.${path}`))
 
 const renderDialog = (props: Partial<ComponentProps<typeof InterpretationNetworkWorkspaceWidgetEditorDialog>> = {}) => {
     const onSave = vi.fn()
@@ -70,6 +105,226 @@ const renderDialog = (props: Partial<ComponentProps<typeof InterpretationNetwork
 }
 
 describe('InterpretationNetworkWorkspaceWidgetEditorDialog', () => {
+    beforeEach(() => {
+        translationHarness.language = 'en'
+        translationHarness.resources = { en: enMetahubs, ru: ruMetahubs }
+        translationHarness.t.mockImplementation(translateFromLocale)
+    })
+
+    it.each(['en', 'ru'] as const)('uses real %s cell-style policy translations', (language) => {
+        translationHarness.language = language
+        renderDialog({
+            config: {
+                matrixMode: 'hierarchicalCells',
+                cellStylePolicy: {
+                    allowedColors: [],
+                    allowCustomColors: true,
+                    editable: { fillColor: true, textColor: true, borderColor: true, borderWidth: true, borderStyle: true }
+                }
+            }
+        })
+
+        expect(screen.getByText(cellStyleMessage(language, 'title'))).toBeInTheDocument()
+        expect(screen.getByRole('switch', { name: cellStyleMessage(language, 'allowCustomColors') })).toBeInTheDocument()
+        expect(screen.getByRole('checkbox', { name: cellStyleMessage(language, 'editable.fillColor') })).toBeInTheDocument()
+        expect(
+            screen.getByRole('button', {
+                name: cellStyleMessage(language, 'addPaletteColor').replace('{{color}}', '#E53935')
+            })
+        ).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: cellStyleMessage(language, 'colorPicker') })).toBeInTheDocument()
+    })
+
+    it('saves an empty preset list as a valid cell-style policy', async () => {
+        const user = userEvent.setup()
+        const { onSave } = renderDialog({
+            config: {
+                matrixMode: 'hierarchicalCells',
+                cellStylePolicy: {
+                    allowedColors: [],
+                    allowCustomColors: false,
+                    editable: { fillColor: false, textColor: false, borderColor: false, borderWidth: false, borderStyle: false }
+                }
+            }
+        })
+
+        expect(screen.getByText(cellStyleMessage('en', 'emptyColors'))).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Save' }))
+
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                cellStylePolicy: {
+                    allowedColors: [],
+                    allowCustomColors: false,
+                    editable: { fillColor: false, textColor: false, borderColor: false, borderWidth: false, borderStyle: false }
+                }
+            })
+        )
+    })
+
+    it('adds and removes preset colors with keyboard-activated buttons', async () => {
+        const user = userEvent.setup()
+        const { onSave } = renderDialog({
+            config: {
+                matrixMode: 'hierarchicalCells',
+                cellStylePolicy: {
+                    allowedColors: [],
+                    allowCustomColors: true,
+                    editable: { fillColor: true, textColor: true, borderColor: true, borderWidth: true, borderStyle: true }
+                }
+            }
+        })
+
+        const addColorButton = screen.getByRole('button', { name: 'Add palette color #E53935' })
+        await act(async () => addColorButton.focus())
+        await user.keyboard('{Enter}')
+
+        const removeColorButton = screen.getByRole('button', { name: 'Remove color #E53935' })
+        await act(async () => removeColorButton.focus())
+        await user.keyboard('{Enter}')
+
+        expect(screen.getByText(cellStyleMessage('en', 'emptyColors'))).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Save' }))
+        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ cellStylePolicy: expect.objectContaining({ allowedColors: [] }) }))
+    })
+
+    it('normalizes and deduplicates colors with the shared policy schema', async () => {
+        const user = userEvent.setup()
+        const { onSave } = renderDialog({
+            config: {
+                matrixMode: 'hierarchicalCells',
+                cellStylePolicy: {
+                    allowedColors: ['#abc', '#AABBCC', '#e53935', '#E53935'],
+                    allowCustomColors: true,
+                    editable: { fillColor: true, textColor: true, borderColor: true, borderWidth: true, borderStyle: true }
+                }
+            }
+        })
+
+        expect(screen.getAllByText('#AABBCC')).toHaveLength(1)
+        expect(screen.getAllByText('#E53935')).toHaveLength(1)
+        await user.click(screen.getByRole('button', { name: 'Save' }))
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({ cellStylePolicy: expect.objectContaining({ allowedColors: ['#AABBCC', '#E53935'] }) })
+        )
+    })
+
+    it('adds a custom color from the color control', async () => {
+        const user = userEvent.setup()
+        const { onSave } = renderDialog({
+            config: {
+                matrixMode: 'hierarchicalCells',
+                cellStylePolicy: {
+                    allowedColors: [],
+                    allowCustomColors: true,
+                    editable: { fillColor: true, textColor: true, borderColor: true, borderWidth: true, borderStyle: true }
+                }
+            }
+        })
+
+        fireEvent.change(screen.getByLabelText('Custom color'), { target: { value: '#12abef' } })
+        await user.click(screen.getByRole('button', { name: 'Add custom color' }))
+        await user.click(screen.getByRole('button', { name: 'Save' }))
+
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({ cellStylePolicy: expect.objectContaining({ allowedColors: ['#12ABEF'] }) })
+        )
+    })
+
+    it.each(['en', 'ru'] as const)(
+        'explains invalid and duplicate custom colors in %s and permits a valid unique HEX color',
+        async (language) => {
+            const user = userEvent.setup()
+            translationHarness.language = language
+            const { onSave } = renderDialog({
+                config: {
+                    matrixMode: 'hierarchicalCells',
+                    cellStylePolicy: {
+                        allowedColors: ['#000000'],
+                        allowCustomColors: true,
+                        editable: { fillColor: true, textColor: true, borderColor: true, borderWidth: true, borderStyle: true }
+                    }
+                }
+            })
+
+            const colorInput = screen.getByRole('textbox', { name: cellStyleMessage(language, 'customColor') })
+            const addColorButton = screen.getByRole('button', { name: cellStyleMessage(language, 'addCustomColor') })
+            expect(screen.getByText(cellStyleMessage(language, 'duplicateColor'))).toBeInTheDocument()
+            expect(addColorButton).toBeDisabled()
+
+            await user.clear(colorInput)
+            await user.type(colorInput, '#GGGGGG')
+            expect(screen.getByText(cellStyleMessage(language, 'invalidColor'))).toBeInTheDocument()
+            expect(colorInput).toHaveAttribute('aria-invalid', 'true')
+            expect(addColorButton).toBeDisabled()
+
+            await user.clear(colorInput)
+            await user.type(colorInput, '#12ABEF')
+            expect(screen.queryByText(cellStyleMessage(language, 'invalidColor'))).not.toBeInTheDocument()
+            expect(addColorButton).toBeEnabled()
+            await user.click(addColorButton)
+            await user.click(screen.getByRole('button', { name: 'Save' }))
+
+            expect(onSave).toHaveBeenCalledWith(
+                expect.objectContaining({ cellStylePolicy: expect.objectContaining({ allowedColors: ['#000000', '#12ABEF'] }) })
+            )
+        }
+    )
+
+    it('reorders preset colors with keyboard-accessible move controls', async () => {
+        const user = userEvent.setup()
+        const { onSave } = renderDialog({
+            config: {
+                matrixMode: 'hierarchicalCells',
+                cellStylePolicy: {
+                    allowedColors: ['#43A047', '#E53935'],
+                    allowCustomColors: true,
+                    editable: { fillColor: true, textColor: true, borderColor: true, borderWidth: true, borderStyle: true }
+                }
+            }
+        })
+
+        expect(screen.getByRole('button', { name: 'Move #43A047 up' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Move #E53935 down' })).toBeDisabled()
+        const moveUpButton = screen.getByRole('button', { name: 'Move #E53935 up' })
+        moveUpButton.focus()
+        await user.keyboard('{Enter}')
+        await user.click(screen.getByRole('button', { name: 'Save' }))
+
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({ cellStylePolicy: expect.objectContaining({ allowedColors: ['#E53935', '#43A047'] }) })
+        )
+    })
+
+    it('saves custom-color and editable-property capability toggles', async () => {
+        const user = userEvent.setup()
+        const { onSave } = renderDialog({
+            config: {
+                matrixMode: 'hierarchicalCells',
+                cellStylePolicy: {
+                    allowedColors: [],
+                    allowCustomColors: false,
+                    editable: { fillColor: true, textColor: true, borderColor: true, borderWidth: true, borderStyle: true }
+                }
+            }
+        })
+
+        await user.click(screen.getByRole('switch', { name: 'Allow custom colors' }))
+        await user.click(screen.getByRole('checkbox', { name: 'Fill color' }))
+        await user.click(screen.getByRole('checkbox', { name: 'Border color' }))
+        await user.click(screen.getByRole('button', { name: 'Save' }))
+
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                cellStylePolicy: {
+                    allowedColors: [],
+                    allowCustomColors: true,
+                    editable: { fillColor: false, textColor: true, borderColor: false, borderWidth: true, borderStyle: true }
+                }
+            })
+        )
+    })
+
     it('saves the single system Structure mode from the metahub widget editor', async () => {
         const user = userEvent.setup()
         const { onSave } = renderDialog()

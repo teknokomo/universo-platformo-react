@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { repoRoot } from './env/load-e2e-env.mjs'
 import { MMOOMM_APP_FIXTURE_FILENAME, assertMmoommAppFixtureEnvelopeContract } from './mmoommAppFixtureContract.ts'
+import { seedSnapshotEntityUuidTokens } from './mmoommSnapshotEntityUuidTokens.ts'
 
 const trackedPath = path.resolve(
     repoRoot,
@@ -54,8 +55,14 @@ const normalizeVolatileValues = (
     }
     if (value && typeof value === 'object') {
         const record = value as Record<string, unknown>
+        if (pathSegments[0] === 'snapshot' && pathSegments[1] === 'entities' && pathSegments.length === 2) {
+            seedSnapshotEntityUuidTokens(record, maps.uuid, (uuid) => {
+                tokenFor(maps.uuid, uuid, 'uuid')
+            })
+        }
         const objectSemanticIdentity = getEditorDocumentSemanticIdentity(record) ?? semanticIdentity
-        const entries = Object.entries(record)
+        // Hash tokens are assigned by first occurrence, so object insertion order must not affect normalization.
+        const entries = Object.entries(record).sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
         const normalizedEntries = entries
             .filter(
                 ([key, item]) =>

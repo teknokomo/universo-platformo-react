@@ -566,6 +566,33 @@
             "newAxesInCellDialogHelp": "When disabled, users add rows and columns with the table plus buttons, and the Add cell dialog uses existing axes.",
             "resizablePanes": "Allow users to resize workspace panes",
             "resizablePanesHelp": "When enabled, users can temporarily adjust the Structure and Materials pane widths. Their adjustment is not saved.",
+            "cellStylePolicy": {
+                "title": "Cell styles",
+                "description": "Control which colors and cell properties users can change.",
+                "allowCustomColors": "Allow custom colors",
+                "allowCustomColorsHelp": "When enabled, users can choose colors outside the preset list.",
+                "allowedColors": "Allowed colors",
+                "allowedColorsHelp": "Set the ordered preset palette available for cell styles.",
+                "emptyColors": "The preset list is empty. Users can use custom colors only when enabled.",
+                "palette": "Default palette",
+                "customColor": "Custom color",
+                "colorPicker": "Choose custom color",
+                "invalidColor": "Enter a valid HEX color, such as #336C9E.",
+                "duplicateColor": "This color is already in the palette.",
+                "addCustomColor": "Add custom color",
+                "addPaletteColor": "Add palette color {{color}}",
+                "removeColor": "Remove color {{color}}",
+                "moveColorUp": "Move {{color}} up",
+                "moveColorDown": "Move {{color}} down",
+                "editable": {
+                    "title": "Editable properties",
+                    "fillColor": "Fill color",
+                    "textColor": "Text color",
+                    "borderColor": "Border color",
+                    "borderWidth": "Border width",
+                    "borderStyle": "Border style"
+                }
+            },
             "tableProjections": {
                 "hierarchicalPath": "Hierarchy path",
                 "independentAxes": "Separate axes"
@@ -2998,6 +3025,7 @@
             "openContextualEditor": "Open the layout widget editor to change this widget.",
             "interpretationNetworkSummary": "Matrix mode: {{matrixMode}}. Default view: {{defaultView}}.",
             "layoutLabel": "Layout: {{layout}}",
+            "scopedLayout": "For a specific entity type",
             "editSettings": "Edit settings",
             "openEditor": "Open in layout",
             "saved": "Widget settings saved",

@@ -25,6 +25,8 @@ import Search from './Search'
 import InterpretationNetworkWorkspaceWidget from './InterpretationNetworkWorkspaceWidget'
 import type { ZoneWidgetItem } from '../contracts'
 import { useDashboardDetails } from '../DashboardDetailsContext'
+import { useAuthenticatedRuntimePlacementScope } from '../AuthenticatedRuntimePlacementScopeContext'
+import type { AuthenticatedRuntimePlacementScope } from '../contracts'
 import { useDashboardWidgetSelection } from '../DashboardWidgetSelectionContext'
 import { childrenForSlot, type RuntimePlacement } from '../runtime/widgetPlacementGraph'
 import DashboardDataWidget from './DashboardDataWidget'
@@ -91,7 +93,7 @@ function DetailsTabsWidget({ widget, options }: { widget: ZoneWidgetItem; option
                     <RuntimeWidgetStatus state={{ status: 'empty' }} />
                 ) : (
                     children.map((child) => (
-                        <Box key={child.id} sx={{ minWidth: 0, maxWidth: '100%' }}>
+                        <Box key={child.instanceKey} sx={{ minWidth: 0, maxWidth: '100%' }}>
                             {renderWidget(child, { ...options, depth: options.depth + 1, menuVariant: 'wide' })}
                         </Box>
                     ))
@@ -128,7 +130,7 @@ function UserProfileWidget({ widget }: { widget: ZoneWidgetItem }): ReactNode {
     if (!displayName) return null
     return (
         <Stack
-            key={widget.id}
+            key={widget.instanceKey}
             direction='row'
             sx={{
                 p: 2,
@@ -166,7 +168,7 @@ function OptionsMenuWidget({ widget, placements }: { widget: ZoneWidgetItem; pla
 
     return (
         <Stack
-            key={widget.id}
+            key={widget.instanceKey}
             data-testid='runtime-options-menu-widget'
             direction='row'
             spacing={1}
@@ -201,6 +203,19 @@ export interface RenderWidgetOptions {
 }
 
 export function renderWidget(widget: ZoneWidgetItem, options: RenderWidgetOptions = {}): ReactNode {
+    return <RuntimeWidgetRenderer key={widget.instanceKey} widget={widget} options={options} />
+}
+
+function RuntimeWidgetRenderer({ widget, options }: { widget: ZoneWidgetItem; options: RenderWidgetOptions }): ReactNode {
+    const placementScope = useAuthenticatedRuntimePlacementScope(widget.instanceKey)
+    return renderWidgetContent(widget, options, placementScope)
+}
+
+function renderWidgetContent(
+    widget: ZoneWidgetItem,
+    options: RenderWidgetOptions,
+    placementScope?: AuthenticatedRuntimePlacementScope
+): ReactNode {
     const normalizedOptions: Required<RenderWidgetOptions> = {
         depth: options.depth ?? 0,
         menuVariant: options.menuVariant ?? 'wide',
@@ -210,39 +225,43 @@ export function renderWidget(widget: ZoneWidgetItem, options: RenderWidgetOption
 
     switch (widget.widgetKey) {
         case 'divider':
-            return <Divider key={widget.id} />
+            return <Divider key={widget.instanceKey} />
         case 'menuWidget':
-            return <RuntimeMenuWidget key={widget.id} widget={widget} variant={menuVariant} />
+            return <RuntimeMenuWidget key={widget.instanceKey} widget={widget} variant={menuVariant} />
         case 'workspaceSwitcher':
             return (
-                <Box key={widget.id} sx={{ p: 1.5, pb: 0.75 }}>
+                <Box key={widget.instanceKey} sx={{ p: 1.5, pb: 0.75 }}>
                     <WorkspaceSwitcher variant='sidebar' />
                 </Box>
             )
         case 'spacer':
-            return <Box key={widget.id} sx={{ flexGrow: 1 }} />
+            return <Box key={widget.instanceKey} sx={{ flexGrow: 1 }} />
         case 'infoCard':
         case 'overviewTitle':
         case 'overviewCards':
         case 'sessionsChart':
         case 'pageViewsChart':
         case 'detailsTitle':
-            return <DashboardDataWidget key={widget.id} widget={widget} />
+            return <DashboardDataWidget key={widget.instanceKey} widget={widget} />
         case 'userProfile':
-            return <UserProfileWidget key={widget.id} widget={widget} />
+            return <UserProfileWidget key={widget.instanceKey} widget={widget} />
         case 'languageSwitcher':
-            return <LanguageSwitcher key={widget.id} />
+            return <LanguageSwitcher key={widget.instanceKey} />
         case 'colorModeSwitcher':
-            return <ColorModeSwitcherWidget key={widget.id} widgetId={widget.id} />
+            return <ColorModeSwitcherWidget key={widget.instanceKey} widgetId={widget.instanceKey} />
         case 'breadcrumbs':
             return (
-                <Box key={widget.id} data-testid='runtime-breadcrumbs-widget' sx={{ maxWidth: '100%', minWidth: 0, overflowX: 'auto' }}>
+                <Box
+                    key={widget.instanceKey}
+                    data-testid='runtime-breadcrumbs-widget'
+                    sx={{ maxWidth: '100%', minWidth: 0, overflowX: 'auto' }}
+                >
                     <NavbarBreadcrumbs />
                 </Box>
             )
         case 'search':
             return (
-                <Box key={widget.id} data-testid='runtime-search-widget' sx={{ maxWidth: '100%', minWidth: 0, width: '100%' }}>
+                <Box key={widget.instanceKey} data-testid='runtime-search-widget' sx={{ maxWidth: '100%', minWidth: 0, width: '100%' }}>
                     <Search />
                 </Box>
             )
@@ -250,41 +269,34 @@ export function renderWidget(widget: ZoneWidgetItem, options: RenderWidgetOption
             const parsed = dashboardWidgetConfigSchemaByKey.datePicker.safeParse(widget.config)
             if (!parsed.success) return <RuntimeWidgetStatus invalid />
             return (
-                <Box key={widget.id} data-testid='runtime-date-picker-widget' sx={{ maxWidth: '100%', minWidth: 0 }}>
+                <Box key={widget.instanceKey} data-testid='runtime-date-picker-widget' sx={{ maxWidth: '100%', minWidth: 0 }}>
                     <CustomDatePicker selection={parsed.data.selection} showPresets={parsed.data.showPresets} />
                 </Box>
             )
         }
         case 'optionsMenu':
-            return <OptionsMenuWidget key={widget.id} widget={widget} placements={placements} />
+            return <OptionsMenuWidget key={widget.instanceKey} widget={widget} placements={placements} />
         case 'footer':
-            return <DashboardFooter key={widget.id} config={widget.config} />
+            return <DashboardFooter key={widget.instanceKey} config={widget.config} />
         case 'detailsTable':
-            if (widget.config?.variant === 'report') return <ReportDetailsTableWidget key={widget.id} widget={widget} />
-            if (widget.config?.variant === 'library') return <LibraryDetailsTableWidget key={widget.id} widget={widget} />
-            return <DashboardDataWidget key={widget.id} widget={widget} />
+            if (widget.config?.variant === 'report') return <ReportDetailsTableWidget key={widget.instanceKey} widget={widget} />
+            if (widget.config?.variant === 'library') return <LibraryDetailsTableWidget key={widget.instanceKey} widget={widget} />
+            return <DashboardDataWidget key={widget.instanceKey} widget={widget} />
         case 'relationBuilder':
         case 'resourcePreview':
-            return <DashboardDataWidget key={widget.id} widget={widget} />
+            return <DashboardDataWidget key={widget.instanceKey} widget={widget} />
         case 'learnerPlayer':
-            return <LearnerPlayerWidget key={widget.id} widget={widget} />
+            return <LearnerPlayerWidget key={widget.instanceKey} widget={widget} />
         case 'interpretationNetworkWorkspace':
-            return (
-                <InterpretationNetworkWorkspaceWidget
-                    key={widget.id}
-                    config={widget.config}
-                    widgetId={widget.id}
-                    layoutId={widget.layoutId}
-                />
-            )
+            return <InterpretationNetworkWorkspaceWidget key={widget.instanceKey} config={widget.config} instanceKey={widget.instanceKey} />
         case 'detailsTabs':
-            return <DetailsTabsWidget key={widget.id} widget={widget} options={normalizedOptions} />
+            return <DetailsTabsWidget key={widget.instanceKey} widget={widget} options={normalizedOptions} />
         case 'quizWidget':
-            return <QuizWidget key={widget.id} config={widget.config} />
+            return <QuizWidget key={widget.instanceKey} config={widget.config} />
         case 'playcanvasCanvas':
             return (
-                <Suspense key={widget.id} fallback={<PlayCanvasWidgetSuspenseFallback />}>
-                    <PlayCanvasCanvasWidget widgetId={widget.id} config={widget.config} />
+                <Suspense key={widget.instanceKey} fallback={<PlayCanvasWidgetSuspenseFallback />}>
+                    <PlayCanvasCanvasWidget widgetId={placementScope?.widgetId} config={widget.config} />
                 </Suspense>
             )
         case 'columnsContainer': {
@@ -292,7 +304,7 @@ export function renderWidget(widget: ZoneWidgetItem, options: RenderWidgetOption
             const parsed = dashboardWidgetConfigSchemaByKey.columnsContainer.safeParse(widget.config)
             if (!parsed.success) return <RuntimeWidgetStatus invalid />
             return (
-                <Grid key={widget.id} container spacing={2} sx={{ width: '100%', minWidth: 0 }}>
+                <Grid key={widget.instanceKey} container spacing={2} sx={{ width: '100%', minWidth: 0 }}>
                     {(parsed.data.columns as Array<{ slotKey: string; width: number }>).map((column) => {
                         const children = childrenForSlot(placements, widget.instanceKey, column.slotKey)
                         return (
@@ -301,7 +313,7 @@ export function renderWidget(widget: ZoneWidgetItem, options: RenderWidgetOption
                                     <RuntimeWidgetStatus state={{ status: 'empty' }} />
                                 ) : (
                                     children.map((child) => (
-                                        <Box key={child.id} sx={{ '& + &': { mt: 2 } }}>
+                                        <Box key={child.instanceKey} sx={{ '& + &': { mt: 2 } }}>
                                             {renderWidget(child, { ...normalizedOptions, depth: depth + 1 })}
                                         </Box>
                                     ))

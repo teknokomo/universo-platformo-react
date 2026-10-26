@@ -96,7 +96,7 @@ export const MODULE_LIFECYCLE_EVENTS = [
 export type ModuleLifecycleEvent = (typeof MODULE_LIFECYCLE_EVENTS)[number]
 export type ModuleEventName = ModuleLifecycleEvent | (string & {})
 
-export const DEFAULT_MODULE_SDK_API_VERSION = '1.0.0'
+export const DEFAULT_MODULE_SDK_API_VERSION = '0.1.0'
 export const SUPPORTED_MODULE_SDK_API_VERSIONS = [DEFAULT_MODULE_SDK_API_VERSION] as const
 export type SupportedModuleSdkApiVersion = (typeof SUPPORTED_MODULE_SDK_API_VERSIONS)[number]
 export const DEFAULT_MODULE_SOURCE_KIND: ModuleSourceKind = 'embedded'

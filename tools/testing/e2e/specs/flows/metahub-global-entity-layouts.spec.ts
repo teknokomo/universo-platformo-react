@@ -1,7 +1,9 @@
 import type { Locator, Page, Response, TestInfo } from '@playwright/test'
 import { createLocalizedContent } from '@universo-react/utils'
+import { buildExecutionRunId } from '../../support/runIdentity'
 import { expect, test } from '../../fixtures/test'
-import { applicationSelectors, buildGridRowActionsTriggerSelector, pageSpacingSelectors } from '../../support/selectors/contracts'
+import { expectNoPageHorizontalOverflow, RUNTIME_UX_VIEWPORT_MATRIX } from '../../support/browser/runtimeUx'
+import { applicationSelectors, pageSpacingSelectors } from '../../support/selectors/contracts'
 import {
     assignLayoutZoneWidget,
     createLayout,
@@ -14,17 +16,21 @@ import {
     createPublicationVersion,
     disposeApiContext,
     getApplicationRuntime,
+    getApplicationEffectiveLayout,
     getLayout,
+    getLayoutZoneWidgetBindings,
     listLayoutZoneWidgets,
     listLayouts,
     moveLayoutZoneWidget,
     syncApplicationSchema,
     syncPublication,
+    sendWithCsrf,
     toggleLayoutZoneWidgetActive,
     updateLayout,
     waitForPublicationReady
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
+import { readLocalizedText } from '../../support/entityRuntimeParsing'
 
 type RuntimeState = {
     object?: {
@@ -37,11 +43,15 @@ type RuntimeState = {
         headerName?: string
     }>
     rows?: Array<Record<string, unknown> & { id?: string }>
-    zoneWidgets?: {
-        left?: Array<{ id?: string; widgetKey?: string }>
-        center?: Array<{ id?: string; widgetKey?: string }>
-        right?: Array<{ id?: string; widgetKey?: string }>
-    }
+    permissions?: Record<string, boolean>
+}
+
+type EffectiveLayoutState = {
+    status?: string
+    scope?: string
+    resolvedEntityTypeId?: string
+    layout?: { templateKey?: string }
+    widgets?: Array<{ widgetKey?: string; zone?: string }>
 }
 
 type LayoutListResponse = {
@@ -61,6 +71,12 @@ async function captureProofScreenshot(page: Page, testInfo: TestInfo, name: stri
         animations: 'disabled'
     })
 }
+
+const runtimeRowActionsButton = (page: Page, rowValue: string): Locator =>
+    page
+        .getByRole('row')
+        .filter({ hasText: rowValue })
+        .getByRole('button', { name: `Actions for ${rowValue}`, exact: true })
 
 async function parseJsonResponse<T>(response: Response, label: string): Promise<T> {
     const bodyText = await response.text()
@@ -175,38 +191,49 @@ async function clickObjectMenuItem(page: import('@playwright/test').Page, object
     await objectLink.click()
 }
 
+async function expectOpaqueRuntimeRowRoute(page: import('@playwright/test').Page, mode: 'edit' | 'copy', rowId: string): Promise<void> {
+    await expect(page).toHaveURL(new RegExp(`surface=page&mode=${mode}&rowId=[^&]+`))
+    const url = new URL(page.url())
+    const routeHandle = url.searchParams.get('rowId')
+    expect(routeHandle).toBeTruthy()
+    expect(routeHandle).not.toBe(rowId)
+    expect(url.href).not.toContain(rowId)
+}
+
 test('@flow @combined metahub global and entity-scoped layouts drive runtime widget materialization and page surfaces', async ({
     page,
     runManifest
 }, testInfo) => {
     test.setTimeout(300_000)
+    const executionRunId = buildExecutionRunId(runManifest.runId, testInfo)
 
     const api = await createLoggedInApiContext({
         email: runManifest.testUser.email,
         password: runManifest.testUser.password
     })
 
-    const metahubName = `E2E ${runManifest.runId} global entity layouts`
-    const metahubCodename = `${runManifest.runId}-global-entity-layouts`
-    const fallbackObjectName = `Fallback Object ${runManifest.runId}`
-    const fallbackObjectCodename = `${runManifest.runId}-fallback-object`
-    const customObjectName = `Custom Object ${runManifest.runId}`
-    const customObjectCodename = `${runManifest.runId}-custom-object`
-    const customLayoutName = `Custom layout ${runManifest.runId}`
-    const publicationName = `E2E ${runManifest.runId} General Publication`
-    const applicationName = `E2E ${runManifest.runId} General Runtime App`
+    const metahubName = `E2E ${executionRunId} global entity layouts`
+    const metahubCodename = `${executionRunId}-global-entity-layouts`
+    const fallbackObjectName = `Fallback Object ${executionRunId}`
+    const fallbackObjectCodename = `${executionRunId}-fallback-object`
+    const customObjectName = `Custom Object ${executionRunId}`
+    const customObjectCodename = `${executionRunId}-custom-object`
+    const customLayoutName = `Custom layout ${executionRunId}`
+    const publicationName = `E2E ${executionRunId} General Publication`
+    const applicationName = `E2E ${executionRunId} General Runtime App`
     const attributeLabel = 'Title'
     const attributeCodename = 'title'
-    const createdValue = `Created row ${runManifest.runId}`
-    const updatedValue = `Updated row ${runManifest.runId}`
-    const copiedValue = `Copied row ${runManifest.runId}`
+    const createdValue = `Created row ${executionRunId}`
+    const updatedValue = `Updated row ${executionRunId}`
+    const copiedValue = `Copied row ${executionRunId}`
     const objectBehaviorKey = 'objectBehavior'
 
     try {
         const metahub = await createMetahub(api, {
             name: { en: metahubName },
             namePrimaryLocale: 'en',
-            codename: createLocalizedContent('en', metahubCodename)
+            codename: createLocalizedContent('en', metahubCodename),
+            templateCodename: 'basic-demo'
         })
 
         if (!metahub?.id) {
@@ -224,6 +251,21 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
         if (typeof globalLayout?.version !== 'number') {
             throw new Error('Global layout did not return an optimistic-lock version')
         }
+        const globalLayoutWidgets = await listLayoutZoneWidgets(api, metahub.id, globalLayoutId)
+        expect(globalLayoutWidgets.items?.map((widget: { widgetKey?: string }) => widget.widgetKey)).toEqual(
+            expect.arrayContaining(['detailsTitle', 'detailsTable'])
+        )
+        const persistedHeaderWidget = globalLayoutWidgets.items?.find(
+            (widget: { id?: string; widgetKey?: string; version?: number }) => widget.widgetKey === 'header'
+        )
+        if (!persistedHeaderWidget?.id || typeof persistedHeaderWidget.version !== 'number') {
+            throw new Error('The global Dashboard layout did not expose its Header placement for fallback coverage')
+        }
+        await toggleLayoutZoneWidgetActive(api, metahub.id, globalLayoutId, persistedHeaderWidget.id, false, persistedHeaderWidget.version)
+        const layoutAfterHeaderDeactivation = await getLayout(api, metahub.id, globalLayoutId)
+        if (typeof layoutAfterHeaderDeactivation?.version !== 'number') {
+            throw new Error('The global Dashboard layout did not return its version after disabling the Header placement')
+        }
 
         await updateLayout(api, metahub.id, globalLayoutId, {
             config: {
@@ -234,23 +276,29 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
                     copySurface: 'dialog'
                 }
             },
-            expectedVersion: globalLayout.version
+            expectedVersion: layoutAfterHeaderDeactivation.version
         })
 
         const fallbackObject = await createObjectCollection(api, metahub.id, {
             name: { en: fallbackObjectName },
             namePrimaryLocale: 'en',
-            codename: createLocalizedContent('en', fallbackObjectCodename)
+            codename: createLocalizedContent('en', fallbackObjectCodename),
+            config: { runtime: { menuVisibility: 'primary' } }
         })
 
         const customObject = await createObjectCollection(api, metahub.id, {
             name: { en: customObjectName },
             namePrimaryLocale: 'en',
-            codename: createLocalizedContent('en', customObjectCodename)
+            codename: createLocalizedContent('en', customObjectCodename),
+            config: { runtime: { menuVisibility: 'primary' } }
         })
 
         if (!fallbackObject?.id || !customObject?.id) {
             throw new Error('Entity creation did not return ids for global/entity layout coverage')
+        }
+        const customObjectSourceKey = readLocalizedText(customObject.codename, 'en')
+        if (!customObjectSourceKey) {
+            throw new Error('The custom Object did not return a persisted codename for Dashboard binding coverage')
         }
 
         for (const objectId of [fallbackObject.id, customObject.id]) {
@@ -266,6 +314,64 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
                 throw new Error(`Component creation did not return an id for object ${objectId}`)
             }
         }
+
+        const dashboardTableWidget = globalLayoutWidgets.items?.find(
+            (widget: { id?: string; widgetKey?: string }) => widget.widgetKey === 'detailsTable'
+        )
+        if (!dashboardTableWidget?.id) {
+            throw new Error('The global Dashboard layout did not expose its detailsTable placement for runtime coverage')
+        }
+        const currentDashboardTableBinding = (await getLayoutZoneWidgetBindings(
+            api,
+            metahub.id,
+            globalLayoutId,
+            dashboardTableWidget.id,
+            'en'
+        )) as { version?: number }
+        if (typeof currentDashboardTableBinding.version !== 'number') {
+            throw new Error('The global detailsTable binding did not expose its optimistic-lock version')
+        }
+        const tableBindingResponse = await sendWithCsrf(
+            api,
+            'PATCH',
+            `/api/v1/metahub/${metahub.id}/layout/${globalLayoutId}/zone-widget/${dashboardTableWidget.id}/binding`,
+            {
+                expectedVersion: currentDashboardTableBinding.version,
+                locale: 'en',
+                bindings: [
+                    {
+                        slot: 'rows',
+                        sourceKey: customObjectSourceKey,
+                        selector: { kind: 'record-set' }
+                    }
+                ]
+            }
+        )
+        const tableBindingError = tableBindingResponse.ok
+            ? null
+            : (
+                  (await tableBindingResponse
+                      .clone()
+                      .json()
+                      .catch(() => null)) as { error?: unknown } | null
+              )?.error
+        const tableBindingErrorLabel = typeof tableBindingError === 'string' ? `: ${tableBindingError.slice(0, 180)}` : ''
+        expect(
+            tableBindingResponse.ok,
+            `The Dashboard table fixture must bind to the custom Object under test (HTTP ${tableBindingResponse.status}${tableBindingErrorLabel})`
+        ).toBe(true)
+        const reboundDashboardTableBinding = (await getLayoutZoneWidgetBindings(
+            api,
+            metahub.id,
+            globalLayoutId,
+            dashboardTableWidget.id,
+            'en'
+        )) as { bindings?: Array<{ slot?: string; sourceKey?: string; selectorKind?: string }> }
+        expect(reboundDashboardTableBinding.bindings).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ slot: 'rows', sourceKey: customObjectSourceKey, selectorKind: 'record-set' })
+            ])
+        )
 
         const customLayout = await createLayout(api, metahub.id, {
             scopeEntityId: customObject.id,
@@ -361,7 +467,7 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
         })
 
         await createPublicationVersion(api, metahub.id, publication.id, {
-            name: { en: `E2E ${runManifest.runId} General Version` },
+            name: { en: `E2E ${executionRunId} General Version` },
             namePrimaryLocale: 'en'
         })
         await syncPublication(api, metahub.id, publication.id)
@@ -386,16 +492,35 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
 
         const fallbackRuntime = await waitForRuntimeState(api, applicationId, fallbackObject.id)
         expect(fallbackRuntime.object?.runtimeConfig?.showCreateButton).toBe(false)
-        expect((fallbackRuntime.zoneWidgets?.center ?? []).some((item) => item.widgetKey === 'detailsTitle')).toBe(true)
-        expect((fallbackRuntime.zoneWidgets?.right ?? []).some((item) => item.widgetKey === 'divider')).toBe(false)
+        const fallbackEffectiveLayout = (await getApplicationEffectiveLayout(api, applicationId, {
+            targetKind: 'object',
+            entityTypeId: fallbackObject.id,
+            locale: 'en'
+        })) as EffectiveLayoutState
+        expect(fallbackEffectiveLayout.status).toBe('ok')
+        expect(fallbackEffectiveLayout.scope).toBe('global')
+        expect(fallbackEffectiveLayout.layout?.templateKey).toBe('dashboard')
+        expect(fallbackEffectiveLayout.widgets?.some((item) => item.widgetKey === 'detailsTitle' && item.zone === 'center')).toBe(true)
+        expect(fallbackEffectiveLayout.widgets?.some((item) => item.widgetKey === 'divider' && item.zone === 'right')).toBe(false)
 
         const customRuntime = await waitForRuntimeState(api, applicationId, customObject.id)
+        expect(customRuntime.permissions?.createContent).toBe(true)
+        expect(customRuntime.object?.runtimeConfig?.showCreateButton).toBe(true)
         expect(customRuntime.object?.runtimeConfig?.createSurface).toBe('page')
         expect(customRuntime.object?.runtimeConfig?.editSurface).toBe('page')
         expect(customRuntime.object?.runtimeConfig?.copySurface).toBe('page')
-        expect((customRuntime.zoneWidgets?.center ?? []).some((item) => item.widgetKey === 'detailsTitle')).toBe(false)
-        expect((customRuntime.zoneWidgets?.right ?? []).some((item) => item.widgetKey === 'divider')).toBe(true)
-        expect(customRuntime.zoneWidgets?.center?.[0]?.widgetKey).toBe('detailsTable')
+        const customEffectiveLayout = (await getApplicationEffectiveLayout(api, applicationId, {
+            targetKind: 'object',
+            entityTypeId: customObject.id,
+            locale: 'en'
+        })) as EffectiveLayoutState
+        expect(customEffectiveLayout.status).toBe('ok')
+        expect(customEffectiveLayout.scope).toBe('entity')
+        expect(customEffectiveLayout.resolvedEntityTypeId).toBe(customObject.id)
+        expect(customEffectiveLayout.layout?.templateKey).toBe('dashboard')
+        expect(customEffectiveLayout.widgets?.some((item) => item.widgetKey === 'detailsTitle' && item.zone === 'center')).toBe(false)
+        expect(customEffectiveLayout.widgets?.some((item) => item.widgetKey === 'divider' && item.zone === 'right')).toBe(true)
+        expect(customEffectiveLayout.widgets?.find((item) => item.widgetKey === 'detailsTable' && item.zone === 'center')).toBeDefined()
 
         const runtimeFieldKey = resolveRuntimeFieldKey(customRuntime, attributeLabel, attributeCodename)
 
@@ -405,7 +530,21 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
         await expect(page.getByTestId(applicationSelectors.runtimeCreateButton)).toHaveCount(0)
 
         await clickObjectMenuItem(page, customObjectName)
-        await expect(page.getByTestId(applicationSelectors.runtimeCreateButton)).toBeVisible({ timeout: 30_000 })
+        const headerActions = page.getByTestId('runtime-header-actions')
+        const createButton = headerActions.getByTestId(applicationSelectors.runtimeCreateButton)
+        await expect(headerActions).toHaveCount(1)
+        await expect(createButton).toHaveCount(1)
+        await expect(page.getByTestId(applicationSelectors.runtimeCreateButton)).toHaveCount(1)
+        await expect(createButton).toBeVisible({ timeout: 30_000 })
+
+        const originalViewport = page.viewportSize() ?? { width: 1280, height: 720 }
+        for (const viewport of RUNTIME_UX_VIEWPORT_MATRIX) {
+            await page.setViewportSize({ width: viewport.width, height: viewport.height })
+            await expect(createButton, `Create action in the shared header at ${viewport.name}`).toBeVisible()
+            await expectNoPageHorizontalOverflow(page, `General runtime header at ${viewport.name}`)
+            await captureProofScreenshot(page, testInfo, `general-runtime-header-${viewport.name}.png`)
+        }
+        await page.setViewportSize(originalViewport)
 
         const createRequest = page.waitForResponse(
             (response) =>
@@ -413,7 +552,7 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
                 response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`) &&
                 response.ok()
         )
-        await page.getByTestId(applicationSelectors.runtimeCreateButton).click()
+        await createButton.click()
         await expect(page).toHaveURL(/surface=page&mode=create/)
         await expect(page.getByRole('dialog', { name: 'Create element' })).toHaveCount(0)
         await expect(page.getByRole('grid')).toHaveCount(0)
@@ -434,11 +573,14 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
         const persistedCreatedRow = await waitForRuntimeRow(api, applicationId, customObject.id, createdRow.id)
         expect(persistedCreatedRow[runtimeFieldKey]).toBe(createdValue)
 
-        await page.getByTestId(buildGridRowActionsTriggerSelector(createdRow.id)).click()
+        const createdRowActions = runtimeRowActionsButton(page, createdValue)
+        await expect(createdRowActions).toBeVisible()
+        await createdRowActions.click()
         await page.getByRole('menuitem', { name: 'Edit' }).click()
-        await expect(page).toHaveURL(new RegExp(`surface=page&mode=edit&rowId=${createdRow.id}`))
+        await expectOpaqueRuntimeRowRoute(page, 'edit', createdRow.id)
         await expect(page.getByRole('dialog', { name: 'Edit element' })).toHaveCount(0)
         await expect(page.getByRole('grid')).toHaveCount(0)
+        await expect(page.getByRole('textbox', { name: attributeLabel, exact: true })).toHaveValue(createdValue)
         await fillRuntimeStringField(page.locator('body'), attributeLabel, updatedValue)
 
         const editRequest = page.waitForResponse(
@@ -457,11 +599,14 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
         const persistedEditedRow = await waitForRuntimeRow(api, applicationId, customObject.id, createdRow.id)
         expect(persistedEditedRow[runtimeFieldKey]).toBe(updatedValue)
 
-        await page.getByTestId(buildGridRowActionsTriggerSelector(createdRow.id)).click()
+        const editedRowActions = runtimeRowActionsButton(page, updatedValue)
+        await expect(editedRowActions).toBeVisible()
+        await editedRowActions.click()
         await page.getByRole('menuitem', { name: 'Copy' }).click()
-        await expect(page).toHaveURL(new RegExp(`surface=page&mode=copy&rowId=${createdRow.id}`))
+        await expectOpaqueRuntimeRowRoute(page, 'copy', createdRow.id)
         await expect(page.getByRole('dialog', { name: 'Copy element' })).toHaveCount(0)
         await expect(page.getByRole('grid')).toHaveCount(0)
+        await expect(page.getByRole('textbox', { name: attributeLabel, exact: true })).toHaveValue(updatedValue)
         await fillRuntimeStringField(page.locator('body'), attributeLabel, copiedValue)
 
         const copyRequest = page.waitForResponse(

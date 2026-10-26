@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import type { TFunction } from 'i18next'
 import type { AppDataResponse } from '../../../../api/api'
 import { fetchTabularRows } from '../../../../api/api'
+import { fetchInterpretationNetworkMaterialAssociations } from '../../../../api/interpretationNetwork'
 import { getDataGridLocaleText } from '../../../../utils/getDataGridLocale'
 import { buildMatrixDragPreview, type MatrixDropState } from '../matrixDrag'
 import { buildCellDialogInitialData, type MatrixCellPlacement } from '../matrixCellData'
@@ -72,6 +73,8 @@ type UseInterpretationNetworkWorkspaceStateOptions = {
               apiBaseUrl?: string | null
               applicationId?: string | null
               currentWorkspaceId?: string | null
+              widgetId?: string | null
+              layoutId?: string | null
           }
         | null
         | undefined
@@ -223,6 +226,28 @@ export function useInterpretationNetworkWorkspaceState({
             })
     })
 
+    const materialAssociationsQuery = useQuery({
+        queryKey: [
+            'interpretationNetworkMaterialAssociations',
+            details?.applicationId,
+            details?.currentWorkspaceId,
+            details?.widgetId,
+            details?.layoutId,
+            selectedInterpretation?.id
+        ],
+        enabled: Boolean(details?.apiBaseUrl && details.applicationId && selectedInterpretation?.id),
+        queryFn: ({ signal }) =>
+            fetchInterpretationNetworkMaterialAssociations({
+                apiBaseUrl: details!.apiBaseUrl!,
+                applicationId: details!.applicationId!,
+                workspaceId: details?.currentWorkspaceId,
+                interpretationId: selectedInterpretation!.id,
+                widgetId: details?.widgetId,
+                layoutId: details?.layoutId,
+                signal
+            })
+    })
+
     const matrixCells = useMemo(
         () => toMatrixRows(matrixRowsQuery.data?.items ?? [], matrixColumn, locale, themeBackground),
         [locale, matrixColumn, matrixRowsQuery.data?.items, themeBackground]
@@ -295,7 +320,20 @@ export function useInterpretationNetworkWorkspaceState({
                 : null
             : null
 
-    const cellMaterials = findMaterialsForCell(materials, data?.materials.columns, selectedCell?.id, selectedCell?.materialRef ?? null)
+    const associatedMaterialIds = useMemo(
+        () =>
+            materialAssociationsQuery.data
+                ?.filter((association) => association.cellId === selectedCell?.id)
+                .map((item) => item.materialId) ?? [],
+        [materialAssociationsQuery.data, selectedCell?.id]
+    )
+    const cellMaterials = findMaterialsForCell(
+        materials,
+        data?.materials.columns,
+        selectedCell?.id,
+        selectedCell?.materialRef ?? null,
+        associatedMaterialIds
+    )
     const materialCountByCellId = useMemo(() => {
         const materialIdsByCellId = new Map<string, Set<string>>()
         const addMaterial = (cellId: string | null | undefined, materialId: string | null | undefined) => {
@@ -308,12 +346,11 @@ export function useInterpretationNetworkWorkspaceState({
         for (const cell of matrixCells) {
             addMaterial(cell.id, cell.materialRef)
         }
-        for (const material of materials) {
-            const rawCellId = readColumnValue(material, data?.materials.columns, 'CellId')
-            addMaterial(typeof rawCellId === 'string' ? rawCellId : null, material.id)
+        for (const association of materialAssociationsQuery.data ?? []) {
+            addMaterial(association.cellId, association.materialId)
         }
         return new Map(Array.from(materialIdsByCellId.entries()).map(([cellId, materialIds]) => [cellId, materialIds.size]))
-    }, [data?.materials.columns, materials, matrixCells])
+    }, [materialAssociationsQuery.data, matrixCells])
 
     const selectedMaterial =
         openedMaterialId && cellMaterials.some((material) => material.id === openedMaterialId)
@@ -468,6 +505,7 @@ export function useInterpretationNetworkWorkspaceState({
         selectedConcept,
         editingStructure,
         matrixRowsQuery,
+        materialAssociationsQuery,
         matrixCells,
         matrixAxisOptions,
         hierarchicalMatrixRows,

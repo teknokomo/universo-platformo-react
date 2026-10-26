@@ -21,6 +21,21 @@ import {
 describe('resolveEffectiveWidgetRuntimeData detailsTable projection', () => {
     beforeEach(resetEffectiveWidgetRuntimeDataResolverMocks)
 
+    it('passes the anonymous published-record scope into records.union queries', async () => {
+        const publicScope = { ...scope, currentUserId: null, role: null, publishedRecordsOnly: true } as typeof scope
+        await resolveDetailsTable({ variant: 'records', maxRows: 20 }, publicScope, [{ recordId, data: { title: 'Published' } }])
+
+        expect(runtimeUnion.executeRuntimeRecordsUnionQuery).toHaveBeenCalledWith(
+            expect.objectContaining({
+                runtimeContext: expect.objectContaining({
+                    userId: null,
+                    role: null,
+                    publishedRecordsOnly: true
+                })
+            })
+        )
+    })
+
     it('resolves every bounded LMS library tab when three Entity sources are bound', async () => {
         const { executor } = createMockDbExecutor()
         const sources = ['LearningResources', 'Courses', 'LearningTracks']

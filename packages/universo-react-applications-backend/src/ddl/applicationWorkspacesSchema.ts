@@ -62,6 +62,13 @@ async function ensureWorkspaceSupportTable(executor: DbExecutor, schemaName: str
 }
 
 export async function ensureWorkspaceSupportTables(executor: DbExecutor, schemaName: string): Promise<void> {
+    const workspacesQt = qSchemaTable(schemaName, WORKSPACES_TABLE)
+    const workspaceRolesQt = qSchemaTable(schemaName, WORKSPACE_ROLES_TABLE)
+    const workspaceUserRolesQt = qSchemaTable(schemaName, WORKSPACE_USER_ROLES_TABLE)
+    const appLimitsQt = qSchemaTable(schemaName, APP_LIMITS_TABLE)
+    const workspaceSettingsQt = qSchemaTable(schemaName, WORKSPACE_SETTINGS_TABLE)
+    const workspaceOperationsQt = qSchemaTable(schemaName, WORKSPACE_OPERATIONS_TABLE)
+
     await ensureWorkspaceSupportTable(
         executor,
         schemaName,
@@ -74,6 +81,7 @@ export async function ensureWorkspaceSupportTables(executor: DbExecutor, schemaN
             workspace_type TEXT NOT NULL DEFAULT 'personal',
             codename TEXT NULL,
             personal_user_id UUID NULL,
+            converted_from_user_id UUID NULL,
             status TEXT NOT NULL DEFAULT 'active',
             is_public_entry BOOLEAN NOT NULL DEFAULT false,
             _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -87,11 +95,21 @@ export async function ensureWorkspaceSupportTables(executor: DbExecutor, schemaN
             _upl_locked BOOLEAN NOT NULL DEFAULT false,
             _app_deleted BOOLEAN NOT NULL DEFAULT false,
             _app_deleted_at TIMESTAMPTZ NULL,
-            _app_deleted_by UUID NULL
+            _app_deleted_by UUID NULL,
+            CONSTRAINT ${qTable('_app_workspaces_public_entry_ck')}
+                CHECK (
+                    is_public_entry = false
+                    OR (
+                        workspace_type <> 'personal'
+                        AND personal_user_id IS NULL
+                        AND status = 'active'
+                        AND _upl_deleted = false
+                        AND _app_deleted = false
+                    )
+                )
         )
         `
     )
-
     await ensureWorkspaceSupportTable(
         executor,
         schemaName,
@@ -137,7 +155,11 @@ export async function ensureWorkspaceSupportTables(executor: DbExecutor, schemaN
             _upl_version BIGINT NOT NULL DEFAULT 1,
             _app_deleted BOOLEAN NOT NULL DEFAULT false,
             _app_deleted_at TIMESTAMPTZ NULL,
-            _app_deleted_by UUID NULL
+            _app_deleted_by UUID NULL,
+            CONSTRAINT ${qTable('_app_workspace_user_roles_workspace_fk')}
+                FOREIGN KEY (workspace_id) REFERENCES ${workspacesQt}(id) ON DELETE CASCADE,
+            CONSTRAINT ${qTable('_app_workspace_user_roles_role_fk')}
+                FOREIGN KEY (role_id) REFERENCES ${workspaceRolesQt}(id) ON DELETE RESTRICT
         )
         `
     )
@@ -166,7 +188,9 @@ export async function ensureWorkspaceSupportTables(executor: DbExecutor, schemaN
             _upl_version BIGINT NOT NULL DEFAULT 1,
             _app_deleted BOOLEAN NOT NULL DEFAULT false,
             _app_deleted_at TIMESTAMPTZ NULL,
-            _app_deleted_by UUID NULL
+            _app_deleted_by UUID NULL,
+            CONSTRAINT ${qTable('_app_limits_object_fk')}
+                FOREIGN KEY (object_id) REFERENCES ${qSchemaTable(schemaName, '_app_objects')}(id) ON DELETE CASCADE
         )
         `
     )
@@ -179,6 +203,9 @@ export async function ensureWorkspaceSupportTables(executor: DbExecutor, schemaN
         CREATE TABLE __TABLE__ (
             id UUID PRIMARY KEY,
             workspace_id UUID NOT NULL,
+            target_kind TEXT NOT NULL,
+            target_owner_id UUID NOT NULL,
+            target_key TEXT NOT NULL,
             key TEXT NOT NULL,
             value JSONB NOT NULL,
             _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -191,11 +218,19 @@ export async function ensureWorkspaceSupportTables(executor: DbExecutor, schemaN
             _upl_version BIGINT NOT NULL DEFAULT 1,
             _app_deleted BOOLEAN NOT NULL DEFAULT false,
             _app_deleted_at TIMESTAMPTZ NULL,
-            _app_deleted_by UUID NULL
+            _app_deleted_by UUID NULL,
+            CONSTRAINT ${qTable(`${WORKSPACE_SETTINGS_TABLE}_target_kind_ck`)}
+                CHECK (target_kind IN ('global', 'widget')),
+            CONSTRAINT ${qTable(`${WORKSPACE_SETTINGS_TABLE}_target_identity_ck`)}
+                CHECK (
+                    (target_kind = 'global' AND target_owner_id = workspace_id AND target_key = '')
+                    OR (target_kind = 'widget' AND target_key <> '' AND char_length(target_key) <= 128)
+                ),
+            CONSTRAINT ${qTable(`${WORKSPACE_SETTINGS_TABLE}_workspace_fk`)}
+                FOREIGN KEY (workspace_id) REFERENCES ${workspacesQt}(id) ON DELETE CASCADE
         )
         `
     )
-
     await ensureWorkspaceSupportTable(
         executor,
         schemaName,
@@ -220,115 +255,15 @@ export async function ensureWorkspaceSupportTables(executor: DbExecutor, schemaN
             _app_deleted_at TIMESTAMPTZ NULL,
             _app_deleted_by UUID NULL,
             CONSTRAINT ${qTable(`${WORKSPACE_OPERATIONS_TABLE}_kind_ck`)}
-                CHECK (operation_kind IN ('seed_reset', 'personal_to_shared_conversion'))
+                CHECK (operation_kind IN ('seed_reset', 'personal_to_shared_conversion')),
+            CONSTRAINT ${qTable(`${WORKSPACE_OPERATIONS_TABLE}_workspace_fk`)}
+                FOREIGN KEY (workspace_id) REFERENCES ${workspacesQt}(id) ON DELETE CASCADE
         )
-        `
-    )
-
-    const workspacesQt = qSchemaTable(schemaName, WORKSPACES_TABLE)
-    const workspaceRolesQt = qSchemaTable(schemaName, WORKSPACE_ROLES_TABLE)
-    const workspaceUserRolesQt = qSchemaTable(schemaName, WORKSPACE_USER_ROLES_TABLE)
-    const appLimitsQt = qSchemaTable(schemaName, APP_LIMITS_TABLE)
-    const workspaceSettingsQt = qSchemaTable(schemaName, WORKSPACE_SETTINGS_TABLE)
-    const workspaceOperationsQt = qSchemaTable(schemaName, WORKSPACE_OPERATIONS_TABLE)
-
-    await executor.query(
-        `
-        ALTER TABLE ${workspacesQt}
-        ADD COLUMN IF NOT EXISTS codename TEXT NULL;
-
-        ALTER TABLE ${workspacesQt}
-        ADD COLUMN IF NOT EXISTS is_public_entry BOOLEAN NOT NULL DEFAULT false;
-
-        ALTER TABLE ${workspacesQt}
-        ADD COLUMN IF NOT EXISTS converted_from_user_id UUID NULL;
-
-        ALTER TABLE ${workspacesQt}
-        DROP CONSTRAINT IF EXISTS ${qTable('_app_workspaces_public_entry_ck')};
-
-        ALTER TABLE ${workspacesQt}
-        ADD CONSTRAINT ${qTable('_app_workspaces_public_entry_ck')}
-        CHECK (
-            is_public_entry = false
-            OR (
-                workspace_type <> 'personal'
-                AND personal_user_id IS NULL
-                AND status = 'active'
-                AND _upl_deleted = false
-                AND _app_deleted = false
-            )
-        );
-
-        ALTER TABLE ${workspaceUserRolesQt}
-        DROP CONSTRAINT IF EXISTS ${qTable('_app_workspace_user_roles_workspace_fk')};
-
-        ALTER TABLE ${workspaceUserRolesQt}
-        ADD CONSTRAINT ${qTable('_app_workspace_user_roles_workspace_fk')}
-        FOREIGN KEY (workspace_id) REFERENCES ${workspacesQt}(id) ON DELETE CASCADE;
-
-        ALTER TABLE ${workspaceUserRolesQt}
-        DROP CONSTRAINT IF EXISTS ${qTable('_app_workspace_user_roles_role_fk')};
-
-        ALTER TABLE ${workspaceUserRolesQt}
-        ADD CONSTRAINT ${qTable('_app_workspace_user_roles_role_fk')}
-        FOREIGN KEY (role_id) REFERENCES ${workspaceRolesQt}(id) ON DELETE RESTRICT;
-
-        ALTER TABLE ${appLimitsQt}
-        DROP CONSTRAINT IF EXISTS ${qTable('_app_limits_object_fk')};
-
-        ALTER TABLE ${appLimitsQt}
-        ADD CONSTRAINT ${qTable('_app_limits_object_fk')}
-        FOREIGN KEY (object_id) REFERENCES ${qSchemaTable(schemaName, '_app_objects')}(id) ON DELETE CASCADE;
-
-        ALTER TABLE ${workspaceSettingsQt}
-        DROP CONSTRAINT IF EXISTS ${qTable('_app_workspace_settings_workspace_fk')};
-
-        ALTER TABLE ${workspaceSettingsQt}
-        ADD CONSTRAINT ${qTable('_app_workspace_settings_workspace_fk')}
-        FOREIGN KEY (workspace_id) REFERENCES ${workspacesQt}(id) ON DELETE CASCADE;
-
-        ALTER TABLE ${workspaceOperationsQt}
-        DROP CONSTRAINT IF EXISTS ${qTable('_app_workspace_operation_audit_workspace_fk')};
-
-        ALTER TABLE ${workspaceOperationsQt}
-        ADD CONSTRAINT ${qTable('_app_workspace_operation_audit_workspace_fk')}
-        FOREIGN KEY (workspace_id) REFERENCES ${workspacesQt}(id) ON DELETE CASCADE;
-
-        ALTER TABLE ${workspaceOperationsQt}
-        DROP CONSTRAINT IF EXISTS ${qTable(`${WORKSPACE_OPERATIONS_TABLE}_kind_ck`)};
-
-        ALTER TABLE ${workspaceOperationsQt}
-        ADD CONSTRAINT ${qTable(`${WORKSPACE_OPERATIONS_TABLE}_kind_ck`)}
-        CHECK (operation_kind IN ('seed_reset', 'personal_to_shared_conversion'));
         `
     )
 
     await executor.query(
         `
-        DROP INDEX IF EXISTS ${qTable(`${WORKSPACE_USER_ROLES_TABLE}_role_active_uidx`)};
-
-        WITH ranked_memberships AS (
-            SELECT
-                wur.id,
-                ROW_NUMBER() OVER (
-                    PARTITION BY wur.workspace_id, wur.user_id
-                    ORDER BY wur.is_default_workspace DESC, wur._upl_created_at ASC, wur.id ASC
-                ) AS row_rank
-            FROM ${workspaceUserRolesQt} wur
-            WHERE wur._upl_deleted = false
-              AND wur._app_deleted = false
-        )
-        UPDATE ${workspaceUserRolesQt} target
-        SET _upl_deleted = true,
-            _upl_deleted_at = NOW(),
-            _upl_updated_at = NOW(),
-            _upl_version = COALESCE(target._upl_version, 1) + 1,
-            _app_deleted = true,
-            _app_deleted_at = NOW()
-        FROM ranked_memberships ranked
-        WHERE target.id = ranked.id
-          AND ranked.row_rank > 1;
-
         CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(`${WORKSPACE_ROLES_TABLE}_codename_active_uidx`)}
         ON ${workspaceRolesQt}(codename)
         WHERE _upl_deleted = false AND _app_deleted = false;
@@ -365,8 +300,8 @@ export async function ensureWorkspaceSupportTables(executor: DbExecutor, schemaN
         ON ${appLimitsQt}(scope_kind, scope_id, object_kind, object_id, metric_key, period_key)
         WHERE scope_id IS NOT NULL AND _upl_deleted = false AND _app_deleted = false;
 
-        CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(`${WORKSPACE_SETTINGS_TABLE}_workspace_key_active_uidx`)}
-        ON ${workspaceSettingsQt}(workspace_id, key)
+        CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(`${WORKSPACE_SETTINGS_TABLE}_target_active_uidx`)}
+        ON ${workspaceSettingsQt}(workspace_id, target_kind, target_owner_id, target_key, key)
         WHERE _upl_deleted = false AND _app_deleted = false;
 
         CREATE INDEX IF NOT EXISTS ${qTable(`${WORKSPACE_USER_ROLES_TABLE}_user_idx`)}

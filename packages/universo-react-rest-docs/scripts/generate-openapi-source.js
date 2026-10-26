@@ -1708,19 +1708,25 @@ const buildSpec = () => {
                     additionalProperties: false,
                     properties: {
                         interpretationId: { type: 'string', format: 'uuid' },
-                        matrixRowId: { type: 'string', format: 'uuid' },
+                        matrixRowId: {
+                            type: 'string',
+                            format: 'uuid',
+                            description:
+                                'Optional v1 compatibility identity for the Matrix row; the server always resolves and returns the canonical row ID.'
+                        },
                         cellId: { type: 'string', minLength: 1, maxLength: 255 },
                         data: { type: 'object', additionalProperties: true },
-                        expectedVersion: { $ref: '#/components/schemas/InterpretationNetworkExpectedVersion' }
+                        expectedVersion: { $ref: '#/components/schemas/InterpretationNetworkExpectedVersion' },
+                        expectedCellVersion: { $ref: '#/components/schemas/InterpretationNetworkExpectedVersion' }
                     },
-                    required: ['interpretationId', 'matrixRowId', 'cellId', 'data']
+                    required: ['interpretationId', 'cellId', 'data']
                 },
                 InterpretationNetworkMaterialCreateResponse: {
                     type: 'object',
                     additionalProperties: false,
                     properties: {
-                        id: { type: 'string', minLength: 1 },
-                        matrixRowId: { type: 'string', minLength: 1 }
+                        id: { type: 'string', format: 'uuid' },
+                        matrixRowId: { type: 'string', format: 'uuid' }
                     },
                     required: ['id', 'matrixRowId']
                 },
@@ -1778,7 +1784,7 @@ const buildSpec = () => {
                     type: 'object',
                     additionalProperties: false,
                     properties: {
-                        matrixRowId: { type: 'string', format: 'uuid' },
+                        cellId: { type: 'string', format: 'uuid' },
                         expectedVersion: { $ref: '#/components/schemas/InterpretationNetworkExpectedVersion' },
                         placement: { $ref: '#/components/schemas/InterpretationNetworkMatrixCellPlacement' },
                         data: {
@@ -1787,7 +1793,7 @@ const buildSpec = () => {
                             description: 'Optional user-authored field updates; server-owned placement fields are rejected here.'
                         }
                     },
-                    required: ['matrixRowId', 'placement']
+                    required: ['cellId', 'expectedVersion', 'placement']
                 },
                 InterpretationNetworkMatrixCellMoveRequest: {
                     type: 'object',
@@ -3036,7 +3042,7 @@ const writeSpec = () => {
     const spec = buildSpec()
     fs.mkdirSync(path.dirname(outputPath), { recursive: true })
     fs.writeFileSync(outputPath, YAML.stringify(spec), 'utf8')
-    console.log(`[generate-openapi-source] Generated ${outputPath}`)
+    process.stdout.write(`[generate-openapi-source] Generated ${outputPath}\n`)
 }
 
 module.exports = {

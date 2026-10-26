@@ -30,6 +30,10 @@ describe('applicationWorkspaces seed reference remapping', () => {
                 return id ? [{ id }] : []
             }
 
+            if (sql.includes(`INSERT INTO "${schemaName}"."_app_workspaces"`)) {
+                return [{ id: params?.[0] }]
+            }
+
             if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
                 return []
             }
@@ -231,6 +235,10 @@ describe('applicationWorkspaces seed reference remapping', () => {
                 return id ? [{ id }] : []
             }
 
+            if (sql.includes(`INSERT INTO "${schemaName}"."_app_workspaces"`)) {
+                return [{ id: params?.[0] }]
+            }
+
             if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
                 return []
             }
@@ -410,6 +418,10 @@ describe('applicationWorkspaces seed reference remapping', () => {
             if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
                 const id = generatedIds.shift()
                 return id ? [{ id }] : []
+            }
+
+            if (sql.includes(`INSERT INTO "${schemaName}"."_app_workspaces"`)) {
+                return [{ id: params?.[0] }]
             }
 
             if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {

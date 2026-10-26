@@ -70,10 +70,10 @@ const createSnapshotModule = (overrides: Partial<SnapshotModuleDefinition> = {})
     attachedToId: overrides.attachedToId ?? 'object-1',
     moduleRole: overrides.moduleRole ?? 'widget',
     sourceKind: overrides.sourceKind ?? 'embedded',
-    sdkApiVersion: overrides.sdkApiVersion ?? '1.0.0',
+    sdkApiVersion: overrides.sdkApiVersion ?? '0.1.0',
     manifest: overrides.manifest ?? {
         className: 'QuizWidgetModule',
-        sdkApiVersion: '1.0.0',
+        sdkApiVersion: '0.1.0',
         moduleRole: 'widget',
         sourceKind: 'embedded',
         capabilities: ['rpc.client'],
@@ -95,10 +95,10 @@ const createStoredModuleRow = (overrides: Partial<StoredModuleRow> = {}): Stored
     attached_to_id: overrides.attached_to_id ?? 'object-1',
     module_role: overrides.module_role ?? 'widget',
     source_kind: overrides.source_kind ?? 'embedded',
-    sdk_api_version: overrides.sdk_api_version ?? '1.0.0',
+    sdk_api_version: overrides.sdk_api_version ?? '0.1.0',
     manifest: overrides.manifest ?? {
         className: 'QuizWidgetModule',
-        sdkApiVersion: '1.0.0',
+        sdkApiVersion: '0.1.0',
         moduleRole: 'widget',
         sourceKind: 'embedded',
         capabilities: ['rpc.client'],
@@ -364,7 +364,7 @@ describe('syncModulePersistence', () => {
                     moduleRole: 'library',
                     manifest: {
                         className: 'SharedLibrary',
-                        sdkApiVersion: '1.0.0',
+                        sdkApiVersion: '0.1.0',
                         moduleRole: 'library',
                         sourceKind: 'embedded',
                         capabilities: ['metadata.read'],
@@ -455,7 +455,7 @@ describe('syncModulePersistence', () => {
                     })
                 ])
             })
-        ).rejects.toThrow('Unsupported module sdkApiVersion "2.0.0". Supported versions: 1.0.0')
+        ).rejects.toThrow('Unsupported module sdkApiVersion "2.0.0". Supported versions: 0.1.0')
     })
 
     it('treats logically equivalent persisted and published module sets as unchanged after normalization', async () => {

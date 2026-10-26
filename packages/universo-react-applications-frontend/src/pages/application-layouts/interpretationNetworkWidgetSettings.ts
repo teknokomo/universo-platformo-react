@@ -3,6 +3,7 @@ import {
     normalizeInterpretationNetworkSplitPaneSettings,
     normalizeInterpretationNetworkTableSettings,
     normalizeInterpretationNetworkTemplatePanelSettings,
+    normalizeInterpretationNetworkCellStylePolicy,
     parseInterpretationNetworkStructureMode,
     type InterpretationNetworkWorkspaceWidgetConfig
 } from '@universo-react/types'
@@ -64,6 +65,7 @@ export const parseInterpretationNetworkMatrixSettings = (
         hierarchyRowMode: parseHierarchyRowMode(config?.hierarchyRowMode),
         positionNumbering: parsePositionNumbering(config?.positionNumbering),
         allowNewAxesInCellDialog: config?.allowNewAxesInCellDialog === true,
+        cellStylePolicy: normalizeInterpretationNetworkCellStylePolicy(config?.cellStylePolicy),
         splitPane: normalizeInterpretationNetworkSplitPaneSettings(config?.splitPane),
         templatePanel: normalizeInterpretationNetworkTemplatePanelSettings(config?.templatePanel)
     }
@@ -92,6 +94,7 @@ export const normalizeInterpretationNetworkMatrixSettingsForSave = (
         ...settings,
         ...viewSettings,
         ...tableSettings,
+        cellStylePolicy: normalizeInterpretationNetworkCellStylePolicy(settings.cellStylePolicy),
         splitPane: normalizeInterpretationNetworkSplitPaneSettings(settings.splitPane),
         templatePanel: normalizeInterpretationNetworkTemplatePanelSettings(settings.templatePanel)
     }
@@ -115,6 +118,14 @@ export const areInterpretationNetworkMatrixSettingsEqual = (
     left.showHierarchicalTableHeaderCard === right.showHierarchicalTableHeaderCard &&
     left.showMatrixTreeTotalCells === right.showMatrixTreeTotalCells &&
     left.colorBreadcrumbsByCell === right.colorBreadcrumbsByCell &&
+    left.cellStylePolicy.allowedColors.length === right.cellStylePolicy.allowedColors.length &&
+    left.cellStylePolicy.allowedColors.every((color, index) => color === right.cellStylePolicy.allowedColors[index]) &&
+    left.cellStylePolicy.allowCustomColors === right.cellStylePolicy.allowCustomColors &&
+    left.cellStylePolicy.editable.fillColor === right.cellStylePolicy.editable.fillColor &&
+    left.cellStylePolicy.editable.textColor === right.cellStylePolicy.editable.textColor &&
+    left.cellStylePolicy.editable.borderColor === right.cellStylePolicy.editable.borderColor &&
+    left.cellStylePolicy.editable.borderWidth === right.cellStylePolicy.editable.borderWidth &&
+    left.cellStylePolicy.editable.borderStyle === right.cellStylePolicy.editable.borderStyle &&
     left.hierarchyRowMode === right.hierarchyRowMode &&
     left.allowNewAxesInCellDialog === right.allowNewAxesInCellDialog &&
     left.splitPane.enabled === right.splitPane.enabled &&
@@ -146,6 +157,7 @@ export const mergeInterpretationNetworkMatrixSettings = (
         hierarchyRowMode: normalized.hierarchyRowMode,
         positionNumbering: normalized.positionNumbering,
         allowNewAxesInCellDialog: normalized.allowNewAxesInCellDialog,
+        cellStylePolicy: normalized.cellStylePolicy,
         splitPane: normalized.splitPane,
         templatePanel: normalized.templatePanel
     }

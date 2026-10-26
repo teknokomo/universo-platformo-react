@@ -408,10 +408,7 @@ async function captureDocsStepScreenshot(
 }
 
 async function clickNavigation(page: Page, label: string) {
-    const navigationItem = page
-        .getByRole('link', { name: label })
-        .or(page.getByRole('button', { name: label }))
-        .first()
+    const navigationItem = page.getByRole('navigation').getByRole('link', { name: label, exact: true }).first()
     await expect(navigationItem, `Navigation item ${label}`).toBeVisible({ timeout: 30_000 })
     const href = await navigationItem.getAttribute('href')
     if (!href) {
@@ -431,6 +428,36 @@ async function clickNavigation(page: Page, label: string) {
             Array.from(targetUrl.searchParams.entries()).every(([key, value]) => currentUrl.searchParams.get(key) === value),
         { timeout: 30_000 }
     )
+}
+
+async function openWorkspaceSwitcher(page: Page, locale: Locale) {
+    const switcher = page.getByRole('combobox', {
+        name: localized(locale, 'Switch workspace', 'Переключить пространство'),
+        exact: true
+    })
+    await expect(switcher, `${locale} workspace switcher`).toBeVisible({ timeout: 30_000 })
+    await switcher.click()
+    const workspaceOptions = page.getByRole('listbox')
+    await expect(workspaceOptions, `${locale} workspace switcher options`).toBeVisible({ timeout: 30_000 })
+    return workspaceOptions
+}
+
+async function selectWorkspaceOption(page: Page, locale: Locale, workspaceName: string) {
+    const workspaceOptions = page.getByRole('listbox')
+    const option = workspaceOptions.getByRole('option').filter({ hasText: workspaceName }).first()
+    await expect(option, `${locale} workspace ${workspaceName}`).toBeVisible({ timeout: 30_000 })
+    await option.click()
+    await expect(workspaceOptions, `${locale} workspace switcher closed`).toHaveCount(0, { timeout: 30_000 })
+}
+
+async function openWorkspaceManagement(page: Page, locale: Locale) {
+    const workspaceOptions = await openWorkspaceSwitcher(page, locale)
+    const manageOption = workspaceOptions
+        .getByRole('option')
+        .filter({ hasText: localized(locale, 'Manage workspaces', 'Управление пространствами') })
+    await expect(manageOption, `${locale} workspace management option`).toBeVisible({ timeout: 30_000 })
+    await manageOption.click()
+    await expect(page.getByTestId('runtime-workspaces-page'), `${locale} workspace management page`).toBeVisible({ timeout: 30_000 })
 }
 
 async function clickNavigationAndExpectText(page: Page, label: string, expectedText: string) {
@@ -567,12 +594,9 @@ async function captureDashboardGuide(page: Page, locale: Locale, applicationId: 
     await page.goto(`/a/${applicationId}`)
     await expect(page.getByTestId('runtime-page-blocks')).toBeVisible({ timeout: 30_000 })
     await captureDocsScreenshot(page, locale, 'dashboard-overview', page.locator('main').first())
-    await clickNavigation(page, labels.workspaces)
+    await openWorkspaceSwitcher(page, locale)
     await captureDocsStepScreenshot(page, locale, 'dashboard-overview', 1, page.locator('body'))
-    await page
-        .getByText(locale === 'en' ? 'Main' : 'Основное')
-        .first()
-        .click()
+    await selectWorkspaceOption(page, locale, locale === 'en' ? 'Main' : 'Основное')
     await captureDocsStepScreenshot(page, locale, 'dashboard-overview', 2, page.locator('body'))
     await page.keyboard.press('Escape')
     await clickNavigation(page, labels.learningContent)
@@ -593,7 +617,7 @@ async function captureDashboardGuide(page: Page, locale: Locale, applicationId: 
 
 async function captureGettingAroundGuide(page: Page, locale: Locale, applicationId: string, labels: Record<string, string>) {
     await page.goto(`/a/${applicationId}`)
-    await clickNavigation(page, labels.workspaces)
+    await openWorkspaceManagement(page, locale)
     await expectElementFitsViewport(page, 'runtime-workspaces-page', `${locale} workspaces page`)
     const createWorkspaceButton = page
         .getByTestId(applicationSelectors.runtimeCreateButton)

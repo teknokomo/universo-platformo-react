@@ -23,7 +23,7 @@ describe('sync persistence helpers', () => {
             schemaSyncedAt: new Date('2026-03-12T12:00:00.000Z'),
             schemaSnapshot: { entities: [] },
             lastSyncedPublicationVersionId: 'publication-version-1',
-            appStructureVersion: 53,
+            appStructureVersion: 1,
             userId: 'user-1'
         })
 
@@ -39,7 +39,7 @@ describe('sync persistence helpers', () => {
             new Date('2026-03-12T12:00:00.000Z'),
             JSON.stringify({ entities: [] }),
             'publication-version-1',
-            53,
+            1,
             null,
             undefined,
             'user-1',

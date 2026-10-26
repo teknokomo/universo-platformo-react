@@ -1,3 +1,4 @@
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import {
     DataGrid,
     type GridColumnVisibilityModel,
@@ -5,7 +6,8 @@ import {
     type GridFilterModel,
     type GridLocaleText,
     type GridPaginationModel,
-    type GridSortModel
+    type GridSortModel,
+    useGridApiRef
 } from '@mui/x-data-grid'
 import Box from '@mui/material/Box'
 import { getPendingAction, shouldShowPendingFeedback } from '@universo-react/utils'
@@ -34,6 +36,8 @@ export interface CustomizedDataGridProps {
     localeText?: Partial<GridLocaleText>
     /** Custom row height: number for fixed px, 'auto' for multi-line content */
     rowHeight?: number | 'auto'
+    /** Fill a parent with an explicit height so the grid keeps scrolling inside that boundary. */
+    fillHeight?: boolean
     hideFooter?: boolean
 }
 
@@ -69,146 +73,202 @@ export default function CustomizedDataGrid({
     pageSizeOptions = [10, 20, 50],
     localeText,
     rowHeight,
+    fillHeight = false,
     hideFooter = false
 }: CustomizedDataGridProps) {
     const firstDataField = columns.find((column) => typeof column.field === 'string' && !String(column.field).startsWith('__'))?.field
     const resolvedRowHeight = rowHeight ?? 'auto'
+    const getRowHeight = useCallback(() => resolvedRowHeight, [resolvedRowHeight])
+    const apiRef = useGridApiRef()
+    const gridContainerRef = useRef<HTMLDivElement>(null)
+    const [hasIntrinsicWidth, setHasIntrinsicWidth] = useState(() => typeof ResizeObserver === 'undefined')
+
+    useLayoutEffect(() => {
+        const gridContainer = gridContainerRef.current
+        if (!gridContainer || typeof ResizeObserver === 'undefined') return
+
+        const initialWidth = gridContainer.getBoundingClientRect().width
+        let previousWidth = initialWidth > 0 ? initialWidth : null
+        setHasIntrinsicWidth(initialWidth > 0)
+        let resizeFrame: number | null = null
+        const resizeObserver = new ResizeObserver((entries) => {
+            const width = entries[0]?.contentRect.width
+            if (width === undefined) return
+            const previousMeasuredWidth = previousWidth
+
+            setHasIntrinsicWidth((wasMeasurable) => wasMeasurable || width > 0)
+
+            if (
+                resolvedRowHeight === 'auto' &&
+                previousMeasuredWidth !== null &&
+                width > 0 &&
+                Math.abs(width - previousMeasuredWidth) >= 1
+            ) {
+                if (resizeFrame !== null) cancelAnimationFrame(resizeFrame)
+                resizeFrame = requestAnimationFrame(() => {
+                    resizeFrame = null
+                    apiRef.current?.resetRowHeights()
+                })
+            }
+
+            if (width > 0) previousWidth = width
+        })
+
+        resizeObserver.observe(gridContainer)
+        return () => {
+            resizeObserver.disconnect()
+            if (resizeFrame !== null) cancelAnimationFrame(resizeFrame)
+        }
+    }, [apiRef, resolvedRowHeight])
 
     return (
-        <Box sx={{ minWidth: 0, maxWidth: '100%', overflow: 'hidden', width: '100%' }}>
-            <DataGrid
-                checkboxSelection={checkboxSelection}
-                disableRowSelectionOnClick
-                rows={rows}
-                columns={columns}
-                loading={loading}
-                paginationMode={rowCount === undefined ? 'client' : 'server'}
-                sortingMode={onSortModelChange ? 'server' : 'client'}
-                filterMode={onFilterModelChange ? 'server' : 'client'}
-                rowCount={rowCount}
-                paginationModel={paginationModel}
-                onPaginationModelChange={onPaginationModelChange}
-                sortModel={sortModel}
-                onSortModelChange={onSortModelChange}
-                filterModel={filterModel}
-                onFilterModelChange={onFilterModelChange}
-                columnVisibilityModel={columnVisibilityModel}
-                onColumnVisibilityModelChange={onColumnVisibilityModelChange}
-                getRowClassName={(params) => getCustomizedDataGridRowClassName(params.row, params.indexRelativeToCurrentPage)}
-                initialState={
-                    paginationModel
-                        ? undefined
-                        : {
-                              pagination: { paginationModel: { pageSize: 20, page: 0 } }
-                          }
-                }
-                pageSizeOptions={pageSizeOptions}
-                hideFooter={hideFooter}
-                disableColumnResize
-                density={rowHeight ? undefined : 'compact'}
-                getRowHeight={resolvedRowHeight === 'auto' ? () => 'auto' : () => resolvedRowHeight}
-                localeText={localeText}
-                sx={{
-                    maxWidth: '100%',
-                    minWidth: 0,
-                    width: '100%',
-                    [`& .MuiDataGrid-columnHeader`]: {
-                        position: 'relative'
-                    },
-                    '& .MuiDataGrid-main, & .MuiDataGrid-virtualScroller': {
-                        minWidth: 0
-                    },
-                    '& .MuiDataGrid-cell': {
-                        position: 'relative'
-                    },
-                    ...(resolvedRowHeight === 'auto'
-                        ? {
-                              '& .MuiDataGrid-cell': {
-                                  position: 'relative',
-                                  whiteSpace: 'normal',
-                                  wordWrap: 'break-word',
-                                  lineHeight: 1.5,
-                                  py: 1
+        <Box
+            ref={gridContainerRef}
+            sx={{
+                minWidth: 0,
+                maxWidth: '100%',
+                overflow: 'hidden',
+                width: '100%',
+                ...(fillHeight ? { height: '100%', minHeight: 0 } : {})
+            }}
+        >
+            {hasIntrinsicWidth ? (
+                <DataGrid
+                    apiRef={apiRef}
+                    checkboxSelection={checkboxSelection}
+                    disableRowSelectionOnClick
+                    rows={rows}
+                    columns={columns}
+                    loading={loading}
+                    paginationMode={rowCount === undefined ? 'client' : 'server'}
+                    sortingMode={onSortModelChange ? 'server' : 'client'}
+                    filterMode={onFilterModelChange ? 'server' : 'client'}
+                    rowCount={rowCount}
+                    paginationModel={paginationModel}
+                    onPaginationModelChange={onPaginationModelChange}
+                    sortModel={sortModel}
+                    onSortModelChange={onSortModelChange}
+                    filterModel={filterModel}
+                    onFilterModelChange={onFilterModelChange}
+                    columnVisibilityModel={columnVisibilityModel}
+                    onColumnVisibilityModelChange={onColumnVisibilityModelChange}
+                    getRowClassName={(params) => getCustomizedDataGridRowClassName(params.row, params.indexRelativeToCurrentPage)}
+                    initialState={
+                        paginationModel
+                            ? undefined
+                            : {
+                                  pagination: { paginationModel: { pageSize: 20, page: 0 } }
                               }
-                          }
-                        : {}),
-                    ...(firstDataField
-                        ? {
-                              // Internal header separators only (exclude first real column)
-                              [`& .MuiDataGrid-columnHeader[data-field]:not([data-field="${firstDataField}"])::before`]: {
-                                  content: '""',
-                                  position: 'absolute',
-                                  left: 0,
-                                  top: 6,
-                                  bottom: 6,
-                                  width: '1px',
-                                  backgroundColor: 'common.white'
-                              },
-                              // Internal body separators only (exclude first real column)
-                              [`& .MuiDataGrid-cell[data-field]:not([data-field="${firstDataField}"])::before`]: {
-                                  content: '""',
-                                  position: 'absolute',
-                                  left: 0,
-                                  top: 6,
-                                  bottom: 6,
-                                  width: '1px',
-                                  backgroundColor: 'grey.100'
-                              }
-                          }
-                        : {}),
-                    // Pending row styles for optimistic delete
-                    '& .pending-delete': {
-                        textDecoration: 'line-through',
-                        opacity: 0.4,
-                        pointerEvents: 'none'
-                    },
-                    '& .pending-create': {
-                        opacity: 0.7,
-                        pointerEvents: 'none',
-                        backgroundImage: 'linear-gradient(90deg, transparent, #1976d2, transparent)',
-                        backgroundRepeat: 'no-repeat',
-                        backgroundSize: '200% 2px',
-                        backgroundPosition: '0 100%',
-                        animation: 'pending-row-shimmer 1.5s infinite'
-                    },
-                    '& .pending-create:hover': {
-                        backgroundImage: 'linear-gradient(90deg, transparent, #1976d2, transparent)',
-                        backgroundRepeat: 'no-repeat',
-                        backgroundSize: '200% 2px',
-                        backgroundPosition: '0 100%'
-                    },
-                    '@keyframes pending-row-shimmer': {
-                        '0%': { backgroundPosition: '200% 100%' },
-                        '100%': { backgroundPosition: '-200% 100%' }
                     }
-                }}
-                slotProps={{
-                    filterPanel: {
-                        filterFormProps: {
-                            logicOperatorInputProps: {
-                                variant: 'outlined',
-                                size: 'small'
-                            },
-                            columnInputProps: {
-                                variant: 'outlined',
-                                size: 'small',
-                                sx: { mt: 'auto' }
-                            },
-                            operatorInputProps: {
-                                variant: 'outlined',
-                                size: 'small',
-                                sx: { mt: 'auto' }
-                            },
-                            valueInputProps: {
-                                InputComponentProps: {
+                    pageSizeOptions={pageSizeOptions}
+                    hideFooter={hideFooter}
+                    disableColumnResize
+                    density={rowHeight ? undefined : 'compact'}
+                    getRowHeight={getRowHeight}
+                    localeText={localeText}
+                    sx={{
+                        maxWidth: '100%',
+                        minWidth: 0,
+                        width: '100%',
+                        ...(fillHeight ? { height: '100%', minHeight: 0 } : {}),
+                        [`& .MuiDataGrid-columnHeader`]: {
+                            position: 'relative'
+                        },
+                        '& .MuiDataGrid-main, & .MuiDataGrid-virtualScroller': {
+                            minWidth: 0
+                        },
+                        '& .MuiDataGrid-cell': {
+                            position: 'relative'
+                        },
+                        ...(resolvedRowHeight === 'auto'
+                            ? {
+                                  '& .MuiDataGrid-cell': {
+                                      position: 'relative',
+                                      whiteSpace: 'normal',
+                                      wordWrap: 'break-word',
+                                      lineHeight: 1.5,
+                                      py: 1
+                                  }
+                              }
+                            : {}),
+                        ...(firstDataField
+                            ? {
+                                  // Internal header separators only (exclude first real column)
+                                  [`& .MuiDataGrid-columnHeader[data-field]:not([data-field="${firstDataField}"])::before`]: {
+                                      content: '""',
+                                      position: 'absolute',
+                                      left: 0,
+                                      top: 6,
+                                      bottom: 6,
+                                      width: '1px',
+                                      backgroundColor: 'common.white'
+                                  },
+                                  // Internal body separators only (exclude first real column)
+                                  [`& .MuiDataGrid-cell[data-field]:not([data-field="${firstDataField}"])::before`]: {
+                                      content: '""',
+                                      position: 'absolute',
+                                      left: 0,
+                                      top: 6,
+                                      bottom: 6,
+                                      width: '1px',
+                                      backgroundColor: 'grey.100'
+                                  }
+                              }
+                            : {}),
+                        // Pending row styles for optimistic delete
+                        '& .pending-delete': {
+                            textDecoration: 'line-through',
+                            opacity: 0.4,
+                            pointerEvents: 'none'
+                        },
+                        '& .pending-create': {
+                            opacity: 0.7,
+                            pointerEvents: 'none',
+                            backgroundImage: 'linear-gradient(90deg, transparent, #1976d2, transparent)',
+                            backgroundRepeat: 'no-repeat',
+                            backgroundSize: '200% 2px',
+                            backgroundPosition: '0 100%',
+                            animation: 'pending-row-shimmer 1.5s infinite'
+                        },
+                        '& .pending-create:hover': {
+                            backgroundImage: 'linear-gradient(90deg, transparent, #1976d2, transparent)',
+                            backgroundRepeat: 'no-repeat',
+                            backgroundSize: '200% 2px',
+                            backgroundPosition: '0 100%'
+                        },
+                        '@keyframes pending-row-shimmer': {
+                            '0%': { backgroundPosition: '200% 100%' },
+                            '100%': { backgroundPosition: '-200% 100%' }
+                        }
+                    }}
+                    slotProps={{
+                        filterPanel: {
+                            filterFormProps: {
+                                logicOperatorInputProps: {
                                     variant: 'outlined',
                                     size: 'small'
+                                },
+                                columnInputProps: {
+                                    variant: 'outlined',
+                                    size: 'small',
+                                    sx: { mt: 'auto' }
+                                },
+                                operatorInputProps: {
+                                    variant: 'outlined',
+                                    size: 'small',
+                                    sx: { mt: 'auto' }
+                                },
+                                valueInputProps: {
+                                    InputComponentProps: {
+                                        variant: 'outlined',
+                                        size: 'small'
+                                    }
                                 }
                             }
                         }
-                    }
-                }}
-            />
+                    }}
+                />
+            ) : null}
         </Box>
     )
 }

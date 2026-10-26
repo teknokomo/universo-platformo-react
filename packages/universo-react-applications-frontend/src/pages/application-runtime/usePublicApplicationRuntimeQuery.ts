@@ -46,7 +46,7 @@ export const usePublicApplicationRuntimeQuery = (applicationRef: string, options
     const requestedTarget = readPublicRuntimeTarget(runtimeSearchParams)
     const publicRuntimeQuery = useQuery({
         queryKey: publicApplicationRuntimeQueryKeys.runtime(applicationRef, requestedLocale, requestedTarget),
-        queryFn: () => getPublicApplicationRuntime(applicationRef, requestedLocale, requestedTarget),
+        queryFn: ({ signal }) => getPublicApplicationRuntime(applicationRef, requestedLocale, requestedTarget, signal),
         enabled: Boolean(applicationRef),
         staleTime: 0,
         refetchOnMount: options.refetchOnMount ?? true,
@@ -60,5 +60,5 @@ export const usePublicApplicationRuntimeQuery = (applicationRef: string, options
         }
     }, [i18n, requestedLocale])
 
-    return { requestedLocale, publicRuntimeQuery }
+    return { requestedLocale, requestedTarget, publicRuntimeQuery }
 }

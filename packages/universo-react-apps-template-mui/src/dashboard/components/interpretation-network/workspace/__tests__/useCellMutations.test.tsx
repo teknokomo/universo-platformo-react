@@ -4,16 +4,18 @@ import type { TFunction } from 'i18next'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MatrixCell, RuntimeColumnLike, RuntimeRow } from '../../model'
-import { createInterpretationNetworkMatrixCell } from '../../../../../api/interpretationNetwork'
+import {
+    createInterpretationNetworkMatrixCell,
+    deleteInterpretationNetworkMatrixCell,
+    updateInterpretationNetworkMatrixCell
+} from '../../../../../api/interpretationNetwork'
+import { interpretationNetworkFavoritesQueryKeys } from '../useInterpretationNetworkFavorites'
 import { useCellMutations } from '../useCellMutations'
 
 vi.mock('../../../../../api/interpretationNetwork', () => ({
-    createInterpretationNetworkMatrixCell: vi.fn()
-}))
-
-vi.mock('../../../../../api/api', () => ({
-    batchUpdateTabularRows: vi.fn(),
-    deleteTabularRow: vi.fn()
+    createInterpretationNetworkMatrixCell: vi.fn(),
+    deleteInterpretationNetworkMatrixCell: vi.fn(),
+    updateInterpretationNetworkMatrixCell: vi.fn()
 }))
 
 const t = ((key: string, fallback?: string) => fallback ?? key) as unknown as TFunction<'interpretationNetwork'>
@@ -66,10 +68,20 @@ const rootRow: RuntimeRow = {
     CellValue: 'Universe'
 }
 
-const renderUseCellMutations = (canCreateContent: boolean, setCellDialogError = vi.fn()) => {
+const renderUseCellMutations = (
+    canCreateContent: boolean,
+    setCellDialogError = vi.fn(),
+    overrides: {
+        cells?: MatrixCell[]
+        rawRowsByCellId?: Map<string, RuntimeRow>
+        deleteCell?: MatrixCell
+        deleteRawCell?: RuntimeRow
+        cellDeleteId?: string | null
+    } = {}
+) => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
     const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    return renderHook(
+    const hook = renderHook(
         () =>
             useCellMutations({
                 t,
@@ -87,8 +99,8 @@ const renderUseCellMutations = (canCreateContent: boolean, setCellDialogError = 
                 selectedInterpretationId: 'interpretation-1',
                 matrixColumn,
                 selectedCellId: rootCell.id,
-                deleteCell: undefined,
-                deleteRawCell: undefined,
+                deleteCell: overrides.deleteCell,
+                deleteRawCell: overrides.deleteRawCell,
                 cellDialogSourceCellId: rootCell.id,
                 activeCellDialogPlacement: {
                     row: { kind: 'new' },
@@ -99,8 +111,8 @@ const renderUseCellMutations = (canCreateContent: boolean, setCellDialogError = 
                 rootCellId: rootCell.id,
                 matrixRowsSnapshotRef: {
                     current: {
-                        cells: [rootCell],
-                        rawRowsByCellId: new Map([[rootCell.id, rootRow]])
+                        cells: overrides.cells ?? [rootCell],
+                        rawRowsByCellId: overrides.rawRowsByCellId ?? new Map([[rootCell.id, rootRow]])
                     }
                 },
                 readRuntimeRowVersion: () => 1,
@@ -112,17 +124,20 @@ const renderUseCellMutations = (canCreateContent: boolean, setCellDialogError = 
                 setCellDialogSourceCellId: vi.fn(),
                 setCellDialogPlacement: vi.fn(),
                 setCellDialogError,
-                cellDeleteId: null,
+                cellDeleteId: overrides.cellDeleteId ?? null,
                 setCellDeleteId: vi.fn(),
                 setCellDeleteError: vi.fn()
             }),
         { wrapper }
     )
+    return { ...hook, queryClient }
 }
 
 describe('useCellMutations', () => {
     beforeEach(() => {
         vi.mocked(createInterpretationNetworkMatrixCell).mockReset()
+        vi.mocked(updateInterpretationNetworkMatrixCell).mockReset()
+        vi.mocked(deleteInterpretationNetworkMatrixCell).mockReset()
     })
 
     it('fails stale child creation before calling the backend when create permission is absent', async () => {
@@ -152,5 +167,95 @@ describe('useCellMutations', () => {
         ).resolves.toBeTruthy()
 
         expect(createInterpretationNetworkMatrixCell).not.toHaveBeenCalled()
+        expect(updateInterpretationNetworkMatrixCell).toHaveBeenCalledWith(
+            expect.objectContaining({
+                interpretationId: 'interpretation-1',
+                cellId: rootCell.id,
+                expectedCellVersion: 1,
+                widgetId: 'widget-1',
+                layoutId: 'layout-1',
+                data: expect.objectContaining({ CellValue: 'Renamed root' })
+            })
+        )
+        expect(JSON.stringify(vi.mocked(updateInterpretationNetworkMatrixCell).mock.calls[0]?.[0])).not.toContain('row-root')
+    })
+
+    it('deletes a cell through its semantic CellId and expected cell version', async () => {
+        const childCell: MatrixCell = {
+            ...rootCell,
+            id: '019f2000-0000-7000-8000-000000000002',
+            rawRowId: 'row-child',
+            parentCellId: rootCell.id,
+            depth: 1
+        }
+        const childRow: RuntimeRow = { ...rootRow, id: 'row-child', CellId: childCell.id, ParentCellId: rootCell.id }
+        const { result } = renderUseCellMutations(true, vi.fn(), {
+            cells: [rootCell, childCell],
+            rawRowsByCellId: new Map([
+                [rootCell.id, rootRow],
+                [childCell.id, childRow]
+            ]),
+            deleteCell: childCell,
+            deleteRawCell: childRow,
+            cellDeleteId: childCell.id
+        })
+
+        await expect(result.current.deleteCellMutation.mutateAsync()).resolves.toBeUndefined()
+
+        expect(deleteInterpretationNetworkMatrixCell).toHaveBeenCalledWith(
+            expect.objectContaining({
+                apiBaseUrl: '/api/v1',
+                applicationId: 'app-1',
+                workspaceId: 'workspace-1',
+                interpretationId: 'interpretation-1',
+                cellId: childCell.id,
+                expectedCellVersion: 1,
+                widgetId: 'widget-1',
+                layoutId: 'layout-1'
+            })
+        )
+        expect(JSON.stringify(vi.mocked(deleteInterpretationNetworkMatrixCell).mock.calls[0]?.[0])).not.toContain('row-child')
+    })
+
+    it('invalidates only the matching workspace favorites list after deleting a cell', async () => {
+        const childCell: MatrixCell = {
+            ...rootCell,
+            id: '019f2000-0000-7000-8000-000000000002',
+            rawRowId: 'row-child',
+            parentCellId: rootCell.id,
+            depth: 1
+        }
+        const childRow: RuntimeRow = { ...rootRow, id: 'row-child', CellId: childCell.id, ParentCellId: rootCell.id }
+        const { result, queryClient } = renderUseCellMutations(true, vi.fn(), {
+            cells: [rootCell, childCell],
+            rawRowsByCellId: new Map([
+                [rootCell.id, rootRow],
+                [childCell.id, childRow]
+            ]),
+            deleteCell: childCell,
+            deleteRawCell: childRow,
+            cellDeleteId: childCell.id
+        })
+        const currentFavoritesKey = interpretationNetworkFavoritesQueryKeys.list({
+            apiBaseUrl: '/api/v1/',
+            applicationId: 'app-1',
+            workspaceId: 'workspace-1',
+            locale: 'en',
+            enabled: true
+        })
+        const otherWorkspaceFavoritesKey = interpretationNetworkFavoritesQueryKeys.list({
+            apiBaseUrl: '/api/v1',
+            applicationId: 'app-1',
+            workspaceId: 'workspace-2',
+            locale: 'en',
+            enabled: true
+        })
+        queryClient.setQueryData(currentFavoritesKey, { pages: [], pageParams: [] })
+        queryClient.setQueryData(otherWorkspaceFavoritesKey, { pages: [], pageParams: [] })
+
+        await result.current.deleteCellMutation.mutateAsync()
+
+        expect(queryClient.getQueryState(currentFavoritesKey)?.isInvalidated).toBe(true)
+        expect(queryClient.getQueryState(otherWorkspaceFavoritesKey)?.isInvalidated).toBe(false)
     })
 })

@@ -26,8 +26,14 @@ import {
 
 const APPLICATION_SCHEMA_TIMEOUT = 180_000
 
-const expectMmoommOverviewHeaderLayout = async (page: import('@playwright/test').Page, locale: 'en' | 'ru', label: string) => {
+const expectMmoommOverviewHeaderLayout = async (
+    page: import('@playwright/test').Page,
+    locale: 'en' | 'ru',
+    label: string,
+    appToolbarVisibility: 'visible' | 'hidden'
+) => {
     const appToolbar = page.getByTestId('runtime-app-toolbar')
+    const header = page.getByTestId('runtime-header')
     const headerActions = page.getByTestId('runtime-header-actions')
     const languageSwitcher = page.getByTestId('runtime-language-switcher')
     const themeSwitcher = page.getByRole('button', {
@@ -40,29 +46,38 @@ const expectMmoommOverviewHeaderLayout = async (page: import('@playwright/test')
     })
 
     await expect(appToolbar, `${label}: application toolbar`).toHaveCount(1)
+    await expect(header, `${label}: runtime header`).toHaveCount(1)
     await expect(headerActions, `${label}: header actions`).toHaveCount(1)
     await expect(languageSwitcher, `${label}: one language switcher`).toHaveCount(1)
     await expect(themeSwitcher, `${label}: one theme switcher`).toHaveCount(1)
-    await expect(appToolbar).toBeVisible()
+    if (appToolbarVisibility === 'visible') {
+        await expect(appToolbar).toBeVisible()
+    } else {
+        await expect(appToolbar).toBeHidden()
+    }
+    await expect(header).toBeVisible()
     await expect(headerActions).toBeVisible()
     await expect(languageSwitcher).toBeVisible()
     await expect(themeSwitcher).toBeVisible()
     await expect(overviewTitle).toBeVisible()
 
     const [toolbarBounds, actionsBounds, titleBounds] = await Promise.all([
-        appToolbar.boundingBox(),
+        appToolbarVisibility === 'visible' ? appToolbar.boundingBox() : Promise.resolve(null),
         headerActions.boundingBox(),
         overviewTitle.boundingBox()
     ])
-    expect(toolbarBounds, `${label}: toolbar bounds`).not.toBeNull()
     expect(actionsBounds, `${label}: header action bounds`).not.toBeNull()
     expect(titleBounds, `${label}: overview title bounds`).not.toBeNull()
-    if (!toolbarBounds || !actionsBounds || !titleBounds) return
+    if (!actionsBounds || !titleBounds) return
 
-    const gapAfterToolbar = actionsBounds.y - (toolbarBounds.y + toolbarBounds.height)
+    if (appToolbarVisibility === 'visible') {
+        expect(toolbarBounds, `${label}: toolbar bounds`).not.toBeNull()
+        if (!toolbarBounds) return
+        const gapAfterToolbar = actionsBounds.y - (toolbarBounds.y + toolbarBounds.height)
+        expect(gapAfterToolbar, `${label}: header should remain within the toolbar's vertical footprint`).toBeGreaterThanOrEqual(-8)
+        expect(gapAfterToolbar, `${label}: header should sit close below the fixed application toolbar`).toBeLessThanOrEqual(16)
+    }
     const gapBeforeOverview = titleBounds.y - (actionsBounds.y + actionsBounds.height)
-    expect(gapAfterToolbar, `${label}: header should remain within the toolbar's vertical footprint`).toBeGreaterThanOrEqual(-8)
-    expect(gapAfterToolbar, `${label}: header should sit close below the fixed application toolbar`).toBeLessThanOrEqual(16)
     expect(gapBeforeOverview, `${label}: overview should follow the header without a large blank band`).toBeGreaterThanOrEqual(0)
     expect(gapBeforeOverview, `${label}: overview should follow the header without a large blank band`).toBeLessThanOrEqual(40)
     await expectNoPageHorizontalOverflow(page, label)
@@ -337,7 +352,7 @@ test.describe('MMOOMM published script-assets runtime parity', () => {
 
         await page.setViewportSize({ width: 1280, height: 900 })
         await page.goto(`/a/${applicationId}`)
-        await expectMmoommOverviewHeaderLayout(page, 'en', 'MMOOMM overview EN desktop 1280')
+        await expectMmoommOverviewHeaderLayout(page, 'en', 'MMOOMM overview EN desktop 1280', 'hidden')
         await testInfo.attach('mmoomm-overview-header-en-desktop-1280', {
             body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
             contentType: 'image/png'
@@ -348,7 +363,7 @@ test.describe('MMOOMM published script-assets runtime parity', () => {
         await page.keyboard.press('Enter')
         await page.getByRole('menu').getByRole('menuitem', { name: 'Russian', exact: true }).click()
         await expect(page.locator('html')).toHaveAttribute('lang', 'ru')
-        await expectMmoommOverviewHeaderLayout(page, 'ru', 'MMOOMM overview RU desktop 1280')
+        await expectMmoommOverviewHeaderLayout(page, 'ru', 'MMOOMM overview RU desktop 1280', 'hidden')
         await expect(page.getByRole('link', { name: 'Добро пожаловать', exact: true })).toBeVisible()
         await expect(page.getByRole('link', { name: 'Космос', exact: true })).toBeVisible()
         await expect(page.getByRole('link', { name: 'Визуальная лаборатория', exact: true })).toBeVisible()
@@ -359,13 +374,13 @@ test.describe('MMOOMM published script-assets runtime parity', () => {
             contentType: 'image/png'
         })
         await page.setViewportSize({ width: 768, height: 1024 })
-        await expectMmoommOverviewHeaderLayout(page, 'ru', 'MMOOMM overview RU tablet 768')
+        await expectMmoommOverviewHeaderLayout(page, 'ru', 'MMOOMM overview RU tablet 768', 'visible')
         await testInfo.attach('mmoomm-overview-header-ru-tablet-768', {
             body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
             contentType: 'image/png'
         })
         await page.setViewportSize({ width: 390, height: 844 })
-        await expectMmoommOverviewHeaderLayout(page, 'ru', 'MMOOMM overview RU mobile 390')
+        await expectMmoommOverviewHeaderLayout(page, 'ru', 'MMOOMM overview RU mobile 390', 'visible')
         await testInfo.attach('mmoomm-overview-header-ru-mobile-390', {
             body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
             contentType: 'image/png'

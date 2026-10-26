@@ -1,6 +1,6 @@
 import React from 'react'
 import { ResourceGuard } from '@universo-react/template-mui'
-import { getMetahub } from '../domains/metahubs'
+import { getMetahub } from '../domains/metahubs/api/metahubs'
 import { metahubsQueryKeys } from '../domains/shared'
 
 /**

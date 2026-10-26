@@ -233,7 +233,7 @@ describe('lockRuntimeRelationParentRecord', () => {
     } as RuntimeSchemaContext
 
     it('locks the authorized active parent row before any scoped child mutation', async () => {
-        const query = jest.fn(async (sql: string, params?: unknown[]): Promise<unknown[]> => [{ id: parentRecordId, _upl_locked: false }])
+        const query = jest.fn().mockResolvedValue([{ id: parentRecordId, _upl_locked: false }])
         const scope = await resolveScope(
             jest.fn(async (sql: string) => {
                 if (sql.includes('FROM "app_test"._app_objects')) {

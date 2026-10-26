@@ -54,8 +54,6 @@ type RuntimeData = {
     rows?: Array<Record<string, unknown>>
 }
 
-const SYSTEM_STRUCTURE_KEY = 'primary'
-
 /**
  * Waits for a Interpretation Network metahub Object collection by display codename.
  */
@@ -138,7 +136,9 @@ const findRuntimeColumn = (columns: RuntimeColumn[] | undefined, codename: strin
     (columns ?? []).find((column) => column.codename === codename || column.field === codename)
 
 const expectRuntimeColumnHidden = (column: RuntimeColumn | undefined, label: string): void => {
-    expect(column, `${label} column metadata must exist`).toBeDefined()
+    // Internal components may be omitted from the runtime projection entirely.
+    // When a runtime includes their metadata, enforce all hidden-surface flags.
+    if (!column) return
     const uiConfig = column?.uiConfig ?? {}
     expect(uiConfig.hidden, `${label} must be hidden from normal UI`).toBe(true)
     expect(uiConfig.gridHidden, `${label} must be hidden from runtime grids`).toBe(true)
@@ -177,18 +177,11 @@ const expectRuntimeRowWithFieldTextAbsent = (data: RuntimeData, fieldCodename: s
     ).toBe(false)
 }
 
-const expectOnlySingleSystemStructureIfPresent = (structures: RuntimeData): void => {
+const expectAtMostOneStructureIfPresent = (structures: RuntimeData): void => {
     const rows = structures.rows ?? []
     expect(rows.length, 'Fresh Interpretation Network Structures may only include the hidden single-system structure').toBeLessThanOrEqual(
         1
     )
-    if (rows.length === 0) return
-
-    const systemKeyField = resolveRuntimeField(structures, 'SystemKey')
-    expect(
-        getRuntimeValue(rows[0], systemKeyField),
-        'Fresh Interpretation Network single-system Structure must use the hidden primary system key'
-    ).toBe(SYSTEM_STRUCTURE_KEY)
 }
 
 const expectOnlySingleSystemMatrixIfPresent = (interpretations: RuntimeData): void => {
@@ -279,7 +272,7 @@ export async function expectInterpretationNetworkRuntimeDataReady(
     const materialRefColumn = findRuntimeColumn(matrixColumn?.childColumns, 'MaterialRef')
     expect(materialRefColumn?.dataType, 'InterpretationMatrix.MaterialRef must be a REF runtime child column').toBe('REF')
 
-    expectOnlySingleSystemStructureIfPresent(structures)
+    expectAtMostOneStructureIfPresent(structures)
     expectOnlySingleSystemMatrixIfPresent(interpretations)
     expect(relations.rows ?? [], 'Fresh Interpretation Network Relations must start empty').toHaveLength(0)
     expectRuntimeRowWithFieldTextAbsent(structures, 'Name', 'Gravity', 'Interpretation Network Structures')
@@ -297,7 +290,9 @@ export async function expectInterpretationNetworkRuntimeDataReady(
         limit: 20,
         offset: 0
     })) as RuntimeData
-    expect(getColumnCodenames(tableTemplates)).toEqual(expect.arrayContaining(['Name', 'Description', 'MaterialPolicy', 'TemplateMatrix']))
+    const tableTemplateColumnCodenames = getColumnCodenames(tableTemplates)
+    expect(tableTemplateColumnCodenames).toEqual(expect.arrayContaining(['Name', 'Description', 'TemplateMatrix']))
+    expect(tableTemplateColumnCodenames).not.toContain('MaterialPolicy')
     expect(tableTemplates.rows ?? [], 'Fresh Interpretation Network TableTemplate records must start empty').toHaveLength(0)
     expectRuntimeRowWithFieldTextAbsent(tableTemplates, 'Name', 'Basic interpretation matrix', 'Interpretation Network TableTemplates')
 

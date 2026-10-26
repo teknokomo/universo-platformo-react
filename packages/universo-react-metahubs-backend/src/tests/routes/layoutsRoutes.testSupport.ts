@@ -21,6 +21,7 @@ jest.mock('../../persistence', () => ({
 
 const mockEnsureMetahubAccess = jest.fn()
 const mockEnsureSchema = jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+const mockListLayouts = jest.fn()
 const mockGetLayoutById = jest.fn()
 const mockDeleteLayout = jest.fn()
 const mockUpdateLayoutZoneSetting = jest.fn()
@@ -62,6 +63,7 @@ jest.mock('../../domains/layouts/services/MetahubLayoutsService', () => {
         MetahubLayoutsService: jest.fn().mockImplementation((...args: unknown[]) => {
             mockMetahubLayoutsServiceConstructor(...args)
             return {
+                listLayouts: (...serviceArgs: unknown[]) => mockListLayouts(...serviceArgs),
                 getLayoutById: (...serviceArgs: unknown[]) => mockGetLayoutById(...serviceArgs),
                 deleteLayout: (...serviceArgs: unknown[]) => mockDeleteLayout(...serviceArgs),
                 updateLayoutZoneSetting: (...serviceArgs: unknown[]) => mockUpdateLayoutZoneSetting(...serviceArgs),
@@ -310,6 +312,7 @@ export const resetLayoutsRouteMocks = () => {
     mockFindMetahubById.mockResolvedValue({ id: 'metahub-1' })
     mockEnsureMetahubAccess.mockResolvedValue({ metahubId: 'metahub-1' })
     mockEnsureSchema.mockResolvedValue('mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+    mockListLayouts.mockResolvedValue({ items: [], pagination: { total: 0, limit: 20, offset: 0 } })
     mockDeleteLayout.mockResolvedValue(undefined)
     mockUpdateLayoutZoneSetting.mockResolvedValue({ id: layoutIdV7, config: { appearance: 'kept' }, version: 5 })
     mockResetLayoutZoneSetting.mockResolvedValue({ id: layoutIdV7, config: { appearance: 'kept' }, version: 6 })
@@ -376,6 +379,7 @@ export {
     mockFindMetahubById,
     mockEnsureMetahubAccess,
     mockEnsureSchema,
+    mockListLayouts,
     mockGetLayoutById,
     mockDeleteLayout,
     mockUpdateLayoutZoneSetting,

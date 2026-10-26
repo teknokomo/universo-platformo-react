@@ -655,6 +655,60 @@ describe('workspace runtime route helpers', () => {
         expect(syncRouteCell).not.toHaveBeenCalled()
     })
 
+    it("keeps a cell's Primary Material open while restoring its focused route after reload", () => {
+        const primaryCell = matrixCell({ id: 'primary-cell', parentCellId: null, sortOrder: 0, materialRef: 'primary-material' })
+        let openedMaterialId: string | null = null
+        const setOpenedMaterialId = vi.fn((materialId: string | null) => {
+            openedMaterialId = materialId
+        })
+        const selectMatrixCell = vi.fn((cellId: string | null) => {
+            if (cellId === primaryCell.id) setOpenedMaterialId(primaryCell.materialRef)
+        })
+        const clearMaterialSelection = vi.fn(() => setOpenedMaterialId(null))
+
+        renderHook(() =>
+            useMatrixRouteSelectionSync({
+                queryLoading: false,
+                queryFetching: false,
+                routeStructureId: 'structure-1',
+                routeCellId: primaryCell.id,
+                concepts: [{ id: 'structure-1' }],
+                interpretations: [{ id: 'interpretation-1' }],
+                structureSummaries: [
+                    {
+                        id: 'structure-1',
+                        row: { id: 'structure-1' },
+                        title: 'Structure',
+                        description: '',
+                        interpretationId: 'interpretation-1'
+                    }
+                ],
+                matrixCells: [primaryCell],
+                rootState: { kind: 'singleRoot', root: primaryCell },
+                selectedInterpretation: { id: 'interpretation-1' },
+                selectedCell: undefined,
+                selectedInterpretationId: 'interpretation-1',
+                selectedConceptId: 'structure-1',
+                selectedCellId: null,
+                pendingSelectedCellId: null,
+                selectedMaterialId: null,
+                cellMaterials: [],
+                matrixRowsSettled: true,
+                selectMatrixCell,
+                clearMaterialSelection,
+                setSelectedInterpretationId: vi.fn(),
+                setSelectedConceptId: vi.fn(),
+                setPendingSelectedCellId: vi.fn(),
+                setSelectedMaterialId: vi.fn(),
+                setOpenedMaterialId
+            })
+        )
+
+        expect(selectMatrixCell).toHaveBeenCalledWith(primaryCell.id, { replace: true })
+        expect(clearMaterialSelection).not.toHaveBeenCalled()
+        expect(openedMaterialId).toBe('primary-material')
+    })
+
     it('uses vertical drag geometry for hierarchical path tables', () => {
         expect(resolveMoveHierarchyLayout('table', 'hierarchicalCells', 'hierarchicalPath')).toBe('verticalTree')
         expect(resolveMoveHierarchyLayout('table', 'hierarchicalCells', 'independentAxes')).toBe('horizontalRows')

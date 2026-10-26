@@ -112,6 +112,30 @@ export async function findEffectiveLayoutEntity(
     )
 }
 
+/** Read only the authored block payload for a selected public Page. */
+export async function findEffectiveLayoutPageBlockContent(
+    executor: DbExecutor,
+    schemaName: string,
+    pageId: string,
+    visibility: EffectiveLayoutReadVisibility = 'authenticated'
+): Promise<unknown> {
+    const objectsTable = qSchemaTable(schemaName, '_app_objects')
+    const rows = await executor.query<{ block_content: unknown }>(
+        `
+        SELECT o.config->'blockContent' AS block_content
+        FROM ${objectsTable} o
+        WHERE o.id = $1
+          AND o.kind = 'page'
+          AND ${effectiveLayoutLifecyclePredicate('o', visibility)}
+          AND ${runtimeLayoutCapableFilterSql('o.config')}
+        ORDER BY o.id ASC
+        LIMIT 2
+        `,
+        [pageId]
+    )
+    return rows.length === 1 ? rows[0]?.block_content : undefined
+}
+
 export async function findEffectiveLayoutHomePages(
     executor: DbExecutor,
     schemaName: string,

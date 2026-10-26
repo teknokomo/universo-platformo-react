@@ -20,7 +20,7 @@ import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { TFunction } from 'i18next'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { resolveInterpretationNetworkMaximumContrastForeground } from '@universo-react/types'
 import { MatrixCellContent } from '../MatrixCellButton'
 import { buildBreadcrumbDisplayItems, type HierarchicalMatrixTableModel, type MatrixCell } from '../model'
@@ -35,6 +35,8 @@ export interface HierarchicalMatrixTableViewProps {
     showColumnHeaders: boolean
     showHeaderCard: boolean
     colorBreadcrumbsByCell: boolean
+    showCellActions: boolean
+    showDragHandles: boolean
     mutationDisabled: boolean
     isMovingCell: boolean
     dropTargetCellId?: string | null
@@ -134,6 +136,7 @@ type HierarchicalMatrixTableCellProps = {
     island?: boolean
     leadingGap?: boolean
     showDragHandle?: boolean
+    showCellActions: boolean
     onSelectCell: (cellId: string) => void
     onOpenCellMenu: (anchor: HTMLElement, cellId: string) => void
 }
@@ -154,9 +157,11 @@ function HierarchicalMatrixTableCell({
     island = false,
     leadingGap = false,
     showDragHandle = true,
+    showCellActions,
     onSelectCell,
     onOpenCellMenu
 }: HierarchicalMatrixTableCellProps) {
+    const cellDescriptionId = useId()
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: cell.id,
         disabled: mutationDisabled
@@ -244,6 +249,7 @@ function HierarchicalMatrixTableCell({
                     position: positionLabel ?? t('workspace.table.noPosition', 'No position'),
                     title
                 })}
+                aria-describedby={cell.description.trim() ? cellDescriptionId : undefined}
                 aria-pressed={selected}
                 disabled={isMovingCell}
                 onClick={() => onSelectCell(cell.id)}
@@ -266,7 +272,13 @@ function HierarchicalMatrixTableCell({
                 }}
             >
                 <Stack spacing={0.25} sx={{ minWidth: 0, width: '100%', justifyContent: 'center' }}>
-                    <MatrixCellContent positionLabel={positionLabel} textColor={cell.style.text} compact>
+                    <MatrixCellContent
+                        positionLabel={positionLabel}
+                        textColor={cell.style.text}
+                        compact
+                        description={cell.description}
+                        descriptionId={cellDescriptionId}
+                    >
                         {title}
                     </MatrixCellContent>
                     {materialCount > 0 ? (
@@ -279,25 +291,27 @@ function HierarchicalMatrixTableCell({
                     ) : null}
                 </Stack>
             </ButtonBase>
-            <IconButton
-                type='button'
-                size='small'
-                aria-label={t('workspace.cell.actionsFor', {
-                    defaultValue: 'Cell actions: {{title}}',
-                    title
-                })}
-                disabled={mutationDisabled || isMovingCell}
-                onPointerDown={(event) => event.stopPropagation()}
-                onMouseDown={(event) => event.stopPropagation()}
-                onKeyDown={(event) => event.stopPropagation()}
-                onClick={(event) => {
-                    event.stopPropagation()
-                    onOpenCellMenu(event.currentTarget, cell.id)
-                }}
-                sx={{ position: 'absolute', top: 4, right: 4, width: 28, height: 28, p: 0.25 }}
-            >
-                <MoreVertRoundedIcon sx={{ fontSize: 18 }} />
-            </IconButton>
+            {showCellActions ? (
+                <IconButton
+                    type='button'
+                    size='small'
+                    aria-label={t('workspace.cell.actionsFor', {
+                        defaultValue: 'Cell actions: {{title}}',
+                        title
+                    })}
+                    disabled={mutationDisabled || isMovingCell}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                        event.stopPropagation()
+                        onOpenCellMenu(event.currentTarget, cell.id)
+                    }}
+                    sx={{ position: 'absolute', top: 4, right: 4, width: 28, height: 28, p: 0.25 }}
+                >
+                    <MoreVertRoundedIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+            ) : null}
         </Stack>
     )
 
@@ -365,6 +379,8 @@ export function HierarchicalMatrixTableView({
     showColumnHeaders,
     showHeaderCard,
     colorBreadcrumbsByCell,
+    showCellActions,
+    showDragHandles,
     mutationDisabled,
     isMovingCell,
     dropTargetCellId,
@@ -509,7 +525,8 @@ export function HierarchicalMatrixTableView({
                             mutationDisabled={mutationDisabled}
                             isMovingCell={isMovingCell}
                             island
-                            showDragHandle={!rootOnlyHeaderCell}
+                            showDragHandle={showDragHandles && !rootOnlyHeaderCell}
+                            showCellActions={showCellActions}
                             onSelectCell={onSelectCell}
                             onOpenCellMenu={onOpenCellMenu}
                         />
@@ -601,6 +618,8 @@ export function HierarchicalMatrixTableView({
                                                 isMovingCell={isMovingCell}
                                                 component='th'
                                                 scope='row'
+                                                showDragHandle={showDragHandles}
+                                                showCellActions={showCellActions}
                                                 onSelectCell={onSelectCell}
                                                 onOpenCellMenu={onOpenCellMenu}
                                             />
@@ -618,6 +637,8 @@ export function HierarchicalMatrixTableView({
                                                         mutationDisabled={mutationDisabled}
                                                         isMovingCell={isMovingCell}
                                                         leadingGap={cellIndex === 0}
+                                                        showDragHandle={showDragHandles}
+                                                        showCellActions={showCellActions}
                                                         onSelectCell={onSelectCell}
                                                         onOpenCellMenu={onOpenCellMenu}
                                                     />

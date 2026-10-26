@@ -25,6 +25,38 @@ describe('application access guards', () => {
         })
     })
 
+    it.each(['owner', 'admin'] as const)('projects %s to runtime authoring permissions by default', (role) => {
+        expect(resolveEffectiveRolePermissions(role)).toMatchObject({
+            manageApplication: true,
+            createContent: true,
+            editContent: true
+        })
+    })
+
+    it('keeps explicit application and workspace policy denials in the effective permission map', () => {
+        const permissions = resolveEffectiveRolePermissions('admin', {
+            rolePolicies: {
+                templates: [
+                    {
+                        codename: 'adminPolicy',
+                        title: { en: 'Application administrator' },
+                        baseRole: 'admin',
+                        rules: [
+                            { capability: 'content.create', effect: 'deny', scope: 'application' },
+                            { capability: 'records.edit', effect: 'deny', scope: 'workspace' }
+                        ]
+                    }
+                ]
+            }
+        })
+
+        expect(permissions).toMatchObject({
+            manageApplication: true,
+            createContent: false,
+            editContent: false
+        })
+    })
+
     it('applies generic role-policy capability rules from application settings', () => {
         const permissions = resolveEffectiveRolePermissions('member', {
             rolePolicies: {

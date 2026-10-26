@@ -1,4 +1,4 @@
-import type { Locator, Page, Response, TestInfo } from '@playwright/test'
+import type { Locator, Page, Response } from '@playwright/test'
 
 import { expect } from '../fixtures/test'
 import {
@@ -46,14 +46,7 @@ export type LayoutWidgetsResponse = {
     items?: LayoutWidget[]
 }
 
-export const buildExecutionRunId = (runId: string, testInfo: TestInfo): string => {
-    const project =
-        testInfo.project.name
-            .replace(/[^a-zA-Z0-9]/g, '')
-            .toLowerCase()
-            .slice(-6) || 'project'
-    return `${runId}-${project}-r${testInfo.retry}-p${testInfo.repeatEachIndex}-w${testInfo.workerIndex}`
-}
+export { buildExecutionRunId } from './runIdentity'
 
 export const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 

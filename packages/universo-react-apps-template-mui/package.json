@@ -23,7 +23,8 @@
         "dev:standalone": "vite --port 5174 --strictPort",
         "preview:standalone": "vite preview --port 5174 --strictPort",
         "lint": "eslint --ext .ts,.tsx src",
-        "test": "vitest run --config vitest.config.ts"
+        "test": "vitest run --config vitest.config.ts",
+        "test:interpretation-network-ui-primitives": "vitest run --config vitest.config.ts --coverage.enabled=false src/dashboard/components/interpretation-network/__tests__/runtimeUiPrimitiveReuse.test.tsx"
     },
     "dependencies": {
         "@emotion/react": "catalog:",
@@ -51,6 +52,7 @@
         "@universo-react/utils": "workspace:*",
         "dayjs": "catalog:",
         "react": "catalog:",
+        "react-colorful": "catalog:",
         "react-dom": "catalog:",
         "react-router": "catalog:",
         "react-router-dom": "catalog:",

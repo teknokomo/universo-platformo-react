@@ -6,6 +6,7 @@ const mockEnsureSingleSystemStructure = jest.fn()
 const mockGetInterpretationNetworkTemplateDetail = jest.fn()
 const mockGetSingleSystemStructure = jest.fn()
 const mockCreateMaterialForCell = jest.fn()
+const mockListMaterialAssociationsForInterpretation = jest.fn()
 const mockDeleteStructureAggregate = jest.fn()
 const mockInstantiateStructureFromTemplate = jest.fn()
 const mockListInterpretationNetworkTemplates = jest.fn()
@@ -49,7 +50,8 @@ jest.mock('../../services/interpretationNetwork/runtimeInterpretationNetworkServ
         commandNotImplemented: 'INTERPRETATION_NETWORK_COMMAND_NOT_IMPLEMENTED',
         invalidBody: 'INTERPRETATION_NETWORK_INVALID_BODY',
         invalidParams: 'INTERPRETATION_NETWORK_INVALID_PARAMS',
-        rowNotFound: 'INTERPRETATION_NETWORK_ROW_NOT_FOUND'
+        rowNotFound: 'INTERPRETATION_NETWORK_ROW_NOT_FOUND',
+        permissionDenied: 'INTERPRETATION_NETWORK_PERMISSION_DENIED'
     },
     interpretationNetworkEnsureSystemStructureRequestSchema: {
         safeParse: jest.fn(() => ({ success: true, data: {} }))
@@ -63,6 +65,9 @@ jest.mock('../../services/interpretationNetwork/runtimeInterpretationNetworkServ
     interpretationNetworkMaterialCreateRequestSchema: {
         safeParse: jest.fn(() => ({ success: true, data: {} }))
     },
+    interpretationNetworkMaterialAssociationsQuerySchema: {
+        safeParse: jest.fn((data) => ({ success: true, data }))
+    },
     interpretationNetworkStructureDeleteRequestSchema: {
         safeParse: jest.fn(() => ({ success: true, data: {} }))
     },
@@ -70,6 +75,7 @@ jest.mock('../../services/interpretationNetwork/runtimeInterpretationNetworkServ
         safeParse: jest.fn((data) => ({ success: true, data }))
     },
     createMaterialForCell: (...args: unknown[]) => mockCreateMaterialForCell(...args),
+    listMaterialAssociationsForInterpretation: (...args: unknown[]) => mockListMaterialAssociationsForInterpretation(...args),
     deleteStructureAggregate: (...args: unknown[]) => mockDeleteStructureAggregate(...args),
     ensureSingleSystemStructure: (...args: unknown[]) => mockEnsureSingleSystemStructure(...args),
     getInterpretationNetworkTemplateDetail: (...args: unknown[]) => mockGetInterpretationNetworkTemplateDetail(...args),
@@ -306,7 +312,7 @@ describe('runtimeInterpretationNetworkController', () => {
             baseApplicationSettings: {},
             applicationSettings: {}
         })
-        mockGetSingleSystemStructure.mockResolvedValueOnce({
+        mockEnsureSingleSystemStructure.mockResolvedValueOnce({
             structureId: '019f2000-0000-7000-8000-000000000101',
             interpretationId: '019f2000-0000-7000-8000-000000000102',
             rootCellId: '019f2000-0000-7000-8000-000000000103',
@@ -329,10 +335,11 @@ describe('runtimeInterpretationNetworkController', () => {
                 canCreate: false
             })
         )
-        expect(mockEnsureSingleSystemStructure).not.toHaveBeenCalled()
+        expect(mockEnsureSingleSystemStructure).toHaveBeenCalledTimes(1)
+        expect(mockGetSingleSystemStructure).not.toHaveBeenCalled()
     })
 
-    it('allows read-only users to bootstrap the system aggregate without granting generic mutation permissions', async () => {
+    it('denies read-only users permission to bootstrap a missing system aggregate', async () => {
         const controller = createRuntimeInterpretationNetworkController(() => executor as never)
         const res = createResponse()
         mockResolveRuntimeSchema.mockResolvedValueOnce({
@@ -351,7 +358,14 @@ describe('runtimeInterpretationNetworkController', () => {
             baseApplicationSettings: {},
             applicationSettings: {}
         })
-        mockGetSingleSystemStructure.mockResolvedValueOnce(null)
+        const service = jest.requireMock('../../services/interpretationNetwork/runtimeInterpretationNetworkService')
+        mockEnsureSingleSystemStructure.mockRejectedValueOnce(
+            new service.InterpretationNetworkCommandError(
+                403,
+                'INTERPRETATION_NETWORK_PERMISSION_DENIED',
+                'Insufficient permissions for this action'
+            )
+        )
 
         await controller.ensureSystemStructure(
             {
@@ -361,12 +375,13 @@ describe('runtimeInterpretationNetworkController', () => {
             res
         )
 
-        expect(mockEnsureSingleSystemStructure).toHaveBeenCalledWith(
-            expect.objectContaining({ permissions: expect.objectContaining({ createContent: false, editContent: false }) }),
-            expect.objectContaining({ structureMode: 'singleSystem' }),
-            {}
-        )
-        expect(res.status).toHaveBeenCalledWith(200)
+        expect(mockEnsureSingleSystemStructure).toHaveBeenCalledTimes(1)
+        expect(mockGetSingleSystemStructure).not.toHaveBeenCalled()
+        expect(res.status).toHaveBeenCalledWith(403)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'Insufficient permissions for this action',
+            code: 'INTERPRETATION_NETWORK_PERMISSION_DENIED'
+        })
     })
 
     it('delegates the ensure command to the service and returns 200 for existing aggregate', async () => {
@@ -509,11 +524,15 @@ describe('runtimeInterpretationNetworkController', () => {
             success: true,
             data: {
                 interpretationId: '019f2000-0000-7000-8000-000000000503',
-                matrixRowId: '019f2000-0000-7000-8000-000000000505',
+                matrixRowId: '019f2000-0000-7000-8000-000000000502',
                 cellId: 'cell-1',
                 data: { Title: 'Material' },
-                expectedVersion: 7
+                expectedCellVersion: 7
             }
+        })
+        mockCreateMaterialForCell.mockResolvedValueOnce({
+            id: '019f2000-0000-7000-8000-000000000401',
+            matrixRowId: '019f2000-0000-7000-8000-000000000502'
         })
 
         await controller.createMaterial(
@@ -521,7 +540,7 @@ describe('runtimeInterpretationNetworkController', () => {
                 params: { applicationId: 'app-1' },
                 body: {
                     interpretationId: '019f2000-0000-7000-8000-000000000503',
-                    matrixRowId: '019f2000-0000-7000-8000-000000000505',
+                    matrixRowId: '019f2000-0000-7000-8000-000000000502',
                     cellId: 'cell-1',
                     data: { Title: 'Material' },
                     expectedVersion: 7
@@ -534,11 +553,119 @@ describe('runtimeInterpretationNetworkController', () => {
             expect.objectContaining({ schemaName: 'app_test' }),
             expect.objectContaining({ featureState: 'ready' }),
             expect.objectContaining({
+                matrixRowId: '019f2000-0000-7000-8000-000000000502',
                 cellId: 'cell-1',
-                expectedVersion: 7
+                expectedCellVersion: 7
             })
         )
         expect(res.status).toHaveBeenCalledWith(201)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            id: '019f2000-0000-7000-8000-000000000401',
+            matrixRowId: '019f2000-0000-7000-8000-000000000502'
+        })
+    })
+
+    it('returns the server-resolved Matrix row ID for a cellId-only material request', async () => {
+        const controller = createRuntimeInterpretationNetworkController(() => executor as never)
+        const res = createResponse()
+        const service = jest.requireMock('../../services/interpretationNetwork/runtimeInterpretationNetworkService')
+        service.interpretationNetworkMaterialCreateRequestSchema.safeParse.mockReturnValueOnce({
+            success: true,
+            data: {
+                interpretationId: '019f2000-0000-7000-8000-000000000510',
+                cellId: 'cell-1',
+                data: { Title: 'Material' }
+            }
+        })
+        mockCreateMaterialForCell.mockResolvedValueOnce({
+            id: '019f2000-0000-7000-8000-000000000511',
+            matrixRowId: '019f2000-0000-7000-8000-000000000512'
+        })
+
+        await controller.createMaterial(
+            {
+                params: { applicationId: 'app-1' },
+                body: {
+                    interpretationId: '019f2000-0000-7000-8000-000000000510',
+                    cellId: 'cell-1',
+                    data: { Title: 'Material' }
+                }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockCreateMaterialForCell).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.anything(),
+            expect.objectContaining({ cellId: 'cell-1' })
+        )
+        expect(res.status).toHaveBeenCalledWith(201)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            id: '019f2000-0000-7000-8000-000000000511',
+            matrixRowId: '019f2000-0000-7000-8000-000000000512'
+        })
+    })
+
+    it('returns material association pairs to an authenticated read-only application member', async () => {
+        const controller = createRuntimeInterpretationNetworkController(() => executor as never)
+        const res = createResponse()
+        const interpretationId = '019f2000-0000-7000-8000-000000000901'
+        mockResolveRuntimeSchema.mockResolvedValueOnce({
+            schemaName: 'app_test',
+            schemaIdent: '"app_test"',
+            manager: executor,
+            userId: 'user-1',
+            role: 'member',
+            permissions: { createContent: false, editContent: false, deleteContent: false },
+            workflowCapabilities: {},
+            currentWorkspaceId: 'workspace-1',
+            workspacesEnabled: true,
+            baseApplicationSettings: {},
+            applicationSettings: {}
+        })
+        mockListInterpretationNetworkTemplates.mockClear()
+        mockListMaterialAssociationsForInterpretation.mockResolvedValueOnce({
+            items: [{ cellId: '019f2000-0000-7000-8000-000000000902', materialId: '019f2000-0000-7000-8000-000000000903' }],
+            page: { offset: 0, limit: 100, hasMore: false }
+        })
+        const service = jest.requireMock('../../services/interpretationNetwork/runtimeInterpretationNetworkService')
+        service.interpretationNetworkMaterialAssociationsQuerySchema.safeParse.mockReturnValueOnce({
+            success: true,
+            data: { interpretationId, limit: 100, offset: 0 }
+        })
+
+        await controller.listMaterialAssociations(
+            {
+                params: { applicationId: 'app-1' },
+                query: { interpretationId, limit: '100', offset: '0' }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockListMaterialAssociationsForInterpretation).toHaveBeenCalledWith(
+            expect.objectContaining({ schemaName: 'app_test', currentWorkspaceId: 'workspace-1' }),
+            expect.objectContaining({ featureState: 'ready' }),
+            { interpretationId, limit: 100, offset: 0 }
+        )
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ page: { offset: 0, limit: 100, hasMore: false } }))
+    })
+
+    it('does not read material associations when runtime membership resolution fails', async () => {
+        const controller = createRuntimeInterpretationNetworkController(() => executor as never)
+        const res = createResponse()
+        mockResolveRuntimeSchema.mockResolvedValueOnce(null)
+
+        await controller.listMaterialAssociations(
+            {
+                params: { applicationId: 'app-1' },
+                query: { interpretationId: '019f2000-0000-7000-8000-000000000901' }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockListMaterialAssociationsForInterpretation).not.toHaveBeenCalled()
+        expect(mockResolveInterpretationNetworkRuntimeSurface).not.toHaveBeenCalled()
+        expect(res.json).not.toHaveBeenCalled()
     })
 
     it('blocks material creation without edit permissions', async () => {

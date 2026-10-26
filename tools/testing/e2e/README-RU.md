@@ -327,6 +327,14 @@ pnpm run test:e2e:dashboard-fixtures:regenerate:verify:local-supabase
 
 Этот единый gate очищает и запускает временную минимальную базу E2E, собирает приложение, сохраняет результаты генераторов в уникальную папку `.artifacts/dashboard-fixtures/`, проверяет контракты всех файлов и нормализованный drift относительно tracked snapshots, сохранённых до начала прогона, и только после этого заменяет шесть разрешённых tracked snapshots. Затем он запускает runtime/import спецификации и проверяет, что контрольная сумма исторического MMOOMM baseline и его Git diff не изменились. Playwright отчёты и результаты тестов сохраняются в папке запуска.
 
+Полную проверку трактовочной сети на минимальном локальном Supabase запускайте так:
+
+```bash
+pnpm run test:e2e:interpretation-network:verify:local-supabase
+```
+
+Gate также выполняет контракт `runtime-ux-oracles.spec.ts` в проекте `en-light`. Каждый Playwright-прогон сохраняется в `tools/testing/e2e/.artifacts/interpretation-network-verification/<run-id>/<batch>/`; корневой `manifest.json` содержит команды, проекты, время выполнения, названия и статусы тестов, пути к отчётам и скриншотам, а также итоговый статус gate.
+
 ### Доступные генераторы
 
 | Генератор                                    | Канонический fixture полного gate для шести файлов                 | Описание                                                                                                                                                       |

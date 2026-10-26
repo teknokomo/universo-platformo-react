@@ -27,6 +27,10 @@ const workspaceId = '019f2000-0000-7000-8000-000000000002'
 const widgetId = '019f2000-0000-7000-8000-000000000003'
 const layoutId = '019f2000-0000-7000-8000-000000000004'
 const interpretationId = '019f2000-0000-7000-8000-000000000005'
+const firstCellId = '019f2000-0000-7000-8000-000000000006'
+const secondCellId = '019f2000-0000-7000-8000-000000000007'
+const entityTypeId = '019f2000-0000-7000-8000-000000000008'
+const userId = '019f2000-0000-7000-8000-000000000009'
 
 const createResponse = () => {
     const response = {
@@ -71,9 +75,149 @@ describe('runtimeInterpretationNetworkMatrixController', () => {
         expect(mockCreateMatrixCell).toHaveBeenCalledWith(
             expect.objectContaining({ currentWorkspaceId: workspaceId }),
             { featureState: 'ready' },
-            request.body
+            request.body,
+            {
+                applicationId,
+                schemaName: 'app_019f2000000070008000000000000001',
+                workspaceId,
+                scopeEntityId: null,
+                widgetId,
+                layoutId
+            }
         )
         expect(res.status).toHaveBeenCalledWith(201)
+    })
+
+    it('rejects a Matrix move batch if any update omits its expected version', async () => {
+        const controller = createRuntimeInterpretationNetworkMatrixController(() => ({} as never))
+        const res = createResponse()
+        const request = {
+            params: { applicationId },
+            query: { widgetId, layoutId },
+            body: {
+                interpretationId,
+                updates: [
+                    { cellId: firstCellId, expectedVersion: 1, placement: { sortOrder: 0 } },
+                    { cellId: secondCellId, placement: { sortOrder: 1 } }
+                ]
+            }
+        } as unknown as Request
+
+        await controller.moveCells(request, res)
+
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Invalid request body' }))
+        expect(mockResolveRuntimeSurface).not.toHaveBeenCalled()
+        expect(mockMoveMatrixCells).not.toHaveBeenCalled()
+    })
+
+    it('resolves workspace policy from the semantic widget placement and runtime target', async () => {
+        mockResolveRuntimeSchema.mockResolvedValueOnce({
+            schemaName: 'app_019f2000000070008000000000000001',
+            currentWorkspaceId: workspaceId,
+            workspacesEnabled: true,
+            baseApplicationSettings: { interpretationNetwork: { enabled: true } },
+            userId,
+            role: 'owner',
+            manager: { query: jest.fn(), transaction: jest.fn() }
+        })
+        const controller = createRuntimeInterpretationNetworkMatrixController(() => ({} as never))
+        const res = createResponse()
+        const request = {
+            params: { applicationId },
+            query: {
+                widgetId,
+                layoutId,
+                instanceKey: 'matrix-main',
+                targetKind: 'page',
+                entityTypeId,
+                locale: 'ru',
+                themeVariant: 'dark'
+            },
+            body: { interpretationId, data: { CellValue: 'Value' }, placement: { parentCellId: null } }
+        } as unknown as Request
+        mockCreateMatrixCell.mockResolvedValue({
+            id: '019f2000-0000-7000-8000-000000000006',
+            status: 'created',
+            item: { CellId: '019f2000-0000-7000-8000-000000000007' }
+        })
+
+        await controller.createCell(request, res)
+
+        expect(mockResolveRuntimeSurface).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({
+                applicationId,
+                schemaName: 'app_019f2000000070008000000000000001',
+                workspaceId,
+                widgetId,
+                layoutId,
+                workspaceSettings: {
+                    applicationSettings: { interpretationNetwork: { enabled: true } },
+                    authContext: { applicationId, userId, role: 'owner' },
+                    runtimeTarget: {
+                        applicationId,
+                        targetKind: 'page',
+                        entityTypeId,
+                        workspaceId,
+                        locale: 'ru',
+                        themeVariant: 'dark'
+                    },
+                    instanceKey: 'matrix-main'
+                }
+            })
+        )
+        expect(mockCreateMatrixCell).toHaveBeenCalledWith(
+            expect.anything(),
+            { featureState: 'ready' },
+            request.body,
+            expect.objectContaining({
+                applicationId,
+                schemaName: 'app_019f2000000070008000000000000001',
+                workspaceId,
+                widgetId,
+                layoutId,
+                workspaceSettings: {
+                    applicationSettings: { interpretationNetwork: { enabled: true } },
+                    authContext: { applicationId, userId, role: 'owner' },
+                    runtimeTarget: {
+                        applicationId,
+                        targetKind: 'page',
+                        entityTypeId,
+                        workspaceId,
+                        locale: 'ru',
+                        themeVariant: 'dark'
+                    },
+                    instanceKey: 'matrix-main'
+                }
+            })
+        )
+        expect(res.status).toHaveBeenCalledWith(201)
+    })
+
+    it('rejects workspace mutations without a semantic widget instance key', async () => {
+        mockResolveRuntimeSchema.mockResolvedValueOnce({
+            schemaName: 'app_019f2000000070008000000000000001',
+            currentWorkspaceId: workspaceId,
+            workspacesEnabled: true,
+            manager: { query: jest.fn(), transaction: jest.fn() }
+        })
+        const controller = createRuntimeInterpretationNetworkMatrixController(() => ({} as never))
+        const res = createResponse()
+
+        await controller.createCell(
+            {
+                params: { applicationId },
+                query: { widgetId, layoutId },
+                body: { interpretationId, data: {}, placement: {} }
+            } as unknown as Request,
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.json).toHaveBeenCalledWith({ error: 'A semantic Matrix placement is required for workspace mutations' })
+        expect(mockResolveRuntimeSurface).not.toHaveBeenCalled()
+        expect(mockCreateMatrixCell).not.toHaveBeenCalled()
     })
 
     it('returns only the stable command error contract for rejected cells', async () => {

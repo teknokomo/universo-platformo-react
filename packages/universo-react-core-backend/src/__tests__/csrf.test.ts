@@ -24,17 +24,18 @@ function createMockResponse(): Response {
 describe('createCsrfProtection', () => {
     const middleware = createCsrfProtection()
 
-    it('initializes csrfSecret on session and attaches csrfToken()', () => {
+    it('creates a CSRF secret lazily when a route requests a token', () => {
         const req = createMockRequest()
         const res = createMockResponse()
         const next = jest.fn()
 
         middleware(req, res, next)
 
-        expect(req.session).toHaveProperty('csrfSecret')
-        expect(typeof (req.session as Record<string, unknown>).csrfSecret).toBe('string')
+        expect(req.session).not.toHaveProperty('csrfSecret')
         expect(typeof req.csrfToken).toBe('function')
         expect(typeof req.csrfToken()).toBe('string')
+        expect(req.session).toHaveProperty('csrfSecret')
+        expect(typeof (req.session as Record<string, unknown>).csrfSecret).toBe('string')
         expect(next).toHaveBeenCalledWith()
     })
 
@@ -43,6 +44,7 @@ describe('createCsrfProtection', () => {
             const req = createMockRequest({ method } as Partial<Request>)
             const next = jest.fn()
             middleware(req, createMockResponse(), next)
+            expect(req.session).not.toHaveProperty('csrfSecret')
             expect(next).toHaveBeenCalledWith()
         }
     })

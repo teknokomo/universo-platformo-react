@@ -50,7 +50,7 @@ export type LayoutScopeParams = {
     scopeEntityId?: string | null
 }
 
-export type LayoutListParams = PaginationParams & LayoutScopeParams
+export type LayoutListParams = PaginationParams & LayoutScopeParams & { includeAllScopes?: boolean }
 
 export type LayoutWidgetScopeVisibility = {
     scopeEntityId: string
@@ -83,7 +83,8 @@ export const listLayouts = async (metahubId: string, params?: LayoutListParams):
                 sortBy: params?.sortBy,
                 sortOrder: params?.sortOrder,
                 search: params?.search,
-                scopeEntityId: params?.scopeEntityId ?? undefined
+                scopeEntityId: params?.scopeEntityId ?? undefined,
+                includeAllScopes: params?.includeAllScopes ? true : undefined
             }
         }
     )
@@ -120,7 +121,7 @@ export type LayoutCopyInput = {
     descriptionPrimaryLocale?: MetahubLayoutLocalizedPayload['descriptionPrimaryLocale']
     copyWidgets?: LayoutCopyOptions['copyWidgets']
     deactivateAllWidgets?: LayoutCopyOptions['deactivateAllWidgets']
-    entityBindingCopyMode?: 'reuse' | 'omit'
+    entityBindingCopyMode?: 'reuse' | 'omit' | 'clone'
 }
 
 export const copyLayout = (metahubId: string, layoutId: string, data: LayoutCopyInput) =>

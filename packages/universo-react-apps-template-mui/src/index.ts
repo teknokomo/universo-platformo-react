@@ -1,4 +1,6 @@
 export { default as AppsDashboard } from './dashboard/Dashboard'
+export { PublicDashboardRuntime } from './public-runtime/PublicDashboardRuntime'
+export type { PublicDashboardRuntimeProps } from './public-runtime/PublicDashboardRuntime'
 export { DashboardWidgetSelectionProvider, useDashboardWidgetSelection } from './dashboard/DashboardWidgetSelectionContext'
 export { useDashboardBoundRowActions } from './dashboard/useDashboardBoundRowActions'
 export { resolveDashboardEntityTargetSectionId } from './dashboard/runtime/resolveDashboardEntityTargetSectionId'
@@ -24,6 +26,8 @@ export type {
     DashboardRowTargetAction,
     DashboardLayoutConfig,
     DashboardProps,
+    AuthenticatedRuntimePlacementScope,
+    AuthenticatedRuntimePlacementScopes,
     ZoneWidgetItem,
     ZoneWidgets
 } from './dashboard/Dashboard'
@@ -109,6 +113,7 @@ export {
     normalizeRuntimeLayoutTarget,
     parseRuntimeResponse,
     resolveDashboardRuntimeLayoutTarget,
+    toAuthenticatedRuntimePlacementScopes,
     toDashboardZoneWidgets,
     runtimeZoneWidgetsSchema
 } from './api/api'

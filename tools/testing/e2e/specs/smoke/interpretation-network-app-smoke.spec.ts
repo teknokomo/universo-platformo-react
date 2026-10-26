@@ -1,8 +1,8 @@
 // Interpretation Network — smoke coverage for the published application runtime.
 //
 // Verifies that an imported Interpretation Network snapshot can create a published
-// application, synchronize its schema, expose an intro Page plus the default
-// multiple-Structures workspace, and render without browser regressions.
+// application, synchronize its schema, expose the specialized Start page plus
+// the default multiple-Structures workspace, and render without browser regressions.
 
 import { expect, test } from '../../fixtures/test'
 import { createLoggedInApiContext, disposeApiContext } from '../../support/backend/api-session.mjs'
@@ -66,21 +66,16 @@ test.describe('Interpretation Network published application @smoke', () => {
         await expect(getVisibleWorkspaceSwitcher(page)).toBeVisible({ timeout: 30_000 })
         const menu = getDockedRuntimeNavigation(page)
         await expect(menu).toBeVisible()
-        const welcomeLink = menu.getByRole('link', { name: 'Welcome', exact: true })
         const startLink = menu.getByRole('link', { name: 'Start', exact: true })
         const structuresLink = menu.getByRole('link', { name: 'Structures', exact: true })
-        await expect(welcomeLink).toBeVisible()
-        // The application root does not implicitly select a semantic target;
-        // navigation becomes current only after the user opens a destination.
-        await expect(welcomeLink).not.toHaveAttribute('aria-current')
+        await expect(menu.getByRole('link', { name: 'Welcome', exact: true })).toHaveCount(0)
         await expect(startLink).toBeVisible()
         await expect(startLink).not.toHaveAttribute('aria-current', 'page')
         await expect(structuresLink).toBeVisible()
-        await expect(menu.getByRole('link', { name: 'Workspaces' })).toBeVisible()
+        await expect(menu.getByRole('link', { name: 'Workspaces', exact: true })).toHaveCount(0)
         const mainGroup = menu.getByRole('heading', { name: 'Main', exact: true })
         await expect(mainGroup).toHaveCount(0)
         await expectRuntimeNavigationIconSemantics(menu, [
-            { label: 'Welcome', family: 'home' },
             { label: 'Start', family: 'home' },
             { label: 'Structures', family: 'structures' }
         ])

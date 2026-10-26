@@ -20,7 +20,10 @@ import {
 } from '../shared/runtimeHelpers'
 import { assertRuntimeRecordMutable } from '../services/runtimeRecordBehavior'
 import { denyRuntimeEntityMutation } from '../shared/entityMutationPolicy'
-import { assertCanonicalMatrixChildMutation } from './runtimeChildRowsInterpretationNetworkGuard'
+import {
+    assertCanonicalMatrixChildMutation,
+    getRuntimeTableTemplateGenericMutationFailure
+} from './runtimeChildRowsInterpretationNetworkGuard'
 import { isRuntimeChildParentReference, resolveRuntimeChildParentRecordId } from './runtimeChildRowParentReference'
 import { loadRuntimeChildParentRecord } from './runtimeChildRowParentAccess'
 import {
@@ -278,6 +281,14 @@ export const createRuntimeChildRowCopyDeleteHandlers = (
 
         const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, objectCollectionId, componentId)
         if (tc.error !== null) return res.status(400).json({ error: tc.error })
+        const templateAggregateFailure = getRuntimeTableTemplateGenericMutationFailure(tc.object.codename, 'child-delete')
+        if (templateAggregateFailure) return res.status(templateAggregateFailure.statusCode).json(templateAggregateFailure.body)
+        if (tc.tableAttr.validation_rules?.matrixUniqueCoordinates === true) {
+            return res.status(409).json({
+                error: 'Matrix cells must be deleted through the aggregate Matrix command so associated Materials are also deleted',
+                code: 'INTERPRETATION_NETWORK_MATRIX_AGGREGATE_COMMAND_REQUIRED'
+            })
+        }
         const recordId = resolveRuntimeChildParentRecordId({
             reference: parentRecordReference,
             applicationId,

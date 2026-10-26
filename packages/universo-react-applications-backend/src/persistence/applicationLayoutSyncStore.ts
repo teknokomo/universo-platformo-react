@@ -22,6 +22,7 @@ import {
     requireApplicationLayoutSyncRecord as requireRecord
 } from './applicationLayoutSyncGuards'
 import { projectPersistedPublishedWidgets, type PersistedPublishedWidgetProjectionRow } from './applicationLayoutPublishedWidgetProjection'
+import { tombstoneApplicationLayoutWorkspaceSettings } from './applicationLayoutWorkspaceSettingsStore'
 import type { ApplicationLayoutSyncWidgetRow } from './applicationLayoutSyncTypes'
 import {
     applicationLayoutMutationLockKey,
@@ -105,6 +106,7 @@ export const tombstoneApplicationLayoutWidgetsForSourceRemoval = async (
     userId: string | null
 ): Promise<void> => {
     const widgetsTable = qSchemaTable(schemaName, '_app_widgets')
+    await tombstoneApplicationLayoutWorkspaceSettings(executor, schemaName, layoutId, userId, false)
     const rows = await executor.query<SourceLayoutWidgetTombstoneRow>(
         `
         UPDATE ${widgetsTable}

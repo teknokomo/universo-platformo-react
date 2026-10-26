@@ -42,6 +42,24 @@ describe('queryKeys factories + invalidation helpers', () => {
 
         expect(metahubsQueryKeys.detail('m1')).toEqual(['metahubs', 'detail', 'm1'])
         expect(metahubsQueryKeys.members('m1')).toEqual(['metahubs', 'detail', 'm1', 'members'])
+        expect(metahubsQueryKeys.layoutsList('m1')).toEqual([
+            'metahubs',
+            'detail',
+            'm1',
+            'layouts',
+            { scopeEntityId: null },
+            'list',
+            {
+                limit: 100,
+                offset: 0,
+                sortBy: 'updated',
+                sortOrder: 'desc',
+                search: undefined,
+                scopeEntityId: null,
+                includeAllScopes: false
+            }
+        ])
+        expect(metahubsQueryKeys.layoutsList('m1', { includeAllScopes: true })).not.toEqual(metahubsQueryKeys.layoutsList('m1'))
 
         expect(metahubsQueryKeys.membersList('m1')).toEqual([
             'metahubs',

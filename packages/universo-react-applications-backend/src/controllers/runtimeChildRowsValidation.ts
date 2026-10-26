@@ -18,7 +18,7 @@ import { isRuntimeEnumerationKind, isRuntimeObjectTargetKind } from '../services
 
 export const getSafeRuntimeChildAttrs = (
     tc: Exclude<Awaited<ReturnType<typeof resolveTabularContext>>, { error: string }>,
-    options: { allowAssessmentOptions?: boolean; allowSiblingRowSelectKeys?: boolean } = {}
+    options: { allowAssessmentOptions?: boolean; allowSiblingRowSelectKeys?: boolean; allowGridHidden?: boolean } = {}
 ): typeof tc.childAttrs =>
     tc.childAttrs.filter((attr) => {
         const uiConfig = attr.ui_config ?? {}
@@ -32,13 +32,20 @@ export const getSafeRuntimeChildAttrs = (
             dataType === 'STRING' &&
             uiConfig.siblingRowSelectKey === true &&
             uiConfig.generateUuidV7 === true
+        // Templates may explicitly expose a server-owned object reference to
+        // scoped runtime reads while keeping it unavailable to generic writes.
+        const isRuntimeReadableOwnedReference =
+            uiConfig.runtimeReadable === true &&
+            uiConfig.serverOwned === true &&
+            dataType === 'REF' &&
+            isRuntimeObjectTargetKind(attr.target_object_kind)
 
         if (
             !IDENTIFIER_REGEX.test(columnName) ||
             (uiConfig.hidden === true && !isReadableSiblingRowSelectKey) ||
-            uiConfig.gridHidden === true ||
+            (uiConfig.gridHidden === true && options.allowGridHidden !== true) ||
             uiConfig.formHidden === true ||
-            uiConfig.serverOwned === true ||
+            (uiConfig.serverOwned === true && !isRuntimeReadableOwnedReference) ||
             uiConfig.sensitive === true ||
             uiConfig.private === true ||
             (dataType === 'JSON' && !isReadableAssessmentOptions) ||
@@ -250,6 +257,24 @@ export const assertAllowedUniformTabularUpdates = (
         if (!field || !allowedFields.has(field)) {
             throw new UpdateFailure(400, { error: 'Uniform tabular updates are available only for Matrix axis labels' })
         }
+    }
+}
+
+export const assertNoGenericMatrixAxisLabelUpdates = (
+    tc: Exclude<Awaited<ReturnType<typeof resolveTabularContext>>, { error: string }>,
+    data: Record<string, unknown>
+): void => {
+    if (tc.tableAttr.validation_rules?.matrixUniqueCoordinates !== true) return
+
+    for (const codename of ['RowLabel', 'ColLabel']) {
+        const attr = tc.childAttrs.find((field) => field.codename === codename || field.column_name === codename)
+        if (!attr) continue
+        if (!getRuntimeInputValue(data, attr.column_name, attr.codename).hasUserValue) continue
+
+        throw new UpdateFailure(409, {
+            error: 'Matrix axis labels must be changed through the aggregate Matrix cell command',
+            code: 'INTERPRETATION_NETWORK_MATRIX_AGGREGATE_COMMAND_REQUIRED'
+        })
     }
 }
 

@@ -255,7 +255,15 @@ export async function verifyMarketingHeroBindingDeletionLifecycle(options: {
     )
     await editHeroRecordForm.getByRole('button', { name: 'Save', exact: true }).click()
     const heroActionUpdateResponse = await heroActionUpdateResponsePromise
-    expect(heroActionUpdateResponse.ok()).toBe(true)
+    const heroActionUpdatePayload = heroActionUpdateResponse.ok()
+        ? null
+        : ((await heroActionUpdateResponse.json().catch(() => null)) as { error?: unknown } | null)
+    const heroActionUpdateError =
+        typeof heroActionUpdatePayload?.error === 'string' ? `: ${heroActionUpdatePayload.error.slice(0, 180)}` : ''
+    expect(
+        heroActionUpdateResponse.ok(),
+        `Updating the Hero CTA target must succeed (HTTP ${heroActionUpdateResponse.status()}${heroActionUpdateError})`
+    ).toBe(true)
     await expect(editHeroRecordForm).toHaveCount(0)
     await expect(reopenedBinding.dialog).toBeVisible()
     await reopenedBinding.dialog.getByRole('button', { name: 'Cancel', exact: true }).click()

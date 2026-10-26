@@ -425,7 +425,7 @@ describe('LayoutList copy flow entry', () => {
         })
     })
 
-    it('copies a marketing layout without a Hero-specific binding mode', async () => {
+    it('copies a marketing layout with the registry-driven record copy mode', async () => {
         mockUsePaginated.mockReturnValue({
             data: [
                 {
@@ -482,7 +482,7 @@ describe('LayoutList copy flow entry', () => {
                     })
                 })
             )
-            expect(copyLayoutMutate.mock.calls[0]?.[0]?.data).toMatchObject({ entityBindingCopyMode: 'reuse' })
+            expect(copyLayoutMutate.mock.calls[0]?.[0]?.data).toMatchObject({ entityBindingCopyMode: 'clone' })
         })
     })
 

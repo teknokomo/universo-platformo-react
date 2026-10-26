@@ -3,7 +3,6 @@ import { dashboardWidgetConfigSchemaByKey } from '@universo-react/types'
 import { childrenForSlot, rootPlacements, runtimePlacementGraphSchema, runtimeWidgetDataSchema } from '../widgetPlacementGraph'
 
 const root = {
-    id: '018f0000-0000-7000-8000-000000000001',
     instanceKey: 'overview-columns',
     widgetKey: 'columnsContainer',
     zone: 'center' as const,
@@ -15,7 +14,6 @@ const root = {
 }
 
 const child = {
-    id: '018f0000-0000-7000-8000-000000000002',
     instanceKey: 'records-table',
     widgetKey: 'detailsTable',
     zone: 'center' as const,
@@ -42,7 +40,6 @@ describe('Dashboard runtime placement graph', () => {
         expect(runtimePlacementGraphSchema.safeParse([{ ...child, parentInstanceKey: 'missing-parent' }, root]).success).toBe(false)
         const nestedContainer = {
             ...child,
-            id: '018f0000-0000-7000-8000-000000000003',
             instanceKey: 'nested-columns',
             widgetKey: 'columnsContainer',
             config: { columns: [{ slotKey: 'column:nested', width: 12 }] },
@@ -66,9 +63,7 @@ describe('Dashboard runtime placement graph', () => {
     })
 
     it('rejects duplicate placement instance keys', () => {
-        expect(runtimePlacementGraphSchema.safeParse([root, child, { ...child, id: '018f0000-0000-7000-8000-000000000003' }]).success).toBe(
-            false
-        )
+        expect(runtimePlacementGraphSchema.safeParse([root, child, { ...child }]).success).toBe(false)
     })
 
     it('rejects a placement that parents itself', () => {
@@ -82,8 +77,9 @@ describe('Dashboard runtime placement graph', () => {
         expect(runtimePlacementGraphSchema.safeParse([{ ...child, parentInstanceKey: null }]).success).toBe(false)
     })
 
-    it('rejects placement ids that are not UUID v7', () => {
-        expect(runtimePlacementGraphSchema.safeParse([{ ...root, id: '550e8400-e29b-41d4-a716-446655440000' }]).success).toBe(false)
+    it('rejects persistence ids on renderer placements', () => {
+        expect(runtimePlacementGraphSchema.safeParse([{ ...root, id: '018f0000-0000-7000-8000-000000000001' }]).success).toBe(false)
+        expect(runtimePlacementGraphSchema.safeParse([{ ...root, layoutId: '018f0000-0000-7000-8000-000000000002' }]).success).toBe(false)
     })
 
     it('orders semantic children by placement order and excludes them from the root composition', () => {
@@ -98,7 +94,6 @@ describe('Dashboard runtime placement graph', () => {
         const parsed = runtimePlacementGraphSchema.parse([
             {
                 ...root,
-                id: '018f0000-0000-7000-8000-000000000003',
                 instanceKey: 'language-in-sidebar',
                 widgetKey: 'languageSwitcher',
                 zone: 'left',
@@ -107,7 +102,6 @@ describe('Dashboard runtime placement graph', () => {
             },
             {
                 ...root,
-                id: '018f0000-0000-7000-8000-000000000004',
                 instanceKey: 'language-in-header',
                 widgetKey: 'languageSwitcher',
                 zone: 'top',
@@ -116,7 +110,6 @@ describe('Dashboard runtime placement graph', () => {
             },
             {
                 ...root,
-                id: '018f0000-0000-7000-8000-000000000009',
                 instanceKey: 'language-in-header-zeta',
                 widgetKey: 'languageSwitcher',
                 zone: 'top',
@@ -125,7 +118,6 @@ describe('Dashboard runtime placement graph', () => {
             },
             {
                 ...root,
-                id: '018f0000-0000-7000-8000-00000000000a',
                 instanceKey: 'language-in-header-alpha',
                 widgetKey: 'languageSwitcher',
                 zone: 'top',
@@ -134,7 +126,6 @@ describe('Dashboard runtime placement graph', () => {
             },
             {
                 ...root,
-                id: '018f0000-0000-7000-8000-000000000005',
                 instanceKey: 'theme-in-center',
                 widgetKey: 'colorModeSwitcher',
                 zone: 'center',
@@ -143,7 +134,6 @@ describe('Dashboard runtime placement graph', () => {
             },
             {
                 ...root,
-                id: '018f0000-0000-7000-8000-000000000006',
                 instanceKey: 'theme-in-header',
                 widgetKey: 'colorModeSwitcher',
                 zone: 'top',
@@ -152,7 +142,6 @@ describe('Dashboard runtime placement graph', () => {
             },
             {
                 ...root,
-                id: '018f0000-0000-7000-8000-000000000007',
                 instanceKey: 'first-menu',
                 widgetKey: 'menuWidget',
                 zone: 'left',
@@ -161,7 +150,6 @@ describe('Dashboard runtime placement graph', () => {
             },
             {
                 ...root,
-                id: '018f0000-0000-7000-8000-000000000008',
                 instanceKey: 'second-menu',
                 widgetKey: 'menuWidget',
                 zone: 'left',

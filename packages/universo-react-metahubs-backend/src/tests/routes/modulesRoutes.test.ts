@@ -88,11 +88,11 @@ const createModuleRecord = (overrides: Record<string, unknown> = {}) => ({
     attachedToId: '018f8a78-7b8f-7c1d-a111-222233334499',
     moduleRole: 'widget',
     sourceKind: 'embedded',
-    sdkApiVersion: '1.0.0',
+    sdkApiVersion: '0.1.0',
     sourceCode: 'export default class QuizWidget extends ExtensionModule {}',
     manifest: {
         className: 'QuizWidget',
-        sdkApiVersion: '1.0.0',
+        sdkApiVersion: '0.1.0',
         moduleRole: 'widget',
         sourceKind: 'embedded',
         capabilities: ['metadata.read', 'rpc.client'],

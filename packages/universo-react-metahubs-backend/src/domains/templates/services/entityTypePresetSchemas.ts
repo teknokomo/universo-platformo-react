@@ -5,11 +5,7 @@ import {
     entityTypeCapabilitiesSchema,
     validateCapabilityDependencies
 } from '@universo-react/types'
-import {
-    CURRENT_STRUCTURE_VERSION,
-    CURRENT_STRUCTURE_VERSION_SEMVER,
-    semverToStructureVersion
-} from '../../metahubs/services/structureVersions'
+import { CURRENT_STRUCTURE_VERSION_SEMVER } from '../../metahubs/services/structureVersions'
 
 type EntityTypePresetSchemaDependencies<
     TVersionedLocalizedContent extends z.ZodTypeAny,
@@ -163,11 +159,11 @@ export function createEntityTypePresetSchemas<
         // The base Zod object requires this key; its inferred refinement input type marks it optional.
         const entityType = manifest.entityType!
 
-        if (semverToStructureVersion(manifest.minStructureVersion) > CURRENT_STRUCTURE_VERSION) {
+        if (manifest.minStructureVersion !== CURRENT_STRUCTURE_VERSION_SEMVER) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['minStructureVersion'],
-                message: `Template requires structure version ${manifest.minStructureVersion}, but current platform supports only ${CURRENT_STRUCTURE_VERSION_SEMVER}`
+                message: `Template requires unsupported structure version ${manifest.minStructureVersion}; current platform requires ${CURRENT_STRUCTURE_VERSION_SEMVER}`
             })
         }
 

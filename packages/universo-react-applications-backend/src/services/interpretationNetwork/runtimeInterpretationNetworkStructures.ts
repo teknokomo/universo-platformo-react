@@ -104,7 +104,8 @@ export const createStructureAggregate = async (
             contract: interpretationContract,
             values: interpretationValues,
             workspaceId: ctx.currentWorkspaceId,
-            userId: ctx.userId
+            userId: ctx.userId,
+            trustedAggregate: true
         })
         const rootRow = toRootMatrixRow(interpretationContract, locale)
         await insertChildRows(tx, {
@@ -113,7 +114,8 @@ export const createStructureAggregate = async (
             parentId: interpretationId,
             rows: [rootRow],
             workspaceId: ctx.currentWorkspaceId,
-            userId: ctx.userId
+            userId: ctx.userId,
+            trustedAggregate: true
         })
         afterInterpretationCreate = buildLifecycleRequest(
             ctx,
@@ -223,6 +225,14 @@ export const ensureSingleSystemStructure = async (
             }
         }
 
+        if (ctx.permissions.createContent !== true || ctx.permissions.editContent !== true) {
+            throw new InterpretationNetworkCommandError(
+                403,
+                interpretationNetworkCommandErrorCodes.permissionDenied,
+                'Insufficient permissions for this action'
+            )
+        }
+
         await assertNoOrdinaryStructuresInSingleSystemMode(tx, {
             schemaName: ctx.schemaName,
             structureContract,
@@ -291,7 +301,8 @@ export const ensureSingleSystemStructure = async (
             contract: interpretationContract,
             values: interpretationValues,
             workspaceId: ctx.currentWorkspaceId,
-            userId: ctx.userId
+            userId: ctx.userId,
+            trustedAggregate: true
         })
         const rootRow = toRootMatrixRow(interpretationContract, locale)
         await insertChildRows(tx, {
@@ -300,7 +311,8 @@ export const ensureSingleSystemStructure = async (
             parentId: interpretationId,
             rows: [rootRow],
             workspaceId: ctx.currentWorkspaceId,
-            userId: ctx.userId
+            userId: ctx.userId,
+            trustedAggregate: true
         })
         afterInterpretationCreate = buildLifecycleRequest(
             ctx,

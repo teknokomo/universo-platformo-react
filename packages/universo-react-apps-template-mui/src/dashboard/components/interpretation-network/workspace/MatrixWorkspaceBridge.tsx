@@ -1,12 +1,16 @@
 import type { DragEndEvent, DragMoveEvent, DragOverEvent, DragStartEvent, SensorDescriptor, SensorOptions } from '@dnd-kit/core'
 import type { TFunction } from 'i18next'
+import type { ReactNode } from 'react'
 import type { HierarchicalMatrixTableModel, MatrixCell, MatrixTableDropSlot, MatrixView } from '../model'
 import type { MatrixCellPlacement } from '../matrixCellData'
 import type { MatrixDragPreview, MatrixDropState, MatrixMode } from '../matrixDrag'
-import { MatrixWorkspace, type MatrixMenuMove, type MatrixWorkspaceProps } from './MatrixWorkspace'
+import { MatrixWorkspace, type MatrixMenuMove, type MatrixWorkspaceProps, type MatrixWorkspaceTab } from './MatrixWorkspace'
 import type { InterpretationNetworkTableProjection, InterpretationNetworkToolbarLayout } from '@universo-react/types'
 
 export interface MatrixWorkspaceBridgeProps {
+    templatePanel?: ReactNode
+    selectedWorkspaceTab?: MatrixWorkspaceTab
+    onWorkspaceTabChange?: (tab: MatrixWorkspaceTab) => void
     t: TFunction<'interpretationNetwork'>
     locale: string
     mode: MatrixMode
@@ -33,6 +37,8 @@ export interface MatrixWorkspaceBridgeProps {
     axisActionsDisabled?: boolean
     addCellDisabled?: boolean
     canSaveTemplate?: boolean
+    hasTemplates?: boolean
+    canInsertTemplate?: boolean
     savingCell: boolean
     movingCell: boolean
     errors: { rows: unknown; saveCell: unknown; moveCell: unknown }
@@ -42,6 +48,7 @@ export interface MatrixWorkspaceBridgeProps {
     sensors: SensorDescriptor<SensorOptions>[]
     onChangeMatrixView: (view: MatrixView) => void
     onOpenSaveTemplate?: () => void
+    onOpenTemplateInsert?: (targetCellId: string) => void
     actions: {
         openCellDialog: (
             mode: 'create-child' | 'create-cell' | 'create-row' | 'edit',
@@ -64,6 +71,9 @@ export interface MatrixWorkspaceBridgeProps {
 }
 
 export function MatrixWorkspaceBridge({
+    templatePanel,
+    selectedWorkspaceTab,
+    onWorkspaceTabChange,
     t,
     locale,
     mode,
@@ -90,6 +100,8 @@ export function MatrixWorkspaceBridge({
     axisActionsDisabled,
     addCellDisabled,
     canSaveTemplate,
+    hasTemplates,
+    canInsertTemplate,
     savingCell,
     movingCell,
     errors,
@@ -99,10 +111,14 @@ export function MatrixWorkspaceBridge({
     sensors,
     onChangeMatrixView,
     onOpenSaveTemplate,
+    onOpenTemplateInsert,
     actions
 }: MatrixWorkspaceBridgeProps) {
     return (
         <MatrixWorkspace
+            templatePanel={templatePanel}
+            selectedWorkspaceTab={selectedWorkspaceTab}
+            onWorkspaceTabChange={onWorkspaceTabChange}
             t={t}
             locale={locale}
             matrixMode={mode}
@@ -129,6 +145,8 @@ export function MatrixWorkspaceBridge({
             matrixAxisActionsDisabled={axisActionsDisabled}
             addCellDisabled={addCellDisabled}
             canSaveTemplate={canSaveTemplate}
+            hasTemplates={hasTemplates}
+            canInsertTemplate={canInsertTemplate}
             isSavingCell={savingCell}
             isMovingCell={movingCell}
             matrixRowsError={errors.rows}
@@ -144,6 +162,7 @@ export function MatrixWorkspaceBridge({
             sensors={sensors}
             onChangeMatrixView={onChangeMatrixView}
             onOpenSaveTemplate={onOpenSaveTemplate}
+            onOpenTemplateInsert={onOpenTemplateInsert}
             onOpenCellDialog={actions.openCellDialog}
             onAddTableRow={actions.addTableRow}
             onAddTableColumn={actions.addTableColumn}

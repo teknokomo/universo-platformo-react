@@ -1,4 +1,4 @@
-import { expect, type Locator, type Page, type Response, type TestInfo } from '@playwright/test'
+import { expect, type Browser, type Locator, type Page, type Response, type TestInfo } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 import { switchRuntimeLocale } from '../browser/preferences'
 import {
@@ -101,6 +101,7 @@ async function expectHeroHeadingGeometry(options: {
 }
 
 export async function verifyPublishedMarketingHeroRuntime(options: {
+    browser: Browser
     page: Page
     testInfo: TestInfo
     browserIssues: ReturnType<typeof watchBrowserRuntimeIssues>
@@ -115,6 +116,7 @@ export async function verifyPublishedMarketingHeroRuntime(options: {
 }): Promise<void> {
     const {
         page,
+        browser,
         testInfo,
         browserIssues,
         applicationId,
@@ -170,6 +172,7 @@ export async function verifyPublishedMarketingHeroRuntime(options: {
     })
 
     const expectedRuntimeFailurePattern = await verifyPublishedMarketingRuntimeFailureRecovery({
+        browser,
         page,
         testInfo,
         applicationId,

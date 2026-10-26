@@ -4,7 +4,7 @@ description: Public application runtime, deployment-wide aliases, global short l
 
 # Public applications, aliases, and global short links
 
-An application can expose a published marketing page to anonymous visitors. The public entry is resolved from either the immutable application UUID or a deployment-wide alias:
+An application can expose a published, read-only runtime to anonymous visitors, including a Marketing Page or a supported Interpretation Network dashboard. The public entry is resolved from either the immutable application UUID or a deployment-wide alias:
 
 ```text
 /a/<application-uuid>
@@ -33,7 +33,9 @@ For Marketing Page rendering, that allowlist includes the registered header posi
 
 Anonymous navigation keeps the same non-enumerating contract: every reference that is not a ready public application leads to the login page, uniformly for closed, unknown, archived, unpublished, and not-ready addresses. The redirect never depends on which private cause was hit, so it cannot be used to probe whether a private application exists. Authenticated administrators continue through the normal membership and guard path.
 
-The authenticated control panel remains under the protected application administration route. A public URL therefore does not make application CRUD, runtime mutations, connectors, members, or unpublished layout data anonymous. Marketing runtime actions are still constrained by the published, read-only renderer contract.
+The authenticated control panel remains under the protected application administration route. A public URL therefore does not make application CRUD, runtime mutations, connectors, members, personal Favorites, or unpublished layout data anonymous. Public widgets use their published, bounded read-only renderer contracts.
+
+For an Interpretation Network dashboard, anonymous visitors see the same Dashboard and Matrix/workspace presentation used by the application runtime, with read-only capabilities. The runtime omits authoring and mutation controls instead of replacing the application with a separate public-only layout. When there is no public workspace available, the application still opens and shows a localized empty state; it does not redirect the visitor to sign-in. The anonymous view never uses authenticated mutation APIs.
 
 ## Alias management
 
@@ -58,13 +60,13 @@ A global short link uses a deployment-wide slug and the public path `/l/<slug>`.
 
 The public browser route resolves the slug through `GET /api/v1/public/l/:slug`. The server returns a validated target object rather than an arbitrary redirect URL, and the SPA dispatches that target:
 
-| Target                    | Current destination                                                                                       |
-| ------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Application entry         | `/a/<applicationId>`                                                                                      |
-| Dashboard section         | `/a/<applicationId>`                                                                                      |
-| Workspace section         | `/a/<applicationId>/workspaces`, only when workspaces are enabled                                        |
+| Target                     | Current destination                                                                                       |
+| -------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Application entry          | `/a/<applicationId>`                                                                                      |
+| Dashboard section          | `/a/<applicationId>`                                                                                      |
+| Workspace section          | `/a/<applicationId>/workspaces`, only when workspaces are enabled                                         |
 | Published runtime resource | `/a/<applicationId>?targetKind=page\|object&entityTypeCodename=<codename>` for an eligible page or object |
-| LMS access link           | Opens the guest runtime for that application's access-link slug                                           |
+| LMS access link            | Opens the guest runtime for that application's access-link slug                                           |
 
 The target application must be public and ready. A quiz access-link target must still resolve to an active, available public quiz when the short link is created and opened. The short-link screen exposes a **Quiz access link** choice and loads its eligible options through `GET /api/v1/global-short-links/applications/:applicationId/quiz-access-options?locale=en|ru`. The route requires `manageApplication` for the requested application and returns only that application's link slugs and localized labels.
 

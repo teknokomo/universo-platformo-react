@@ -2,6 +2,7 @@ import {
     request,
     mockEnsureMetahubAccess,
     mockEnsureSchema,
+    mockListLayouts,
     mockGetLayoutById,
     mockDeleteLayout,
     mockUpdateLayoutZoneSetting,
@@ -19,6 +20,24 @@ import {
 
 describe('Layouts Routes', () => {
     beforeEach(resetLayoutsRouteMocks)
+
+    describe('GET /metahub/:metahubId/layouts', () => {
+        it('lists layouts from global and entity scopes only when explicitly requested', async () => {
+            const app = buildApp()
+            await request(app).get('/metahub/metahub-1/layouts?limit=100&offset=0&includeAllScopes=true').expect(200)
+
+            expect(mockListLayouts).toHaveBeenCalledWith('metahub-1', { limit: 100, offset: 0, includeAllScopes: true }, 'test-user-id')
+        })
+
+        it('rejects ambiguous all-scope and exact-scope filters', async () => {
+            const app = buildApp()
+            await request(app)
+                .get('/metahub/metahub-1/layouts?includeAllScopes=true&scopeEntityId=0190a9b5-3cde-7abc-8def-0123456789c1')
+                .expect(400)
+
+            expect(mockListLayouts).not.toHaveBeenCalled()
+        })
+    })
 
     describe('zone setting routes', () => {
         it('updates a sparse zone setting through the dedicated controller', async () => {

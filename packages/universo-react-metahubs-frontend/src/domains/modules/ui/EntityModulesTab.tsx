@@ -31,6 +31,7 @@ import CodeMirror from '@uiw/react-codemirror'
 import type { TabConfig } from '@universo-react/template-mui/components/dialogs'
 import {
     MODULE_CAPABILITIES,
+    DEFAULT_MODULE_SDK_API_VERSION,
     resolveAllowedModuleCapabilities,
     resolveDefaultModuleCapabilities,
     type MetahubModuleRecord,
@@ -716,7 +717,7 @@ const createDraft = (attachedToKind: ModuleAttachmentKind, module?: MetahubModul
     sourceKind: module?.sourceKind ?? 'embedded',
     storageMode: module?.storageMode ?? module?.sourceStorage?.mode ?? 'inline',
     sourcePath: module?.sourcePath ?? module?.sourceStorage?.path ?? '',
-    sdkApiVersion: module?.sdkApiVersion ?? '1.0.0',
+    sdkApiVersion: module?.sdkApiVersion ?? DEFAULT_MODULE_SDK_API_VERSION,
     sourceCode: resolveDraftSourceCode(attachedToKind, module),
     isActive: module?.isActive ?? true,
     capabilities:
@@ -1118,7 +1119,7 @@ export const EntityModulesTab = ({
             sourceKind: draft.sourceKind,
             storageMode: draft.storageMode,
             sourcePath: draft.storageMode === 'file' ? draft.sourcePath.trim() || undefined : null,
-            sdkApiVersion: draft.sdkApiVersion.trim() || '1.0.0',
+            sdkApiVersion: draft.sdkApiVersion.trim() || DEFAULT_MODULE_SDK_API_VERSION,
             isActive: draft.isActive,
             capabilities: draft.capabilities
         }

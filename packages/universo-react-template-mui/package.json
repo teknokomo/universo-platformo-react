@@ -96,6 +96,7 @@
         "@universo-react/types": "workspace:*",
         "@universo-react/utils": "workspace:*",
         "@universo-react/auth-frontend": "workspace:*",
+        "react-colorful": "catalog:",
         "react-i18next": "catalog:",
         "@emotion/react": "catalog:",
         "@emotion/styled": "catalog:",

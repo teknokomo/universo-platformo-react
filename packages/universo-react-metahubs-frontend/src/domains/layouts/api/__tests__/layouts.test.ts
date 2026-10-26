@@ -13,6 +13,7 @@ import {
     duplicateLayoutZoneWidgetWithRecordCopy,
     getLayoutZoneWidgetBindings,
     getLayoutZoneWidgetObjects,
+    listLayouts,
     listWidgetBindingRecords,
     listWidgetBindingSources,
     moveLayoutZoneWidget,
@@ -25,6 +26,28 @@ import {
 describe('layout metadata API wrapper', () => {
     beforeEach(() => {
         vi.resetAllMocks()
+    })
+
+    it('can explicitly list layouts across global and entity scopes', async () => {
+        get.mockResolvedValueOnce({
+            data: {
+                items: [],
+                pagination: { total: 0, limit: 100, offset: 0 }
+            }
+        })
+
+        await expect(listLayouts('metahub-1', { limit: 100, offset: 0, includeAllScopes: true })).resolves.toMatchObject({ items: [] })
+        expect(get).toHaveBeenCalledWith('/metahub/metahub-1/layouts', {
+            params: {
+                limit: 100,
+                offset: 0,
+                sortBy: undefined,
+                sortOrder: undefined,
+                search: undefined,
+                scopeEntityId: undefined,
+                includeAllScopes: true
+            }
+        })
     })
 
     it('returns template-aware widget metadata from the complete API envelope', async () => {

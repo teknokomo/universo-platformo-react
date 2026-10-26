@@ -45,7 +45,7 @@ import {
     hasPrimaryContent,
     normalizeLocale
 } from '../../../utils/localizedInput'
-import { CodenameField } from '../../../components'
+import { CodenameField } from '../../../components/CodenameField'
 import { TemplateSelector } from '../../templates/ui/TemplateSelector'
 import { createModulesTab } from '../../modules/ui/EntityModulesTab'
 

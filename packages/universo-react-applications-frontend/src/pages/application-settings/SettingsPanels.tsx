@@ -16,13 +16,10 @@ import {
 
 import SaveIcon from '@mui/icons-material/Save'
 import type { TFunction } from 'i18next'
-import {
-    getDefaultWorkspaceOverrideAllowedKeys,
-    listWorkspaceOverridableSettings,
-    normalizeApplicationWorkspaceOverridePolicy
-} from '@universo-react/types'
 import type { ApplicationDialogSettings, ApplicationRole, ApplicationWorkspaceLimitItem } from '../../types'
+import type { ApplicationLayoutZone, ApplicationTemplateKey } from '@universo-react/types'
 import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
+import { WorkspaceOverrideSettings } from './WorkspaceOverrideSettings'
 
 const GENERAL_SETTINGS_SELECT_ROW_SX = {
     py: 2,
@@ -655,6 +652,7 @@ export const AccessSettingsPanel = ({
     unsupportedActiveRoleRulesCount,
     rolePolicyMatrix,
     settings,
+    interpretationNetworkWidgets,
     hasChanges,
     isSaving,
     onUpdateRoleCapability,
@@ -665,34 +663,17 @@ export const AccessSettingsPanel = ({
     unsupportedActiveRoleRulesCount: number
     rolePolicyMatrix: Record<ApplicationRole, Record<ApplicationCapabilityKey, boolean>>
     settings: ApplicationDialogSettings
+    interpretationNetworkWidgets: Array<{
+        instanceKey: string
+        zone: ApplicationLayoutZone
+        templateKey: ApplicationTemplateKey
+    }>
     hasChanges: boolean
     isSaving: boolean
     onUpdateRoleCapability: (role: ApplicationRole, capability: ApplicationCapabilityKey, checked: boolean) => void
     onSettingsChange: SettingsChange
     onSave: SaveHandler
 }) => {
-    const workspacePolicy = normalizeApplicationWorkspaceOverridePolicy({ workspaceOverrides: settings.workspaceOverrides })
-    const defaultAllowedKeys = getDefaultWorkspaceOverrideAllowedKeys()
-    const workspaceSettings = listWorkspaceOverridableSettings()
-    const updateWorkspaceAllowedKey = (key: string, checked: boolean) => {
-        const nextAllowed = checked ? [...workspacePolicy.allowedKeys, key] : workspacePolicy.allowedKeys.filter((item) => item !== key)
-        onSettingsChange({
-            workspaceOverrides: {
-                allowedKeys: Array.from(new Set(nextAllowed)),
-                lockedKeys: workspacePolicy.lockedKeys.filter((item) => item !== key)
-            }
-        })
-    }
-
-    const resetWorkspacePolicy = () => {
-        onSettingsChange({
-            workspaceOverrides: {
-                allowedKeys: defaultAllowedKeys,
-                lockedKeys: []
-            }
-        })
-    }
-
     return (
         <Stack spacing={2}>
             <Alert severity='info'>
@@ -788,72 +769,12 @@ export const AccessSettingsPanel = ({
                 </Box>
             </Box>
 
-            <Box data-testid='application-settings-workspace-override-policy'>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, mb: 1 }}>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant='subtitle2'>{t('settings.workspaceOverrides.title', 'Workspace overrides')}</Typography>
-                        <Typography
-                            variant='body2'
-                            sx={{
-                                color: 'text.secondary'
-                            }}
-                        >
-                            {t(
-                                'settings.workspaceOverrides.description',
-                                'Choose which application settings workspace owners can override inside a published workspace.'
-                            )}
-                        </Typography>
-                    </Box>
-                    <Button variant='outlined' size='small' onClick={resetWorkspacePolicy}>
-                        {t('settings.workspaceOverrides.resetDefaults', 'Reset defaults')}
-                    </Button>
-                </Stack>
-
-                <Stack spacing={0} divider={<Divider />} sx={{ border: 1, borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
-                    {workspaceSettings.map((definition) => (
-                        <Box
-                            key={definition.key}
-                            sx={{
-                                p: 2,
-                                display: 'grid',
-                                gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) auto' },
-                                gap: 2,
-                                alignItems: 'center'
-                            }}
-                        >
-                            <Box sx={{ minWidth: 0 }}>
-                                <Typography variant='body2' sx={{ fontWeight: 600 }}>
-                                    {t(definition.labelKey, definition.key)}
-                                </Typography>
-                                <Typography
-                                    variant='caption'
-                                    sx={{
-                                        color: 'text.secondary'
-                                    }}
-                                >
-                                    {t(definition.descriptionKey, definition.key)}
-                                </Typography>
-                            </Box>
-                            <FormControlLabel
-                                control={
-                                    <Switch
-                                        checked={workspacePolicy.allowedKeys.includes(definition.key)}
-                                        onChange={(event) => updateWorkspaceAllowedKey(definition.key, event.target.checked)}
-                                        slotProps={{
-                                            input: testIdInputProps(`application-settings-workspace-override-${definition.key}`)
-                                        }}
-                                    />
-                                }
-                                label={
-                                    workspacePolicy.allowedKeys.includes(definition.key)
-                                        ? t('settings.workspaceOverrides.allowed', 'Allowed')
-                                        : t('settings.workspaceOverrides.locked', 'Locked')
-                                }
-                            />
-                        </Box>
-                    ))}
-                </Stack>
-            </Box>
+            <WorkspaceOverrideSettings
+                t={t}
+                settings={settings}
+                interpretationNetworkWidgets={interpretationNetworkWidgets}
+                onSettingsChange={onSettingsChange}
+            />
 
             {hasChanges ? <SaveSettingsButton testId='application-settings-access-save' t={t} disabled={isSaving} onSave={onSave} /> : null}
         </Stack>

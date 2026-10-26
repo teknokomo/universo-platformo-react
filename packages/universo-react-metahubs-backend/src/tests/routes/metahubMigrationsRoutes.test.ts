@@ -225,6 +225,48 @@ describe('Metahub Migrations Routes', () => {
         expect(mockEnsureMetahubAccess).toHaveBeenCalled()
     })
 
+    it('returns a structured validation error for unsupported migration history versions', async () => {
+        const metahubId = 'metahub-unsupported-history'
+        const branchId = 'branch-unsupported-history'
+
+        mockFindMetahubById.mockResolvedValue({
+            id: metahubId,
+            defaultBranchId: branchId,
+            templateId: null,
+            templateVersionId: null
+        })
+        mockFindMetahubMembership.mockResolvedValue({
+            metahubId,
+            userId: 'test-user-id',
+            activeBranchId: branchId
+        })
+        mockFindBranchByIdAndMetahub.mockResolvedValue({
+            id: branchId,
+            metahubId,
+            schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b1',
+            structureVersion: CURRENT_STRUCTURE_VERSION
+        })
+        mockHasTable.mockResolvedValue(true)
+        mockPoolQuery.mockResolvedValueOnce([{ count: '1' }]).mockResolvedValueOnce([
+            {
+                id: 'mig-unsupported',
+                name: 'migration-with-unsupported-version',
+                applied_at: new Date('2026-10-24T00:00:00.000Z'),
+                from_version: 1,
+                to_version: 2,
+                meta: null
+            }
+        ])
+
+        const app = buildApp()
+        const response = await request(app).get(`/metahub/${metahubId}/migrations`).expect(400)
+
+        expect(response.body).toMatchObject({
+            code: 'VALIDATION_ERROR',
+            details: { structureVersion: 2 }
+        })
+    })
+
     it('returns 409 when apply lock cannot be acquired', async () => {
         const metahubId = 'metahub-2'
         const branchId = 'branch-2'
@@ -384,6 +426,38 @@ describe('Metahub Migrations Routes', () => {
             structureUpgradeRequired: false,
             templateUpgradeRequired: false
         })
+    })
+
+    it('does not report an unsupported branch revision as up to date', async () => {
+        const metahubId = 'metahub-unsupported-branch-version'
+        const branchId = 'branch-unsupported-branch-version'
+
+        mockFindMetahubById.mockResolvedValue({
+            id: metahubId,
+            defaultBranchId: branchId,
+            templateId: null,
+            templateVersionId: null
+        })
+        mockFindMetahubMembership.mockResolvedValue({
+            metahubId,
+            userId: 'test-user-id',
+            activeBranchId: branchId
+        })
+        mockFindBranchByIdAndMetahub.mockResolvedValue({
+            id: branchId,
+            metahubId,
+            schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_unsupported_version',
+            structureVersion: '0.2.0'
+        })
+
+        const app = buildApp()
+        const response = await request(app).get(`/metahub/${metahubId}/migrations/status`).expect(400)
+
+        expect(response.body).toMatchObject({
+            code: 'VALIDATION_ERROR',
+            details: { structureVersion: '0.2.0' }
+        })
+        expect(response.body.code).not.toBe('UP_TO_DATE')
     })
 
     it('does not execute template seed dry-run in migrations status endpoint', async () => {

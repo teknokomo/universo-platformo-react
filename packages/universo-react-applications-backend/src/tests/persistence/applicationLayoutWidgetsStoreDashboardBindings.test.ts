@@ -120,6 +120,41 @@ describe('application layout widget Dashboard binding mutations', () => {
         expect(JSON.parse(String(txExecutor.query.mock.calls[1]?.[1]?.[1]))).toEqual(dashboardWorkspaceEnvelope(nextConfig))
     })
 
+    it('allows Application overrides for the Interpretation Network cell style policy', async () => {
+        const currentRow = dashboardWorkspaceRow()
+        lockLayout.mockResolvedValue({
+            item: { id: layoutId, templateKey: 'dashboard', isActive: true, version: 3 },
+            widgets: [layoutSupport.mapWidget(currentRow, 'dashboard')]
+        } as never)
+        const nextConfig = {
+            ...dashboardWorkspaceBaseConfig,
+            cellStylePolicy: {
+                allowedColors: ['#123456'],
+                allowCustomColors: false,
+                editable: {
+                    fillColor: false,
+                    textColor: true,
+                    borderColor: false,
+                    borderWidth: false,
+                    borderStyle: false
+                }
+            }
+        }
+        const updatedRow = dashboardWorkspaceRow(nextConfig, true)
+        txExecutor.query.mockResolvedValueOnce([currentRow]).mockResolvedValueOnce([updatedRow])
+
+        const saved = await updateApplicationLayoutWidgetConfigsBatch(
+            executor,
+            schemaName,
+            { updates: [{ layoutId, widgetId: heroId, expectedVersion: 2, config: nextConfig }] } as never,
+            'user-1'
+        )
+
+        expect(saved[0]?.config).toEqual(nextConfig)
+        expect(txExecutor.query.mock.calls[1]?.[0]).toContain('SET config = $2::jsonb')
+        expect(JSON.parse(String(txExecutor.query.mock.calls[1]?.[1]?.[1]))).toEqual(dashboardWorkspaceEnvelope(nextConfig))
+    })
+
     it('continues to reject source-linked changes to runtime-owned Dashboard workspace fields', async () => {
         const currentConfig = mapDashboardWorkspace()
         lockLayout.mockResolvedValue({

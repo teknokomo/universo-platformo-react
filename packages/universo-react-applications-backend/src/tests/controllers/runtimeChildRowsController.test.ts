@@ -529,6 +529,68 @@ describe('runtimeChildRowsController server-owned field enforcement', () => {
         expect(executor.transaction).not.toHaveBeenCalled()
     })
 
+    it('rejects generic Matrix child deletion before opening a transaction', async () => {
+        mockResolveTabularContext.mockResolvedValue({
+            ...tabularContext,
+            tableAttr: {
+                ...tabularContext.tableAttr,
+                validation_rules: { matrixUniqueCoordinates: true }
+            }
+        })
+        const controller = createRuntimeChildRowsController(() => executor)
+        const res = createResponse()
+
+        await controller.deleteChildRow(createRequest({ expectedVersion: 1 }), res)
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'Matrix cells must be deleted through the aggregate Matrix command so associated Materials are also deleted',
+            code: 'INTERPRETATION_NETWORK_MATRIX_AGGREGATE_COMMAND_REQUIRED'
+        })
+        expect(executor.transaction).not.toHaveBeenCalled()
+        expect(executor.query).not.toHaveBeenCalled()
+    })
+
+    it('keeps ordinary non-Matrix child row updates working', async () => {
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema."interpretation" AS parentRecord')) return [{ id: recordId, _upl_locked: false }]
+            if (sql.includes('UPDATE runtime_schema."interpretation_matrix_rows"')) return [{ id: childRowId }]
+            return []
+        })
+        const controller = createRuntimeChildRowsController(() => executor)
+        const res = createResponse()
+
+        await controller.updateChildRow(createRequest({ data: { CellValue: 'Updated value' }, expectedVersion: 1 }), res)
+
+        expect(res.json).toHaveBeenCalledWith({ status: 'ok' })
+        expect(executor.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE runtime_schema."interpretation_matrix_rows"'))).toBe(
+            true
+        )
+    })
+
+    it('keeps ordinary non-Matrix child row deletion working', async () => {
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema."interpretation" AS parentRecord')) return [{ id: recordId, _upl_locked: false }]
+            if (sql.includes('SELECT id, COALESCE(_upl_version, 1)::int AS version')) return [{ id: childRowId, version: 1 }]
+            if (sql.includes('runtime_schema."interpretation_matrix_rows"') && /^\s*(?:DELETE FROM|UPDATE)\b/.test(sql)) {
+                return [{ id: childRowId }]
+            }
+            return []
+        })
+        const controller = createRuntimeChildRowsController(() => executor)
+        const res = createResponse()
+
+        await controller.deleteChildRow(createRequest({ expectedVersion: 1 }), res)
+
+        expect(res.json).toHaveBeenCalledWith({ status: 'deleted' })
+        expect(
+            executor.query.mock.calls.some(
+                ([sql]) =>
+                    String(sql).includes('runtime_schema."interpretation_matrix_rows"') && /^\s*(?:DELETE FROM|UPDATE)\b/.test(String(sql))
+            )
+        ).toBe(true)
+    })
+
     it.each([
         [
             'copy',
@@ -651,6 +713,25 @@ describe('runtimeChildRowsController server-owned field enforcement', () => {
             String(sql).includes('UPDATE runtime_schema."interpretation_matrix_rows"')
         )
         expect(String(deleteCall?.[0])).toContain('_seed_source_owned = false')
+    })
+
+    it('blocks generic deletion of TableTemplate child rows before opening a transaction', async () => {
+        mockResolveTabularContext.mockResolvedValue({
+            ...tabularContext,
+            object: { ...tabularContext.object, codename: 'TableTemplate' }
+        })
+        const controller = createRuntimeChildRowsController(() => executor)
+        const res = createResponse()
+
+        await controller.deleteChildRow(createRequest({ expectedVersion: 1 }), res)
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'TableTemplate child rows must be deleted through the dedicated aggregate command',
+            code: 'INTERPRETATION_NETWORK_TEMPLATE_AGGREGATE_COMMAND_REQUIRED'
+        })
+        expect(executor.transaction).not.toHaveBeenCalled()
+        expect(executor.query).not.toHaveBeenCalled()
     })
 })
 
@@ -846,6 +927,75 @@ describe('runtimeChildRowsController safe child field projection', () => {
             ]
         })
         executor.transaction.mockImplementation(async (fn: (manager: typeof executor) => Promise<unknown>) => fn(executor))
+    })
+
+    it('reads persisted grid-hidden Matrix descriptions without exposing form-hidden fields', async () => {
+        const persistedDescription = {
+            _schema: '1',
+            _primary: 'en',
+            locales: { en: { content: 'Persisted description.\nSecond line.' } }
+        }
+        mockResolveTabularContext.mockResolvedValue({
+            ...tabularContext,
+            tableAttr: {
+                ...tabularContext.tableAttr,
+                validation_rules: { matrixUniqueCoordinates: true }
+            },
+            childAttrs: [
+                childAttrs[1],
+                {
+                    id: 'description-component',
+                    codename: 'CellDescription',
+                    column_name: 'cell_description',
+                    data_type: 'STRING',
+                    validation_rules: { localized: true, versioned: true },
+                    ui_config: { widget: 'textarea', gridHidden: true }
+                },
+                {
+                    id: 'form-hidden-component',
+                    codename: 'InternalValue',
+                    column_name: 'internal_value',
+                    data_type: 'STRING',
+                    ui_config: { formHidden: true, gridHidden: true }
+                }
+            ]
+        })
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema."interpretation" AS parentRecord')) return [{ id: recordId, _upl_locked: false }]
+            if (sql.includes('COUNT(*)::int AS total')) return [{ total: 1 }]
+            if (sql.includes('FROM runtime_schema."interpretation_matrix_rows"') && sql.includes('ORDER BY')) {
+                return [
+                    {
+                        id: childRowId,
+                        _tp_sort_order: 0,
+                        _upl_version: 2,
+                        cell_value: 'Matrix title',
+                        cell_description: persistedDescription,
+                        internal_value: 'must remain hidden'
+                    }
+                ]
+            }
+            return []
+        })
+
+        const response = createResponse()
+        await createRuntimeChildRowsController(() => executor).listChildRows(createRequest(undefined), response)
+
+        expect(response.json).toHaveBeenCalledWith({
+            items: [
+                {
+                    id: childRowId,
+                    _tp_sort_order: 0,
+                    _upl_version: 2,
+                    cell_value: 'Matrix title',
+                    cell_description: persistedDescription
+                }
+            ],
+            total: 1
+        })
+        const listQuery = executor.query.mock.calls.find(([sql]) => String(sql).includes('ORDER BY _tp_sort_order'))
+        expect(String(listQuery?.[0])).toContain('"cell_description"')
+        expect(String(listQuery?.[0])).not.toContain('"internal_value"')
     })
 
     it('filters hidden, private, sensitive, server-owned, technical, JSON, TABLE, and resource values from list and create responses', async () => {
@@ -1061,6 +1211,58 @@ describe('runtimeChildRowsController safe child field projection', () => {
         })
         const selectCall = executor.query.mock.calls.find(([sql]) => String(sql).includes('ORDER BY _tp_sort_order'))
         expect(String(selectCall?.[0])).toContain('"block_key"')
+    })
+
+    it('projects explicitly runtime-readable server-owned object references without exposing sensitive siblings', async () => {
+        const materialId = '019f2000-0000-7000-8000-000000000012'
+        const materialReferenceAttr = {
+            id: 'primary-material-reference',
+            codename: 'MaterialRef',
+            column_name: 'material_ref',
+            data_type: 'REF',
+            target_object_kind: 'object',
+            is_required: false,
+            validation_rules: {},
+            ui_config: { serverOwned: true, runtimeReadable: true }
+        }
+        const privateReferenceAttr = {
+            ...materialReferenceAttr,
+            id: 'private-reference',
+            codename: 'PrivateReference',
+            column_name: 'private_reference',
+            ui_config: { serverOwned: true, runtimeReadable: true, sensitive: true }
+        }
+        const context = { ...tabularContext, childAttrs: [materialReferenceAttr, privateReferenceAttr] }
+
+        expect(getSafeRuntimeChildAttrs(context)).toEqual([materialReferenceAttr])
+        mockResolveTabularContext.mockResolvedValue(context)
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema."interpretation" AS parentRecord')) return [{ id: recordId, _upl_locked: false }]
+            if (sql.includes('COUNT(*)::int AS total')) return [{ total: 1 }]
+            if (sql.includes('FROM runtime_schema."interpretation_matrix_rows"') && sql.includes('ORDER BY')) {
+                return [
+                    {
+                        id: childRowId,
+                        _tp_sort_order: 1,
+                        _upl_version: 2,
+                        material_ref: materialId,
+                        private_reference: 'private-value'
+                    }
+                ]
+            }
+            return []
+        })
+
+        const response = createResponse()
+        await createRuntimeChildRowsController(() => executor).listChildRows(createRequest(undefined), response)
+
+        expect(response.json).toHaveBeenCalledWith({
+            items: [{ id: childRowId, _tp_sort_order: 1, _upl_version: 2, material_ref: materialId }],
+            total: 1
+        })
+        const selectCall = executor.query.mock.calls.find(([sql]) => String(sql).includes('ORDER BY _tp_sort_order'))
+        expect(String(selectCall?.[0])).toContain('"material_ref"')
+        expect(String(selectCall?.[0])).not.toContain('"private_reference"')
     })
 
     it('projects hidden server-owned hierarchy identities only as matrix structure metadata', async () => {

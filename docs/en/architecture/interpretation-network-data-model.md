@@ -15,6 +15,8 @@ Stage 1 ships the runtime model directly in the product fixture and in the works
 
 `Structure.SystemKey` is a hidden, server-owned field. It is used only by the runtime aggregate command that ensures the single system Structure for deployments configured with `structureMode: "singleSystem"`. It is not shown in the Structure list, cards, dialogs, exported user-facing labels, or normal matrix screens.
 
+Each Material belongs to one Interpretation and one semantic Matrix `CellId`. The hidden server-owned `Material.InterpretationId` is required for live Materials; the ownership pair is `(InterpretationId, CellId)` because `CellId` is only unique inside its Interpretation. Reads, edits, Primary Material changes, and deletions scope by both values and exclude template-owned rows. A Material copied into a reusable template has `InterpretationId: null` and a server-owned `TemplateOwnerId`; instantiation assigns the destination Interpretation ID. Generic Material writes cannot change these ownership fields.
+
 ## Cell attributes
 
 Each Interpretation Matrix cell uses flat fields rather than nested JSON:
@@ -29,7 +31,7 @@ Each Interpretation Matrix cell uses flat fields rather than nested JSON:
 -   `TextColor` — nullable text foreground colour.
 -   `BorderTopColor`, `BorderRightColor`, `BorderBottomColor`, and `BorderLeftColor` — nullable per-side border colours.
 -   `Border{Top,Right,Bottom,Left}{Width,Style}` — flat per-side border controls.
--   `MaterialRef` — optional Material page reference.
+-   `MaterialRef` — optional server-owned Material page reference. Metadata opts this reference into scoped runtime row reads with `uiConfig.runtimeReadable: true`; generic writes still reject it, and runtime screens do not render the identifier as a user-facing column.
 -   `_tp_sort_order` — hidden, system-owned persisted sibling order. `Depth` is derived at runtime and is not stored.
 
 The six colour fields share one current-data contract: each value is `null` or uppercase `#RRGGBB`. `null` means no explicit fill or border colour, or the theme-default text colour. The editor accepts `#RGB` only as input and normalizes it immediately to `#RRGGBB`; it rejects alpha, named colours, functional CSS, variables, URLs, whitespace-padded values, arrays, objects, and JSON. Preset swatches are UI shortcuts, not entities, references, or another persisted grammar.
@@ -39,6 +41,8 @@ Metadata declares this semantic validation through `validationRules.format: 'hex
 The runtime cell dialog lets users name the row, column, and cell and enter the optional multiline description. Creating a cell in an existing row may inherit its row label; creating a row in an existing column may inherit its column label. The user can change inherited labels before saving. Placeholder text such as “New row” or “New cell” is never persisted as authored content.
 
 Cell creation and movement use dedicated transactional Interpretation Network commands rather than generic TABLE-child insertion or batch movement. The browser submits user-authored cell fields plus a logical `placement` intent. The server generates `CellId`, resolves and validates the parent and axis keys, applies sibling order, validates the complete Matrix for duplicate IDs, duplicate intersections, missing parents, and cycles, and then persists the result atomically. A stale `expectedVersion` or invalid Matrix state fails closed with HTTP `409`; the generic child-row API continues to reject these server-owned fields.
+
+Generic TABLE replacement and child-row updates cannot mutate a Matrix: replacement can remove cells without cleaning up their Materials, while per-row axis-label updates can leave labels inconsistent across an axis. Use the aggregate Matrix cell update/delete commands, which validate the full Matrix and keep Material ownership consistent. Generic attempts return `INTERPRETATION_NETWORK_MATRIX_AGGREGATE_COMMAND_REQUIRED`.
 
 The default `interpretationNetworkWorkspace` widget config uses `matrixMode: "hierarchicalCells"`. In this mode the first cell created with a Structure is `Universe` / `Вселенная`, and all following cells can participate in the parent/child hierarchy. The `independentRows` mode keeps an explicit row/column presentation for configurations that choose it.
 
@@ -80,7 +84,7 @@ The `table`, `horizontalRows`, and `verticalTree` views present the same cell re
 
 A workspace-scoped table template can be created or copied inside the published app and then reused to instantiate a visible matrix. Users with both create and edit content permissions can save the selected Structure as a template. The save dialog asks whether the template should contain only the matrix structure or also the Materials attached to its cells.
 
-Template rows copy the Matrix data into `TableTemplate.TemplateMatrix`; `TableTemplate.MaterialPolicy` records whether attached Materials were included. When Materials are included, the runtime clones Material records, records their hidden server-owned `TemplateOwnerId` provenance, and remaps `CellId`/`MaterialRef` values to fresh UUID v7 identifiers so the template and the source Structure do not share editable runtime rows. Template deletion uses that provenance inside the aggregate transaction to remove only Materials owned by the deleted template.
+Template rows copy the Matrix data into `TableTemplate.TemplateMatrix`; `TableTemplate.MaterialPolicy` records whether attached Materials were included. When Materials are included, the runtime clones Material records, clears their live `InterpretationId`, records their hidden server-owned `TemplateOwnerId` provenance, and remaps `CellId`/`MaterialRef` values to fresh UUID v7 identifiers so the template and the source Structure do not share editable runtime rows. Instantiation writes the destination Interpretation ID onto each cloned live Material. Template deletion uses that provenance inside the aggregate transaction to remove only Materials owned by the deleted template.
 
 Instantiating a template is available only in `structureMode: "multiple"`, because single-system deployments intentionally do not create additional visible Structures. Saving the current single system Matrix as a reusable template remains available to users with sufficient permissions.
 

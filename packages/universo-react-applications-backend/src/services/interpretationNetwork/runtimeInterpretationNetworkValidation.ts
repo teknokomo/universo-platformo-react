@@ -66,30 +66,13 @@ export const assertValidMaterialRefs = (materialRefs: string[]) => {
     }
 }
 
-export const assertUniqueMaterialsByCellId = (materials: Array<Record<string, unknown>>, cellIdColumn?: string) => {
-    if (!cellIdColumn) return
-    const counts = new Map<string, number>()
-    for (const material of materials) {
-        const cellId = getString(material, cellIdColumn)
-        if (!cellId) continue
-        counts.set(cellId, (counts.get(cellId) ?? 0) + 1)
-    }
-    const duplicateCellId = [...counts.entries()].find(([, count]) => count > 1)?.[0]
-    if (duplicateCellId) {
-        throw new InterpretationNetworkCommandError(
-            409,
-            interpretationNetworkCommandErrorCodes.invalidMatrix,
-            'More than one material is attached to the same matrix cell',
-            { cellId: duplicateCellId }
-        )
-    }
-}
-
 export const assertMaterialOwnership = (params: {
     materials: Array<Record<string, unknown>>
     materialIds: string[]
     cellIds: string[]
     materialCellIdColumn?: string
+    interpretationIdColumn?: string
+    interpretationId?: string
     templateOwnerColumn?: string
     templateOwnerId?: string
 }) => {
@@ -105,6 +88,13 @@ export const assertMaterialOwnership = (params: {
                 409,
                 interpretationNetworkCommandErrorCodes.invalidMaterial,
                 'Matrix references a material that is not owned by one of its cells'
+            )
+        }
+        if (params.interpretationId && getString(material, params.interpretationIdColumn) !== params.interpretationId) {
+            throw new InterpretationNetworkCommandError(
+                409,
+                interpretationNetworkCommandErrorCodes.invalidMaterial,
+                'Matrix references a material owned by another Interpretation'
             )
         }
         if (params.templateOwnerId && getString(material, params.templateOwnerColumn) !== params.templateOwnerId) {

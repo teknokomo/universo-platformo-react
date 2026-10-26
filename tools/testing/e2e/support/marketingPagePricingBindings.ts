@@ -11,7 +11,6 @@ type ApiSession = Awaited<ReturnType<typeof createLoggedInApiContext>>
 type LayoutZoneWidget = {
     id?: unknown
     widgetKey?: unknown
-    config?: unknown
 }
 
 type LayoutZoneWidgetsResponse = {
@@ -21,11 +20,6 @@ type LayoutZoneWidgetsResponse = {
 const readWidgets = (payload: LayoutZoneWidgetsResponse | LayoutZoneWidget[] | null | undefined): LayoutZoneWidget[] => {
     if (Array.isArray(payload)) return payload
     return Array.isArray(payload?.items) ? payload.items : []
-}
-
-const readConfig = (widget: LayoutZoneWidget): Record<string, unknown> => {
-    if (!widget.config || typeof widget.config !== 'object' || Array.isArray(widget.config)) return {}
-    return widget.config as Record<string, unknown>
 }
 
 const readString = (value: unknown): string => (typeof value === 'string' ? value : '')
@@ -126,7 +120,7 @@ export async function verifyMarketingPricingRecordRelationSetFlow(options: {
         api,
         metahubId,
         layoutId,
-        (widget) => widget.widgetKey === 'marketing.pricing' && readString(readConfig(widget).instanceKey) !== 'pricing',
+        (widget) => widget.widgetKey === 'marketing.pricing' && readString(widget.instanceKey) !== 'pricing',
         'The newly added Pricing placement was not persisted'
     )
     const addedPricingBindings = (await getLayoutZoneWidgetBindings(api, metahubId, layoutId, readString(addedPricingWidget.id), 'en')) as {

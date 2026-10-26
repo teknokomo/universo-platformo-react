@@ -139,6 +139,7 @@ const originalAllowedFullBootWsOrigins = process.env.PLAYCANVAS_EDITOR_FULL_BOOT
 const originalCorsOrigins = process.env.CORS_ORIGINS
 const originalNodeEnv = process.env.NODE_ENV
 const originalAllowSameHostOrigin = process.env.PLAYCANVAS_EDITOR_ALLOW_SAME_HOST_ORIGIN
+const originalTrustProxyHeaders = process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS
 const originalPort = process.env.PORT
 
 describe('PlayCanvas Editor user data realtime contract', () => {
@@ -582,6 +583,11 @@ afterEach(async () => {
         delete process.env.PLAYCANVAS_EDITOR_ALLOW_SAME_HOST_ORIGIN
     } else {
         process.env.PLAYCANVAS_EDITOR_ALLOW_SAME_HOST_ORIGIN = originalAllowSameHostOrigin
+    }
+    if (originalTrustProxyHeaders === undefined) {
+        delete process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS
+    } else {
+        process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS = originalTrustProxyHeaders
     }
     if (originalPort === undefined) {
         delete process.env.PORT
@@ -1465,15 +1471,20 @@ describe('PlayCanvas Editor full-boot runtime', () => {
 
         await expectForbiddenUpgrade(new WebSocket(wsUrl))
         await expectForbiddenUpgrade(new WebSocket(wsUrl, { headers: { Origin: 'https://attacker.example.test' } }))
+        await expectForbiddenUpgrade(new WebSocket(wsUrl, { headers: { Origin: 'https://editor-assets.example.test/path' } }))
+        await expectForbiddenUpgrade(new WebSocket(wsUrl, { headers: { Origin: 'https://editor-assets.example.test/' } }))
+        await expectForbiddenUpgrade(new WebSocket(wsUrl, { headers: { Origin: 'null' } }))
         await handle.close()
     })
 
-    it('rejects same-host full-boot WebSocket upgrades in production when no origin allow-list is configured', async () => {
+    it('rejects Host-derived full-boot origins even with the former development fallback enabled', async () => {
         delete process.env.PLAYCANVAS_EDITOR_FULL_BOOT_WS_ORIGINS
         delete process.env.PLAYCANVAS_EDITOR_ARTIFACT_ALLOWED_ORIGINS
         delete process.env.PLAYCANVAS_EDITOR_ARTIFACT_PUBLIC_ORIGIN
         delete process.env.PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN
-        process.env.NODE_ENV = 'production'
+        process.env.NODE_ENV = 'development'
+        process.env.PLAYCANVAS_EDITOR_ALLOW_SAME_HOST_ORIGIN = 'true'
+        process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS = 'true'
         process.env.CORS_ORIGINS = '*'
         const server = http.createServer(express())
         servers.push(server)
@@ -1489,29 +1500,29 @@ describe('PlayCanvas Editor full-boot runtime', () => {
         const address = server.address()
         if (!address || typeof address === 'string') throw new Error('Test server did not bind to a TCP port')
         const origin = `http://127.0.0.1:${address.port}`
-        const realtime = new WebSocket(
-            `ws://127.0.0.1:${address.port}/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/realtime`,
-            { headers: { Origin: origin } }
-        )
-
-        await expect(
-            new Promise<number>((resolve, reject) => {
-                realtime.once('unexpected-response', (_request, response) => resolve(response.statusCode ?? 0))
-                realtime.once('open', () => reject(new Error('Expected production empty origin allow-list to be rejected')))
-                realtime.once('error', (error) => reject(error))
-            })
-        ).resolves.toBe(403)
+        const wsUrl = `ws://127.0.0.1:${address.port}/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/realtime`
+        for (const headers of [
+            { Origin: origin },
+            { Origin: 'https://attacker.example.test', 'X-Forwarded-Host': 'attacker.example.test', 'X-Forwarded-Proto': 'https' }
+        ]) {
+            const realtime = new WebSocket(wsUrl, { headers })
+            await expect(
+                new Promise<number>((resolve, reject) => {
+                    realtime.once('unexpected-response', (_request, response) => resolve(response.statusCode ?? 0))
+                    realtime.once('open', () => reject(new Error('Expected Host-derived origin to be rejected')))
+                    realtime.once('error', (error) => reject(error))
+                })
+            ).resolves.toBe(403)
+        }
 
         await handle.close()
     })
 
     it('accepts loopback sibling full-boot WebSocket upgrades and still rejects invalid realtime auth', async () => {
-        delete process.env.PLAYCANVAS_EDITOR_FULL_BOOT_WS_ORIGINS
         delete process.env.PLAYCANVAS_EDITOR_ARTIFACT_ALLOWED_ORIGINS
         delete process.env.PLAYCANVAS_EDITOR_ARTIFACT_PUBLIC_ORIGIN
         delete process.env.PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN
         process.env.NODE_ENV = 'development'
-        process.env.PLAYCANVAS_EDITOR_ALLOW_SAME_HOST_ORIGIN = 'true'
         const server = http.createServer(express())
         servers.push(server)
         const handle = attachPlayCanvasEditorFullBootRuntime({
@@ -1525,6 +1536,7 @@ describe('PlayCanvas Editor full-boot runtime', () => {
         await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()))
         const address = server.address()
         if (!address || typeof address === 'string') throw new Error('Test server did not bind to a TCP port')
+        process.env.PLAYCANVAS_EDITOR_FULL_BOOT_WS_ORIGINS = `http://127.0.0.1:${address.port}`
         process.env.PORT = String(address.port)
         const wsUrl = `ws://127.0.0.1:${address.port}/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/realtime`
         const socket = new WebSocket(wsUrl, { headers: { Origin: `http://localhost:${address.port}` } })

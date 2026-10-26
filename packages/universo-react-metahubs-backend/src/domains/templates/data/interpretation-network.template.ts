@@ -7,23 +7,39 @@
 // materials, relations, and templates are intentionally created in the
 // published application workspace, not prefilled by the product fixture.
 
-import type { MetahubTemplateManifest, TemplateSeedLayout, TemplateSeedZoneWidget } from '@universo-react/types'
+import { INTERPRETATION_NETWORK_DEFAULT_CELL_STYLE_COLORS } from '@universo-react/types'
+import type { MetahubTemplateManifest, TemplateSeedLayout, TemplateSeedScopedLayout, TemplateSeedZoneWidget } from '@universo-react/types'
 import { makeDashboardSeedPlacement } from '../services/dashboardSeedPlacement'
 import { vlc } from './basic.template'
 import { INTERPRETATION_NETWORK_STAGE2 } from './interpretation-network.stage2'
 
 /**
- * Generic interpretation-network workspace: the application shell keeps the left
- * main menu, and the center widget renders the structure/matrix plus selected
- * cell materials in two panes.
+ * The global layout contains only shared application chrome. Structure-scoped
+ * behavior is added by the Structures overlay below.
  */
 const INTERPRETATION_NETWORK_SEED_LAYOUT: TemplateSeedLayout = {
     codename: 'main',
     templateKey: 'dashboard',
     name: vlc('Main', 'Основной'),
     description: vlc(
-        'Interpretation network workspace: left application menu plus a two-pane structure/matrix and materials surface.',
-        'Рабочее пространство трактовочной сети: левое меню приложения и двухпанельная поверхность со структурой, матрицей и материалами.'
+        'Shared application shell with the generated navigation menu.',
+        'Оболочка приложения с автоматически сформированным меню навигации.'
+    ),
+    isDefault: true,
+    isActive: true,
+    sortOrder: 0
+}
+
+const INTERPRETATION_NETWORK_STRUCTURE_LAYOUT: TemplateSeedScopedLayout = {
+    codename: 'structures',
+    templateKey: 'dashboard',
+    baseLayoutCodename: 'main',
+    scopeEntityCodename: 'Structure',
+    scopeEntityKind: 'object',
+    name: vlc('Structures workspace', 'Рабочая область структур'),
+    description: vlc(
+        'Structure-scoped workspace for editing the interpretation matrix and its materials.',
+        'Рабочая область структуры для работы с матрицей трактовок и материалами.'
     ),
     isDefault: true,
     isActive: true,
@@ -69,7 +85,10 @@ const INTERPRETATION_NETWORK_SEED_ZONE_WIDGETS: TemplateSeedZoneWidget[] = [
         widgetKey: 'colorModeSwitcher',
         instanceKey: 'color-mode-switcher',
         sortOrder: 4
-    }),
+    })
+]
+
+const INTERPRETATION_NETWORK_STRUCTURE_ZONE_WIDGETS: TemplateSeedZoneWidget[] = [
     makeDashboardSeedPlacement({
         zone: 'center',
         widgetKey: 'interpretationNetworkWorkspace',
@@ -78,10 +97,7 @@ const INTERPRETATION_NETWORK_SEED_ZONE_WIDGETS: TemplateSeedZoneWidget[] = [
         isActive: true,
         rendererConfig: {
             structureMode: 'multiple',
-            templatePanel: {
-                showInStructureList: true,
-                showInMatrix: true
-            },
+            templatePanel: { showInStructureList: true, showInMatrix: true },
             matrixMode: 'hierarchicalCells',
             allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
             defaultMatrixView: 'table',
@@ -95,10 +111,11 @@ const INTERPRETATION_NETWORK_SEED_ZONE_WIDGETS: TemplateSeedZoneWidget[] = [
             splitPane: { enabled: true },
             hierarchyRowMode: 'focusedPath',
             allowNewAxesInCellDialog: false,
-            positionNumbering: {
-                enabled: true,
-                includeRoot: true,
-                startIndex: 1
+            positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 },
+            cellStylePolicy: {
+                allowedColors: [...INTERPRETATION_NETWORK_DEFAULT_CELL_STYLE_COLORS],
+                allowCustomColors: true,
+                editable: { fillColor: true, textColor: true, borderColor: true, borderWidth: true, borderStyle: true }
             },
             conceptCodename: 'Structure',
             interpretationCodename: 'Interpretation',
@@ -133,15 +150,17 @@ export const interpretationNetworkTemplate: MetahubTemplateManifest = {
     },
     presets: [
         { presetCodename: 'hub', includedByDefault: true },
-        { presetCodename: 'page', includedByDefault: true },
+        { presetCodename: 'page', includedByDefault: false },
         { presetCodename: 'object', includedByDefault: true },
         { presetCodename: 'set', includedByDefault: true },
         { presetCodename: 'enumeration', includedByDefault: true }
     ],
     seed: {
         layouts: [INTERPRETATION_NETWORK_SEED_LAYOUT],
+        scopedLayouts: [INTERPRETATION_NETWORK_STRUCTURE_LAYOUT],
         layoutZoneWidgets: {
-            main: INTERPRETATION_NETWORK_SEED_ZONE_WIDGETS
+            main: INTERPRETATION_NETWORK_SEED_ZONE_WIDGETS,
+            structures: INTERPRETATION_NETWORK_STRUCTURE_ZONE_WIDGETS
         },
         entities: INTERPRETATION_NETWORK_STAGE2.seedEntities,
         optionValues: {

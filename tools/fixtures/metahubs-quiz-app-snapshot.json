@@ -1,9 +1,9 @@
 {
   "kind": "metahub_snapshot_bundle",
   "bundleVersion": 1,
-  "exportedAt": "2026-10-08T06:30:29.809Z",
+  "exportedAt": "2026-10-24T20:11:41.877Z",
   "metahub": {
-    "id": "01a11a34-c662-70bf-8fd1-c4dfe46cfa30",
+    "id": "01a16f8a-5b27-7ab5-9108-b75255aa8cad",
     "name": {
       "_schema": "1",
       "locales": {
@@ -11,15 +11,15 @@
           "content": "Space Quiz Metahub",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-10-08T06:30:28.701Z",
-          "updatedAt": "2026-10-08T06:30:28.701Z"
+          "createdAt": "2026-10-24T20:11:40.705Z",
+          "updatedAt": "2026-10-24T20:11:40.705Z"
         },
         "ru": {
           "content": "Метахаб космической викторины",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-10-08T06:30:28.701Z",
-          "updatedAt": "2026-10-08T06:30:28.701Z"
+          "createdAt": "2026-10-24T20:11:40.705Z",
+          "updatedAt": "2026-10-24T20:11:40.705Z"
         }
       },
       "_primary": "en"
@@ -31,15 +31,15 @@
           "content": "Canonical metahub fixture for the full modules-powered Space Quiz experience with 10 questions, scoring, and restart flow.",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-10-08T06:30:28.701Z",
-          "updatedAt": "2026-10-08T06:30:28.701Z"
+          "createdAt": "2026-10-24T20:11:40.705Z",
+          "updatedAt": "2026-10-24T20:11:40.705Z"
         },
         "ru": {
           "content": "Канонический fixture метахаба для полноценной космической викторины на модулях: 10 вопросов, подсчёт баллов и перезапуск.",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-10-08T06:30:28.701Z",
-          "updatedAt": "2026-10-08T06:30:28.701Z"
+          "createdAt": "2026-10-24T20:11:40.705Z",
+          "updatedAt": "2026-10-24T20:11:40.705Z"
         }
       },
       "_primary": "en"
@@ -51,32 +51,32 @@
           "content": "SpaceQuizMetahub",
           "version": 2,
           "isActive": true,
-          "createdAt": "2026-10-08T06:30:28.684Z",
-          "updatedAt": "2026-10-08T06:30:28.701Z"
+          "createdAt": "2026-10-24T20:11:40.688Z",
+          "updatedAt": "2026-10-24T20:11:40.706Z"
         },
         "ru": {
           "content": "МетахабКосмическойВикторины",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-10-08T06:30:28.684Z",
-          "updatedAt": "2026-10-08T06:30:28.684Z"
+          "createdAt": "2026-10-24T20:11:40.688Z",
+          "updatedAt": "2026-10-24T20:11:40.688Z"
         }
       },
       "_primary": "en"
     }
   },
   "snapshot": {
-    "metahubId": "01a11a34-c662-70bf-8fd1-c4dfe46cfa30",
-    "generatedAt": "2026-10-08T06:30:29.792Z",
+    "metahubId": "01a16f8a-5b27-7ab5-9108-b75255aa8cad",
+    "generatedAt": "2026-10-24T20:11:41.859Z",
     "version": 1,
     "versionEnvelope": {
       "structureVersion": "0.1.0",
       "templateVersion": null,
-      "snapshotFormatVersion": 4
+      "snapshotFormatVersion": 1
     },
     "entities": {
-      "01a11a34-c857-7828-8d81-9080de7e9108": {
-        "id": "01a11a34-c857-7828-8d81-9080de7e9108",
+      "01a16f8a-5d1a-7b65-9fee-fcefdde5939a": {
+        "id": "01a16f8a-5d1a-7b65-9fee-fcefdde5939a",
         "kind": "hub",
         "codename": {
           "_schema": "1",
@@ -85,15 +85,15 @@
               "content": "Main",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-10-08T06:30:29.207Z",
-              "updatedAt": "2026-10-08T06:30:29.207Z"
+              "createdAt": "2026-10-24T20:11:41.209Z",
+              "updatedAt": "2026-10-24T20:11:41.209Z"
             },
             "ru": {
               "content": "Основной",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-10-08T06:30:29.207Z",
-              "updatedAt": "2026-10-08T06:30:29.207Z"
+              "createdAt": "2026-10-24T20:11:41.209Z",
+              "updatedAt": "2026-10-24T20:11:41.209Z"
             }
           },
           "_primary": "en"
@@ -179,8 +179,8 @@
         "fields": [],
         "hubs": []
       },
-      "01a11a34-c86f-7c47-9aa1-217a5c897a2f": {
-        "id": "01a11a34-c86f-7c47-9aa1-217a5c897a2f",
+      "01a16f8a-5d33-7630-8d87-baac17a14a6a": {
+        "id": "01a16f8a-5d33-7630-8d87-baac17a14a6a",
         "kind": "enumeration",
         "codename": {
           "_schema": "1",
@@ -189,20 +189,20 @@
               "content": "Main",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-10-08T06:30:29.230Z",
-              "updatedAt": "2026-10-08T06:30:29.230Z"
+              "createdAt": "2026-10-24T20:11:41.235Z",
+              "updatedAt": "2026-10-24T20:11:41.235Z"
             },
             "ru": {
               "content": "Основное",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-10-08T06:30:29.230Z",
-              "updatedAt": "2026-10-08T06:30:29.230Z"
+              "createdAt": "2026-10-24T20:11:41.235Z",
+              "updatedAt": "2026-10-24T20:11:41.235Z"
             }
           },
           "_primary": "en"
         },
-        "tableName": "enum_01a11a34c86f7c479aa1217a5c897a2f",
+        "tableName": "enum_01a16f8a5d3376308d87baac17a14a6a",
         "presentation": {
           "name": {
             "_schema": "1",
@@ -287,8 +287,8 @@
         "fields": [],
         "hubs": []
       },
-      "01a11a34-c85a-76da-9a4c-dff04b1ac0c2": {
-        "id": "01a11a34-c85a-76da-9a4c-dff04b1ac0c2",
+      "01a16f8a-5d1e-7c4b-aa46-fdb637b2f95b": {
+        "id": "01a16f8a-5d1e-7c4b-aa46-fdb637b2f95b",
         "kind": "object",
         "codename": {
           "_schema": "1",
@@ -297,20 +297,20 @@
               "content": "Main",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-10-08T06:30:29.210Z",
-              "updatedAt": "2026-10-08T06:30:29.210Z"
+              "createdAt": "2026-10-24T20:11:41.214Z",
+              "updatedAt": "2026-10-24T20:11:41.214Z"
             },
             "ru": {
               "content": "Основной",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-10-08T06:30:29.210Z",
-              "updatedAt": "2026-10-08T06:30:29.210Z"
+              "createdAt": "2026-10-24T20:11:41.214Z",
+              "updatedAt": "2026-10-24T20:11:41.214Z"
             }
           },
           "_primary": "en"
         },
-        "tableName": "obj_01a11a34c85a76da9a4cdff04b1ac0c2",
+        "tableName": "obj_01a16f8a5d1e7c4baa46fdb637b2f95b",
         "presentation": {
           "name": {
             "_schema": "1",
@@ -449,7 +449,7 @@
         },
         "fields": [
           {
-            "id": "01a11a34-c873-7152-b9f4-04cdb04ff801",
+            "id": "01a16f8a-5d37-700b-9c1c-8fd2e9de5d53",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -457,8 +457,8 @@
                   "content": "Title",
                   "version": 1,
                   "isActive": true,
-                  "createdAt": "2026-10-08T06:30:29.234Z",
-                  "updatedAt": "2026-10-08T06:30:29.234Z"
+                  "createdAt": "2026-10-24T20:11:41.239Z",
+                  "updatedAt": "2026-10-24T20:11:41.239Z"
                 }
               },
               "_primary": "en"
@@ -500,7 +500,7 @@
             "sortOrder": 1
           },
           {
-            "id": "01a11a34-c875-7432-a563-7269383ddaf8",
+            "id": "01a16f8a-5d39-7036-85e3-6afcac350dd8",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -508,8 +508,8 @@
                   "content": "Description",
                   "version": 1,
                   "isActive": true,
-                  "createdAt": "2026-10-08T06:30:29.236Z",
-                  "updatedAt": "2026-10-08T06:30:29.236Z"
+                  "createdAt": "2026-10-24T20:11:41.240Z",
+                  "updatedAt": "2026-10-24T20:11:41.240Z"
                 }
               },
               "_primary": "en"
@@ -548,8 +548,8 @@
         ],
         "hubs": []
       },
-      "01a11a34-c859-7ec4-aa50-3ead7576caa2": {
-        "id": "01a11a34-c859-7ec4-aa50-3ead7576caa2",
+      "01a16f8a-5d1c-7418-9009-9fc140829314": {
+        "id": "01a16f8a-5d1c-7418-9009-9fc140829314",
         "kind": "page",
         "codename": {
           "_schema": "1",
@@ -558,15 +558,15 @@
               "content": "WelcomePage",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-10-08T06:30:29.208Z",
-              "updatedAt": "2026-10-08T06:30:29.208Z"
+              "createdAt": "2026-10-24T20:11:41.211Z",
+              "updatedAt": "2026-10-24T20:11:41.211Z"
             },
             "ru": {
               "content": "ДоброПожаловать",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-10-08T06:30:29.208Z",
-              "updatedAt": "2026-10-08T06:30:29.208Z"
+              "createdAt": "2026-10-24T20:11:41.211Z",
+              "updatedAt": "2026-10-24T20:11:41.211Z"
             }
           },
           "_primary": "en"
@@ -744,8 +744,8 @@
         "fields": [],
         "hubs": []
       },
-      "01a11a34-c86d-7e94-afc4-c643a9717407": {
-        "id": "01a11a34-c86d-7e94-afc4-c643a9717407",
+      "01a16f8a-5d32-73a0-bf19-96e7ff72a6d9": {
+        "id": "01a16f8a-5d32-73a0-bf19-96e7ff72a6d9",
         "kind": "set",
         "codename": {
           "_schema": "1",
@@ -754,20 +754,20 @@
               "content": "Main",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-10-08T06:30:29.228Z",
-              "updatedAt": "2026-10-08T06:30:29.228Z"
+              "createdAt": "2026-10-24T20:11:41.233Z",
+              "updatedAt": "2026-10-24T20:11:41.233Z"
             },
             "ru": {
               "content": "Основной",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-10-08T06:30:29.228Z",
-              "updatedAt": "2026-10-08T06:30:29.228Z"
+              "createdAt": "2026-10-24T20:11:41.233Z",
+              "updatedAt": "2026-10-24T20:11:41.233Z"
             }
           },
           "_primary": "en"
         },
-        "tableName": "set_01a11a34c86d7e94afc4c643a9717407",
+        "tableName": "set_01a16f8a5d3273a0bf1996e7ff72a6d9",
         "presentation": {
           "name": {
             "_schema": "1",
@@ -859,7 +859,7 @@
     },
     "entityTypeDefinitions": {
       "enumeration": {
-        "id": "01a11a34-c83f-715f-b4dd-92ac810cb0a8",
+        "id": "01a16f8a-5cfe-7188-bfbc-02e323df81d0",
         "kindKey": "enumeration",
         "codename": {
           "_schema": "1",
@@ -1368,7 +1368,7 @@
         "published": true
       },
       "hub": {
-        "id": "01a11a34-c832-72e0-b5ff-0ebbc5eef5bb",
+        "id": "01a16f8a-5cef-7a23-9494-21151c4bc211",
         "kindKey": "hub",
         "codename": {
           "_schema": "1",
@@ -1560,7 +1560,7 @@
         "published": true
       },
       "object": {
-        "id": "01a11a34-c838-785d-9ffa-1ff72bdd2676",
+        "id": "01a16f8a-5cf7-7767-bf59-a06ad454974e",
         "kindKey": "object",
         "codename": {
           "_schema": "1",
@@ -2127,7 +2127,7 @@
         "published": true
       },
       "page": {
-        "id": "01a11a34-c835-7ec3-b17d-67b2fb37d621",
+        "id": "01a16f8a-5cf3-75ea-91fa-825472b2450d",
         "kindKey": "page",
         "codename": {
           "_schema": "1",
@@ -2631,7 +2631,7 @@
         "published": true
       },
       "set": {
-        "id": "01a11a34-c83b-7da6-87df-59420ced10e6",
+        "id": "01a16f8a-5cfb-7d48-ad5d-7ca9297b1bfc",
         "kindKey": "set",
         "codename": {
           "_schema": "1",
@@ -3145,10 +3145,10 @@
       }
     },
     "optionValues": {
-      "01a11a34-c86f-7c47-9aa1-217a5c897a2f": [
+      "01a16f8a-5d33-7630-8d87-baac17a14a6a": [
         {
-          "id": "01a11a34-c877-7aac-93a2-2478c173fb10",
-          "objectId": "01a11a34-c86f-7c47-9aa1-217a5c897a2f",
+          "id": "01a16f8a-5d3c-78bd-ad36-f6b5d82003af",
+          "objectId": "01a16f8a-5d33-7630-8d87-baac17a14a6a",
           "codename": {
             "_schema": "1",
             "locales": {
@@ -3156,8 +3156,8 @@
                 "content": "Active",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-10-08T06:30:29.239Z",
-                "updatedAt": "2026-10-08T06:30:29.239Z"
+                "createdAt": "2026-10-24T20:11:41.244Z",
+                "updatedAt": "2026-10-24T20:11:41.244Z"
               }
             },
             "_primary": "en"
@@ -3188,8 +3188,8 @@
           "isDefault": true
         },
         {
-          "id": "01a11a34-c879-7498-acc2-e1665066a8a0",
-          "objectId": "01a11a34-c86f-7c47-9aa1-217a5c897a2f",
+          "id": "01a16f8a-5d3e-7160-a630-448647a21db3",
+          "objectId": "01a16f8a-5d33-7630-8d87-baac17a14a6a",
           "codename": {
             "_schema": "1",
             "locales": {
@@ -3197,8 +3197,8 @@
                 "content": "Inactive",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-10-08T06:30:29.241Z",
-                "updatedAt": "2026-10-08T06:30:29.241Z"
+                "createdAt": "2026-10-24T20:11:41.246Z",
+                "updatedAt": "2026-10-24T20:11:41.246Z"
               }
             },
             "_primary": "en"
@@ -3231,10 +3231,10 @@
       ]
     },
     "fixedValues": {
-      "01a11a34-c86d-7e94-afc4-c643a9717407": [
+      "01a16f8a-5d32-73a0-bf19-96e7ff72a6d9": [
         {
-          "id": "01a11a34-c871-7156-9fb1-874d9650d868",
-          "objectId": "01a11a34-c86d-7e94-afc4-c643a9717407",
+          "id": "01a16f8a-5d35-7a9f-8999-5df65b4bb259",
+          "objectId": "01a16f8a-5d32-73a0-bf19-96e7ff72a6d9",
           "codename": {
             "_schema": "1",
             "locales": {
@@ -3242,8 +3242,8 @@
                 "content": "AppName",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-10-08T06:30:29.232Z",
-                "updatedAt": "2026-10-08T06:30:29.232Z"
+                "createdAt": "2026-10-24T20:11:41.237Z",
+                "updatedAt": "2026-10-24T20:11:41.237Z"
               }
             },
             "_primary": "en"
@@ -3279,7 +3279,7 @@
       ]
     },
     "systemFields": {
-      "01a11a34-c85a-76da-9a4c-dff04b1ac0c2": {
+      "01a16f8a-5d1e-7c4b-aa46-fdb637b2f95b": {
         "fields": [
           {
             "key": "app.published",
@@ -3363,7 +3363,7 @@
     },
     "modules": [
       {
-        "id": "01a11a34-c9ec-7ea4-91bf-54c2e91e1caa",
+        "id": "01a16f8a-5ef2-78f3-9868-f6140185903a",
         "codename": {
           "_schema": "1",
           "locales": {
@@ -3371,8 +3371,8 @@
               "content": "quiz-widget",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-10-08T06:30:29.603Z",
-              "updatedAt": "2026-10-08T06:30:29.603Z"
+              "createdAt": "2026-10-24T20:11:41.673Z",
+              "updatedAt": "2026-10-24T20:11:41.673Z"
             }
           },
           "_primary": "en"
@@ -3385,8 +3385,8 @@
                 "content": "Space quiz widget",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-10-08T06:30:29.509Z",
-                "updatedAt": "2026-10-08T06:30:29.509Z"
+                "createdAt": "2026-10-24T20:11:41.570Z",
+                "updatedAt": "2026-10-24T20:11:41.570Z"
               }
             },
             "_primary": "en"
@@ -3398,8 +3398,8 @@
                 "content": "Canonical Space Quiz widget module for snapshot export",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-10-08T06:30:29.509Z",
-                "updatedAt": "2026-10-08T06:30:29.509Z"
+                "createdAt": "2026-10-24T20:11:41.571Z",
+                "updatedAt": "2026-10-24T20:11:41.571Z"
               }
             },
             "_primary": "en"
@@ -3409,7 +3409,7 @@
         "attachedToId": null,
         "moduleRole": "widget",
         "sourceKind": "embedded",
-        "sdkApiVersion": "1.0.0",
+        "sdkApiVersion": "0.1.0",
         "sourceCode": "const AtClient = () => () => undefined\nconst AtServer = () => () => undefined\n\nclass ExtensionModule {}\n\nconst QUIZ_DATA = {\"en\":{\"title\":\"Space Quiz\",\"description\":\"Answer ten astronomy questions one by one. Correct answers move you forward automatically.\",\"submitLabel\":\"Check answer\",\"nextLabel\":\"Next question\",\"questions\":[{\"id\":\"q1\",\"prompt\":\"Which planet is known as the Red Planet?\",\"description\":\"Think about the rusty world explored by many rovers.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Venus\"},{\"id\":\"b\",\"label\":\"Mars\"},{\"id\":\"c\",\"label\":\"Mercury\"},{\"id\":\"d\",\"label\":\"Jupiter\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Mars looks red because iron-rich dust on its surface oxidizes like rust.\"},{\"id\":\"q2\",\"prompt\":\"Where is Olympus Mons located?\",\"description\":\"It is the tallest volcano known in the Solar System.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Earth\"},{\"id\":\"b\",\"label\":\"The Moon\"},{\"id\":\"c\",\"label\":\"Mars\"},{\"id\":\"d\",\"label\":\"Io\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"Olympus Mons is a giant shield volcano on Mars, towering far above Everest.\"},{\"id\":\"q3\",\"prompt\":\"The Great Red Spot is a storm on which planet?\",\"description\":\"This world is the largest planet in the Solar System.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Saturn\"},{\"id\":\"b\",\"label\":\"Jupiter\"},{\"id\":\"c\",\"label\":\"Neptune\"},{\"id\":\"d\",\"label\":\"Uranus\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"The Great Red Spot is a long-lived storm system in Jupiter's atmosphere.\"},{\"id\":\"q4\",\"prompt\":\"Which mission first landed humans on the Moon?\",\"description\":\"It carried Neil Armstrong and Buzz Aldrin to the lunar surface.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Apollo 8\"},{\"id\":\"b\",\"label\":\"Apollo 11\"},{\"id\":\"c\",\"label\":\"Apollo 13\"},{\"id\":\"d\",\"label\":\"Gemini 4\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Apollo 11 completed the first crewed lunar landing in July 1969.\"},{\"id\":\"q5\",\"prompt\":\"What is at the center of our Solar System?\",\"description\":\"Every planet in our system orbits this star.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"The Moon\"},{\"id\":\"b\",\"label\":\"Polaris\"},{\"id\":\"c\",\"label\":\"The Sun\"},{\"id\":\"d\",\"label\":\"Sagittarius A*\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"The Sun contains almost all of the Solar System's mass and anchors its orbits.\"},{\"id\":\"q6\",\"prompt\":\"Which planet is most famous for its bright ring system?\",\"description\":\"Several gas giants have rings, but one is the classic example.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Jupiter\"},{\"id\":\"b\",\"label\":\"Saturn\"},{\"id\":\"c\",\"label\":\"Mars\"},{\"id\":\"d\",\"label\":\"Mercury\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Saturn's icy rings are the most extensive and visually striking in the Solar System.\"},{\"id\":\"q7\",\"prompt\":\"What protects Earth from much of the solar wind?\",\"description\":\"Without it, charged particles would strip away much more of our atmosphere.\",\"difficulty\":2,\"options\":[{\"id\":\"a\",\"label\":\"Its magnetic field\"},{\"id\":\"b\",\"label\":\"The asteroid belt\"},{\"id\":\"c\",\"label\":\"Ocean tides\"},{\"id\":\"d\",\"label\":\"The Moon's gravity\"}],\"correctOptionIds\":[\"a\"],\"explanation\":\"Earth's magnetosphere deflects many charged particles streaming from the Sun.\"},{\"id\":\"q8\",\"prompt\":\"Which space observatory primarily studies the universe in infrared light?\",\"description\":\"Its segmented mirror was designed to see through cosmic dust.\",\"difficulty\":2,\"options\":[{\"id\":\"a\",\"label\":\"Hubble Space Telescope\"},{\"id\":\"b\",\"label\":\"James Webb Space Telescope\"},{\"id\":\"c\",\"label\":\"Chandra X-ray Observatory\"},{\"id\":\"d\",\"label\":\"Kepler Space Telescope\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"The James Webb Space Telescope is optimized for infrared observations.\"},{\"id\":\"q9\",\"prompt\":\"Which spacecraft is widely recognized as the first human-made object to enter interstellar space?\",\"description\":\"It launched in 1977 and still sends data today.\",\"difficulty\":3,\"options\":[{\"id\":\"a\",\"label\":\"Pioneer 10\"},{\"id\":\"b\",\"label\":\"Voyager 2\"},{\"id\":\"c\",\"label\":\"Voyager 1\"},{\"id\":\"d\",\"label\":\"New Horizons\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"Voyager 1 crossed into interstellar space in 2012, ahead of Voyager 2.\"},{\"id\":\"q10\",\"prompt\":\"Which two planets are classified as ice giants?\",\"description\":\"Select two answers.\",\"difficulty\":3,\"multiple\":true,\"options\":[{\"id\":\"a\",\"label\":\"Jupiter\"},{\"id\":\"b\",\"label\":\"Saturn\"},{\"id\":\"c\",\"label\":\"Uranus\"},{\"id\":\"d\",\"label\":\"Neptune\"}],\"correctOptionIds\":[\"c\",\"d\"],\"explanation\":\"Uranus and Neptune are called ice giants because their interiors contain more water, ammonia, and methane ices than Jupiter or Saturn.\"}]},\"ru\":{\"title\":\"Космическая викторина\",\"description\":\"Ответьте по очереди на десять вопросов по астрономии. После правильного ответа виджет автоматически перейдёт дальше.\",\"submitLabel\":\"Проверить ответ\",\"nextLabel\":\"Следующий вопрос\",\"questions\":[{\"id\":\"q1\",\"prompt\":\"Какую планету называют Красной планетой?\",\"description\":\"Подумайте о ржаво-красном мире, который исследуют марсоходы.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Венера\"},{\"id\":\"b\",\"label\":\"Марс\"},{\"id\":\"c\",\"label\":\"Меркурий\"},{\"id\":\"d\",\"label\":\"Юпитер\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Марс кажется красным из-за богатой железом пыли на поверхности, которая окисляется как ржавчина.\"},{\"id\":\"q2\",\"prompt\":\"Где находится Олимп Монс?\",\"description\":\"Это самый высокий известный вулкан в Солнечной системе.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"На Земле\"},{\"id\":\"b\",\"label\":\"На Луне\"},{\"id\":\"c\",\"label\":\"На Марсе\"},{\"id\":\"d\",\"label\":\"На Ио\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"Олимп Монс — гигантский щитовой вулкан на Марсе, намного выше Эвереста.\"},{\"id\":\"q3\",\"prompt\":\"На какой планете находится Большое красное пятно?\",\"description\":\"Это крупнейшая планета Солнечной системы.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Сатурн\"},{\"id\":\"b\",\"label\":\"Юпитер\"},{\"id\":\"c\",\"label\":\"Нептун\"},{\"id\":\"d\",\"label\":\"Уран\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Большое красное пятно — это долгоживущий шторм в атмосфере Юпитера.\"},{\"id\":\"q4\",\"prompt\":\"Какая миссия первой высадила людей на Луну?\",\"description\":\"Именно она доставила Нила Армстронга и Базза Олдрина на лунную поверхность.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Apollo 8\"},{\"id\":\"b\",\"label\":\"Apollo 11\"},{\"id\":\"c\",\"label\":\"Apollo 13\"},{\"id\":\"d\",\"label\":\"Gemini 4\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Apollo 11 совершила первую пилотируемую посадку на Луну в июле 1969 года.\"},{\"id\":\"q5\",\"prompt\":\"Что находится в центре нашей Солнечной системы?\",\"description\":\"Все планеты обращаются вокруг этой звезды.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Луна\"},{\"id\":\"b\",\"label\":\"Полярная звезда\"},{\"id\":\"c\",\"label\":\"Солнце\"},{\"id\":\"d\",\"label\":\"Стрелец A*\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"Солнце содержит почти всю массу Солнечной системы и удерживает планеты на орбитах.\"},{\"id\":\"q6\",\"prompt\":\"Какая планета больше всего известна своей яркой системой колец?\",\"description\":\"Кольца есть у нескольких газовых гигантов, но именно эта планета стала классическим примером.\",\"difficulty\":1,\"options\":[{\"id\":\"a\",\"label\":\"Юпитер\"},{\"id\":\"b\",\"label\":\"Сатурн\"},{\"id\":\"c\",\"label\":\"Марс\"},{\"id\":\"d\",\"label\":\"Меркурий\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Ледяные кольца Сатурна — самые обширные и заметные в Солнечной системе.\"},{\"id\":\"q7\",\"prompt\":\"Что защищает Землю от значительной части солнечного ветра?\",\"description\":\"Без этого слоя заряжённые частицы гораздо сильнее разрушали бы атмосферу.\",\"difficulty\":2,\"options\":[{\"id\":\"a\",\"label\":\"Магнитное поле\"},{\"id\":\"b\",\"label\":\"Пояс астероидов\"},{\"id\":\"c\",\"label\":\"Океанские приливы\"},{\"id\":\"d\",\"label\":\"Гравитация Луны\"}],\"correctOptionIds\":[\"a\"],\"explanation\":\"Магнитосфера Земли отклоняет значительную часть заряжённых частиц, летящих от Солнца.\"},{\"id\":\"q8\",\"prompt\":\"Какая космическая обсерватория в основном изучает Вселенную в инфракрасном диапазоне?\",\"description\":\"Её сегментированное зеркало создано для наблюдений сквозь космическую пыль.\",\"difficulty\":2,\"options\":[{\"id\":\"a\",\"label\":\"Космический телескоп Хаббл\"},{\"id\":\"b\",\"label\":\"Космический телескоп Джеймса Уэбба\"},{\"id\":\"c\",\"label\":\"Рентгеновская обсерватория Чандра\"},{\"id\":\"d\",\"label\":\"Космический телескоп Кеплер\"}],\"correctOptionIds\":[\"b\"],\"explanation\":\"Телескоп Джеймса Уэбба оптимизирован именно для инфракрасных наблюдений.\"},{\"id\":\"q9\",\"prompt\":\"Какой аппарат обычно считают первым рукотворным объектом, вошедшим в межзвёздное пространство?\",\"description\":\"Он был запущен в 1977 году и до сих пор передаёт данные.\",\"difficulty\":3,\"options\":[{\"id\":\"a\",\"label\":\"Pioneer 10\"},{\"id\":\"b\",\"label\":\"Voyager 2\"},{\"id\":\"c\",\"label\":\"Voyager 1\"},{\"id\":\"d\",\"label\":\"New Horizons\"}],\"correctOptionIds\":[\"c\"],\"explanation\":\"Voyager 1 пересёк границу межзвёздного пространства в 2012 году, раньше Voyager 2.\"},{\"id\":\"q10\",\"prompt\":\"Какие две планеты относятся к ледяным гигантам?\",\"description\":\"Выберите два ответа.\",\"difficulty\":3,\"multiple\":true,\"options\":[{\"id\":\"a\",\"label\":\"Юпитер\"},{\"id\":\"b\",\"label\":\"Сатурн\"},{\"id\":\"c\",\"label\":\"Уран\"},{\"id\":\"d\",\"label\":\"Нептун\"}],\"correctOptionIds\":[\"c\",\"d\"],\"explanation\":\"Уран и Нептун называют ледяными гигантами, потому что в их недрах больше воды, аммиака и метановых льдов, чем у Юпитера или Сатурна.\"}]}}\n\nconst normalizeLocale = (locale) => (typeof locale === 'string' && locale.toLowerCase().startsWith('ru') ? 'ru' : 'en')\n\nconst sortSelection = (value) => (Array.isArray(value) ? value.map((item) => String(item)).sort() : [])\n\nconst isSameSelection = (selected, correct) => {\n    if (selected.length !== correct.length) {\n        return false\n    }\n\n    return selected.every((item, index) => item === correct[index])\n}\n\nconst buildQuizDefinition = (localeInput) => {\n    const locale = normalizeLocale(localeInput)\n\n    return QUIZ_DATA[locale] || QUIZ_DATA.en\n}\n\nexport default class SpaceQuizWidget extends ExtensionModule {\n    @AtClient()\n    async mount(locale = 'en') {\n        return this.ctx.callServerMethod('getQuiz', [{ locale }])\n    }\n\n    @AtServer()\n    async getQuiz(payload) {\n        const quiz = buildQuizDefinition(payload?.locale)\n\n        return {\n            title: quiz.title,\n            description: quiz.description,\n            submitLabel: quiz.submitLabel,\n            nextLabel: quiz.nextLabel,\n            questions: quiz.questions.map((question) => ({\n                id: question.id,\n                prompt: question.prompt,\n                description: question.description,\n                multiple: Boolean(question.multiple),\n                difficulty: question.difficulty,\n                options: question.options\n            }))\n        }\n    }\n\n    @AtServer()\n    async submit(payload) {\n        const quiz = buildQuizDefinition(payload?.locale)\n        const locale = normalizeLocale(payload?.locale)\n        const questionId = typeof payload?.questionId === 'string' ? payload.questionId : ''\n        const question = quiz.questions.find((item) => item.id === questionId)\n\n        if (!question) {\n            return {\n                questionId,\n                correct: false,\n                score: 0,\n                total: quiz.questions.length,\n                completed: false,\n                message: locale === 'ru' ? 'Вопрос не найден. Обновите квиз и попробуйте снова.' : 'Question not found. Refresh the quiz and try again.',\n                correctOptionIds: {}\n            }\n        }\n\n        const responses = payload?.responses && typeof payload.responses === 'object' ? payload.responses : {}\n        const selectedAnswerIds = sortSelection(payload?.answerIds)\n        const normalizedCorrect = sortSelection(question.correctOptionIds)\n        const correct = isSameSelection(selectedAnswerIds, normalizedCorrect)\n\n        let score = 0\n        let answeredCount = 0\n\n        for (const candidate of quiz.questions) {\n            const submitted = sortSelection(responses[candidate.id])\n            if (submitted.length > 0) {\n                answeredCount += 1\n            }\n\n            if (isSameSelection(submitted, sortSelection(candidate.correctOptionIds))) {\n                score += 1\n            }\n        }\n\n        return {\n            questionId,\n            correct,\n            score,\n            total: quiz.questions.length,\n            completed: answeredCount >= quiz.questions.length,\n            message: correct ? (locale === 'ru' ? 'Верно!' : 'Correct!') : locale === 'ru' ? 'Пока неверно.' : 'Not quite yet.',\n            explanation: question.explanation,\n            correctOptionIds: {\n                [question.id]: normalizedCorrect\n            }\n        }\n    }\n}\n",
         "sourceStorage": {
           "mode": "inline",
@@ -3417,13 +3417,13 @@
           "checksum": "84e83bd04fa80188fa562747aba817d5254da1ba8dd1935a3d1889b0319b8a4f",
           "status": "inline",
           "lastReadAt": null,
-          "lastCompileAt": "2026-10-08T06:30:29.603Z",
+          "lastCompileAt": "2026-10-24T20:11:41.673Z",
           "lastCompileStatus": "success",
           "lastCompileMessageCode": null
         },
         "manifest": {
           "className": "SpaceQuizWidget",
-          "sdkApiVersion": "1.0.0",
+          "sdkApiVersion": "0.1.0",
           "moduleRole": "widget",
           "sourceKind": "embedded",
           "capabilities": [
@@ -3446,11 +3446,11 @@
               "eventName": null
             }
           ],
-          "checksum": "5351228ed239c60e9a64bf7958d9b651252473ff722b5496195b320cf6ef31f4"
+          "checksum": "4ceae53a8ba6ff960c051b22739ae02b621d4b8050bd885c249c56a7de2a9438"
         },
         "serverBundle": "const __universoFragment = 'Fragment'; const __universoJsx = (type, props, ...children) => ({ type, props: { ...(props ?? {}), children } });\nvar __defProp = Object.defineProperty;\nvar __getOwnPropDesc = Object.getOwnPropertyDescriptor;\nvar __getOwnPropNames = Object.getOwnPropertyNames;\nvar __hasOwnProp = Object.prototype.hasOwnProperty;\nvar __export = (target, all) => {\n  for (var name in all)\n    __defProp(target, name, { get: all[name], enumerable: true });\n};\nvar __copyProps = (to, from, except, desc) => {\n  if (from && typeof from === \"object\" || typeof from === \"function\") {\n    for (let key of __getOwnPropNames(from))\n      if (!__hasOwnProp.call(to, key) && key !== except)\n        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n  }\n  return to;\n};\nvar __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\nvar __decorateClass = (decorators, target, key, kind) => {\n  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc(target, key) : target;\n  for (var i = decorators.length - 1, decorator; i >= 0; i--)\n    if (decorator = decorators[i])\n      result = (kind ? decorator(target, key, result) : decorator(result)) || result;\n  if (kind && result) __defProp(target, key, result);\n  return result;\n};\n\n// extension-module.ts\nvar extension_module_exports = {};\n__export(extension_module_exports, {\n  default: () => SpaceQuizWidget\n});\nmodule.exports = __toCommonJS(extension_module_exports);\nvar AtClient = () => () => void 0;\nvar AtServer = () => () => void 0;\nvar ExtensionModule = class {\n};\nvar QUIZ_DATA = { \"en\": { \"title\": \"Space Quiz\", \"description\": \"Answer ten astronomy questions one by one. Correct answers move you forward automatically.\", \"submitLabel\": \"Check answer\", \"nextLabel\": \"Next question\", \"questions\": [{ \"id\": \"q1\", \"prompt\": \"Which planet is known as the Red Planet?\", \"description\": \"Think about the rusty world explored by many rovers.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"Venus\" }, { \"id\": \"b\", \"label\": \"Mars\" }, { \"id\": \"c\", \"label\": \"Mercury\" }, { \"id\": \"d\", \"label\": \"Jupiter\" }], \"correctOptionIds\": [\"b\"], \"explanation\": \"Mars looks red because iron-rich dust on its surface oxidizes like rust.\" }, { \"id\": \"q2\", \"prompt\": \"Where is Olympus Mons located?\", \"description\": \"It is the tallest volcano known in the Solar System.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"Earth\" }, { \"id\": \"b\", \"label\": \"The Moon\" }, { \"id\": \"c\", \"label\": \"Mars\" }, { \"id\": \"d\", \"label\": \"Io\" }], \"correctOptionIds\": [\"c\"], \"explanation\": \"Olympus Mons is a giant shield volcano on Mars, towering far above Everest.\" }, { \"id\": \"q3\", \"prompt\": \"The Great Red Spot is a storm on which planet?\", \"description\": \"This world is the largest planet in the Solar System.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"Saturn\" }, { \"id\": \"b\", \"label\": \"Jupiter\" }, { \"id\": \"c\", \"label\": \"Neptune\" }, { \"id\": \"d\", \"label\": \"Uranus\" }], \"correctOptionIds\": [\"b\"], \"explanation\": \"The Great Red Spot is a long-lived storm system in Jupiter's atmosphere.\" }, { \"id\": \"q4\", \"prompt\": \"Which mission first landed humans on the Moon?\", \"description\": \"It carried Neil Armstrong and Buzz Aldrin to the lunar surface.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"Apollo 8\" }, { \"id\": \"b\", \"label\": \"Apollo 11\" }, { \"id\": \"c\", \"label\": \"Apollo 13\" }, { \"id\": \"d\", \"label\": \"Gemini 4\" }], \"correctOptionIds\": [\"b\"], \"explanation\": \"Apollo 11 completed the first crewed lunar landing in July 1969.\" }, { \"id\": \"q5\", \"prompt\": \"What is at the center of our Solar System?\", \"description\": \"Every planet in our system orbits this star.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"The Moon\" }, { \"id\": \"b\", \"label\": \"Polaris\" }, { \"id\": \"c\", \"label\": \"The Sun\" }, { \"id\": \"d\", \"label\": \"Sagittarius A*\" }], \"correctOptionIds\": [\"c\"], \"explanation\": \"The Sun contains almost all of the Solar System's mass and anchors its orbits.\" }, { \"id\": \"q6\", \"prompt\": \"Which planet is most famous for its bright ring system?\", \"description\": \"Several gas giants have rings, but one is the classic example.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"Jupiter\" }, { \"id\": \"b\", \"label\": \"Saturn\" }, { \"id\": \"c\", \"label\": \"Mars\" }, { \"id\": \"d\", \"label\": \"Mercury\" }], \"correctOptionIds\": [\"b\"], \"explanation\": \"Saturn's icy rings are the most extensive and visually striking in the Solar System.\" }, { \"id\": \"q7\", \"prompt\": \"What protects Earth from much of the solar wind?\", \"description\": \"Without it, charged particles would strip away much more of our atmosphere.\", \"difficulty\": 2, \"options\": [{ \"id\": \"a\", \"label\": \"Its magnetic field\" }, { \"id\": \"b\", \"label\": \"The asteroid belt\" }, { \"id\": \"c\", \"label\": \"Ocean tides\" }, { \"id\": \"d\", \"label\": \"The Moon's gravity\" }], \"correctOptionIds\": [\"a\"], \"explanation\": \"Earth's magnetosphere deflects many charged particles streaming from the Sun.\" }, { \"id\": \"q8\", \"prompt\": \"Which space observatory primarily studies the universe in infrared light?\", \"description\": \"Its segmented mirror was designed to see through cosmic dust.\", \"difficulty\": 2, \"options\": [{ \"id\": \"a\", \"label\": \"Hubble Space Telescope\" }, { \"id\": \"b\", \"label\": \"James Webb Space Telescope\" }, { \"id\": \"c\", \"label\": \"Chandra X-ray Observatory\" }, { \"id\": \"d\", \"label\": \"Kepler Space Telescope\" }], \"correctOptionIds\": [\"b\"], \"explanation\": \"The James Webb Space Telescope is optimized for infrared observations.\" }, { \"id\": \"q9\", \"prompt\": \"Which spacecraft is widely recognized as the first human-made object to enter interstellar space?\", \"description\": \"It launched in 1977 and still sends data today.\", \"difficulty\": 3, \"options\": [{ \"id\": \"a\", \"label\": \"Pioneer 10\" }, { \"id\": \"b\", \"label\": \"Voyager 2\" }, { \"id\": \"c\", \"label\": \"Voyager 1\" }, { \"id\": \"d\", \"label\": \"New Horizons\" }], \"correctOptionIds\": [\"c\"], \"explanation\": \"Voyager 1 crossed into interstellar space in 2012, ahead of Voyager 2.\" }, { \"id\": \"q10\", \"prompt\": \"Which two planets are classified as ice giants?\", \"description\": \"Select two answers.\", \"difficulty\": 3, \"multiple\": true, \"options\": [{ \"id\": \"a\", \"label\": \"Jupiter\" }, { \"id\": \"b\", \"label\": \"Saturn\" }, { \"id\": \"c\", \"label\": \"Uranus\" }, { \"id\": \"d\", \"label\": \"Neptune\" }], \"correctOptionIds\": [\"c\", \"d\"], \"explanation\": \"Uranus and Neptune are called ice giants because their interiors contain more water, ammonia, and methane ices than Jupiter or Saturn.\" }] }, \"ru\": { \"title\": \"\\u041A\\u043E\\u0441\\u043C\\u0438\\u0447\\u0435\\u0441\\u043A\\u0430\\u044F \\u0432\\u0438\\u043A\\u0442\\u043E\\u0440\\u0438\\u043D\\u0430\", \"description\": \"\\u041E\\u0442\\u0432\\u0435\\u0442\\u044C\\u0442\\u0435 \\u043F\\u043E \\u043E\\u0447\\u0435\\u0440\\u0435\\u0434\\u0438 \\u043D\\u0430 \\u0434\\u0435\\u0441\\u044F\\u0442\\u044C \\u0432\\u043E\\u043F\\u0440\\u043E\\u0441\\u043E\\u0432 \\u043F\\u043E \\u0430\\u0441\\u0442\\u0440\\u043E\\u043D\\u043E\\u043C\\u0438\\u0438. \\u041F\\u043E\\u0441\\u043B\\u0435 \\u043F\\u0440\\u0430\\u0432\\u0438\\u043B\\u044C\\u043D\\u043E\\u0433\\u043E \\u043E\\u0442\\u0432\\u0435\\u0442\\u0430 \\u0432\\u0438\\u0434\\u0436\\u0435\\u0442 \\u0430\\u0432\\u0442\\u043E\\u043C\\u0430\\u0442\\u0438\\u0447\\u0435\\u0441\\u043A\\u0438 \\u043F\\u0435\\u0440\\u0435\\u0439\\u0434\\u0451\\u0442 \\u0434\\u0430\\u043B\\u044C\\u0448\\u0435.\", \"submitLabel\": \"\\u041F\\u0440\\u043E\\u0432\\u0435\\u0440\\u0438\\u0442\\u044C \\u043E\\u0442\\u0432\\u0435\\u0442\", \"nextLabel\": \"\\u0421\\u043B\\u0435\\u0434\\u0443\\u044E\\u0449\\u0438\\u0439 \\u0432\\u043E\\u043F\\u0440\\u043E\\u0441\", \"questions\": [{ \"id\": \"q1\", \"prompt\": \"\\u041A\\u0430\\u043A\\u0443\\u044E \\u043F\\u043B\\u0430\\u043D\\u0435\\u0442\\u0443 \\u043D\\u0430\\u0437\\u044B\\u0432\\u0430\\u044E\\u0442 \\u041A\\u0440\\u0430\\u0441\\u043D\\u043E\\u0439 \\u043F\\u043B\\u0430\\u043D\\u0435\\u0442\\u043E\\u0439?\", \"description\": \"\\u041F\\u043E\\u0434\\u0443\\u043C\\u0430\\u0439\\u0442\\u0435 \\u043E \\u0440\\u0436\\u0430\\u0432\\u043E-\\u043A\\u0440\\u0430\\u0441\\u043D\\u043E\\u043C \\u043C\\u0438\\u0440\\u0435, \\u043A\\u043E\\u0442\\u043E\\u0440\\u044B\\u0439 \\u0438\\u0441\\u0441\\u043B\\u0435\\u0434\\u0443\\u044E\\u0442 \\u043C\\u0430\\u0440\\u0441\\u043E\\u0445\\u043E\\u0434\\u044B.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"\\u0412\\u0435\\u043D\\u0435\\u0440\\u0430\" }, { \"id\": \"b\", \"label\": \"\\u041C\\u0430\\u0440\\u0441\" }, { \"id\": \"c\", \"label\": \"\\u041C\\u0435\\u0440\\u043A\\u0443\\u0440\\u0438\\u0439\" }, { \"id\": \"d\", \"label\": \"\\u042E\\u043F\\u0438\\u0442\\u0435\\u0440\" }], \"correctOptionIds\": [\"b\"], \"explanation\": \"\\u041C\\u0430\\u0440\\u0441 \\u043A\\u0430\\u0436\\u0435\\u0442\\u0441\\u044F \\u043A\\u0440\\u0430\\u0441\\u043D\\u044B\\u043C \\u0438\\u0437-\\u0437\\u0430 \\u0431\\u043E\\u0433\\u0430\\u0442\\u043E\\u0439 \\u0436\\u0435\\u043B\\u0435\\u0437\\u043E\\u043C \\u043F\\u044B\\u043B\\u0438 \\u043D\\u0430 \\u043F\\u043E\\u0432\\u0435\\u0440\\u0445\\u043D\\u043E\\u0441\\u0442\\u0438, \\u043A\\u043E\\u0442\\u043E\\u0440\\u0430\\u044F \\u043E\\u043A\\u0438\\u0441\\u043B\\u044F\\u0435\\u0442\\u0441\\u044F \\u043A\\u0430\\u043A \\u0440\\u0436\\u0430\\u0432\\u0447\\u0438\\u043D\\u0430.\" }, { \"id\": \"q2\", \"prompt\": \"\\u0413\\u0434\\u0435 \\u043D\\u0430\\u0445\\u043E\\u0434\\u0438\\u0442\\u0441\\u044F \\u041E\\u043B\\u0438\\u043C\\u043F \\u041C\\u043E\\u043D\\u0441?\", \"description\": \"\\u042D\\u0442\\u043E \\u0441\\u0430\\u043C\\u044B\\u0439 \\u0432\\u044B\\u0441\\u043E\\u043A\\u0438\\u0439 \\u0438\\u0437\\u0432\\u0435\\u0441\\u0442\\u043D\\u044B\\u0439 \\u0432\\u0443\\u043B\\u043A\\u0430\\u043D \\u0432 \\u0421\\u043E\\u043B\\u043D\\u0435\\u0447\\u043D\\u043E\\u0439 \\u0441\\u0438\\u0441\\u0442\\u0435\\u043C\\u0435.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"\\u041D\\u0430 \\u0417\\u0435\\u043C\\u043B\\u0435\" }, { \"id\": \"b\", \"label\": \"\\u041D\\u0430 \\u041B\\u0443\\u043D\\u0435\" }, { \"id\": \"c\", \"label\": \"\\u041D\\u0430 \\u041C\\u0430\\u0440\\u0441\\u0435\" }, { \"id\": \"d\", \"label\": \"\\u041D\\u0430 \\u0418\\u043E\" }], \"correctOptionIds\": [\"c\"], \"explanation\": \"\\u041E\\u043B\\u0438\\u043C\\u043F \\u041C\\u043E\\u043D\\u0441 \\u2014 \\u0433\\u0438\\u0433\\u0430\\u043D\\u0442\\u0441\\u043A\\u0438\\u0439 \\u0449\\u0438\\u0442\\u043E\\u0432\\u043E\\u0439 \\u0432\\u0443\\u043B\\u043A\\u0430\\u043D \\u043D\\u0430 \\u041C\\u0430\\u0440\\u0441\\u0435, \\u043D\\u0430\\u043C\\u043D\\u043E\\u0433\\u043E \\u0432\\u044B\\u0448\\u0435 \\u042D\\u0432\\u0435\\u0440\\u0435\\u0441\\u0442\\u0430.\" }, { \"id\": \"q3\", \"prompt\": \"\\u041D\\u0430 \\u043A\\u0430\\u043A\\u043E\\u0439 \\u043F\\u043B\\u0430\\u043D\\u0435\\u0442\\u0435 \\u043D\\u0430\\u0445\\u043E\\u0434\\u0438\\u0442\\u0441\\u044F \\u0411\\u043E\\u043B\\u044C\\u0448\\u043E\\u0435 \\u043A\\u0440\\u0430\\u0441\\u043D\\u043E\\u0435 \\u043F\\u044F\\u0442\\u043D\\u043E?\", \"description\": \"\\u042D\\u0442\\u043E \\u043A\\u0440\\u0443\\u043F\\u043D\\u0435\\u0439\\u0448\\u0430\\u044F \\u043F\\u043B\\u0430\\u043D\\u0435\\u0442\\u0430 \\u0421\\u043E\\u043B\\u043D\\u0435\\u0447\\u043D\\u043E\\u0439 \\u0441\\u0438\\u0441\\u0442\\u0435\\u043C\\u044B.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"\\u0421\\u0430\\u0442\\u0443\\u0440\\u043D\" }, { \"id\": \"b\", \"label\": \"\\u042E\\u043F\\u0438\\u0442\\u0435\\u0440\" }, { \"id\": \"c\", \"label\": \"\\u041D\\u0435\\u043F\\u0442\\u0443\\u043D\" }, { \"id\": \"d\", \"label\": \"\\u0423\\u0440\\u0430\\u043D\" }], \"correctOptionIds\": [\"b\"], \"explanation\": \"\\u0411\\u043E\\u043B\\u044C\\u0448\\u043E\\u0435 \\u043A\\u0440\\u0430\\u0441\\u043D\\u043E\\u0435 \\u043F\\u044F\\u0442\\u043D\\u043E \\u2014 \\u044D\\u0442\\u043E \\u0434\\u043E\\u043B\\u0433\\u043E\\u0436\\u0438\\u0432\\u0443\\u0449\\u0438\\u0439 \\u0448\\u0442\\u043E\\u0440\\u043C \\u0432 \\u0430\\u0442\\u043C\\u043E\\u0441\\u0444\\u0435\\u0440\\u0435 \\u042E\\u043F\\u0438\\u0442\\u0435\\u0440\\u0430.\" }, { \"id\": \"q4\", \"prompt\": \"\\u041A\\u0430\\u043A\\u0430\\u044F \\u043C\\u0438\\u0441\\u0441\\u0438\\u044F \\u043F\\u0435\\u0440\\u0432\\u043E\\u0439 \\u0432\\u044B\\u0441\\u0430\\u0434\\u0438\\u043B\\u0430 \\u043B\\u044E\\u0434\\u0435\\u0439 \\u043D\\u0430 \\u041B\\u0443\\u043D\\u0443?\", \"description\": \"\\u0418\\u043C\\u0435\\u043D\\u043D\\u043E \\u043E\\u043D\\u0430 \\u0434\\u043E\\u0441\\u0442\\u0430\\u0432\\u0438\\u043B\\u0430 \\u041D\\u0438\\u043B\\u0430 \\u0410\\u0440\\u043C\\u0441\\u0442\\u0440\\u043E\\u043D\\u0433\\u0430 \\u0438 \\u0411\\u0430\\u0437\\u0437\\u0430 \\u041E\\u043B\\u0434\\u0440\\u0438\\u043D\\u0430 \\u043D\\u0430 \\u043B\\u0443\\u043D\\u043D\\u0443\\u044E \\u043F\\u043E\\u0432\\u0435\\u0440\\u0445\\u043D\\u043E\\u0441\\u0442\\u044C.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"Apollo 8\" }, { \"id\": \"b\", \"label\": \"Apollo 11\" }, { \"id\": \"c\", \"label\": \"Apollo 13\" }, { \"id\": \"d\", \"label\": \"Gemini 4\" }], \"correctOptionIds\": [\"b\"], \"explanation\": \"Apollo 11 \\u0441\\u043E\\u0432\\u0435\\u0440\\u0448\\u0438\\u043B\\u0430 \\u043F\\u0435\\u0440\\u0432\\u0443\\u044E \\u043F\\u0438\\u043B\\u043E\\u0442\\u0438\\u0440\\u0443\\u0435\\u043C\\u0443\\u044E \\u043F\\u043E\\u0441\\u0430\\u0434\\u043A\\u0443 \\u043D\\u0430 \\u041B\\u0443\\u043D\\u0443 \\u0432 \\u0438\\u044E\\u043B\\u0435 1969 \\u0433\\u043E\\u0434\\u0430.\" }, { \"id\": \"q5\", \"prompt\": \"\\u0427\\u0442\\u043E \\u043D\\u0430\\u0445\\u043E\\u0434\\u0438\\u0442\\u0441\\u044F \\u0432 \\u0446\\u0435\\u043D\\u0442\\u0440\\u0435 \\u043D\\u0430\\u0448\\u0435\\u0439 \\u0421\\u043E\\u043B\\u043D\\u0435\\u0447\\u043D\\u043E\\u0439 \\u0441\\u0438\\u0441\\u0442\\u0435\\u043C\\u044B?\", \"description\": \"\\u0412\\u0441\\u0435 \\u043F\\u043B\\u0430\\u043D\\u0435\\u0442\\u044B \\u043E\\u0431\\u0440\\u0430\\u0449\\u0430\\u044E\\u0442\\u0441\\u044F \\u0432\\u043E\\u043A\\u0440\\u0443\\u0433 \\u044D\\u0442\\u043E\\u0439 \\u0437\\u0432\\u0435\\u0437\\u0434\\u044B.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"\\u041B\\u0443\\u043D\\u0430\" }, { \"id\": \"b\", \"label\": \"\\u041F\\u043E\\u043B\\u044F\\u0440\\u043D\\u0430\\u044F \\u0437\\u0432\\u0435\\u0437\\u0434\\u0430\" }, { \"id\": \"c\", \"label\": \"\\u0421\\u043E\\u043B\\u043D\\u0446\\u0435\" }, { \"id\": \"d\", \"label\": \"\\u0421\\u0442\\u0440\\u0435\\u043B\\u0435\\u0446 A*\" }], \"correctOptionIds\": [\"c\"], \"explanation\": \"\\u0421\\u043E\\u043B\\u043D\\u0446\\u0435 \\u0441\\u043E\\u0434\\u0435\\u0440\\u0436\\u0438\\u0442 \\u043F\\u043E\\u0447\\u0442\\u0438 \\u0432\\u0441\\u044E \\u043C\\u0430\\u0441\\u0441\\u0443 \\u0421\\u043E\\u043B\\u043D\\u0435\\u0447\\u043D\\u043E\\u0439 \\u0441\\u0438\\u0441\\u0442\\u0435\\u043C\\u044B \\u0438 \\u0443\\u0434\\u0435\\u0440\\u0436\\u0438\\u0432\\u0430\\u0435\\u0442 \\u043F\\u043B\\u0430\\u043D\\u0435\\u0442\\u044B \\u043D\\u0430 \\u043E\\u0440\\u0431\\u0438\\u0442\\u0430\\u0445.\" }, { \"id\": \"q6\", \"prompt\": \"\\u041A\\u0430\\u043A\\u0430\\u044F \\u043F\\u043B\\u0430\\u043D\\u0435\\u0442\\u0430 \\u0431\\u043E\\u043B\\u044C\\u0448\\u0435 \\u0432\\u0441\\u0435\\u0433\\u043E \\u0438\\u0437\\u0432\\u0435\\u0441\\u0442\\u043D\\u0430 \\u0441\\u0432\\u043E\\u0435\\u0439 \\u044F\\u0440\\u043A\\u043E\\u0439 \\u0441\\u0438\\u0441\\u0442\\u0435\\u043C\\u043E\\u0439 \\u043A\\u043E\\u043B\\u0435\\u0446?\", \"description\": \"\\u041A\\u043E\\u043B\\u044C\\u0446\\u0430 \\u0435\\u0441\\u0442\\u044C \\u0443 \\u043D\\u0435\\u0441\\u043A\\u043E\\u043B\\u044C\\u043A\\u0438\\u0445 \\u0433\\u0430\\u0437\\u043E\\u0432\\u044B\\u0445 \\u0433\\u0438\\u0433\\u0430\\u043D\\u0442\\u043E\\u0432, \\u043D\\u043E \\u0438\\u043C\\u0435\\u043D\\u043D\\u043E \\u044D\\u0442\\u0430 \\u043F\\u043B\\u0430\\u043D\\u0435\\u0442\\u0430 \\u0441\\u0442\\u0430\\u043B\\u0430 \\u043A\\u043B\\u0430\\u0441\\u0441\\u0438\\u0447\\u0435\\u0441\\u043A\\u0438\\u043C \\u043F\\u0440\\u0438\\u043C\\u0435\\u0440\\u043E\\u043C.\", \"difficulty\": 1, \"options\": [{ \"id\": \"a\", \"label\": \"\\u042E\\u043F\\u0438\\u0442\\u0435\\u0440\" }, { \"id\": \"b\", \"label\": \"\\u0421\\u0430\\u0442\\u0443\\u0440\\u043D\" }, { \"id\": \"c\", \"label\": \"\\u041C\\u0430\\u0440\\u0441\" }, { \"id\": \"d\", \"label\": \"\\u041C\\u0435\\u0440\\u043A\\u0443\\u0440\\u0438\\u0439\" }], \"correctOptionIds\": [\"b\"], \"explanation\": \"\\u041B\\u0435\\u0434\\u044F\\u043D\\u044B\\u0435 \\u043A\\u043E\\u043B\\u044C\\u0446\\u0430 \\u0421\\u0430\\u0442\\u0443\\u0440\\u043D\\u0430 \\u2014 \\u0441\\u0430\\u043C\\u044B\\u0435 \\u043E\\u0431\\u0448\\u0438\\u0440\\u043D\\u044B\\u0435 \\u0438 \\u0437\\u0430\\u043C\\u0435\\u0442\\u043D\\u044B\\u0435 \\u0432 \\u0421\\u043E\\u043B\\u043D\\u0435\\u0447\\u043D\\u043E\\u0439 \\u0441\\u0438\\u0441\\u0442\\u0435\\u043C\\u0435.\" }, { \"id\": \"q7\", \"prompt\": \"\\u0427\\u0442\\u043E \\u0437\\u0430\\u0449\\u0438\\u0449\\u0430\\u0435\\u0442 \\u0417\\u0435\\u043C\\u043B\\u044E \\u043E\\u0442 \\u0437\\u043D\\u0430\\u0447\\u0438\\u0442\\u0435\\u043B\\u044C\\u043D\\u043E\\u0439 \\u0447\\u0430\\u0441\\u0442\\u0438 \\u0441\\u043E\\u043B\\u043D\\u0435\\u0447\\u043D\\u043E\\u0433\\u043E \\u0432\\u0435\\u0442\\u0440\\u0430?\", \"description\": \"\\u0411\\u0435\\u0437 \\u044D\\u0442\\u043E\\u0433\\u043E \\u0441\\u043B\\u043E\\u044F \\u0437\\u0430\\u0440\\u044F\\u0436\\u0451\\u043D\\u043D\\u044B\\u0435 \\u0447\\u0430\\u0441\\u0442\\u0438\\u0446\\u044B \\u0433\\u043E\\u0440\\u0430\\u0437\\u0434\\u043E \\u0441\\u0438\\u043B\\u044C\\u043D\\u0435\\u0435 \\u0440\\u0430\\u0437\\u0440\\u0443\\u0448\\u0430\\u043B\\u0438 \\u0431\\u044B \\u0430\\u0442\\u043C\\u043E\\u0441\\u0444\\u0435\\u0440\\u0443.\", \"difficulty\": 2, \"options\": [{ \"id\": \"a\", \"label\": \"\\u041C\\u0430\\u0433\\u043D\\u0438\\u0442\\u043D\\u043E\\u0435 \\u043F\\u043E\\u043B\\u0435\" }, { \"id\": \"b\", \"label\": \"\\u041F\\u043E\\u044F\\u0441 \\u0430\\u0441\\u0442\\u0435\\u0440\\u043E\\u0438\\u0434\\u043E\\u0432\" }, { \"id\": \"c\", \"label\": \"\\u041E\\u043A\\u0435\\u0430\\u043D\\u0441\\u043A\\u0438\\u0435 \\u043F\\u0440\\u0438\\u043B\\u0438\\u0432\\u044B\" }, { \"id\": \"d\", \"label\": \"\\u0413\\u0440\\u0430\\u0432\\u0438\\u0442\\u0430\\u0446\\u0438\\u044F \\u041B\\u0443\\u043D\\u044B\" }], \"correctOptionIds\": [\"a\"], \"explanation\": \"\\u041C\\u0430\\u0433\\u043D\\u0438\\u0442\\u043E\\u0441\\u0444\\u0435\\u0440\\u0430 \\u0417\\u0435\\u043C\\u043B\\u0438 \\u043E\\u0442\\u043A\\u043B\\u043E\\u043D\\u044F\\u0435\\u0442 \\u0437\\u043D\\u0430\\u0447\\u0438\\u0442\\u0435\\u043B\\u044C\\u043D\\u0443\\u044E \\u0447\\u0430\\u0441\\u0442\\u044C \\u0437\\u0430\\u0440\\u044F\\u0436\\u0451\\u043D\\u043D\\u044B\\u0445 \\u0447\\u0430\\u0441\\u0442\\u0438\\u0446, \\u043B\\u0435\\u0442\\u044F\\u0449\\u0438\\u0445 \\u043E\\u0442 \\u0421\\u043E\\u043B\\u043D\\u0446\\u0430.\" }, { \"id\": \"q8\", \"prompt\": \"\\u041A\\u0430\\u043A\\u0430\\u044F \\u043A\\u043E\\u0441\\u043C\\u0438\\u0447\\u0435\\u0441\\u043A\\u0430\\u044F \\u043E\\u0431\\u0441\\u0435\\u0440\\u0432\\u0430\\u0442\\u043E\\u0440\\u0438\\u044F \\u0432 \\u043E\\u0441\\u043D\\u043E\\u0432\\u043D\\u043E\\u043C \\u0438\\u0437\\u0443\\u0447\\u0430\\u0435\\u0442 \\u0412\\u0441\\u0435\\u043B\\u0435\\u043D\\u043D\\u0443\\u044E \\u0432 \\u0438\\u043D\\u0444\\u0440\\u0430\\u043A\\u0440\\u0430\\u0441\\u043D\\u043E\\u043C \\u0434\\u0438\\u0430\\u043F\\u0430\\u0437\\u043E\\u043D\\u0435?\", \"description\": \"\\u0415\\u0451 \\u0441\\u0435\\u0433\\u043C\\u0435\\u043D\\u0442\\u0438\\u0440\\u043E\\u0432\\u0430\\u043D\\u043D\\u043E\\u0435 \\u0437\\u0435\\u0440\\u043A\\u0430\\u043B\\u043E \\u0441\\u043E\\u0437\\u0434\\u0430\\u043D\\u043E \\u0434\\u043B\\u044F \\u043D\\u0430\\u0431\\u043B\\u044E\\u0434\\u0435\\u043D\\u0438\\u0439 \\u0441\\u043A\\u0432\\u043E\\u0437\\u044C \\u043A\\u043E\\u0441\\u043C\\u0438\\u0447\\u0435\\u0441\\u043A\\u0443\\u044E \\u043F\\u044B\\u043B\\u044C.\", \"difficulty\": 2, \"options\": [{ \"id\": \"a\", \"label\": \"\\u041A\\u043E\\u0441\\u043C\\u0438\\u0447\\u0435\\u0441\\u043A\\u0438\\u0439 \\u0442\\u0435\\u043B\\u0435\\u0441\\u043A\\u043E\\u043F \\u0425\\u0430\\u0431\\u0431\\u043B\" }, { \"id\": \"b\", \"label\": \"\\u041A\\u043E\\u0441\\u043C\\u0438\\u0447\\u0435\\u0441\\u043A\\u0438\\u0439 \\u0442\\u0435\\u043B\\u0435\\u0441\\u043A\\u043E\\u043F \\u0414\\u0436\\u0435\\u0439\\u043C\\u0441\\u0430 \\u0423\\u044D\\u0431\\u0431\\u0430\" }, { \"id\": \"c\", \"label\": \"\\u0420\\u0435\\u043D\\u0442\\u0433\\u0435\\u043D\\u043E\\u0432\\u0441\\u043A\\u0430\\u044F \\u043E\\u0431\\u0441\\u0435\\u0440\\u0432\\u0430\\u0442\\u043E\\u0440\\u0438\\u044F \\u0427\\u0430\\u043D\\u0434\\u0440\\u0430\" }, { \"id\": \"d\", \"label\": \"\\u041A\\u043E\\u0441\\u043C\\u0438\\u0447\\u0435\\u0441\\u043A\\u0438\\u0439 \\u0442\\u0435\\u043B\\u0435\\u0441\\u043A\\u043E\\u043F \\u041A\\u0435\\u043F\\u043B\\u0435\\u0440\" }], \"correctOptionIds\": [\"b\"], \"explanation\": \"\\u0422\\u0435\\u043B\\u0435\\u0441\\u043A\\u043E\\u043F \\u0414\\u0436\\u0435\\u0439\\u043C\\u0441\\u0430 \\u0423\\u044D\\u0431\\u0431\\u0430 \\u043E\\u043F\\u0442\\u0438\\u043C\\u0438\\u0437\\u0438\\u0440\\u043E\\u0432\\u0430\\u043D \\u0438\\u043C\\u0435\\u043D\\u043D\\u043E \\u0434\\u043B\\u044F \\u0438\\u043D\\u0444\\u0440\\u0430\\u043A\\u0440\\u0430\\u0441\\u043D\\u044B\\u0445 \\u043D\\u0430\\u0431\\u043B\\u044E\\u0434\\u0435\\u043D\\u0438\\u0439.\" }, { \"id\": \"q9\", \"prompt\": \"\\u041A\\u0430\\u043A\\u043E\\u0439 \\u0430\\u043F\\u043F\\u0430\\u0440\\u0430\\u0442 \\u043E\\u0431\\u044B\\u0447\\u043D\\u043E \\u0441\\u0447\\u0438\\u0442\\u0430\\u044E\\u0442 \\u043F\\u0435\\u0440\\u0432\\u044B\\u043C \\u0440\\u0443\\u043A\\u043E\\u0442\\u0432\\u043E\\u0440\\u043D\\u044B\\u043C \\u043E\\u0431\\u044A\\u0435\\u043A\\u0442\\u043E\\u043C, \\u0432\\u043E\\u0448\\u0435\\u0434\\u0448\\u0438\\u043C \\u0432 \\u043C\\u0435\\u0436\\u0437\\u0432\\u0451\\u0437\\u0434\\u043D\\u043E\\u0435 \\u043F\\u0440\\u043E\\u0441\\u0442\\u0440\\u0430\\u043D\\u0441\\u0442\\u0432\\u043E?\", \"description\": \"\\u041E\\u043D \\u0431\\u044B\\u043B \\u0437\\u0430\\u043F\\u0443\\u0449\\u0435\\u043D \\u0432 1977 \\u0433\\u043E\\u0434\\u0443 \\u0438 \\u0434\\u043E \\u0441\\u0438\\u0445 \\u043F\\u043E\\u0440 \\u043F\\u0435\\u0440\\u0435\\u0434\\u0430\\u0451\\u0442 \\u0434\\u0430\\u043D\\u043D\\u044B\\u0435.\", \"difficulty\": 3, \"options\": [{ \"id\": \"a\", \"label\": \"Pioneer 10\" }, { \"id\": \"b\", \"label\": \"Voyager 2\" }, { \"id\": \"c\", \"label\": \"Voyager 1\" }, { \"id\": \"d\", \"label\": \"New Horizons\" }], \"correctOptionIds\": [\"c\"], \"explanation\": \"Voyager 1 \\u043F\\u0435\\u0440\\u0435\\u0441\\u0451\\u043A \\u0433\\u0440\\u0430\\u043D\\u0438\\u0446\\u0443 \\u043C\\u0435\\u0436\\u0437\\u0432\\u0451\\u0437\\u0434\\u043D\\u043E\\u0433\\u043E \\u043F\\u0440\\u043E\\u0441\\u0442\\u0440\\u0430\\u043D\\u0441\\u0442\\u0432\\u0430 \\u0432 2012 \\u0433\\u043E\\u0434\\u0443, \\u0440\\u0430\\u043D\\u044C\\u0448\\u0435 Voyager 2.\" }, { \"id\": \"q10\", \"prompt\": \"\\u041A\\u0430\\u043A\\u0438\\u0435 \\u0434\\u0432\\u0435 \\u043F\\u043B\\u0430\\u043D\\u0435\\u0442\\u044B \\u043E\\u0442\\u043D\\u043E\\u0441\\u044F\\u0442\\u0441\\u044F \\u043A \\u043B\\u0435\\u0434\\u044F\\u043D\\u044B\\u043C \\u0433\\u0438\\u0433\\u0430\\u043D\\u0442\\u0430\\u043C?\", \"description\": \"\\u0412\\u044B\\u0431\\u0435\\u0440\\u0438\\u0442\\u0435 \\u0434\\u0432\\u0430 \\u043E\\u0442\\u0432\\u0435\\u0442\\u0430.\", \"difficulty\": 3, \"multiple\": true, \"options\": [{ \"id\": \"a\", \"label\": \"\\u042E\\u043F\\u0438\\u0442\\u0435\\u0440\" }, { \"id\": \"b\", \"label\": \"\\u0421\\u0430\\u0442\\u0443\\u0440\\u043D\" }, { \"id\": \"c\", \"label\": \"\\u0423\\u0440\\u0430\\u043D\" }, { \"id\": \"d\", \"label\": \"\\u041D\\u0435\\u043F\\u0442\\u0443\\u043D\" }], \"correctOptionIds\": [\"c\", \"d\"], \"explanation\": \"\\u0423\\u0440\\u0430\\u043D \\u0438 \\u041D\\u0435\\u043F\\u0442\\u0443\\u043D \\u043D\\u0430\\u0437\\u044B\\u0432\\u0430\\u044E\\u0442 \\u043B\\u0435\\u0434\\u044F\\u043D\\u044B\\u043C\\u0438 \\u0433\\u0438\\u0433\\u0430\\u043D\\u0442\\u0430\\u043C\\u0438, \\u043F\\u043E\\u0442\\u043E\\u043C\\u0443 \\u0447\\u0442\\u043E \\u0432 \\u0438\\u0445 \\u043D\\u0435\\u0434\\u0440\\u0430\\u0445 \\u0431\\u043E\\u043B\\u044C\\u0448\\u0435 \\u0432\\u043E\\u0434\\u044B, \\u0430\\u043C\\u043C\\u0438\\u0430\\u043A\\u0430 \\u0438 \\u043C\\u0435\\u0442\\u0430\\u043D\\u043E\\u0432\\u044B\\u0445 \\u043B\\u044C\\u0434\\u043E\\u0432, \\u0447\\u0435\\u043C \\u0443 \\u042E\\u043F\\u0438\\u0442\\u0435\\u0440\\u0430 \\u0438\\u043B\\u0438 \\u0421\\u0430\\u0442\\u0443\\u0440\\u043D\\u0430.\" }] } };\nvar normalizeLocale = (locale) => typeof locale === \"string\" && locale.toLowerCase().startsWith(\"ru\") ? \"ru\" : \"en\";\nvar sortSelection = (value) => Array.isArray(value) ? value.map((item) => String(item)).sort() : [];\nvar isSameSelection = (selected, correct) => {\n  if (selected.length !== correct.length) {\n    return false;\n  }\n  return selected.every((item, index) => item === correct[index]);\n};\nvar buildQuizDefinition = (localeInput) => {\n  const locale = normalizeLocale(localeInput);\n  return QUIZ_DATA[locale] || QUIZ_DATA.en;\n};\nvar SpaceQuizWidget = class extends ExtensionModule {\n  async mount(locale = \"en\") {\n    throw new Error('Client-only method \"mount\" is unavailable in the server bundle');\n  }\n  async getQuiz(payload) {\n    const quiz = buildQuizDefinition(payload?.locale);\n    return {\n      title: quiz.title,\n      description: quiz.description,\n      submitLabel: quiz.submitLabel,\n      nextLabel: quiz.nextLabel,\n      questions: quiz.questions.map((question) => ({\n        id: question.id,\n        prompt: question.prompt,\n        description: question.description,\n        multiple: Boolean(question.multiple),\n        difficulty: question.difficulty,\n        options: question.options\n      }))\n    };\n  }\n  async submit(payload) {\n    const quiz = buildQuizDefinition(payload?.locale);\n    const locale = normalizeLocale(payload?.locale);\n    const questionId = typeof payload?.questionId === \"string\" ? payload.questionId : \"\";\n    const question = quiz.questions.find((item) => item.id === questionId);\n    if (!question) {\n      return {\n        questionId,\n        correct: false,\n        score: 0,\n        total: quiz.questions.length,\n        completed: false,\n        message: locale === \"ru\" ? \"\\u0412\\u043E\\u043F\\u0440\\u043E\\u0441 \\u043D\\u0435 \\u043D\\u0430\\u0439\\u0434\\u0435\\u043D. \\u041E\\u0431\\u043D\\u043E\\u0432\\u0438\\u0442\\u0435 \\u043A\\u0432\\u0438\\u0437 \\u0438 \\u043F\\u043E\\u043F\\u0440\\u043E\\u0431\\u0443\\u0439\\u0442\\u0435 \\u0441\\u043D\\u043E\\u0432\\u0430.\" : \"Question not found. Refresh the quiz and try again.\",\n        correctOptionIds: {}\n      };\n    }\n    const responses = payload?.responses && typeof payload.responses === \"object\" ? payload.responses : {};\n    const selectedAnswerIds = sortSelection(payload?.answerIds);\n    const normalizedCorrect = sortSelection(question.correctOptionIds);\n    const correct = isSameSelection(selectedAnswerIds, normalizedCorrect);\n    let score = 0;\n    let answeredCount = 0;\n    for (const candidate of quiz.questions) {\n      const submitted = sortSelection(responses[candidate.id]);\n      if (submitted.length > 0) {\n        answeredCount += 1;\n      }\n      if (isSameSelection(submitted, sortSelection(candidate.correctOptionIds))) {\n        score += 1;\n      }\n    }\n    return {\n      questionId,\n      correct,\n      score,\n      total: quiz.questions.length,\n      completed: answeredCount >= quiz.questions.length,\n      message: correct ? locale === \"ru\" ? \"\\u0412\\u0435\\u0440\\u043D\\u043E!\" : \"Correct!\" : locale === \"ru\" ? \"\\u041F\\u043E\\u043A\\u0430 \\u043D\\u0435\\u0432\\u0435\\u0440\\u043D\\u043E.\" : \"Not quite yet.\",\n      explanation: question.explanation,\n      correctOptionIds: {\n        [question.id]: normalizedCorrect\n      }\n    };\n  }\n};\n__decorateClass([\n  AtClient()\n], SpaceQuizWidget.prototype, \"mount\", 1);\n__decorateClass([\n  AtServer()\n], SpaceQuizWidget.prototype, \"getQuiz\", 1);\n__decorateClass([\n  AtServer()\n], SpaceQuizWidget.prototype, \"submit\", 1);\n",
         "clientBundle": "const __universoFragment = 'Fragment'; const __universoJsx = (type, props, ...children) => ({ type, props: { ...(props ?? {}), children } });\nvar __defProp = Object.defineProperty;\nvar __getOwnPropDesc = Object.getOwnPropertyDescriptor;\nvar __getOwnPropNames = Object.getOwnPropertyNames;\nvar __hasOwnProp = Object.prototype.hasOwnProperty;\nvar __export = (target, all) => {\n  for (var name in all)\n    __defProp(target, name, { get: all[name], enumerable: true });\n};\nvar __copyProps = (to, from, except, desc) => {\n  if (from && typeof from === \"object\" || typeof from === \"function\") {\n    for (let key of __getOwnPropNames(from))\n      if (!__hasOwnProp.call(to, key) && key !== except)\n        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n  }\n  return to;\n};\nvar __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\nvar __decorateClass = (decorators, target, key, kind) => {\n  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc(target, key) : target;\n  for (var i = decorators.length - 1, decorator; i >= 0; i--)\n    if (decorator = decorators[i])\n      result = (kind ? decorator(target, key, result) : decorator(result)) || result;\n  if (kind && result) __defProp(target, key, result);\n  return result;\n};\n\n// extension-module.ts\nvar extension_module_exports = {};\n__export(extension_module_exports, {\n  default: () => SpaceQuizWidget\n});\nmodule.exports = __toCommonJS(extension_module_exports);\nvar AtClient = () => () => void 0;\nvar AtServer = () => () => void 0;\nvar ExtensionModule = class {\n};\nvar SpaceQuizWidget = class extends ExtensionModule {\n  async mount(locale = \"en\") {\n    return this.ctx.callServerMethod(\"getQuiz\", [{ locale }]);\n  }\n  async getQuiz(payload) {\n    return this.ctx.callServerMethod(\"getQuiz\", Array.from(arguments));\n  }\n  async submit(payload) {\n    return this.ctx.callServerMethod(\"submit\", Array.from(arguments));\n  }\n};\n__decorateClass([\n  AtClient()\n], SpaceQuizWidget.prototype, \"mount\", 1);\n__decorateClass([\n  AtServer()\n], SpaceQuizWidget.prototype, \"getQuiz\", 1);\n__decorateClass([\n  AtServer()\n], SpaceQuizWidget.prototype, \"submit\", 1);\n",
-        "checksum": "5351228ed239c60e9a64bf7958d9b651252473ff722b5496195b320cf6ef31f4",
+        "checksum": "4ceae53a8ba6ff960c051b22739ae02b621d4b8050bd885c249c56a7de2a9438",
         "isActive": true,
         "config": {}
       }
@@ -3537,7 +3537,7 @@
     ],
     "layouts": [
       {
-        "id": "01a11a34-c844-7a33-b3d1-03fa80f4c042",
+        "id": "01a16f8a-5d03-7e3c-be66-fb118daaf196",
         "templateKey": "dashboard",
         "name": {
           "_schema": "1",
@@ -3588,13 +3588,13 @@
       }
     ],
     "scopedLayouts": [],
-    "defaultLayoutId": "01a11a34-c844-7a33-b3d1-03fa80f4c042",
+    "defaultLayoutId": "01a16f8a-5d03-7e3c-be66-fb118daaf196",
     "layoutConfig": {},
     "layoutZoneWidgets": [
       {
-        "id": "01a11a34-ca18-7749-8935-23b8b460142a",
-        "layoutId": "01a11a34-c844-7a33-b3d1-03fa80f4c042",
-        "instanceKey": "01a11a34-ca18-7749-8935-23b9b0a8fdc7",
+        "id": "01a16f8a-5f17-7438-a655-718ccf982ce5",
+        "layoutId": "01a16f8a-5d03-7e3c-be66-fb118daaf196",
+        "instanceKey": "01a16f8a-5f17-7438-a655-718dd5aeb567",
         "parentWidgetId": null,
         "slotKey": null,
         "zone": "center",
@@ -3607,8 +3607,8 @@
         "isActive": true
       },
       {
-        "id": "01a11a34-c87d-76c1-9b64-4f815922ff76",
-        "layoutId": "01a11a34-c844-7a33-b3d1-03fa80f4c042",
+        "id": "01a16f8a-5d42-7a3f-8f33-0b0d904fbed8",
+        "layoutId": "01a16f8a-5d03-7e3c-be66-fb118daaf196",
         "instanceKey": "application-navbar",
         "parentWidgetId": null,
         "slotKey": null,
@@ -3619,8 +3619,8 @@
         "isActive": true
       },
       {
-        "id": "01a11a34-c880-7e2e-bff9-853fa7d4b4bf",
-        "layoutId": "01a11a34-c844-7a33-b3d1-03fa80f4c042",
+        "id": "01a16f8a-5d46-7673-9aac-0e442e585949",
+        "layoutId": "01a16f8a-5d03-7e3c-be66-fb118daaf196",
         "instanceKey": "application-header",
         "parentWidgetId": null,
         "slotKey": null,
@@ -3631,8 +3631,8 @@
         "isActive": true
       },
       {
-        "id": "01a11a34-c884-7d43-b013-c677fd91ca79",
-        "layoutId": "01a11a34-c844-7a33-b3d1-03fa80f4c042",
+        "id": "01a16f8a-5d4a-7bf1-83ba-73fc9fc8299a",
+        "layoutId": "01a16f8a-5d03-7e3c-be66-fb118daaf196",
         "instanceKey": "color-mode-switcher",
         "parentWidgetId": null,
         "slotKey": null,
@@ -3645,5 +3645,5 @@
     ],
     "layoutWidgetOverrides": []
   },
-  "snapshotHash": "0341275f6156fc7c8e521033d9524c2f097ef50e0783c411cd47b6e433f0b332"
+  "snapshotHash": "3ff1c392ce29a020f3be9ab25a16e1d5e5e7660fb4d59390b56cd5f65ec49a31"
 }

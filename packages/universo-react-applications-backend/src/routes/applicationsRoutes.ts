@@ -10,6 +10,7 @@ import { createRuntimeReportsController } from '../controllers/runtimeReportsCon
 import { createRuntimeModulesController } from '../controllers/runtimeModulesController'
 import { createRuntimeWorkspaceController } from '../controllers/runtimeWorkspaceController'
 import { createRuntimeInterpretationNetworkController } from '../controllers/runtimeInterpretationNetworkController'
+import { createRuntimeInterpretationNetworkTemplateApplyController } from '../controllers/runtimeInterpretationNetworkTemplateApplyController'
 import { createRuntimeInterpretationNetworkMatrixController } from '../controllers/runtimeInterpretationNetworkMatrixController'
 import { createApplicationLayoutsController } from '../controllers/applicationLayoutsController'
 import { createRuntimePlayCanvasController } from '../controllers/runtimePlayCanvasController'
@@ -17,6 +18,7 @@ import { createRuntimeMarketingPageController } from '../controllers/runtimeMark
 import { createEffectiveLayoutController } from '../controllers/effectiveLayoutController'
 import { createApplicationPublicEntryWorkspaceController } from '../controllers/applicationPublicEntryWorkspaceController'
 import { createApplicationRuntimeReferenceController } from '../controllers/applicationRuntimeReferenceController'
+import { createRuntimeInterpretationNetworkFavoritesRoutes } from './runtimeInterpretationNetworkFavoritesRoutes'
 
 export function createApplicationsRoutes(
     ensureAuth: RequestHandler,
@@ -36,6 +38,7 @@ export function createApplicationsRoutes(
     const runtimeModules = createRuntimeModulesController(getDbExecutor)
     const workspace = createRuntimeWorkspaceController(getDbExecutor)
     const interpretationNetwork = createRuntimeInterpretationNetworkController(getDbExecutor)
+    const interpretationNetworkTemplateApply = createRuntimeInterpretationNetworkTemplateApplyController(getDbExecutor)
     const interpretationNetworkMatrix = createRuntimeInterpretationNetworkMatrixController(getDbExecutor)
     const layouts = createApplicationLayoutsController(getDbExecutor, getRequestDbExecutor)
     const playCanvasRuntime = createRuntimePlayCanvasController(getDbExecutor)
@@ -104,6 +107,15 @@ export function createApplicationsRoutes(
     router.get('/:applicationId/runtime', readLimiter, asyncHandler(runtime.getRuntime))
     router.get('/:applicationId/runtime/playcanvas-manifests', readLimiter, asyncHandler(playCanvasRuntime.listManifests))
     router.get('/:applicationId/runtime/interpretation-network', readLimiter, asyncHandler(interpretationNetwork.getRuntime))
+    router.get(
+        '/:applicationId/runtime/interpretation-network/material-associations',
+        readLimiter,
+        asyncHandler(interpretationNetwork.listMaterialAssociations)
+    )
+    router.use(
+        '/:applicationId/runtime/interpretation-network/favorites',
+        createRuntimeInterpretationNetworkFavoritesRoutes(getDbExecutor, readLimiter, writeLimiter)
+    )
     router.post(
         '/:applicationId/runtime/interpretation-network/system-structure/ensure',
         writeLimiter,
@@ -132,9 +144,29 @@ export function createApplicationsRoutes(
         asyncHandler(interpretationNetwork.instantiateTemplate)
     )
     router.post(
+        '/:applicationId/runtime/interpretation-network/templates/:templateId/apply',
+        writeLimiter,
+        asyncHandler(interpretationNetworkTemplateApply.applyTemplate)
+    )
+    router.post(
         '/:applicationId/runtime/interpretation-network/materials',
         writeLimiter,
         asyncHandler(interpretationNetwork.createMaterial)
+    )
+    router.patch(
+        '/:applicationId/runtime/interpretation-network/materials/:materialId',
+        writeLimiter,
+        asyncHandler(interpretationNetwork.updateMaterial)
+    )
+    router.delete(
+        '/:applicationId/runtime/interpretation-network/materials/:materialId',
+        writeLimiter,
+        asyncHandler(interpretationNetwork.deleteMaterial)
+    )
+    router.put(
+        '/:applicationId/runtime/interpretation-network/materials/primary',
+        writeLimiter,
+        asyncHandler(interpretationNetwork.setPrimaryMaterial)
     )
     router.post(
         '/:applicationId/runtime/interpretation-network/structures',
@@ -150,6 +182,16 @@ export function createApplicationsRoutes(
         '/:applicationId/runtime/interpretation-network/matrix/cells/move',
         writeLimiter,
         asyncHandler(interpretationNetworkMatrix.moveCells)
+    )
+    router.patch(
+        '/:applicationId/runtime/interpretation-network/matrix/cells/:cellId',
+        writeLimiter,
+        asyncHandler(interpretationNetworkMatrix.updateCell)
+    )
+    router.delete(
+        '/:applicationId/runtime/interpretation-network/matrix/cells/:cellId',
+        writeLimiter,
+        asyncHandler(interpretationNetworkMatrix.deleteCell)
     )
     router.delete(
         '/:applicationId/runtime/interpretation-network/structures/:structureId',

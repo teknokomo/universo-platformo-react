@@ -1,6 +1,7 @@
 import { qSchemaTable } from '@universo-react/database'
 import { generateChildTableName } from '@universo-react/schema-ddl'
 import { parseInterpretationNetworkStructureMode } from '@universo-react/types'
+import type { RuntimeTarget } from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
 import { IDENTIFIER_REGEX, runtimeCodenameTextSql } from '../../shared/runtimeHelpers'
 import {
@@ -14,16 +15,30 @@ import {
     type RuntimeSurfaceReady,
     type WidgetRow
 } from './runtimeInterpretationNetworkCore'
+import { WORKSPACE_SETTINGS_ERROR_CODES, resolveEffectiveWorkspaceWidgetConfig, WorkspaceSettingsError } from '../workspaceSettingsService'
+import type { WorkspaceSettingsResolverAuthContext } from '../../shared/workspaceSettingsContracts'
+
+export type InterpretationNetworkWorkspaceSettingsContext = {
+    applicationSettings: Record<string, unknown>
+    authContext: WorkspaceSettingsResolverAuthContext
+    runtimeTarget: RuntimeTarget
+    instanceKey: string
+}
+
+export type InterpretationNetworkRuntimeSurfaceParams = {
+    applicationId: string
+    schemaName: string
+    workspaceId: string | null
+    scopeEntityId?: string | null
+    layoutId?: string | null
+    widgetId?: string | null
+    workspaceSettings?: InterpretationNetworkWorkspaceSettingsContext
+    lockRuntimePlacement?: boolean
+}
 
 export const resolveInterpretationNetworkRuntimeSurface = async (
     executor: DbExecutor,
-    params: {
-        applicationId: string
-        schemaName: string
-        workspaceId: string | null
-        layoutId?: string | null
-        widgetId?: string | null
-    }
+    params: InterpretationNetworkRuntimeSurfaceParams
 ): Promise<InterpretationNetworkRuntimeSurface> => {
     const widgetRows = await executor.query<WidgetRow>(
         `
@@ -48,8 +63,9 @@ export const resolveInterpretationNetworkRuntimeSurface = async (
           AND ($4::uuid IS NULL OR widget.id = $4)
         ORDER BY scope_rank ASC, layout.is_default DESC, layout.sort_order ASC, widget.sort_order ASC, widget.id ASC
         LIMIT 2
+        ${params.lockRuntimePlacement ? 'FOR SHARE OF widget, layout' : ''}
         `,
-        [INTERPRETATION_NETWORK_WIDGET_KEY, params.workspaceId ?? null, params.layoutId ?? null, params.widgetId ?? null]
+        [INTERPRETATION_NETWORK_WIDGET_KEY, params.scopeEntityId ?? null, params.layoutId ?? null, params.widgetId ?? null]
     )
     // Without an explicit runtime widget identity, more than one active widget
     // is ambiguous. Failing closed prevents settings or aggregate commands from
@@ -57,7 +73,25 @@ export const resolveInterpretationNetworkRuntimeSurface = async (
     const effectiveScopeRank = widgetRows[0]?.scope_rank
     const effectiveWidgetRows = widgetRows.filter((row) => row.scope_rank === effectiveScopeRank)
     const widget = effectiveWidgetRows.length === 1 ? effectiveWidgetRows[0] : null
-    const widgetConfig = isRecord(widget?.config) ? widget.config : {}
+    let widgetConfig = isRecord(widget?.config) ? widget.config : {}
+    if (widget && params.workspaceSettings) {
+        const effective = await resolveEffectiveWorkspaceWidgetConfig(executor, {
+            schemaName: params.schemaName,
+            workspaceId: params.workspaceSettings.runtimeTarget.workspaceId!,
+            applicationSettings: params.workspaceSettings.applicationSettings,
+            authContext: params.workspaceSettings.authContext,
+            runtimeTarget: params.workspaceSettings.runtimeTarget,
+            instanceKey: params.workspaceSettings.instanceKey,
+            expectedWidgetId: widget.id
+        })
+        if (effective.widgetKey !== widget.widget_key || effective.target.instanceKey !== params.workspaceSettings.instanceKey) {
+            throw new WorkspaceSettingsError(
+                WORKSPACE_SETTINGS_ERROR_CODES.settingTargetNotFound,
+                'Workspace Matrix placement did not match the resolved runtime widget'
+            )
+        }
+        widgetConfig = effective.config
+    }
     const structureMode = parseInterpretationNetworkStructureMode(widgetConfig.structureMode)
 
     if (!widget) {
@@ -86,6 +120,7 @@ export const resolveInterpretationNetworkRuntimeSurface = async (
         `
     )
     const objectsByCodename = new Map(objectRows.map((row) => [row.codename, row]))
+    const favoriteObject = objectsByCodename.get('Favorite')
     const configuredCodenames = {
         Structure: typeof widgetConfig.conceptCodename === 'string' ? widgetConfig.conceptCodename : 'Structure',
         Interpretation: typeof widgetConfig.interpretationCodename === 'string' ? widgetConfig.interpretationCodename : 'Interpretation',
@@ -94,6 +129,9 @@ export const resolveInterpretationNetworkRuntimeSurface = async (
     }
 
     const missing: string[] = []
+    if (!favoriteObject?.table_name || !IDENTIFIER_REGEX.test(favoriteObject.table_name)) {
+        missing.push('Favorite')
+    }
     const contracts: Partial<RuntimeSurfaceReady['contracts']> = {}
     const resolvedObjects: Record<string, string> = {}
 
@@ -145,6 +183,7 @@ export const resolveInterpretationNetworkRuntimeSurface = async (
             contracts.Interpretation && getChildField(contracts.Interpretation, 'MaterialRef')
         ],
         ['Material.CellId', contracts.Material && getField(contracts.Material, 'CellId')],
+        ['Material.InterpretationId', contracts.Material && getField(contracts.Material, 'InterpretationId')],
         ['Material.TemplateOwnerId', contracts.Material && getField(contracts.Material, 'TemplateOwnerId')],
         ['TableTemplate.Name', contracts.TableTemplate && getField(contracts.TableTemplate, 'Name')],
         ['TableTemplate.MaterialPolicy', contracts.TableTemplate && getField(contracts.TableTemplate, 'MaterialPolicy')],

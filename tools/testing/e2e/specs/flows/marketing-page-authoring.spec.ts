@@ -1,5 +1,11 @@
 import { expect, test } from '../../fixtures/test'
-import { createLoggedInApiContext, disposeApiContext, getApplication, listLayoutZoneWidgets } from '../../support/backend/api-session.mjs'
+import {
+    createLoggedInApiContext,
+    disposeApiContext,
+    getApplication,
+    getLayout,
+    listLayoutZoneWidgets
+} from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
@@ -124,6 +130,27 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
                 brandLogoUrl
             }))
 
+        const sourceLayoutDetails = await getLayout(api, metahub.id!, marketingLayoutId)
+        const sourceLayoutName = readLocalizedText(sourceLayoutDetails.name, 'en')
+        if (!sourceLayoutName) throw new Error('The source marketing layout did not have an English display name')
+        await test.step('Inspect layout list and card views across desktop, tablet, and mobile', () =>
+            verifyMarketingLayoutAuthoringViews({
+                page,
+                testInfo,
+                metahubId: metahub.id!,
+                sourceLayoutName
+            }))
+        const copiedLayouts = await test.step('Copy the layout while preserving all Entity binding slots', () =>
+            copyEntityBackedMarketingLayouts({
+                api,
+                page,
+                testInfo,
+                metahubId: metahub.id!,
+                marketingLayoutId,
+                executionRunId,
+                sourceLayoutName
+            }))
+
         const heroAuthoring = await test.step('Author Hero Entity records and verify binding lifecycle', async () => {
             await test.step('Edit the seeded Hero record in the generic Entity records UI', () =>
                 editSeededMarketingHeroEntityRecord({
@@ -194,25 +221,8 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
                     independentHeroTitleRu,
                     independentHeroAccentRu
                 }))
-            const { createdHeroRecord, addedHeroWidget, sourceLayoutName } = independentHeroAuthoring
-
-            await test.step('Inspect layout list and card views across desktop, tablet, and mobile', () =>
-                verifyMarketingLayoutAuthoringViews({
-                    page,
-                    testInfo,
-                    metahubId: metahub.id!,
-                    sourceLayoutName
-                }))
-            const copiedLayouts = await test.step('Copy the layout while preserving all Entity binding slots', () =>
-                copyEntityBackedMarketingLayouts({
-                    api,
-                    page,
-                    testInfo,
-                    metahubId: metahub.id!,
-                    marketingLayoutId,
-                    executionRunId,
-                    sourceLayoutName
-                }))
+            const { createdHeroRecord, addedHeroWidget, sourceLayoutName: verifiedLayoutName } = independentHeroAuthoring
+            expect(verifiedLayoutName).toBe(sourceLayoutName)
             const expectedConflictResourceUrls =
                 await test.step('Open the chooser for Hero rebind, then verify bound-record deletion is blocked', () =>
                     verifyMarketingHeroBindingDeletionLifecycle({
@@ -334,6 +344,7 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
 
         await test.step('Verify the published Entity-backed Hero runtime and section action', () =>
             verifyPublishedMarketingHeroJourney({
+                browser,
                 api,
                 page,
                 testInfo,

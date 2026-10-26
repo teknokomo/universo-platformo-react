@@ -4,6 +4,7 @@ import { normalizeRuntimeRecordBehavior } from '../../services/runtimeRecordBeha
 import { resolvePresentationName, resolveRuntimeCodenameText, type RuntimeSchemaContext } from '../../shared/runtimeHelpers'
 import { resolveRuntimeStandardKind } from '../../services/runtimeRowSupport/contracts'
 import { readConfiguredWorkflowActions } from '../../services/runtimeRowSupport/workflow'
+import { restrictRuntimeEntityMutationPermissions } from '../../shared/entityMutationPolicy'
 
 import type { RuntimeReadColumnDefinition, RuntimeReadObjectCollection, RuntimeReadRuntimeConfig, RuntimeReadRuntimeSection } from './types'
 
@@ -85,7 +86,7 @@ export const buildRuntimeReadResponsePayload = (params: {
         settings: params.runtimeContext.applicationSettings,
         workspacesEnabled: params.runtimeContext.workspacesEnabled,
         currentWorkspaceId: params.runtimeContext.currentWorkspaceId,
-        permissions: params.runtimeContext.permissions,
+        permissions: restrictRuntimeEntityMutationPermissions(params.runtimeContext.permissions, params.activeObjectCollection.config),
         workflowCapabilities: params.runtimeContext.workflowCapabilities
     }
 }

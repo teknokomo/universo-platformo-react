@@ -16,6 +16,7 @@ import { acquireAdvisoryXactLock, activeAppRowCondition, softDeleteSetClause } f
 import { hashApplicationLayoutContent } from '../utils/applicationLayoutHash'
 import { hashApplicationLayoutContentFromStore, resolveApplicationLayoutHashContext } from './applicationLayoutHashContext'
 import { runtimeObjectFilterSql } from '../shared/runtimeHelpers'
+import { tombstoneApplicationLayoutWorkspaceSettings } from './applicationLayoutWorkspaceSettingsStore'
 import {
     strictApplicationLayoutConfigResetMutationSchema,
     strictApplicationLayoutCopyMutationSchema,
@@ -673,6 +674,7 @@ export async function deleteApplicationLayout(
                 [layoutId, userId, expectedVersion]
             )
             if (!rows[0]) throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
+            await tombstoneApplicationLayoutWorkspaceSettings(tx, schemaName, layoutId, userId, false)
             await tombstoneApplicationLayoutWidgets(tx, schemaName, layoutId, userId, false)
             if (current.item.isDefault) {
                 await assignNextDefaultLayout(tx, schemaName, current.item.scopeEntityId, layoutId, userId)
@@ -709,6 +711,7 @@ export async function deleteApplicationLayout(
         ) {
             throw new Error('APPLICATION_LAYOUT_DELETE_INVARIANT_VIOLATION')
         }
+        await tombstoneApplicationLayoutWorkspaceSettings(tx, schemaName, layoutId, userId, true)
         await tombstoneApplicationLayoutWidgets(tx, schemaName, layoutId, userId, true)
         if (current.item.isDefault) {
             await assignNextDefaultLayout(tx, schemaName, current.item.scopeEntityId, layoutId, userId)

@@ -171,6 +171,7 @@ describe('runtimeWorkspaceService', () => {
         const generatedIds = ['workspace-1', 'relation-1']
 
         txExecutor.query.mockImplementation(async (sql: string, params: unknown[] = []) => {
+            if (sql.includes('FROM "applications"."rel_application_users"')) return [{ user_id: 'user-1' }]
             if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
                 return [{ id: generatedIds.shift() }]
             }
@@ -240,6 +241,7 @@ describe('runtimeWorkspaceService', () => {
 
         await updateWorkspace(executor, {
             schemaName,
+            applicationId: '018f8a78-7b8f-7c1d-a111-222233334441',
             workspaceId: 'workspace-1',
             name: vlc('Class B'),
             description: vlc('Class B description'),
@@ -454,7 +456,7 @@ describe('runtimeWorkspaceService', () => {
             return []
         })
 
-        executor.query.mockImplementation(async (sql: string, params: unknown[] = []) => {
+        executor.query.mockImplementation(async (sql: string) => {
             if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
                 return [{ workspace_type: 'shared', personal_user_id: null }]
             }
@@ -663,7 +665,9 @@ describe('runtimeWorkspaceService', () => {
             schemaName,
             workspaceId: 'workspace-1',
             limit: 20,
-            offset: 0
+            offset: 0,
+            search: 'member@example.com',
+            canViewEmails: true
         })
 
         expect(result).toEqual({
@@ -673,6 +677,65 @@ describe('runtimeWorkspaceService', () => {
             ],
             total: 2
         })
+        const lastCall = executor.query.mock.calls[executor.query.mock.calls.length - 1]
+        expect(String(lastCall?.[0])).toContain('u.email ILIKE $4')
+        expect(lastCall?.[1]).toEqual(['workspace-1', 20, 0, '%member@example.com%'])
+    })
+
+    it('keeps ordinary workspace member search and counts independent of email', async () => {
+        const { executor } = createMockDbExecutor()
+        executor.query.mockResolvedValue([
+            {
+                user_id: 'user-2',
+                role_id: 'role-member',
+                role_codename: 'member',
+                is_default_workspace: false,
+                email: 'private@example.com',
+                nickname: 'Member',
+                can_remove: true,
+                window_total: '1'
+            }
+        ])
+
+        const result = await listWorkspaceMembers(executor, {
+            schemaName,
+            workspaceId: 'workspace-1',
+            limit: 20,
+            offset: 0,
+            search: 'Member',
+            canViewEmails: false
+        })
+
+        expect(result).toEqual({
+            items: [{ userId: 'user-2', roleCodename: 'member', email: null, nickname: 'Member', canRemove: true }],
+            total: 1
+        })
+        const lastCall = executor.query.mock.calls[executor.query.mock.calls.length - 1]
+        expect(String(lastCall?.[0])).toContain('p.nickname ILIKE $4')
+        expect(String(lastCall?.[0])).not.toContain('auth.users')
+        expect(String(lastCall?.[0])).not.toContain('u.email')
+        expect(String(lastCall?.[0])).not.toContain('COALESCE(email, nickname')
+        expect(lastCall?.[1]).toEqual(['workspace-1', 20, 0, '%Member%'])
+    })
+
+    it('does not match or count an email search for an ordinary workspace member', async () => {
+        const { executor } = createMockDbExecutor()
+        executor.query.mockResolvedValue([])
+
+        const result = await listWorkspaceMembers(executor, {
+            schemaName,
+            workspaceId: 'workspace-1',
+            limit: 20,
+            offset: 0,
+            search: 'private@example.com',
+            canViewEmails: false
+        })
+
+        expect(result).toEqual({ items: [], total: 0 })
+        const lastCall = executor.query.mock.calls[executor.query.mock.calls.length - 1]
+        expect(String(lastCall?.[0])).not.toContain('auth.users')
+        expect(String(lastCall?.[0])).not.toContain('u.email')
+        expect(lastCall?.[1]).toEqual(['workspace-1', 20, 0, '%private@example.com%'])
     })
 
     it('returns a single workspace membership descriptor for authorization checks', async () => {
