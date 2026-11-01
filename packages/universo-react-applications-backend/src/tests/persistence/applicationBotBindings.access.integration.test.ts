@@ -1,4 +1,6 @@
 import type { Knex } from 'knex'
+import { createKnexExecutor } from '@universo-react/database'
+import { generateUuidV7 } from '@universo-react/utils'
 import {
     describeIntegration,
     createIntegrationKnex,
@@ -12,7 +14,10 @@ import {
     createTestShortId,
     inactiveApplicationMembershipColumns
 } from './applicationBotBindings.integrationSupport'
-import { generateUuidV7 } from '@universo-react/utils'
+import {
+    createApplicationBotBindingInTransaction,
+    updateApplicationBotBindingInTransaction
+} from '../../persistence/applicationBotBindingsStore'
 
 describeIntegration('Application bot binding role access PostgreSQL invariants', () => {
     let knex: Knex
@@ -260,6 +265,54 @@ describeIntegration('Application bot binding role access PostgreSQL invariants',
                     savepoint.raw(`SELECT * FROM applications.create_application_bot_binding(?, 'telegram', 'anon_bot', NULL)`, [
                         applicationId
                     ])
+                )
+            })
+        })
+    })
+
+    it('keeps no-op updates version-stable and rejects stale versions at the PostgreSQL boundary', async () => {
+        await withRollback(knex, async (trx) => {
+            const applicationId = await insertApplication(trx)
+            const ownerUserId = generateUuidV7()
+            await insertApplicationMember(trx, applicationId, ownerUserId, 'owner')
+            const executor = createKnexExecutor(trx)
+
+            await withDatabaseRole(trx, 'authenticated', ownerUserId, async () => {
+                const created = await createApplicationBotBindingInTransaction(executor, {
+                    applicationId,
+                    platform: 'telegram',
+                    botUsername: 'no_op_bot',
+                    displayName: null
+                })
+
+                const unchanged = await updateApplicationBotBindingInTransaction(executor, {
+                    applicationId,
+                    bindingId: created.id,
+                    expectedVersion: created.version,
+                    botUsername: created.botUsername
+                })
+
+                expect(unchanged).toMatchObject({
+                    id: created.id,
+                    botUsername: created.botUsername,
+                    version: created.version
+                })
+
+                const persistedState = await trx.raw(
+                    `SELECT b._upl_version AS version, count(a.id)::integer AS audit_count
+                     FROM applications.rel_application_bot_bindings AS b
+                     LEFT JOIN applications.rel_application_control_audits AS a ON a.binding_id = b.id
+                     WHERE b.id = ?
+                     GROUP BY b.id`,
+                    [created.id]
+                )
+                expect(persistedState.rows).toEqual([{ version: created.version, audit_count: 1 }])
+
+                await expectPostgresError(trx, '40001', (savepoint) =>
+                    savepoint.raw(
+                        `SELECT * FROM applications.update_application_bot_binding(?, ?, ?, '{"botUsername":"no_op_bot"}'::jsonb)`,
+                        [applicationId, created.id, created.version + 1]
+                    )
                 )
             })
         })
