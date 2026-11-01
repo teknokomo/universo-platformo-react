@@ -20,7 +20,8 @@ const isSafeVisibleComponent = (
     component: RuntimeReadableComponent,
     locale: string,
     excludePersonalIdentityFields: boolean,
-    requirePublicMessengerSafe: boolean
+    requirePublicMessengerSafe: boolean,
+    excludeAnonymousObjectReferences: boolean
 ): boolean => {
     const uiConfig = isRecord(component.ui_config) ? component.ui_config : {}
     if (
@@ -57,6 +58,7 @@ const isSafeVisibleComponent = (
         return false
     }
     if (component.data_type !== 'REF') return true
+    if (excludeAnonymousObjectReferences && isRuntimeObjectTargetKind(component.target_object_kind)) return false
     return isRuntimeEnumerationKind(component.target_object_kind) || isRuntimeObjectTargetKind(component.target_object_kind)
 }
 
@@ -64,10 +66,19 @@ const resolveVisibleComponents = (
     components: readonly RuntimeReadableComponent[],
     locale: string,
     excludePersonalIdentityFields: boolean,
-    requirePublicMessengerSafe: boolean
+    requirePublicMessengerSafe: boolean,
+    excludeAnonymousObjectReferences: boolean
 ): RuntimeReadableComponent[] => {
     const visible = components
-        .filter((component) => isSafeVisibleComponent(component, locale, excludePersonalIdentityFields, requirePublicMessengerSafe))
+        .filter((component) =>
+            isSafeVisibleComponent(
+                component,
+                locale,
+                excludePersonalIdentityFields,
+                requirePublicMessengerSafe,
+                excludeAnonymousObjectReferences
+            )
+        )
         .slice(0, MAX_RECORDS_TABLE_COLUMNS)
     if (visible.length === 0) {
         throw new UpdateFailure(409, { error: 'Entity-backed table has no safe display Components' })
@@ -119,7 +130,14 @@ export const projectRecordsTable = async (
     const excludePersonalIdentityFields = scope.publishedRecordsOnly === true && scope.currentUserId == null && scope.role == null
     const requirePublicMessengerSafe =
         scope.publicRuntimePolicy === 'messenger-app' && excludePersonalIdentityFields && scope.publishedRecordsOnly === true
-    const visibleComponents = resolveVisibleComponents(components, locale, excludePersonalIdentityFields, requirePublicMessengerSafe)
+    const excludeAnonymousObjectReferences = scope.publishedRecordsOnly === true && scope.currentUserId == null && scope.role == null
+    const visibleComponents = resolveVisibleComponents(
+        components,
+        locale,
+        excludePersonalIdentityFields,
+        requirePublicMessengerSafe,
+        excludeAnonymousObjectReferences
+    )
     const projectedFields = visibleComponents.map((component) => resolveRuntimeCodenameText(component.codename))
     if (projectedFields.some((field) => !field)) {
         throw new UpdateFailure(409, { error: 'Records table Component metadata is invalid' })

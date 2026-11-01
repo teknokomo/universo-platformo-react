@@ -44,6 +44,8 @@ export function createPublicMessengerRuntimeDetails(
         publicWorkspaceAvailable: false,
         workspacesEnabled: false,
         permissions: publicPermissions,
+        pageBlocks: messengerApp.pageBlocks,
+        contentMode: messengerApp.pageBlocks?.length ? 'page' : 'inline',
         navigate: onNavigate
     }
 }

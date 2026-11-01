@@ -280,7 +280,7 @@ const capitalize = (value: string): string => value.charAt(0).toUpperCase() + va
 const DASHBOARD_WIDGET_DEFINITIONS: readonly LayoutWidgetDefinition[] = DASHBOARD_LAYOUT_WIDGETS.map((widget) => ({
     ...widget,
     allowedZonesByTemplate: {
-        dashboard: [...widget.allowedZones],
+        dashboard: [...(widget.allowedZonesByTemplate.dashboard ?? widget.allowedZones)],
         ...(widget.shared ? { 'marketing-page': ['marketing-header'] as const } : {}),
         ...(widget.supportedTemplates.includes('messenger-app')
             ? { 'messenger-app': [...(widget.allowedZonesByTemplate['messenger-app'] ?? [])] }

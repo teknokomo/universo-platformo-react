@@ -516,14 +516,21 @@ async function selectRuntimeRowAction(page: Page, locale: Locale, en: string, ru
     await expect(page.getByRole('menu'), `${label} row action menu closed`).toHaveCount(0, { timeout: 30_000 })
 }
 
-async function confirmVisibleDelete(page: Page, label: string): Promise<void> {
+async function confirmVisibleDelete(page: Page, applicationId: string, label: string): Promise<void> {
     const confirmDialog = page
         .getByRole('dialog')
         .filter({ has: page.getByTestId(confirmDeleteSelectors.confirmButton) })
         .first()
     await expect(confirmDialog, `${label} delete confirmation`).toBeVisible({ timeout: 30_000 })
     await expectNoTechnicalLeakage(confirmDialog, { label: `${label} delete confirmation`, checkUuidSubstrings: true })
+    const deleteResponsePromise = page.waitForResponse(
+        (response) =>
+            response.request().method() === 'DELETE' && response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows/`),
+        { timeout: 30_000 }
+    )
     await confirmDialog.getByTestId(confirmDeleteSelectors.confirmButton).click()
+    const deleteResponse = await deleteResponsePromise
+    expect(deleteResponse.ok(), `${label} DELETE request`).toBe(true)
     await expect(confirmDialog, `${label} delete confirmation closed`).toHaveCount(0, { timeout: 30_000 })
     await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
 }
@@ -619,10 +626,11 @@ async function captureGettingAroundGuide(page: Page, locale: Locale, application
     await page.goto(`/a/${applicationId}`)
     await openWorkspaceManagement(page, locale)
     await expectElementFitsViewport(page, 'runtime-workspaces-page', `${locale} workspaces page`)
-    const createWorkspaceButton = page
-        .getByTestId(applicationSelectors.runtimeCreateButton)
-        .or(page.getByRole('button', { name: localizedPattern(locale, /create/i, /создать/i) }))
-        .first()
+    const workspacePage = page.getByTestId('runtime-workspaces-page')
+    const createWorkspaceButton = workspacePage.getByRole('button', {
+        name: localizedPattern(locale, /^create$/i, /^создать$/i)
+    })
+    await expect(createWorkspaceButton, `${locale} unique workspace create action`).toHaveCount(1)
     await expect(createWorkspaceButton, `${locale} create workspace action`).toBeVisible({ timeout: 30_000 })
     await createWorkspaceButton.click()
     const workspaceDialog = page.getByRole('dialog').first()
@@ -760,7 +768,7 @@ async function captureProjectsGuide(page: Page, locale: Locale, applicationId: s
     await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
     await openFirstRuntimeRowActions(page, `${locale} projects delete`)
     await selectRuntimeRowAction(page, locale, 'Delete', 'Удалить', `${locale} projects delete`)
-    await confirmVisibleDelete(page, `${locale} projects delete`)
+    await confirmVisibleDelete(page, applicationId, `${locale} projects delete`)
     await clickNavigation(page, labels.trash)
     const restoreDialog = await selectTrashRestoreTarget(page, locale, `${locale} projects`)
     await captureDocsStepScreenshot(page, locale, 'projects', 5, page.locator('body'))

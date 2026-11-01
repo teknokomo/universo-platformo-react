@@ -303,6 +303,16 @@ export function createPublicApplicationRuntimeController(getDbExecutor: () => Db
                             }
                         }
                     }
+                    const pageBlockContent =
+                        effectiveLayout.resolvedEntityTypeId &&
+                        (effectiveLayout.target.targetKind === null || effectiveLayout.target.targetKind === 'page')
+                            ? await findEffectiveLayoutPageBlockContent(
+                                  tx,
+                                  resolved.application.schemaName,
+                                  effectiveLayout.resolvedEntityTypeId,
+                                  'public'
+                              )
+                            : undefined
                     return {
                         route: toPublicApplicationRouteResolution(resolved.route),
                         templateKey: 'messenger-app' as const,
@@ -312,7 +322,8 @@ export function createPublicApplicationRuntimeController(getDbExecutor: () => Db
                             workspaceId: messengerWorkspace?.workspaceId ?? null,
                             workspaceAvailable: !resolved.application.workspacesEnabled || messengerWorkspace !== null,
                             locale: query.locale,
-                            effectiveLayout
+                            effectiveLayout,
+                            pageBlockContent
                         })
                     } satisfies PublicApplicationRuntime
                 }

@@ -262,6 +262,7 @@ describe('canonical Dashboard widget registry', () => {
         expect(canAddApplicationLayoutWidget(definition('workspaceSwitcher'), 'application')).toBe(false)
         expect(canAddApplicationLayoutWidget(definition('columnsContainer'), 'application')).toBe(false)
         const generatedMenu = definition('menuWidget', { variant: 'generated' })
+        expect(generatedMenu?.allowedZonesByTemplate).toMatchObject({ dashboard: ['left'], 'messenger-app': ['center'] })
         expect(canAddApplicationLayoutWidget(generatedMenu, 'application')).toBe(false)
         expect(canAddApplicationLayoutWidget(generatedMenu, 'application', 'dashboard')).toBe(false)
         expect(canAddApplicationLayoutWidget(generatedMenu, 'application', 'messenger-app')).toBe(true)

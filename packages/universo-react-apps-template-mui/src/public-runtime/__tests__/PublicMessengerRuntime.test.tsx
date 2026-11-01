@@ -347,4 +347,11 @@ describe('PublicMessengerRuntime', () => {
         }
         expect(details).not.toHaveProperty('apiBaseUrl')
     })
+
+    it('renders authored public Page blocks in page content mode', () => {
+        const pageBlocks = [{ id: 'intro', type: 'paragraph' as const, data: { text: 'Page introduction' } }]
+        const details = createPublicMessengerRuntimeDetails('public-app', { ...overviewRuntime, pageBlocks }, vi.fn())
+
+        expect(details).toMatchObject({ contentMode: 'page', pageBlocks })
+    })
 })

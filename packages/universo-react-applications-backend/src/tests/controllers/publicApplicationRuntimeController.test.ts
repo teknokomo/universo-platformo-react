@@ -138,7 +138,8 @@ describe('public Messenger runtime controller', () => {
         }
         const layout = {
             status: 'ok',
-            target: { applicationId, targetKind: null, locale: 'ru' },
+            target: { applicationId, targetKind: 'page', entityTypeId: '0190a9b5-3cde-7abc-8def-0123456789af', locale: 'ru' },
+            resolvedEntityTypeId: '0190a9b5-3cde-7abc-8def-0123456789af',
             layout: { id: '0190a9b5-3cde-7abc-8def-0123456789ae', templateKey: 'messenger-app', config: {} },
             widgets: []
         } as unknown as EffectiveLayoutSuccess
@@ -146,7 +147,15 @@ describe('public Messenger runtime controller', () => {
             .spyOn(effectiveLayoutResolverCore, 'resolveEffectiveLayoutForPublicTransactionWithRuntimeData')
             .mockResolvedValue(layout as never)
         const tx = {
-            query: jest.fn(async (sql: string) => (sql.includes('FROM applications.obj_applications a') ? [application] : []))
+            query: jest.fn(async (sql: string) => {
+                if (sql.includes('FROM applications.obj_applications a')) return [application]
+                if (sql.includes("config->'blockContent'")) {
+                    return [
+                        { block_content: { blocks: [{ id: 'public-intro', type: 'paragraph', data: { text: 'Public page content' } }] } }
+                    ]
+                }
+                return []
+            })
         }
         const executor = {
             transaction: async (handler: (transaction: unknown) => Promise<unknown>) => handler(tx)
@@ -176,7 +185,12 @@ describe('public Messenger runtime controller', () => {
         const body = JSON.parse(res.send.mock.calls[0][0] as string) as Record<string, unknown>
         expect(body.templateKey).toBe('messenger-app')
         expect(body).not.toHaveProperty('applicationId')
-        expect(body.messengerApp).toMatchObject({ locale: 'ru', title: 'Публичный мессенджер', placements: [] })
+        expect(body.messengerApp).toMatchObject({
+            locale: 'ru',
+            title: 'Публичный мессенджер',
+            pageBlocks: [{ id: 'public-intro', type: 'paragraph', data: { text: 'Public page content' } }],
+            placements: []
+        })
         expect(JSON.stringify(body)).not.toContain(applicationId)
         expect(JSON.stringify(body)).not.toContain('locales')
         expect(JSON.stringify(body)).not.toContain('showInAppList')

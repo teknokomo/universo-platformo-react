@@ -1,4 +1,4 @@
-> **Last Reviewed**: 2026-10-14 (refreshed: repository 0.85.0-alpha; LMS guest quiz, reporting, and published runtime baseline rechecked)
+> **Last Reviewed**: 2026-11-01 (refreshed: repository 0.88.0-alpha; Messenger App MAX/Telegram runtime and bot bindings added)
 
 # Product Context
 
@@ -164,14 +164,15 @@ product.
 
 ## Current Status
 
--   **Repository version**: `0.85.0-alpha`.
--   **Recent focus**: LMS guest quiz delivery, answer persistence/retries, and workspace-scoped reporting; preserve the completed Entity-backed Marketing Page authoring/runtime, unified application-template widgets/scoped layouts, and shared MUI selection controls. Interpretation Network and PlayCanvas/MMOOMM remain major runtime workloads.
+-   **Repository version**: `0.88.0-alpha`.
+-   **Recent focus**: Messenger App MAX/Telegram bot bindings, catalog visibility, and bounded public runtime; LMS guest quiz delivery, answer persistence/retries, and workspace-scoped reporting; preserve the completed Entity-backed Marketing Page authoring/runtime, unified application-template widgets/scoped layouts, and shared MUI selection controls. Interpretation Network and PlayCanvas/MMOOMM remain major runtime workloads.
 -   **Platform groundwork**: ongoing consolidation of the metahub
     configuration model, the entity type constructor, and the
     metahub-as-application transition.
 
 ## Next Development Focus
 
+-   Validate Messenger application publication and bot behavior with eligible external MAX and Telegram clients; local automated runtime and binding coverage is available, while provider-side acceptance remains external.
 -   Continue productizing generic Entity-backed widget/layout authoring so Marketing, Interpretation Network, LMS, and future configurations share the same content-ownership, binding, and runtime contracts.
 -   Continue LMS Learning Content parity work on generic primitives.
 -   Continue the metahub-as-application migration: replace legacy

@@ -942,6 +942,44 @@ test('@flow @messenger-app @snapshot exercises catalog, authenticated member, an
             }
         })
 
+        await test.step('Render the selected published Page through public Messenger navigation', async () => {
+            await anonymousPage.setViewportSize({ width: 1920, height: 1080 })
+            const runtime = await readAnonymousRuntime(
+                anonymousPage,
+                `/a/${primaryAlias}?targetKind=page&entityTypeCodename=WelcomePage&locale=en`
+            )
+            const welcomeMenu = runtime.messengerApp.placements.find((placement) => placement.widgetKey === 'menuWidget')
+            if (welcomeMenu?.widgetKey !== 'menuWidget' || welcomeMenu.runtimeData.status !== 'ready') {
+                throw new Error('The anonymous Messenger menu must expose its published Page destinations')
+            }
+            expect(welcomeMenu.runtimeData.data.items).toContainEqual(
+                expect.objectContaining({
+                    kind: 'section',
+                    target: expect.objectContaining({ kind: 'page', codename: 'WelcomePage' })
+                })
+            )
+            expect(runtime.messengerApp.pageBlocks).toMatchObject([
+                { id: 'welcome-title', type: 'header', data: { text: 'Welcome', level: 2 } },
+                {
+                    id: 'welcome-body',
+                    type: 'paragraph',
+                    data: { text: 'Use this page to publish structured application content.' }
+                }
+            ])
+            const main = anonymousPage.getByRole('main')
+            await expect(main.getByRole('heading', { name: 'Welcome', exact: true })).toBeVisible()
+            await expect(main.getByText('Use this page to publish structured application content.', { exact: true })).toBeVisible()
+            await expectNoPageHorizontalOverflow(anonymousPage, 'Anonymous Messenger published Page content')
+            await expectNoTechnicalLeakage(main, {
+                label: 'Anonymous Messenger published Page content',
+                checkUuidSubstrings: true,
+                checkOpaqueRuntimeHandles: true
+            })
+            const screenshotPath = testInfo.outputPath('messenger-public-welcome-page-desktop-en.png')
+            await anonymousPage.screenshot({ path: screenshotPath, animations: 'disabled' })
+            await testInfo.attach('messenger-public-welcome-page-desktop-en', { path: screenshotPath, contentType: 'image/png' })
+        })
+
         await test.step('Verify system dark theme behavior', async () => {
             await anonymousPage.emulateMedia({ colorScheme: 'dark' })
             await expect.poll(() => anonymousPage.locator('html').getAttribute('data-mui-color-scheme')).toBe('dark')

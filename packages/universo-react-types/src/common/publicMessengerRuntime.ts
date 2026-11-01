@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { publicApplicationRouteResolutionSchema } from './applicationAliases'
 import { layoutInstanceKeySchema } from './applicationLayouts'
+import { runtimePageBlockSchema } from './pageBlocks'
 
 export const MAX_PUBLIC_MESSENGER_TABLE_ROWS = 20
 export const MAX_PUBLIC_MESSENGER_CHART_POINTS = 30
@@ -661,6 +662,7 @@ export const publicMessengerAppRuntimeSchema = z
     .object({
         locale: z.enum(['en', 'ru']),
         title: publicMessengerTextSchema(160).refine((value) => value.trim().length > 0),
+        pageBlocks: z.array(runtimePageBlockSchema).max(500).optional(),
         placements: z.array(publicMessengerPlacementSchema).max(MAX_PUBLIC_MESSENGER_PLACEMENTS)
     })
     .strict()

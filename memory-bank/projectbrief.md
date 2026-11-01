@@ -1,4 +1,4 @@
-> **Last Reviewed**: 2026-10-14 (refreshed: repository 0.85.0-alpha; LMS guest quiz, reporting, and runtime baseline rechecked)
+> **Last Reviewed**: 2026-11-01 (refreshed: repository 0.88.0-alpha; Messenger App template and public runtime baseline added)
 
 # Project Brief - Universo Platformo
 
@@ -45,13 +45,13 @@ The platform is also the foundation for two larger initiatives:
 
 ## Current Status
 
--   **Repository version**: `0.85.0-alpha`.
+-   **Repository version**: `0.88.0-alpha`.
 -   **Architecture status**: in active transition from a "feature packages
     on `universo-template-mui`" layout to an "everything is an Application
     on `apps-template-mui`" layout. Legacy packages remain functional and
     receive new work; they will be removed only after the corresponding
     application replaces them.
--   **Recent platform focus**: MUI 9 application templates, entity-backed widget authoring, data-driven widget composition, scoped layouts, and shared non-published authoring controls; Interpretation Network, PlayCanvas/MMOOMM, LMS, and 1C-compatible configurations remain active platform workloads.
+-   **Recent platform focus**: MUI 9 application templates, entity-backed widget authoring, data-driven widget composition, scoped layouts, Messenger App MAX/Telegram bot bindings, and shared non-published authoring controls; Interpretation Network, PlayCanvas/MMOOMM, LMS, and 1C-compatible configurations remain active platform workloads.
 -   **DB layer**: TypeORM was removed. Current path is Knex (connection
     management, transactions) plus raw SQL through `DbExecutor.query()`,
     with `@universo-react/schema-ddl` for runtime schema generation. The team

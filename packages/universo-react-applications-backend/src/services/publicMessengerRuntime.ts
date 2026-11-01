@@ -9,6 +9,7 @@ import {
     MAX_PUBLIC_MESSENGER_RUNTIME_DATA_BYTES,
     MAX_PUBLIC_MESSENGER_TABLE_ROWS,
     messengerAppConfigSchema,
+    pageBlockContentSchema,
     publicDashboardReadOnlyDataSchema,
     publicMessengerAppRuntimeSchema,
     publicMessengerPlacementSchema,
@@ -25,7 +26,7 @@ import type { EffectiveLayoutSuccess, EffectiveLayoutWidget } from './effectiveL
 import type { EffectiveWidgetRuntimeCandidate, EffectiveWidgetRuntimeReadScope } from './effectiveWidgetRuntimeDataContracts'
 import type { EffectiveWidgetRuntimeData } from './effectiveWidgetRuntimeData'
 import { resolveEffectiveWidgetRuntimeData } from './effectiveWidgetRuntimeDataResolver'
-import { PublicRuntimeTransientError } from './publicDashboardRuntime'
+import { projectPublicPageBlock, PublicRuntimeTransientError } from './publicDashboardRuntime'
 
 const PUBLIC_MESSENGER_WIDGET_KEYS = [
     'header',
@@ -538,6 +539,7 @@ export interface PublicMessengerRuntimeLoadInput {
     workspaceAvailable: boolean
     locale: 'en' | 'ru'
     effectiveLayout: EffectiveLayoutSuccess
+    pageBlockContent?: unknown
     resolveRuntimeData?: (
         executor: DbExecutor,
         scope: EffectiveWidgetRuntimeReadScope,
@@ -554,6 +556,7 @@ export const projectPublicMessengerRuntime = async ({
     workspaceAvailable,
     locale,
     effectiveLayout,
+    pageBlockContent,
     resolveRuntimeData = resolveEffectiveWidgetRuntimeData
 }: PublicMessengerRuntimeLoadInput): Promise<PublicMessengerAppRuntime> => {
     if (effectiveLayout.layout.templateKey !== 'messenger-app') return unavailable()
@@ -620,7 +623,21 @@ export const projectPublicMessengerRuntime = async ({
         return placement.data
     })
 
-    const parsed = publicMessengerAppRuntimeSchema.safeParse({ locale, title, placements: projected })
+    const parsedPageBlockContent =
+        pageBlockContent === undefined || pageBlockContent === null ? null : pageBlockContentSchema.safeParse(pageBlockContent)
+    if (parsedPageBlockContent && !parsedPageBlockContent.success) return unavailable()
+    const pageBlocks = parsedPageBlockContent?.success
+        ? (parsedPageBlockContent.data.blocks ?? parsedPageBlockContent.data.data?.blocks ?? []).map((block) =>
+              projectPublicPageBlock(block, locale)
+          )
+        : undefined
+
+    const parsed = publicMessengerAppRuntimeSchema.safeParse({
+        locale,
+        title,
+        ...(pageBlocks?.length ? { pageBlocks } : {}),
+        placements: projected
+    })
     if (!parsed.success) return unavailable()
     return parsed.data
 }

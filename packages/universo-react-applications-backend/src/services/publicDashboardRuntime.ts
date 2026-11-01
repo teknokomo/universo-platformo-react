@@ -115,7 +115,7 @@ const projectPublicPageBlockText = (value: unknown, locale: string): string => {
     return ''
 }
 
-const projectPublicPageBlock = (block: RuntimePageBlock, locale: string): RuntimePageBlock => {
+export const projectPublicPageBlock = (block: RuntimePageBlock, locale: string): RuntimePageBlock => {
     const id = block.id === undefined ? {} : { id: block.id }
     switch (block.type) {
         case 'paragraph':
