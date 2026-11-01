@@ -442,6 +442,67 @@ describe('useLayoutWidgetAuthoring', () => {
         expect(persistedConfig).not.toHaveProperty('rendererConfig')
     })
 
+    it('round-trips nested Messenger presentation config using the Messenger envelope context', async () => {
+        const messengerLayout = { ...layout, templateKey: 'messenger-app' as const }
+        const definition = getLayoutWidgetDefinition('detailsTitle')
+        if (!definition) throw new Error('Messenger details title widget metadata is missing')
+        const bindings = buildSingleTargetWidgetBinding(definition, 'content', {
+            entityKind: 'object',
+            entityCodename: 'MessengerDetailsTitle',
+            semanticKey: 'overview.primary'
+        })
+        const messengerWidget: MetahubLayoutZoneWidget = {
+            ...widget,
+            id: 'messenger-child-id',
+            layoutId: messengerLayout.id,
+            zone: 'center',
+            widgetKey: 'detailsTitle',
+            instanceKey: 'messenger-child-instance',
+            parentInstanceKey: 'messenger-container-instance',
+            slotKey: 'column:main',
+            version: 4,
+            config: encodeWidgetConfigEnvelope(
+                { rendererConfig: { align: 'left', level: 'h2' }, neutral: { bindings } },
+                { templateKey: 'messenger-app', widgetKey: 'detailsTitle', zone: 'center' }
+            )
+        }
+        const { result } = renderHook(() =>
+            useLayoutWidgetAuthoring(
+                createOptions({
+                    layout: messengerLayout,
+                    zoneWidgets: [messengerWidget],
+                    getExpectedWidgetVersion: () => messengerWidget.version
+                })
+            )
+        )
+
+        act(() => result.current.openWidgetEditor('center', messengerWidget))
+        expect(result.current.editors.marketingBinding).toMatchObject({
+            open: true,
+            widgetId: messengerWidget.id,
+            widgetKey: 'detailsTitle',
+            config: { align: 'left', level: 'h2' }
+        })
+
+        act(() => result.current.dialogs.configureMarketingPresentation({ bindings, config: messengerWidget.config }))
+        await act(async () => result.current.dialogs.saveBehavior({ align: 'right', level: 'h3' }))
+
+        const persistedConfig = mocks.updateLayoutZoneWidgetConfig.mock.calls.at(-1)?.[3]
+        expect(persistedConfig).toEqual({
+            align: 'right',
+            level: 'h3',
+            [RESERVED_LAYOUT_METADATA_KEY]: messengerWidget.config[RESERVED_LAYOUT_METADATA_KEY]
+        })
+        expect(persistedConfig).not.toHaveProperty('rendererConfig')
+        expect(mocks.updateLayoutZoneWidgetConfig).toHaveBeenCalledWith(
+            'metahub-1',
+            messengerLayout.id,
+            messengerWidget.id,
+            persistedConfig,
+            messengerWidget.version
+        )
+    })
+
     it('does not open an empty editor when a host widget has no presentation fields', () => {
         const dashboardLayout = { ...layout, templateKey: 'dashboard' as const }
         const hostWidget: MetahubLayoutZoneWidget = {

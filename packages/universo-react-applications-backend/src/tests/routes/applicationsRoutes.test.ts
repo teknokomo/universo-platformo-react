@@ -328,6 +328,10 @@ describe('Applications Routes', () => {
         })
 
         ;(executor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('applications.record_application_catalog_visibility_audit')) {
+                return [{ id: 'mock-application-control-audit-id' }]
+            }
+
             if (sql.includes('FROM applications.rel_application_users') || sql.includes('FROM "applications"."rel_application_users"')) {
                 const membership = normalizeMembershipRow(
                     await applicationUserRepo.findOne({
@@ -3318,6 +3322,7 @@ describe('Applications Routes', () => {
                     }
                 ])
                 .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([{ id: 'mock-application-control-audit-id' }])
 
             const app = buildApp(dataSource)
 
@@ -3389,6 +3394,7 @@ describe('Applications Routes', () => {
                     }
                 ])
                 .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([{ id: 'mock-application-control-audit-id' }])
             const app = buildApp(dataSource)
 
             const response = await request(app)
@@ -3468,7 +3474,13 @@ describe('Applications Routes', () => {
                 }
 
                 if (sql.includes('SELECT') && sql.includes('FROM applications.obj_applications a') && sql.includes('schema_snapshot')) {
-                    return [{ workspacesEnabled: false, ...options.sourceApplication }]
+                    return [
+                        {
+                            workspacesEnabled: false,
+                            ...options.sourceApplication,
+                            version: Number(options.sourceApplication.version ?? options.sourceApplication._uplVersion ?? 1)
+                        }
+                    ]
                 }
 
                 if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
@@ -3478,6 +3490,14 @@ describe('Applications Routes', () => {
                 return []
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('applications.record_application_catalog_visibility_audit')) {
+                    return [{ id: 'mock-application-control-audit-id' }]
+                }
+
+                if (sql.includes('SELECT COALESCE(_upl_version, 1) AS version') && sql.includes('FROM applications.obj_applications')) {
+                    return [{ version: Number(options.sourceApplication._uplVersion ?? options.sourceApplication.version ?? 1) }]
+                }
+
                 if (sql.includes('INSERT INTO applications.obj_applications (')) {
                     return [copiedApplication]
                 }
@@ -16085,6 +16105,22 @@ describe('Applications Routes', () => {
             expect(routeLayer?.route?.methods.post).toBe(true)
             expect(routeLayer?.route?.stack[0]?.handle).toBe(mockRateLimiter)
         }
+    })
+
+    it('preserves the authenticated application runtime-reference route', () => {
+        const { dataSource } = buildDataSource()
+        const router = createApplicationsRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
+        const stack = (
+            router as unknown as {
+                stack: Array<{ route?: { path: string; methods: Record<string, boolean> } }>
+            }
+        ).stack
+
+        const runtimeReferenceRoutes = stack
+            .filter((layer) => layer.route?.path.startsWith('/runtime-reference'))
+            .map((layer) => ({ path: layer.route?.path, get: layer.route?.methods.get }))
+
+        expect(runtimeReferenceRoutes).toEqual([{ path: '/runtime-reference/:applicationRef', get: true }])
     })
 
     it('runs authentication before the target-aware effective-layout route can reach a data store', async () => {

@@ -17,6 +17,7 @@ import {
 import {
     buildSingleTargetWidgetBinding,
     decodeWidgetConfigEnvelope,
+    encodeLayoutConfigEnvelope,
     encodeWidgetConfigEnvelope,
     getLayoutWidgetDefinition,
     validateWidgetBindings
@@ -128,6 +129,54 @@ describe('validateSnapshotWidgetPlacements', () => {
         } as unknown as MetahubSnapshot
 
         expect(() => validateSnapshotWidgetPlacements(snapshot)).not.toThrow()
+    })
+
+    it('accepts an inactive Messenger table placeholder without bindings and rejects it when active', () => {
+        const layoutId = '019e8afa-0000-7000-8000-000000000201'
+        const tableConfig = encodeWidgetConfigEnvelope(
+            { rendererConfig: { variant: 'records' }, neutral: {} },
+            { templateKey: 'messenger-app', widgetKey: 'detailsTable', zone: 'center', requireBindings: false }
+        )
+        const snapshot = {
+            entities: {},
+            layouts: [{ id: layoutId, templateKey: 'messenger-app', baseLayoutId: null, config: {} }],
+            layoutZoneWidgets: [
+                {
+                    id: '019e8afa-0000-7000-8000-000000000202',
+                    layoutId,
+                    instanceKey: 'messenger-header',
+                    parentWidgetId: null,
+                    slotKey: null,
+                    zone: 'top',
+                    widgetKey: 'header',
+                    sortOrder: 0,
+                    config: {},
+                    isActive: true
+                },
+                {
+                    id: '019e8afa-0000-7000-8000-000000000203',
+                    layoutId,
+                    instanceKey: 'messenger-records',
+                    parentWidgetId: null,
+                    slotKey: null,
+                    zone: 'center',
+                    widgetKey: 'detailsTable',
+                    sortOrder: 1,
+                    config: tableConfig,
+                    isActive: false
+                }
+            ]
+        } as unknown as MetahubSnapshot
+
+        expect(() => validateSnapshotWidgetPlacements(snapshot)).not.toThrow()
+        expect(() =>
+            validateSnapshotWidgetPlacements({
+                ...snapshot,
+                layoutZoneWidgets: snapshot.layoutZoneWidgets?.map((widget) =>
+                    widget.widgetKey === 'detailsTable' ? { ...widget, isActive: true } : widget
+                )
+            })
+        ).toThrow('Snapshot contains an invalid layout widget placement graph')
     })
 })
 
@@ -389,7 +438,7 @@ describe('attachLayoutsToSnapshot', () => {
         ])
 
         expect(snapshot.defaultLayoutId).toBe('019e8afa-0000-7000-8000-000000000001')
-        expect(snapshot.layoutConfig).toEqual({})
+        expect(snapshot).not.toHaveProperty('layoutConfig')
 
         expect(snapshot.layoutZoneWidgets).toEqual(
             expect.arrayContaining([
@@ -555,6 +604,82 @@ describe('attachLayoutsToSnapshot', () => {
         ).rejects.toThrow('Stored layout widget override cannot contain entity bindings')
     })
 
+    it('exports an inactive Messenger center table placeholder without requiring bindings', async () => {
+        const layoutId = '019e8afa-0000-7000-8000-000000000021'
+        const tableConfig = encodeWidgetConfigEnvelope(
+            { rendererConfig: { variant: 'records' }, neutral: {} },
+            { templateKey: 'messenger-app', widgetKey: 'detailsTable', zone: 'center', requireBindings: false }
+        )
+        const poolExecutor = createPoolExecutor()
+        poolExecutor.query.mockImplementation(async (sql: string, params: unknown[]) => {
+            if (sql.includes('pg_advisory_xact_lock')) return []
+            if (sql.includes('_mhb_layouts')) {
+                return [
+                    {
+                        id: layoutId,
+                        scope_entity_id: null,
+                        base_layout_id: null,
+                        template_key: 'messenger-app',
+                        name: { en: 'Messenger App' },
+                        description: null,
+                        config: encodeLayoutConfigEnvelope(
+                            { rendererConfig: {}, neutral: { composition: { mode: 'independent', baseLayoutId: null } } },
+                            { templateKey: 'messenger-app' }
+                        ),
+                        is_active: true,
+                        is_default: true,
+                        sort_order: 0
+                    }
+                ]
+            }
+            if (sql.includes('information_schema.tables') && params[1] === '_mhb_widgets') return [{ exists: true }]
+            if (sql.includes('_mhb_widgets')) {
+                return [
+                    {
+                        id: '019e8afa-0000-7000-8000-000000000022',
+                        layout_id: layoutId,
+                        instance_key: 'messenger-records',
+                        parent_widget_id: null,
+                        slot_key: null,
+                        zone: 'center',
+                        widget_key: 'detailsTable',
+                        sort_order: 1,
+                        config: tableConfig,
+                        is_active: false
+                    }
+                ]
+            }
+            if (sql.includes('information_schema.tables') && params[1] === '_mhb_layout_widget_overrides') return [{ exists: false }]
+            throw new Error(`Unexpected query: ${sql}`)
+        })
+        mockGetPoolExecutor.mockReturnValue(poolExecutor)
+
+        const snapshot = {} as MetahubSnapshot
+        await attachLayoutsToSnapshot({
+            schemaService: { ensureSchema: jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1') } as any,
+            snapshot,
+            metahubId: 'metahub-1',
+            userId: 'user-1'
+        })
+
+        expect(snapshot.layoutZoneWidgets).toEqual([
+            expect.objectContaining({
+                layoutId,
+                widgetKey: 'detailsTable',
+                zone: 'center',
+                isActive: false
+            })
+        ])
+        expect(
+            decodeWidgetConfigEnvelope(snapshot.layoutZoneWidgets?.[0]?.config, {
+                templateKey: 'messenger-app',
+                widgetKey: 'detailsTable',
+                zone: 'center',
+                requireBindings: false
+            }).rendererConfig
+        ).toEqual({ variant: 'records' })
+    })
+
     it('round-trips flow zone settings and widget placement without snapshot composition duplication', async () => {
         const globalLayoutId = '019e8afa-0000-7000-8000-000000000010'
         const poolExecutor = createPoolExecutor()
@@ -618,7 +743,11 @@ describe('attachLayoutsToSnapshot', () => {
             themeMode: 'system',
             __layout: { zoneSettings: { 'marketing-header': { position: 'flow' } } }
         })
-        expect(snapshot.layoutConfig).toEqual(snapshot.layouts?.[0]?.config)
+        expect(snapshot).not.toHaveProperty('layoutConfig')
+        expect(snapshot.layouts?.[0]?.config).toEqual({
+            themeMode: 'system',
+            __layout: { zoneSettings: { 'marketing-header': { position: 'flow' } } }
+        })
         expect(snapshot.layoutZoneWidgets?.[0]?.config).toEqual(createMarketingBrandConfig())
         expect(snapshot.layoutZoneWidgets?.[0]?.config).not.toHaveProperty('instanceKey')
         expect(snapshot.layouts?.[0]?.config.__layout).not.toHaveProperty('composition')
@@ -800,15 +929,21 @@ describe('alignPlayCanvasRuntimeManifestBindings', () => {
                     metadata: {}
                 }
             ],
-            layoutConfig: {
-                nested: {
-                    runtimeManifest: {
-                        projectId: 'project-1',
-                        sceneId: 'scene-1',
-                        checksum: 'stale-checksum'
+            layouts: [
+                {
+                    id: 'layout-1',
+                    templateKey: 'dashboard',
+                    config: {
+                        nested: {
+                            runtimeManifest: {
+                                projectId: 'project-1',
+                                sceneId: 'scene-1',
+                                checksum: 'stale-checksum'
+                            }
+                        }
                     }
                 }
-            },
+            ],
             layoutZoneWidgets: [
                 {
                     id: 'widget-1',
@@ -865,7 +1000,7 @@ describe('alignPlayCanvasRuntimeManifestBindings', () => {
 
         alignPlayCanvasRuntimeManifestBindings(snapshot)
 
-        expect(snapshot.layoutConfig?.nested).toEqual({
+        expect(snapshot.layouts?.[0]?.config.nested).toEqual({
             runtimeManifest: {
                 projectId: 'project-1',
                 sceneId: 'scene-1',

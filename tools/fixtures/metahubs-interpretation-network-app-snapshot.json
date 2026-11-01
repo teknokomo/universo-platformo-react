@@ -9808,7 +9808,6 @@
         ],
         "layoutWidgetOverrides": [],
         "defaultLayoutId": "01a170de-c3ec-7ed0-bb2c-8b426ad4aab8",
-        "layoutConfig": {},
         "settings": [
             {
                 "key": "entity.object.allowComponentCopy",
@@ -9894,5 +9893,5 @@
             "workspaceMode": "required"
         }
     },
-    "snapshotHash": "7fffd34893472dd631d1b21075a31b0333f477e01157a6e098e76b424fb4cbda"
+    "snapshotHash": "a599c0093452f9ee511783a3180eb2a84a18597936136359ce23a1d54a75c48b"
 }

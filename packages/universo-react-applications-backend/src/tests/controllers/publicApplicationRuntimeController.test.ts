@@ -1,5 +1,7 @@
 import type { Request } from 'express'
 import type { DbExecutor } from '@universo-react/utils'
+import * as effectiveLayoutResolverCore from '../../services/effectiveLayoutResolverCore'
+import type { EffectiveLayoutSuccess } from '../../services/effectiveLayoutContract'
 import {
     createPublicApplicationRuntimeController,
     parsePublicInterpretationNetworkQuery,
@@ -101,5 +103,85 @@ describe('public Interpretation Network runtime controller request parsing', () 
 
         expect(res.status).toHaveBeenCalledWith(404)
         expect(transaction).not.toHaveBeenCalled()
+    })
+})
+
+describe('public Messenger runtime controller', () => {
+    it('serves a public app hidden from the catalog without exposing its internal name map or IDs', async () => {
+        const name = { _primary: 'en', locales: { en: { content: 'Public Messenger' }, ru: { content: 'Публичный мессенджер' } } }
+        const application = {
+            id: applicationId,
+            name,
+            schemaName: 'app_0190a9b53cde7abc8def0123456789ab',
+            schemaStatus: 'synced',
+            isPublic: true,
+            showInAppList: false,
+            workspacesEnabled: false,
+            aliasRoutingMode: 'direct',
+            installedReleaseMetadata: {
+                kind: 'application_release_installation',
+                bundleVersion: 1,
+                sourceKind: 'publication',
+                snapshotHash: 'a'.repeat(64),
+                publicationId: '0190a9b5-3cde-7abc-8def-0123456789ac',
+                publicationVersionId: '0190a9b5-3cde-7abc-8def-0123456789ad'
+            },
+            lastSyncedPublicationVersionId: '0190a9b5-3cde-7abc-8def-0123456789ad',
+            uplArchived: false,
+            uplDeleted: false,
+            appPublished: true,
+            appArchived: false,
+            appDeleted: false,
+            hasActiveAlias: false,
+            matchedAlias: null,
+            primaryAlias: null
+        }
+        const layout = {
+            status: 'ok',
+            target: { applicationId, targetKind: null, locale: 'ru' },
+            layout: { id: '0190a9b5-3cde-7abc-8def-0123456789ae', templateKey: 'messenger-app', config: {} },
+            widgets: []
+        } as unknown as EffectiveLayoutSuccess
+        const layoutResolver = jest
+            .spyOn(effectiveLayoutResolverCore, 'resolveEffectiveLayoutForPublicTransactionWithRuntimeData')
+            .mockResolvedValue(layout as never)
+        const tx = {
+            query: jest.fn(async (sql: string) => (sql.includes('FROM applications.obj_applications a') ? [application] : []))
+        }
+        const executor = {
+            transaction: async (handler: (transaction: unknown) => Promise<unknown>) => handler(tx)
+        } as unknown as DbExecutor
+        const controller = createPublicApplicationRuntimeController(() => executor)
+        const req = {
+            params: { applicationRef: applicationId },
+            query: { locale: 'ru' },
+            get: jest.fn(() => undefined)
+        } as unknown as Request
+        const res = {
+            set: jest.fn().mockReturnThis(),
+            status: jest.fn().mockReturnThis(),
+            type: jest.fn().mockReturnThis(),
+            send: jest.fn().mockReturnThis(),
+            json: jest.fn().mockReturnThis(),
+            end: jest.fn().mockReturnThis()
+        }
+
+        try {
+            await controller.getRuntime(req, res as never)
+        } finally {
+            layoutResolver.mockRestore()
+        }
+
+        expect(res.status).toHaveBeenCalledWith(200)
+        const body = JSON.parse(res.send.mock.calls[0][0] as string) as Record<string, unknown>
+        expect(body.templateKey).toBe('messenger-app')
+        expect(body).not.toHaveProperty('applicationId')
+        expect(body.messengerApp).toMatchObject({ locale: 'ru', title: 'Публичный мессенджер', placements: [] })
+        expect(JSON.stringify(body)).not.toContain(applicationId)
+        expect(JSON.stringify(body)).not.toContain('locales')
+        expect(JSON.stringify(body)).not.toContain('showInAppList')
+        const applicationQuery = tx.query.mock.calls.find(([sql]) => sql.includes('FROM applications.obj_applications a'))?.[0]
+        expect(applicationQuery).toContain('a.name AS name')
+        expect(applicationQuery).not.toContain('show_in_app_list')
     })
 })

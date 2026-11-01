@@ -65,6 +65,14 @@ It combines SQL-first domain services with isolated DDL boundaries, template see
     and `RETURNING` confirmation. Snapshot export retains semantic settings and
     excludes application-only source baselines.
 
+## Messenger App Layout Contract
+
+-   Layout create, update, copy, seed, export, and restore use the shared `messenger-app` template key and the existing neutral `__layout` envelope; the renderer config is strict and currently empty.
+-   The canonical physical zones are `top`, `center`, and `bottom`. New global Messenger App layouts seed an active shell `header` in `top` and an active `detailsTabs` widget in `center` with a localized Overview tab. Authors can replace or extend these seeded widgets through the existing layout editor.
+-   Widget availability and placement come from `@universo-react/types`' single template/widget registry. `supportsDashboardWidgets` is only a capability hint; a Messenger App placement must also satisfy its template policy and the public runtime's read-only projection contract.
+-   Public Messenger rendering is handled by the Applications runtime's template-aware, read-only projector. The shared Dashboard DTO remains a separate contract; it does not grant Messenger widget access or expose raw Entity data.
+-   Messenger layout metadata reuses existing layout and widget snapshot collections. This change adds no database migration or parallel template registry.
+
 ## Entity-backed Marketing Page widgets
 
 -   The registry declares each Entity-backed Marketing slot, its supported <code>semantic-key</code>, <code>record-set</code>, or <code>relation-set</code> selector, cardinality, compatible Components, registered projection, and source-authoring capabilities. Placement bindings are persisted as reserved Metahub layout metadata, separately from renderer configuration.

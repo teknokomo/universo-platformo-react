@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import type { ApplicationLayoutWidgetKey, ApplicationLayoutZone } from './applicationLayouts'
+import type { ApplicationLayoutWidgetKey, ApplicationLayoutZone } from './applicationLayoutPrimitives'
 import type { LayoutLogicalPlacement, LayoutWidgetMobileProjection } from './layoutWidgetPrimitives'
 import {
     MARKETING_LAYOUT_ZONES,
@@ -9,6 +9,7 @@ import {
     applicationTemplateKeySchema
 } from './marketingPage'
 import type { ApplicationTemplateKey } from './marketingPage'
+import { MESSENGER_APP_LAYOUT_ZONES, MESSENGER_APP_LAYOUT_ZONE_SEMANTICS } from './messengerAppPrimitives'
 import { DASHBOARD_LAYOUT_WIDGETS, DASHBOARD_LAYOUT_ZONES, DASHBOARD_LAYOUT_ZONE_SEMANTICS } from './metahubs'
 import {
     dashboardWidgetOwnershipMetadataSchema,
@@ -18,6 +19,7 @@ import {
     type PlacementSourcePolicy
 } from './dashboardWidgetRegistry'
 import {
+    APPLICATION_TEMPLATE_REGISTRY,
     applicationTemplateHostCapabilitySchema,
     layoutSemanticRegionSchema,
     type ApplicationTemplateHostCapability,
@@ -141,10 +143,8 @@ export interface LayoutWidgetDefinition extends DashboardWidgetOwnershipMetadata
 }
 
 const layoutWidgetKeySchema = z.string().trim().min(1).max(128)
-const layoutZoneKeySchema = z.enum([...DASHBOARD_LAYOUT_ZONES, ...MARKETING_LAYOUT_ZONES] as [
-    ApplicationLayoutZone,
-    ...ApplicationLayoutZone[]
-])
+const LAYOUT_ZONE_KEYS = [...new Set([...DASHBOARD_LAYOUT_ZONES, ...MARKETING_LAYOUT_ZONES, ...MESSENGER_APP_LAYOUT_ZONES])]
+const layoutZoneKeySchema = z.enum(LAYOUT_ZONE_KEYS as [ApplicationLayoutZone, ...ApplicationLayoutZone[]])
 
 /** Runtime contract for one canonical layout zone definition. */
 export const layoutZoneDefinitionSchema = z
@@ -261,12 +261,13 @@ export const layoutWidgetTemplateMetadataSchema = z
 
 export const layoutWidgetMetadataResponseSchema = z
     .object({
-        items: z.array(layoutWidgetDefinitionSchema),
-        templates: z.array(layoutWidgetTemplateMetadataSchema)
+        items: z.array(layoutWidgetDefinitionSchema).min(1),
+        templates: z.array(layoutWidgetTemplateMetadataSchema).min(1)
     })
     .strict()
 
 export type LayoutWidgetMetadataResponse = z.infer<typeof layoutWidgetMetadataResponseSchema>
+export type LayoutWidgetTemplateMetadata = z.infer<typeof layoutWidgetTemplateMetadataSchema>
 
 const toDefaultLabel = (key: string): string => {
     const segment = key.split('.').at(-1) ?? key
@@ -280,7 +281,10 @@ const DASHBOARD_WIDGET_DEFINITIONS: readonly LayoutWidgetDefinition[] = DASHBOAR
     ...widget,
     allowedZonesByTemplate: {
         dashboard: [...widget.allowedZones],
-        ...(widget.shared ? { 'marketing-page': ['marketing-header'] as const } : {})
+        ...(widget.shared ? { 'marketing-page': ['marketing-header'] as const } : {}),
+        ...(widget.supportedTemplates.includes('messenger-app')
+            ? { 'messenger-app': [...(widget.allowedZonesByTemplate['messenger-app'] ?? [])] }
+            : {})
     }
 }))
 
@@ -372,8 +376,43 @@ const createZoneDefinitions = <T extends readonly ApplicationLayoutZone[]>(
 /** Canonical zone labels shared by metahub and application layout authoring. */
 export const LAYOUT_ZONE_DEFINITIONS: readonly LayoutZoneDefinition[] = [
     ...createZoneDefinitions(DASHBOARD_LAYOUT_ZONES, 'dashboard', DASHBOARD_LAYOUT_ZONE_SEMANTICS),
-    ...createZoneDefinitions(MARKETING_LAYOUT_ZONES, 'marketing-page', MARKETING_LAYOUT_ZONE_SEMANTICS)
+    ...createZoneDefinitions(MARKETING_LAYOUT_ZONES, 'marketing-page', MARKETING_LAYOUT_ZONE_SEMANTICS),
+    ...createZoneDefinitions(MESSENGER_APP_LAYOUT_ZONES, 'messenger-app', MESSENGER_APP_LAYOUT_ZONE_SEMANTICS)
 ]
+
+const LAYOUT_WIDGET_TEMPLATE_METADATA: readonly LayoutWidgetTemplateMetadata[] = Object.values(APPLICATION_TEMPLATE_REGISTRY).map(
+    (template) =>
+        layoutWidgetTemplateMetadataSchema.parse({
+            ...template,
+            zones: LAYOUT_ZONE_DEFINITIONS.filter((zone) => zone.templateKey === template.key),
+            widgets: LAYOUT_WIDGET_DEFINITIONS.filter((widget) => widget.supportedTemplates.includes(template.key))
+        })
+)
+const layoutZoneKeysCache = new WeakMap<LayoutWidgetTemplateMetadata, readonly ApplicationLayoutZone[]>()
+const EMPTY_LAYOUT_ZONES: readonly ApplicationLayoutZone[] = Object.freeze([])
+
+/** List template capabilities, localized label keys, zones, and supported widgets from the canonical registries. */
+export const getLayoutWidgetTemplateMetadataList = (): readonly LayoutWidgetTemplateMetadata[] => LAYOUT_WIDGET_TEMPLATE_METADATA
+
+/** Resolve physical zones for one template without maintaining a parallel template-to-zone map. */
+export const getLayoutZonesForTemplate = (templateKey: ApplicationTemplateKey): readonly ApplicationLayoutZone[] => {
+    const template = LAYOUT_WIDGET_TEMPLATE_METADATA.find((item) => item.key === templateKey)
+    if (!template) return EMPTY_LAYOUT_ZONES
+
+    const cachedZones = layoutZoneKeysCache.get(template)
+    if (cachedZones) return cachedZones
+
+    const zones = Object.freeze(template.zones.map(({ key }) => key))
+    layoutZoneKeysCache.set(template, zones)
+    return zones
+}
+
+/** Build the validated widget and template metadata envelope from canonical registries. */
+export const buildLayoutWidgetMetadataResponse = (): LayoutWidgetMetadataResponse =>
+    layoutWidgetMetadataResponseSchema.parse({
+        items: LAYOUT_WIDGET_DEFINITIONS.map((widget) => ({ ...widget })),
+        templates: LAYOUT_WIDGET_TEMPLATE_METADATA
+    })
 
 /** Derived semantic-to-physical view of the canonical zone registry. */
 export const LAYOUT_SEMANTIC_ZONE_MAPPINGS: readonly LayoutSemanticZoneMapping[] = LAYOUT_ZONE_DEFINITIONS.map(
@@ -518,17 +557,26 @@ export const getLayoutWidgetDefinition = (key: string, rendererConfig?: unknown)
 /** Application-owned layouts may only add unbound structural widget primitives. */
 export const canAddApplicationLayoutWidget = (
     definition: LayoutWidgetDefinition | undefined,
-    sourceKind: 'metahub' | 'application'
+    sourceKind: 'metahub' | 'application',
+    templateKey?: ApplicationTemplateKey
 ): boolean => {
     if (!definition) return false
     if (sourceKind !== 'application') return false
 
+    const hasNoBindings = (definition.bindingSlots?.length ?? 0) === 0 && (definition.bindingSlotFamilies?.length ?? 0) === 0
+    const isGeneratedNavigationMenu =
+        templateKey === 'messenger-app' &&
+        definition.key === 'menuWidget' &&
+        definition.sourcePolicy.authority === 'metahub-source' &&
+        definition.sourcePolicy.sourceMode === 'optional' &&
+        hasNoBindings
+
     return (
-        definition.sourceClass === 'structural' &&
-        definition.sourcePolicy.sourceMode === 'none' &&
-        (definition.bindingSlots?.length ?? 0) === 0 &&
-        (definition.bindingSlotFamilies?.length ?? 0) === 0 &&
-        definition.composition?.container === undefined
+        isGeneratedNavigationMenu ||
+        (definition.sourceClass === 'structural' &&
+            definition.sourcePolicy.sourceMode === 'none' &&
+            hasNoBindings &&
+            definition.composition?.container === undefined)
     )
 }
 

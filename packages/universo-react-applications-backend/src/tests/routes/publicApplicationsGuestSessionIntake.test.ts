@@ -21,6 +21,27 @@ import {
 describe('Public Applications Routes: guest session intake', () => {
     installPublicApplicationsTestHooks()
 
+    it('denies guest runtime access to Messenger applications before access-link work or writes', async () => {
+        const dataSource = buildDataSource(
+            withPublicApplication((sql) => {
+                if (sql.includes('FROM information_schema.tables')) return [{ layouts: true, widgets: true }]
+                if (sql.includes(`FROM "${schemaName}"."_app_layouts"`)) return [{ id: 'messenger-layout' }]
+                return undefined
+            })
+        )
+        const app = buildApp(dataSource)
+
+        const response = await request(app)
+            .post(`/public/a/${applicationId}/guest-session`)
+            .set('Idempotency-Key', guestIdempotencyKey)
+            .send({ accessLinkId })
+
+        expect(response.status).toBe(404)
+        expect(response.body).toEqual({ error: 'Public guest runtime is unavailable' })
+        expect(dataSource.queryCalls.some(({ sql }) => sql.includes('access_links_table'))).toBe(false)
+        expect(dataSource.queryCalls.some(({ sql }) => /^\s*(?:INSERT|UPDATE|DELETE|TRUNCATE)\b/iu.test(sql))).toBe(false)
+    })
+
     it('localizes public access link titles when locale is provided', async () => {
         const dataSource = buildDataSource(
             withPublicApplication((sql) => {

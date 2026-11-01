@@ -4,8 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import DashboardApp from '../DashboardApp'
 import { createStandaloneAdapter } from '../../api/adapters'
+import appsEn from '../../i18n/locales/en/apps.json'
+import appsRu from '../../i18n/locales/ru/apps.json'
 
 const dashboardMocks = vi.hoisted(() => ({
+    translationKeys: [] as string[],
     dashboardStateOverrides: {} as Record<string, unknown>,
     handleOpenCreate: vi.fn(),
     handleOpenEdit: vi.fn(),
@@ -45,18 +48,29 @@ const dashboardMocks = vi.hoisted(() => ({
     invalidateQueries: vi.fn(),
     enqueueSnackbar: vi.fn(),
     capturedCrudOptions: null as null | { createDefaultContext?: (appData: unknown) => unknown },
-    marketingProps: null as null | Record<string, unknown>
+    marketingProps: null as null | Record<string, unknown>,
+    messengerProps: null as null | Record<string, unknown>
 }))
 
 vi.mock('react-i18next', () => ({
     initReactI18next: { type: '3rdParty', init: vi.fn() },
     useTranslation: () => ({
-        t: (_key: string, fallback?: string) => fallback ?? _key
+        t: (key: string, fallback?: string) => {
+            dashboardMocks.translationKeys.push(key)
+            return fallback ?? key
+        }
     })
 }))
 
 vi.mock('../../layouts/AppMainLayout', () => ({
     default: ({ children }: { children?: ReactNode }) => <div>{children}</div>
+}))
+
+vi.mock('../../messenger/MessengerRuntimeShell', () => ({
+    MessengerRuntimeShell: (props: Record<string, unknown>) => {
+        dashboardMocks.messengerProps = props
+        return <div data-testid='messenger-runtime-shell'>Messenger</div>
+    }
 }))
 
 vi.mock('../../api/adapters', () => ({
@@ -364,6 +378,7 @@ vi.mock('../../hooks/useCrudDashboard', () => ({
 describe('DashboardApp', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        dashboardMocks.translationKeys.length = 0
         dashboardMocks.dashboardStateOverrides = {}
         dashboardMocks.templateKey = 'dashboard'
         dashboardMocks.effectiveLayoutConfig = {}
@@ -382,6 +397,7 @@ describe('DashboardApp', () => {
         dashboardMocks.onOpenRowTarget = null
         dashboardMocks.capturedCrudOptions = null
         dashboardMocks.marketingProps = null
+        dashboardMocks.messengerProps = null
         window.history.pushState({}, '', '/')
     })
 
@@ -395,6 +411,62 @@ describe('DashboardApp', () => {
         expect(screen.queryByTestId('dashboard-app')).not.toBeInTheDocument()
         expect(dashboardMocks.marketingProps).toMatchObject({ effectiveLayoutWidgets: [], effectiveLayoutConfig: {} })
         expect(dashboardMocks.marketingProps).not.toHaveProperty('sharedLayoutWidgets')
+    })
+
+    it('renders Messenger layouts through the shared Messenger shell in standalone mode', () => {
+        dashboardMocks.templateKey = 'messenger-app'
+        dashboardMocks.effectiveLayoutWidgets = [
+            {
+                id: 'standalone-messenger-header-id',
+                layoutId: 'standalone-messenger-layout-id',
+                instanceKey: 'messenger-header',
+                parentInstanceKey: null,
+                slotKey: null,
+                zone: 'top',
+                widgetKey: 'header',
+                sortOrder: 1,
+                config: {},
+                isActive: true
+            },
+            {
+                id: 'standalone-messenger-title-id',
+                layoutId: 'standalone-messenger-layout-id',
+                instanceKey: 'messenger-title',
+                parentInstanceKey: null,
+                slotKey: null,
+                zone: 'center',
+                widgetKey: 'detailsTitle',
+                sortOrder: 2,
+                config: { level: 'h2' },
+                isActive: true
+            }
+        ]
+        window.history.pushState({}, '', '/a/app-1')
+
+        render(<DashboardApp applicationId='app-1' locale='ru' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.getByTestId('messenger-runtime-shell')).toBeInTheDocument()
+        expect(screen.queryByTestId('dashboard-app')).not.toBeInTheDocument()
+        expect(dashboardMocks.messengerProps?.zones).toEqual({
+            top: [expect.objectContaining({ instanceKey: 'messenger-header', widgetKey: 'header' })],
+            center: [expect.objectContaining({ instanceKey: 'messenger-title', widgetKey: 'detailsTitle' })],
+            bottom: []
+        })
+    })
+
+    it('fails closed with localized unsupported-template UI for unknown template keys', () => {
+        dashboardMocks.templateKey = 'future-template'
+        window.history.pushState({}, '', '/a/app-1')
+
+        render(<DashboardApp applicationId='app-1' locale='ru' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.getByRole('alert')).toHaveTextContent('This layout uses a capability that is not available here.')
+        expect(screen.queryByTestId('dashboard-app')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('marketing-runtime-content')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('messenger-runtime-shell')).not.toBeInTheDocument()
+        expect(dashboardMocks.translationKeys).toContain('runtime.layoutErrors.LAYOUT_CAPABILITY_UNSUPPORTED')
+        expect(appsEn.runtime.layoutErrors.LAYOUT_CAPABILITY_UNSUPPORTED).toBe('This layout uses a capability that is not available here.')
+        expect(appsRu.runtime.layoutErrors.LAYOUT_CAPABILITY_UNSUPPORTED).toBe('Этот макет использует недоступную возможность.')
     })
 
     it('passes the server-resolved homepage Page as the runtime relation target on the application root', () => {

@@ -1,20 +1,16 @@
 import type {
     ApplicationLayoutWidgetKey,
     ApplicationLayoutZone,
-    ApplicationTemplateKey,
     DashboardWidgetConfig,
-    DashboardLayoutZone,
     DashboardSideMenuConfig,
     LayoutLogicalPlacement,
     LayoutPosition
 } from '@universo-react/types'
 import {
-    DASHBOARD_LAYOUT_ZONES,
     decodeWidgetConfigEnvelope,
     getLayoutWidgetDefinition,
     getLayoutZoneSettingDefinition,
     LAYOUT_ZONE_DEFINITIONS,
-    MARKETING_LAYOUT_ZONES,
     MARKETING_WIDGET_REGISTRY,
     type InterpretationNetworkWorkspaceWidgetConfig,
     type MarketingWidgetKey
@@ -26,28 +22,28 @@ type QuizWidgetConfig = DashboardWidgetConfig<'quizWidget'>
 
 export interface MenuEditorState {
     open: boolean
-    zone: DashboardLayoutZone | null
+    zone: ApplicationLayoutZone | null
     widgetId: string | null
     config: DashboardWidgetConfig<'menuWidget'> | null
 }
 
 export interface ColumnsEditorState {
     open: boolean
-    zone: DashboardLayoutZone | null
+    zone: ApplicationLayoutZone | null
     widgetId: string | null
     config: DashboardWidgetConfig<'columnsContainer'> | null
 }
 
 export interface QuizEditorState {
     open: boolean
-    zone: DashboardLayoutZone | null
+    zone: ApplicationLayoutZone | null
     widgetId: string | null
     config: QuizWidgetConfig | null
 }
 
 export interface PlayCanvasCanvasEditorState {
     open: boolean
-    zone: DashboardLayoutZone | null
+    zone: ApplicationLayoutZone | null
     widgetId: string | null
     config: Record<string, unknown> | null
 }
@@ -86,12 +82,10 @@ export interface MarketingWidgetBindingEditorState {
     config: Record<string, unknown> | null
 }
 
-export const LAYOUT_ZONES_BY_TEMPLATE: Readonly<Record<ApplicationTemplateKey, readonly ApplicationLayoutZone[]>> = {
-    dashboard: DASHBOARD_LAYOUT_ZONES,
-    'marketing-page': MARKETING_LAYOUT_ZONES
-}
-
 export const marketingHeaderSettingDefinition = getLayoutZoneSettingDefinition('marketing-page', 'marketing-header', 'position')
+
+export const supportsNestedPlacementAuthoring = (templateKey: MetahubLayout['templateKey'] | undefined): boolean =>
+    templateKey === 'dashboard' || templateKey === 'messenger-app'
 
 export const buildMarketingHeaderDialogSettings = (t: (key: string, fallback: string) => string) =>
     marketingHeaderSettingDefinition
@@ -182,7 +176,7 @@ export const normalizeEditableSideMenuConfig = (value: unknown): DashboardSideMe
 
 export const EMPTY_ZONE_WIDGETS: MetahubLayoutZoneWidget[] = []
 export const EMPTY_WIDGET_OBJECTS: DashboardLayoutWidgetItem[] = []
-export const LAYOUT_ZONE_ORDER = Object.fromEntries(LAYOUT_ZONE_DEFINITIONS.map(({ key }, index) => [key, index])) as Record<
-    ApplicationLayoutZone,
-    number
->
+export const LAYOUT_ZONE_ORDER = LAYOUT_ZONE_DEFINITIONS.reduce((order, { key }, index) => {
+    if (order[key] === undefined) order[key] = index
+    return order
+}, {} as Record<ApplicationLayoutZone, number>)

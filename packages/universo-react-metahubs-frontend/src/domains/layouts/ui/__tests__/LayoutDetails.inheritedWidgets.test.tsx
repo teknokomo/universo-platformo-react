@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { ReactNode } from 'react'
@@ -11,6 +11,8 @@ const {
     listLayoutZoneWidgets,
     getLayoutZoneWidgetObjects,
     assignLayoutZoneWidget,
+    moveLayoutZoneWidget,
+    replaceLayoutZoneWidgetBindings,
     marketingBindingDialog,
     marketingConfigDialog
 } = vi.hoisted(() => ({
@@ -18,6 +20,8 @@ const {
     listLayoutZoneWidgets: vi.fn(),
     getLayoutZoneWidgetObjects: vi.fn(),
     assignLayoutZoneWidget: vi.fn(),
+    moveLayoutZoneWidget: vi.fn(),
+    replaceLayoutZoneWidgetBindings: vi.fn(),
     marketingBindingDialog: vi.fn(),
     marketingConfigDialog: vi.fn()
 }))
@@ -48,9 +52,42 @@ vi.mock('@universo-react/template-mui', () => ({
             {children}
         </div>
     ),
-    LayoutAuthoringDetails: ({ beforeZonesContent, zones, onAddWidgetRequest }: any) => (
+    LayoutAuthoringDetails: ({ beforeZonesContent, zones, onAddWidgetRequest, onDragEnd }: any) => (
         <div>
             {beforeZonesContent}
+            <button
+                type='button'
+                data-testid='simulate-messenger-nested-reorder'
+                onClick={() =>
+                    void onDragEnd?.({
+                        active: { id: 'messenger-child' },
+                        over: { id: 'messenger-sibling', data: { current: undefined } }
+                    })
+                }
+            >
+                Simulate nested reorder
+            </button>
+            <button
+                type='button'
+                data-testid='simulate-messenger-root-to-slot-drag'
+                onClick={() =>
+                    void onDragEnd?.({
+                        active: { id: 'messenger-root-candidate' },
+                        over: {
+                            id: 'nested-slot:messenger-container-instance:column:main',
+                            data: {
+                                current: {
+                                    type: 'nested-slot',
+                                    parentInstanceKey: 'messenger-container-instance',
+                                    slotKey: 'column:main'
+                                }
+                            }
+                        }
+                    })
+                }
+            >
+                Simulate root to nested drag
+            </button>
             {zones.map((zone: any) => (
                 <section key={zone.zone} data-testid={`layout-zone-${zone.zone}`}>
                     <button type='button' disabled={Boolean(zone.addDisabled)}>
@@ -134,7 +171,8 @@ vi.mock('../../api', () => ({
     getLayoutZoneWidgetObjects,
     updateLayout: vi.fn(),
     assignLayoutZoneWidget,
-    moveLayoutZoneWidget: vi.fn(),
+    moveLayoutZoneWidget,
+    replaceLayoutZoneWidgetBindings,
     removeLayoutZoneWidget: vi.fn(),
     updateLayoutZoneWidgetConfig: vi.fn(),
     toggleLayoutZoneWidgetActive: vi.fn()
@@ -152,7 +190,25 @@ vi.mock('../../../entities/hooks', () => ({
     })
 }))
 
-vi.mock('../MenuWidgetEditorDialog', () => ({ default: () => null }))
+vi.mock('../MenuWidgetEditorDialog', () => ({
+    default: ({
+        open,
+        config,
+        onSave
+    }: {
+        open: boolean
+        config: { variant: 'generated' | 'manual' } | null
+        onSave: (config: { variant: 'generated' | 'manual' }) => void
+    }) =>
+        open ? (
+            <div role='dialog' aria-label='menu widget editor'>
+                <span data-testid='menu-widget-editor-variant'>{config?.variant ?? 'generated'}</span>
+                <button type='button' data-testid='save-menu-widget' onClick={() => void onSave({ variant: 'generated' })}>
+                    Save generated menu
+                </button>
+            </div>
+        ) : null
+}))
 vi.mock('../ColumnsContainerEditorDialog', () => ({ default: () => null }))
 vi.mock('../QuizWidgetEditorDialog', () => ({ default: () => null }))
 vi.mock('../PlayCanvasCanvasWidgetEditorDialog', () => ({ default: () => null }))
@@ -294,6 +350,357 @@ describe('LayoutDetails inherited widget contract', () => {
         expect(screen.getByTestId('layout-widget-remove-widget-owned')).toBeInTheDocument()
         expect(screen.getByTestId('available-widget-left-menuWidget')).toBeInTheDocument()
         expect(screen.getByTestId('available-widget-top-header')).toBeInTheDocument()
+    })
+
+    it('renders persisted Messenger child placements inside their authored parent slot', async () => {
+        const parentDefinition = getLayoutWidgetDefinition('columnsContainer')
+        const childDefinition = getLayoutWidgetDefinition('detailsTitle')
+        if (!parentDefinition || !childDefinition) throw new Error('Messenger placement metadata is missing')
+
+        getLayout.mockResolvedValueOnce({
+            data: {
+                id: 'layout-messenger',
+                scopeEntityId: null,
+                templateKey: 'messenger-app',
+                name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Messenger' } } },
+                description: null,
+                config: {},
+                isActive: true,
+                isDefault: true,
+                sortOrder: 0,
+                version: 1,
+                createdAt: '2026-04-06T00:00:00.000Z',
+                updatedAt: '2026-04-06T00:00:00.000Z'
+            }
+        })
+        const parent = {
+            id: 'messenger-container',
+            layoutId: 'layout-messenger',
+            zone: 'center',
+            widgetKey: 'columnsContainer',
+            instanceKey: 'messenger-container-instance',
+            parentInstanceKey: null,
+            slotKey: null,
+            sortOrder: 0,
+            config: { columns: [{ slotKey: 'column:main', width: 12 }] },
+            isActive: true,
+            isInherited: false,
+            version: 1
+        }
+        const child = {
+            id: 'messenger-child',
+            layoutId: 'layout-messenger',
+            zone: 'center',
+            widgetKey: 'detailsTitle',
+            instanceKey: 'messenger-child-instance',
+            parentInstanceKey: parent.instanceKey,
+            slotKey: 'column:main',
+            sortOrder: 1,
+            config: { align: 'left', level: 'h2' },
+            isActive: true,
+            isInherited: false,
+            version: 1
+        }
+        const sibling = {
+            ...child,
+            id: 'messenger-sibling',
+            instanceKey: 'messenger-sibling-instance',
+            sortOrder: 2,
+            version: 2
+        }
+        const rootCandidate = {
+            ...child,
+            id: 'messenger-root-candidate',
+            instanceKey: 'messenger-root-candidate-instance',
+            parentInstanceKey: null,
+            slotKey: null,
+            sortOrder: 0,
+            version: 3
+        }
+        listLayoutZoneWidgets.mockResolvedValueOnce([parent, child, sibling, rootCandidate])
+        getLayoutZoneWidgetObjects.mockResolvedValueOnce([parentDefinition, childDefinition])
+
+        render(
+            <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/resources/layout/layout-messenger']}>
+                    <Routes>
+                        <Route path='/metahub/:metahubId/resources/layout/:layoutId' element={<LayoutDetails />} />
+                    </Routes>
+                </MemoryRouter>
+            </QueryClientProvider>
+        )
+
+        await waitFor(() => expect(screen.getByTestId('layout-widget-messenger-container')).toBeInTheDocument())
+        expect(screen.queryByTestId('layout-widget-messenger-child')).not.toBeInTheDocument()
+
+        const parentSlot = screen.getByRole('group', { name: `${parentDefinition.defaultLabel} · nesting.column` })
+        const renderedChildren = within(parentSlot).getAllByText(childDefinition.defaultLabel)
+        expect(renderedChildren).toHaveLength(2)
+        for (const renderedChild of renderedChildren) {
+            expect(renderedChild.closest('[role="group"]')).toBe(parentSlot)
+        }
+
+        fireEvent.click(screen.getByTestId('simulate-messenger-nested-reorder'))
+        fireEvent.click(screen.getByTestId('simulate-messenger-root-to-slot-drag'))
+
+        await waitFor(() => expect(moveLayoutZoneWidget).toHaveBeenCalledTimes(2))
+        expect(moveLayoutZoneWidget).toHaveBeenNthCalledWith(1, 'metahub-1', 'layout-messenger', {
+            widgetId: child.id,
+            targetZone: 'center',
+            targetIndex: 1,
+            targetParentInstanceKey: parent.instanceKey,
+            targetSlotKey: 'column:main',
+            expectedVersion: child.version
+        })
+        expect(moveLayoutZoneWidget).toHaveBeenNthCalledWith(2, 'metahub-1', 'layout-messenger', {
+            widgetId: rootCandidate.id,
+            targetZone: 'center',
+            targetIndex: 2,
+            targetParentInstanceKey: parent.instanceKey,
+            targetSlotKey: 'column:main',
+            expectedVersion: rootCandidate.version
+        })
+    })
+
+    it('creates, edits, and reorders a Messenger menu child through API persistence and refetch', async () => {
+        const parentDefinition = getLayoutWidgetDefinition('detailsTabs')
+        const menuDefinition = getLayoutWidgetDefinition('menuWidget', { variant: 'generated' })
+        const siblingDefinition = getLayoutWidgetDefinition('detailsTitle')
+        if (!parentDefinition || !menuDefinition || !siblingDefinition) {
+            throw new Error('Messenger nested-placement metadata is missing')
+        }
+
+        type ServerPlacement = {
+            id: string
+            layoutId: string
+            zone: string
+            widgetKey: string
+            instanceKey: string
+            parentInstanceKey: string | null
+            slotKey: string | null
+            sortOrder: number
+            config: Record<string, unknown>
+            isActive: boolean
+            isInherited: boolean
+            version: number
+        }
+
+        const parentInstanceKey = 'messenger-overview-tabs-instance'
+        const slotKey = 'tab:overview'
+        const menuPlacementId = 'messenger-overview-menu'
+        getLayout.mockReset()
+        listLayoutZoneWidgets.mockReset()
+        getLayoutZoneWidgetObjects.mockReset()
+        assignLayoutZoneWidget.mockReset()
+        replaceLayoutZoneWidgetBindings.mockReset()
+        moveLayoutZoneWidget.mockReset()
+        let persistedPlacements: ServerPlacement[] = [
+            {
+                id: 'messenger-overview-tabs',
+                layoutId: 'layout-messenger',
+                zone: 'center',
+                widgetKey: 'detailsTabs',
+                instanceKey: parentInstanceKey,
+                parentInstanceKey: null,
+                slotKey: null,
+                sortOrder: 0,
+                config: { tabs: [{ slotKey, label: 'Overview', isDefault: true }] },
+                isActive: true,
+                isInherited: false,
+                version: 1
+            },
+            {
+                id: 'messenger-overview-title',
+                layoutId: 'layout-messenger',
+                zone: 'center',
+                widgetKey: 'detailsTitle',
+                instanceKey: 'messenger-overview-title-instance',
+                parentInstanceKey,
+                slotKey,
+                sortOrder: 1,
+                config: { align: 'left', level: 'h2' },
+                isActive: true,
+                isInherited: false,
+                version: 1
+            }
+        ]
+        const serverReads: ServerPlacement[][] = []
+        const clonePlacement = (placement: ServerPlacement): ServerPlacement => ({
+            ...placement,
+            config: { ...placement.config }
+        })
+        const readServerPlacements = () => persistedPlacements.map(clonePlacement)
+
+        getLayout.mockResolvedValue({
+            data: {
+                id: 'layout-messenger',
+                scopeEntityId: null,
+                templateKey: 'messenger-app',
+                name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Messenger' } } },
+                description: null,
+                config: {},
+                isActive: true,
+                isDefault: true,
+                sortOrder: 0,
+                version: 11,
+                createdAt: '2026-04-06T00:00:00.000Z',
+                updatedAt: '2026-04-06T00:00:00.000Z'
+            }
+        })
+        listLayoutZoneWidgets.mockImplementation(async () => {
+            const response = readServerPlacements()
+            serverReads.push(response)
+            return response
+        })
+        getLayoutZoneWidgetObjects.mockResolvedValue([parentDefinition, menuDefinition, siblingDefinition])
+        assignLayoutZoneWidget.mockImplementationOnce(
+            async (
+                _metahubId: string,
+                layoutId: string,
+                input: {
+                    zone: string
+                    widgetKey: string
+                    parentInstanceKey?: string
+                    slotKey?: string
+                    config?: Record<string, unknown>
+                }
+            ) => {
+                const siblings = persistedPlacements.filter(
+                    (placement) =>
+                        placement.parentInstanceKey === (input.parentInstanceKey ?? null) && placement.slotKey === (input.slotKey ?? null)
+                )
+                const createdPlacement: ServerPlacement = {
+                    id: menuPlacementId,
+                    layoutId,
+                    zone: input.zone,
+                    widgetKey: input.widgetKey,
+                    instanceKey: 'messenger-overview-menu-instance',
+                    parentInstanceKey: input.parentInstanceKey ?? null,
+                    slotKey: input.slotKey ?? null,
+                    sortOrder: siblings.length ? Math.max(...siblings.map(({ sortOrder }) => sortOrder)) + 1 : 0,
+                    config: input.config ?? { variant: 'generated' },
+                    isActive: true,
+                    isInherited: false,
+                    version: 1
+                }
+                persistedPlacements = [...persistedPlacements, createdPlacement]
+                return { data: clonePlacement(createdPlacement) }
+            }
+        )
+        replaceLayoutZoneWidgetBindings.mockImplementationOnce(
+            async (_metahubId: string, _layoutId: string, widgetId: string, input: { rendererConfig: Record<string, unknown> }) => {
+                const placement = persistedPlacements.find(({ id }) => id === widgetId)
+                if (!placement) throw new Error(`Unknown placement: ${widgetId}`)
+                placement.config = input.rendererConfig
+                placement.version += 1
+                return { data: { item: clonePlacement(placement) } }
+            }
+        )
+        moveLayoutZoneWidget.mockImplementationOnce(
+            async (_metahubId: string, _layoutId: string, input: { widgetId: string; targetIndex?: number; targetZone?: string }) => {
+                const moving = persistedPlacements.find(({ id }) => id === input.widgetId)
+                if (!moving) throw new Error(`Unknown placement: ${input.widgetId}`)
+                const targetZone = input.targetZone ?? moving.zone
+                const siblings = persistedPlacements
+                    .filter(
+                        (placement) =>
+                            placement.id !== moving.id &&
+                            placement.zone === targetZone &&
+                            placement.parentInstanceKey === moving.parentInstanceKey &&
+                            placement.slotKey === moving.slotKey
+                    )
+                    .sort((left, right) => left.sortOrder - right.sortOrder)
+                const targetIndex = Math.max(0, Math.min(input.targetIndex ?? siblings.length, siblings.length))
+                siblings.splice(targetIndex, 0, moving)
+                siblings.forEach((placement, index) => {
+                    placement.sortOrder = index
+                })
+                moving.version += 1
+                return { data: { items: readServerPlacements() } }
+            }
+        )
+
+        render(
+            <QueryClientProvider
+                client={
+                    new QueryClient({
+                        defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } }
+                    })
+                }
+            >
+                <MemoryRouter initialEntries={['/metahub/metahub-1/resources/layout/layout-messenger']}>
+                    <Routes>
+                        <Route path='/metahub/:metahubId/resources/layout/:layoutId' element={<LayoutDetails />} />
+                    </Routes>
+                </MemoryRouter>
+            </QueryClientProvider>
+        )
+
+        const getOverviewSlot = () => screen.getByRole('group', { name: /Overview$/ })
+        await screen.findByRole('group', { name: /Overview$/ })
+        expect(within(getOverviewSlot()).getByTestId('nested-placement-messenger-overview-title')).toBeInTheDocument()
+
+        fireEvent.click(within(getOverviewSlot()).getByRole('button', { name: /^nesting\.addChild:/ }))
+        fireEvent.click(await screen.findByRole('menuitem', { name: menuDefinition.defaultLabel }))
+        expect(await screen.findByRole('dialog', { name: 'menu widget editor' })).toBeInTheDocument()
+        fireEvent.click(screen.getByTestId('save-menu-widget'))
+
+        await waitFor(() => expect(assignLayoutZoneWidget).toHaveBeenCalledOnce())
+        await waitFor(() => {
+            expect(serverReads.at(-1)?.find(({ id }) => id === menuPlacementId)).toMatchObject({
+                widgetKey: 'menuWidget',
+                parentInstanceKey,
+                slotKey,
+                sortOrder: 2,
+                config: { variant: 'generated' }
+            })
+        })
+        expect(assignLayoutZoneWidget).toHaveBeenCalledWith('metahub-1', 'layout-messenger', {
+            zone: 'center',
+            widgetKey: 'menuWidget',
+            config: { variant: 'generated' },
+            parentInstanceKey,
+            slotKey,
+            expectedVersion: 11
+        })
+        const createdMenu = await screen.findByTestId(`nested-placement-${menuPlacementId}`)
+        expect(within(getOverviewSlot()).getByTestId(`nested-placement-${menuPlacementId}`)).toBe(createdMenu)
+
+        fireEvent.click(within(createdMenu).getByRole('button', { name: 'common:actions.edit' }))
+        expect(await screen.findByRole('dialog', { name: 'menu widget editor' })).toBeInTheDocument()
+        expect(screen.getByTestId('menu-widget-editor-variant')).toHaveTextContent('generated')
+        fireEvent.click(screen.getByTestId('save-menu-widget'))
+
+        await waitFor(() => {
+            expect(serverReads.at(-1)?.find(({ id }) => id === menuPlacementId)).toMatchObject({
+                version: 2,
+                config: { variant: 'generated' }
+            })
+        })
+        expect(replaceLayoutZoneWidgetBindings).toHaveBeenCalledWith('metahub-1', 'layout-messenger', menuPlacementId, {
+            expectedVersion: 1,
+            bindings: [],
+            rendererConfig: { variant: 'generated' },
+            locale: 'en'
+        })
+
+        const reorderedMenu = screen.getByTestId(`nested-placement-${menuPlacementId}`)
+        fireEvent.click(within(reorderedMenu).getByRole('button', { name: 'nesting.moveUp' }))
+        await waitFor(() => {
+            expect(serverReads.at(-1)?.find(({ id }) => id === menuPlacementId)).toMatchObject({ sortOrder: 0, version: 3 })
+            expect(serverReads.at(-1)?.find(({ id }) => id === 'messenger-overview-title')).toMatchObject({ sortOrder: 1 })
+        })
+        expect(moveLayoutZoneWidget).toHaveBeenCalledWith('metahub-1', 'layout-messenger', {
+            widgetId: menuPlacementId,
+            targetZone: 'center',
+            targetIndex: 0,
+            expectedVersion: 2
+        })
+        expect(
+            Array.from(getOverviewSlot().querySelectorAll('[data-testid^="nested-placement-"]')).map((element) =>
+                element.getAttribute('data-testid')
+            )
+        ).toEqual([`nested-placement-${menuPlacementId}`, 'nested-placement-messenger-overview-title'])
     })
 
     it('shows the existing localized load error for invalid Marketing widget envelopes', async () => {

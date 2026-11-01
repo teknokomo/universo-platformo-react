@@ -27,8 +27,18 @@ export * from './common/shared'
 export * from './common/snapshots'
 export * from './common/admin'
 export * from './common/applications'
+export * from './common/applicationBotBindings'
 export * from './common/applicationAliases'
 export * from './common/publicApplicationRuntime'
+export {
+    MAX_PUBLIC_MESSENGER_CHART_POINTS,
+    MAX_PUBLIC_MESSENGER_PLACEMENTS,
+    MAX_PUBLIC_MESSENGER_RELATION_PANELS,
+    MAX_PUBLIC_MESSENGER_RENDERER_PLACEMENTS,
+    MAX_PUBLIC_MESSENGER_RUNTIME_DATA_BYTES,
+    MAX_PUBLIC_MESSENGER_TABLE_ROWS,
+    publicMessengerApplicationRuntimeSchema
+} from './common/publicMessengerRuntime'
 export * from './common/interpretationNetworkRuntime'
 export * from './common/globalShortLinks'
 export * from './common/guestIntakePolicy'
@@ -55,6 +65,7 @@ export * from './common/effectiveWidgetRuntimeData'
 export * from './common/sequenceCompletion'
 export * from './common/pageBlocks'
 export * from './common/marketingPage'
+export * from './common/messengerAppPrimitives'
 export * from './common/marketingActionCatalog'
 export * from './common/filters'
 export * from './common/copyOptions'

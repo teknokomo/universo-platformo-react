@@ -254,14 +254,18 @@ const collectWidgetTranslationKeys = (): string[] => {
 }
 
 describe('canonical Dashboard widget registry', () => {
-    it('allows only self-contained structural additions to application-owned layouts', () => {
+    it('allows structural additions and only generated navigation on Messenger application layouts', () => {
         const definition = (key: string, config?: Record<string, unknown>) => getLayoutWidgetDefinition(key, config)
 
         expect(canAddApplicationLayoutWidget(definition('divider'), 'application')).toBe(true)
         expect(canAddApplicationLayoutWidget(definition('spacer'), 'application')).toBe(true)
         expect(canAddApplicationLayoutWidget(definition('workspaceSwitcher'), 'application')).toBe(false)
         expect(canAddApplicationLayoutWidget(definition('columnsContainer'), 'application')).toBe(false)
-        expect(canAddApplicationLayoutWidget(definition('menuWidget', { variant: 'generated' }), 'application')).toBe(false)
+        const generatedMenu = definition('menuWidget', { variant: 'generated' })
+        expect(canAddApplicationLayoutWidget(generatedMenu, 'application')).toBe(false)
+        expect(canAddApplicationLayoutWidget(generatedMenu, 'application', 'dashboard')).toBe(false)
+        expect(canAddApplicationLayoutWidget(generatedMenu, 'application', 'messenger-app')).toBe(true)
+        expect(canAddApplicationLayoutWidget(definition('menuWidget', { variant: 'manual' }), 'application', 'messenger-app')).toBe(false)
         expect(canAddApplicationLayoutWidget(definition('detailsTable', { variant: 'report' }), 'application')).toBe(false)
         expect(canAddApplicationLayoutWidget(definition('divider'), 'metahub')).toBe(false)
         expect(canAddApplicationLayoutWidget(undefined, 'application')).toBe(false)

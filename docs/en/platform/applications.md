@@ -43,6 +43,7 @@ Those settings are stored in `applications.obj_applications.settings` and are re
 | Allow resize       | Whether the resize handle is available.                                                                                            |
 | Close behavior     | Whether dialogs stay strict-modal or allow outside-click close.                                                                    |
 | Visibility         | Whether the application is closed or public. Changing public to closed blocks new direct joins and public runtime link resolution. |
+| Catalog visibility | Whether a public application appears to non-members in the normal application list. This does not grant or revoke runtime access.  |
 | Workspace mode     | Read-only after creation because it controls runtime schema structure.                                                             |
 | Workspace limits   | Per-workspace row limits for supported objects.                                                                                    |
 
@@ -57,6 +58,8 @@ They also do not replace metahub authoring settings or the global `/admin` dialo
 Application visibility controls whether anonymous public runtime resolution is available. For a public application, the backend exposes a bounded, read-only Dashboard projection and resolves its configured entry Workspace on the server. The public viewer cannot submit content mutations or choose an arbitrary Workspace. It does not receive authenticated authoring actions, templates, or personal Favorites.
 
 Application members use the authenticated runtime and its authorized Workspace selection. Their read and write actions are checked against application membership and the active Workspace. Use the public view for anonymous reading and the authenticated runtime for editing or personal Workspace features. This describes the repository runtime contract; it does not assert that a particular production host is configured or reachable.
+
+The catalog visibility preference is independent of public runtime access: a public unlisted Application remains directly reachable by UUID or alias, while a closed Application is not exposed to anonymous visitors. See [Messenger App Template](messenger-app-template.md) for the catalog visibility and bot-binding workflow.
 
 ## Application-Level Widget Customization
 

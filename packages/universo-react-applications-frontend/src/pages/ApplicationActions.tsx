@@ -1,7 +1,7 @@
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
-import { Alert, Checkbox, FormControlLabel, Radio, RadioGroup, Stack, Typography } from '@mui/material'
+import { Alert, Checkbox, FormControlLabel, Radio, RadioGroup, Stack, Switch, Typography } from '@mui/material'
 import type { ActionDescriptor, ActionContext, TabConfig } from '@universo-react/template-mui'
 import { LocalizedInlineField } from '@universo-react/template-mui'
 import type { ApplicationCopyOptions, VersionedLocalizedContent } from '@universo-react/types'
@@ -42,7 +42,8 @@ const buildInitialValues = (ctx: ApplicationActionContext) => {
     return {
         nameVlc: ensureLocalizedContent(raw?.name ?? ctx.entity?.name, uiLocale, nameFallback),
         descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback),
-        isPublic: raw?.isPublic ?? ctx.entity?.isPublic ?? false
+        isPublic: raw?.isPublic ?? ctx.entity?.isPublic ?? false,
+        showInAppList: raw?.showInAppList ?? ctx.entity?.showInAppList ?? true
     }
 }
 
@@ -131,6 +132,7 @@ const renderParametersTab = (
     mode: 'create' | 'edit' | 'copy'
 ) => {
     const isPublic = values.isPublic === true
+    const showInAppList = values.showInAppList !== false
     const isEditMode = mode === 'edit'
 
     return (
@@ -147,6 +149,26 @@ const renderParametersTab = (
                         : 'Application visibility can be changed after creation.'
                 )}
             </Alert>
+            <Stack spacing={0.5}>
+                <FormControlLabel
+                    control={
+                        <Switch
+                            checked={showInAppList}
+                            disabled={isLoading || !isPublic}
+                            onChange={(_, checked) => setValue('showInAppList', checked)}
+                        />
+                    }
+                    label={ctx.t('parameters.showInAppList', 'Show in the public application catalog')}
+                />
+                <Typography variant='body2' color='text.secondary'>
+                    {ctx.t(
+                        isPublic ? 'parameters.showInAppListHint' : 'parameters.showInAppListDisabledHint',
+                        isPublic
+                            ? 'This only controls catalog discovery. It does not change whether a public application can be opened directly.'
+                            : 'Closed applications are only visible to their members. Set this application to Public to enable catalog listing.'
+                    )}
+                </Typography>
+            </Stack>
         </Stack>
     )
 }
@@ -163,7 +185,8 @@ const toPayload = (values: ApplicationDialogValues): ApplicationLocalizedPayload
         description: descriptionInput,
         namePrimaryLocale,
         descriptionPrimaryLocale,
-        isPublic: values.isPublic === true
+        isPublic: values.isPublic === true,
+        showInAppList: values.showInAppList !== false
     }
 }
 
@@ -171,6 +194,9 @@ const toUpdatePayload = (values: ApplicationDialogValues): ApplicationLocalizedP
     const payload = toPayload(values)
     if (values.isPublic === undefined) {
         delete payload.isPublic
+    }
+    if (values.showInAppList === undefined) {
+        delete payload.showInAppList
     }
     return payload
 }

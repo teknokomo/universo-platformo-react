@@ -104,8 +104,8 @@ export default function DashboardEntityTableWidget({ config, payload }: Dashboar
     if (payload.kind === 'record') {
         const recordTitle = formatRuntimeSafeValue(payload.title, details?.locale)
         const columns: GridColDef[] = [
-            { field: 'label', headerName: t('runtime.table.name', 'Name'), flex: 1, minWidth: 160 },
-            { field: 'value', headerName: recordTitle || t('runtime.table.description', 'Details'), flex: 2, minWidth: 220 }
+            { field: 'label', headerName: t('runtime.table.name', 'Name'), flex: 1, minWidth: 100 },
+            { field: 'value', headerName: recordTitle || t('runtime.table.description', 'Details'), flex: 2, minWidth: 120 }
         ]
         const rows = payload.fields.flatMap((field, index) => {
             const label = formatRuntimeSafeValue(field.label, details?.locale)
@@ -167,6 +167,7 @@ export default function DashboardEntityTableWidget({ config, payload }: Dashboar
     const cardColumns = recordSetConfig?.cardColumns ?? 2
     const createTargets = recordSetConfig?.createTargets
     const cardSpan = Math.max(2, Math.floor(12 / cardColumns))
+    const compactCardSpan = cardColumns > 4 ? Math.max(4, cardSpan) : cardSpan
     const sourceEntityCodename = payload.sourceEntityCodename?.trim()
     const sourceEntityKey = sourceEntityCodename?.toLowerCase()
     const mutationTargets = payload.rows.map((row) => row.mutationTarget)
@@ -279,9 +280,10 @@ export default function DashboardEntityTableWidget({ config, payload }: Dashboar
                             })
                             .join('\n')
                         return (
-                            <Grid key={row.key} size={{ xs: 12, sm: 6, md: cardSpan }} sx={{ minWidth: 0 }}>
+                            <Grid key={row.key} size={{ xs: 12, sm: 6, md: compactCardSpan, lg: cardSpan }} sx={{ minWidth: 0 }}>
                                 <ItemCard
                                     allowStretch
+                                    contentDisplayMode='full'
                                     headerAction={renderRowActionButton(row)}
                                     data={{
                                         name: displayNameCell?.value || tCommon('entityContent.untitledRecord', 'Untitled content record'),

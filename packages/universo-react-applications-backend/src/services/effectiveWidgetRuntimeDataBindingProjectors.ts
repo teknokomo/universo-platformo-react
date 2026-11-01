@@ -16,6 +16,16 @@ import {
 
 const MAX_RELATION_DISPLAY_FIELDS = 8
 const MAX_RELATION_DISPLAY_VALUE_LENGTH = 240
+const NUMERIC_TEXT_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/iu
+
+const readFiniteRuntimeNumber = (value: unknown): number | undefined => {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : undefined
+    if (typeof value !== 'string') return undefined
+    const normalized = value.trim()
+    if (!NUMERIC_TEXT_PATTERN.test(normalized)) return undefined
+    const parsed = Number(normalized)
+    return Number.isFinite(parsed) ? parsed : undefined
+}
 
 const isJsonContainerText = (value: string): boolean => {
     const trimmed = value.trim()
@@ -249,7 +259,8 @@ export const projectSeries = (widget: PreparedWidget, targets: readonly Resolved
         const seriesKey = target.data.seriesKey
         const seriesLabel = semanticText(target.data.seriesLabel, locale, 160).trim()
         const pointLabel = semanticText(target.data.timestamp, locale, 120)
-        const value = target.data.value
+        const value = readFiniteRuntimeNumber(target.data.value)
+        const order = readFiniteRuntimeNumber(target.data.order)
         if (
             typeof seriesKey !== 'string' ||
             !SEMANTIC_KEY_PATTERN.test(seriesKey) ||
@@ -263,7 +274,7 @@ export const projectSeries = (widget: PreparedWidget, targets: readonly Resolved
         const entry = bySeries.get(seriesKey)
         if (entry && entry.seriesLabel !== seriesLabel) return null
         const points = entry?.points ?? []
-        points.push({ label: pointLabel, value, order: typeof target.data.order === 'number' ? target.data.order : points.length })
+        points.push({ label: pointLabel, value, order: order ?? points.length })
         bySeries.set(seriesKey, { seriesLabel, points })
     }
     if (bySeries.size === 0 || bySeries.size > 8) return null
@@ -304,7 +315,7 @@ export const projectMetrics = (widget: PreparedWidget, targets: readonly Resolve
     for (const target of targets.slice(0, maxCards)) {
         const metricKey = target.data.metricKey
         const label = semanticText(target.data.title, locale, 120).trim()
-        const value = target.data.value
+        const value = readFiniteRuntimeNumber(target.data.value)
         if (
             typeof metricKey !== 'string' ||
             !SEMANTIC_KEY_PATTERN.test(metricKey) ||

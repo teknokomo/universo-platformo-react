@@ -7,3 +7,5 @@ export {
 export { createGlobalShortLinksMigrationDefinition } from './1800000000290-CreateGlobalShortLinks.sql'
 export { createGuestSessionIdempotencyMigrationDefinition } from './1800000000300-CreateGuestSessionIdempotency.sql'
 export { bindGlobalShortLinksToAccessLinkIdentityMigrationDefinition } from './1800000000310-BindGlobalShortLinksToAccessLinkIdentity.sql'
+export { createApplicationBotBindingsMigrationDefinition } from './1800000000320-CreateApplicationBotBindings.sql'
+export { addApplicationCatalogVisibilityAndMembershipRlsMigrationDefinition } from './1800000000340-ApplicationCatalogVisibilityAndMembershipRls.sql'

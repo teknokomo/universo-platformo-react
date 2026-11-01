@@ -3,6 +3,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { DbExecutor } from '@universo-react/utils'
 import { asyncHandler } from '../shared/asyncHandler'
 import { createRuntimeGuestController } from '../controllers/runtimeGuestController'
+import { createMessengerBindingAttributionController } from '../controllers/applicationBotBindingsController'
 
 export function createPublicApplicationsRoutes(
     getDbExecutor: () => DbExecutor,
@@ -12,7 +13,13 @@ export function createPublicApplicationsRoutes(
 ): Router {
     const router = Router({ mergeParams: true })
     const guest = guestRuntime
+    const messengerAttribution = createMessengerBindingAttributionController(getDbExecutor)
 
+    router.get(
+        '/public/applications/:applicationRef/attribution/:shortId',
+        readLimiter,
+        asyncHandler(messengerAttribution.resolveAttribution)
+    )
     router.get('/public/a/:applicationId/links/:slug', readLimiter, asyncHandler(guest.resolveLink))
     router.post('/public/a/:applicationId/guest-session', writeLimiter, asyncHandler(guest.createGuestSession))
     router.get('/public/a/:applicationId/runtime', readLimiter, asyncHandler(guest.getRuntime))

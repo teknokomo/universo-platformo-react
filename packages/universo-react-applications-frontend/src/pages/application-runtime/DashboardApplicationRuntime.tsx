@@ -15,6 +15,9 @@ import {
     CrudDialogs,
     RowActionsMenu,
     RuntimeWorkspacesPage,
+    MessengerRuntimeShell,
+    toMessengerZoneWidgets,
+    toAuthenticatedRuntimePlacementScopes as toAppsRuntimePlacementScopes,
     updateLearningContentProgress,
     resolveDashboardEntityTargetSectionId,
     resolveDashboardRuntimeLayoutTarget,
@@ -37,12 +40,7 @@ import {
 } from '../../api/mutations'
 import type { ApplicationEffectiveLayoutResponse } from '../../types'
 import { useHostedDashboardBoundRowActions } from './useHostedDashboardBoundRowActions'
-import {
-    UUID_PATH_SEGMENT_REGEX,
-    buildLearningContentCreateDefaultContext,
-    toAuthenticatedRuntimePlacementScopes,
-    toDashboardZoneWidgets
-} from './runtimeLayout'
+import { UUID_PATH_SEGMENT_REGEX, buildLearningContentCreateDefaultContext, toDashboardZoneWidgets } from './runtimeLayout'
 
 const DEFAULT_PAGE_SIZE = 50
 
@@ -169,7 +167,11 @@ export const DashboardApplicationRuntime = ({
         const placements = toDashboardZoneWidgets(effectiveLayout)
         return isWorkspacesRoute ? withoutWorkspaceDashboardContent(placements) : placements
     }, [effectiveLayout, isWorkspacesRoute])
-    const authenticatedPlacementScopes = useMemo(() => toAuthenticatedRuntimePlacementScopes(effectiveLayout), [effectiveLayout])
+    const messengerZoneWidgets = useMemo(
+        () => (effectiveLayout.layout.templateKey === 'messenger-app' ? toMessengerZoneWidgets(effectiveLayout) : undefined),
+        [effectiveLayout]
+    )
+    const authenticatedPlacementScopes = useMemo(() => toAppsRuntimePlacementScopes(effectiveLayout), [effectiveLayout])
 
     const activeRuntimeSection = state.appData?.section ?? state.appData?.objectCollection
     const activeRuntimeConfig = activeRuntimeSection?.runtimeConfig
@@ -761,7 +763,7 @@ export const DashboardApplicationRuntime = ({
             settings: state.appData?.settings,
             currentWorkspaceId,
             currentUser: user?.email ? { displayName: user.email } : null,
-            hostCapabilities: APPLICATION_TEMPLATE_REGISTRY.dashboard.hostCapabilities,
+            hostCapabilities: APPLICATION_TEMPLATE_REGISTRY[effectiveLayout.layout.templateKey].hostCapabilities,
             footerMetadata,
             runtimeAccessMode: 'member',
             runtimeQueryKeyPrefix: adapter?.queryKeyPrefix,
@@ -811,6 +813,7 @@ export const DashboardApplicationRuntime = ({
             currentWorkspaceId,
             effectiveLayout.resolvedEntityTypeId,
             effectiveLayout.target.targetKind,
+            effectiveLayout.layout.templateKey,
             user?.email,
             currentSectionId,
             detailsTitle,
@@ -858,6 +861,10 @@ export const DashboardApplicationRuntime = ({
 
     if (state.isError || !state.appData) {
         return <Alert severity='error'>{t('app.errors.loadFailed', 'Failed to load runtime data')}</Alert>
+    }
+
+    if (messengerZoneWidgets) {
+        return <MessengerRuntimeShell zones={messengerZoneWidgets} details={details} placementScopes={authenticatedPlacementScopes} />
     }
 
     return (

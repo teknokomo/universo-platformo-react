@@ -2,11 +2,27 @@ import { useState } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { TFunction } from 'i18next'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import commonEn from '@universo-react/i18n/locales/en/common.json'
+import commonRu from '@universo-react/i18n/locales/ru/common.json'
 import type { ApplicationLayout, ApplicationLayoutScope, ApplicationTemplateKey } from '@universo-react/types'
 import { ApplicationLayoutListDialogs } from '../ApplicationLayoutListDialogs'
 
-const translate = ((key: string, fallback?: string) => fallback ?? key) as unknown as TFunction
+const commonTranslations = { en: commonEn.common, ru: commonRu.common }
+let activeLocale: keyof typeof commonTranslations = 'en'
+
+const translate = ((key: string, fallback?: string | { defaultValue?: string }) => {
+    const translated = key.split('.').reduce<unknown>((value, segment) => {
+        if (!value || typeof value !== 'object') return undefined
+        return (value as Record<string, unknown>)[segment]
+    }, commonTranslations[activeLocale])
+    if (typeof translated === 'string') return translated
+    return typeof fallback === 'string' ? fallback : fallback?.defaultValue ?? key
+}) as unknown as TFunction
+
+afterEach(() => {
+    activeLocale = 'en'
+})
 
 const scopes: ApplicationLayoutScope[] = [
     {
@@ -52,7 +68,7 @@ const layoutForEdit = {
     version: 1
 } as ApplicationLayout
 
-function CreateHarness({ onCreate }: { onCreate: () => void }) {
+function CreateHarness({ onCreate, canSelectGlobalTemplate = true }: { onCreate: () => void; canSelectGlobalTemplate?: boolean }) {
     const [createOpen, setCreateOpen] = useState(true)
     const [name, setName] = useState('')
     const [scopeId, setScopeId] = useState('global')
@@ -65,6 +81,7 @@ function CreateHarness({ onCreate }: { onCreate: () => void }) {
             scopes={scopes}
             templateKey={templateKey}
             defaultTemplateKey='dashboard'
+            canSelectGlobalTemplate={canSelectGlobalTemplate}
             setTemplateKey={setTemplateKey}
             createOpen={createOpen}
             setCreateOpen={setCreateOpen}
@@ -104,6 +121,7 @@ function EditHarness({ onSave }: { onSave: () => void }) {
             scopes={scopes}
             templateKey='dashboard'
             defaultTemplateKey='dashboard'
+            canSelectGlobalTemplate={false}
             setTemplateKey={() => undefined}
             createOpen={false}
             setCreateOpen={() => undefined}
@@ -130,6 +148,41 @@ function EditHarness({ onSave }: { onSave: () => void }) {
 }
 
 describe('ApplicationLayoutListDialogs', () => {
+    it.each([
+        { locale: 'en' as const, labels: ['Dashboard', 'Marketing page', 'Messenger app'] },
+        { locale: 'ru' as const, labels: ['Дашборд', 'Маркетинговая страница', 'Приложение для мессенджера'] }
+    ])('renders registry template choices with shared $locale labels', async ({ locale, labels }) => {
+        activeLocale = locale
+        const user = userEvent.setup()
+        render(<CreateHarness onCreate={() => undefined} />)
+
+        await user.click(screen.getByRole('combobox', { name: 'Template' }))
+
+        for (const label of labels) {
+            expect(screen.getByRole('option', { name: label })).toBeVisible()
+        }
+    })
+
+    it('lets the owner choose Messenger for the first global layout', async () => {
+        const user = userEvent.setup()
+        const onCreate = vi.fn()
+        render(<CreateHarness onCreate={onCreate} />)
+
+        await user.type(screen.getByRole('textbox', { name: /^Name/ }), 'Messenger home')
+        await user.click(screen.getByRole('combobox', { name: 'Template' }))
+        await user.click(screen.getByRole('option', { name: 'Messenger app' }))
+
+        expect(screen.getByRole('combobox', { name: 'Template' })).toHaveTextContent('Messenger app')
+        await user.click(screen.getByRole('button', { name: 'Create layout' }))
+        expect(onCreate).toHaveBeenCalledOnce()
+    })
+
+    it('locks the template selector after the application has a global layout', () => {
+        render(<CreateHarness onCreate={() => undefined} canSelectGlobalTemplate={false} />)
+
+        expect(screen.getByRole('combobox', { name: 'Template' })).toHaveAttribute('aria-disabled', 'true')
+    })
+
     it('validates the name and lets an authorized entity target choose an independent template', async () => {
         const user = userEvent.setup()
         const onCreate = vi.fn()

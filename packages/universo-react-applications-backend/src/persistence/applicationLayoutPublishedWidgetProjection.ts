@@ -1,5 +1,5 @@
 import stableStringify from 'json-stable-stringify'
-import { encodeLayoutWidgetConfigEnvelope } from '@universo-react/types'
+import { applicationLayoutWidgetKeySchema, encodeLayoutWidgetConfigEnvelope } from '@universo-react/types'
 import type { PersistedAppLayoutZoneWidget } from '../routes/sync/syncTypes'
 import {
     parseApplicationLayoutSyncTemplateKey,
@@ -39,9 +39,12 @@ export const projectPersistedPublishedWidgets = (rows: readonly PersistedPublish
         const instanceKey = row.instance_key
         const lineage = classifyPlacementLineage(row.source_widget_id, row.source_base_widget_id)
         const bindingsInheritedFromBase = row.source_base_widget_id !== null && row.source_base_widget_id !== undefined
-        if (typeof row.zone !== 'string' || row.zone.length === 0 || typeof row.widget_key !== 'string' || row.widget_key.length === 0) {
+        if (typeof row.zone !== 'string' || row.zone.length === 0) {
             throw new Error(`[SchemaSync] Persisted widget ${row.id} identity is invalid`)
         }
+        const parsedWidgetKey = applicationLayoutWidgetKeySchema.safeParse(row.widget_key)
+        if (!parsedWidgetKey.success) throw new Error(`[SchemaSync] Persisted widget ${row.id} identity is invalid`)
+        const widgetKey = parsedWidgetKey.data
         const placement = applicationLayoutWidgetPlacementSchema.safeParse({
             instanceKey,
             parentWidgetId: row.parent_widget_id,
@@ -50,7 +53,7 @@ export const projectPersistedPublishedWidgets = (rows: readonly PersistedPublish
         if (!placement.success) throw new Error(`[SchemaSync] Persisted widget ${row.id} placement identity is invalid`)
         const hasSourceConfig = row.source_config !== null && row.source_config !== undefined
         const validation = resolvePlacementBindingValidation(
-            row.widget_key,
+            widgetKey,
             row.config,
             lineage.kind === 'source-linked',
             bindingsInheritedFromBase
@@ -59,7 +62,7 @@ export const projectPersistedPublishedWidgets = (rows: readonly PersistedPublish
             requireApplicationLayoutSyncRecord(row.config, `Persisted widget ${row.id} config`),
             {
                 templateKey,
-                widgetKey: row.widget_key,
+                widgetKey,
                 zone: row.zone,
                 instanceKey,
                 requireBindings: validation.requireBindings && !hasSourceConfig
@@ -72,7 +75,7 @@ export const projectPersistedPublishedWidgets = (rows: readonly PersistedPublish
         const neutral = { ...decoded.neutral }
         if (hasSourceConfig) {
             const sourceValidation = resolvePlacementBindingValidation(
-                row.widget_key,
+                widgetKey,
                 row.source_config,
                 lineage.kind === 'source-linked',
                 bindingsInheritedFromBase
@@ -81,7 +84,7 @@ export const projectPersistedPublishedWidgets = (rows: readonly PersistedPublish
                 requireApplicationLayoutSyncRecord(row.source_config, `Persisted widget ${row.id} source config`),
                 {
                     templateKey,
-                    widgetKey: row.widget_key,
+                    widgetKey,
                     zone: row.zone,
                     instanceKey,
                     requireBindings: sourceValidation.requireBindings
@@ -101,7 +104,7 @@ export const projectPersistedPublishedWidgets = (rows: readonly PersistedPublish
             else neutral.bindings = sourceDecoded.neutral.bindings
         }
 
-        const rendererConfig = parsePlacementRendererConfig(row.widget_key, decoded.rendererConfig)
+        const rendererConfig = parsePlacementRendererConfig(widgetKey, decoded.rendererConfig)
         return {
             id: row.id,
             layoutId: row.layout_id,
@@ -111,11 +114,11 @@ export const projectPersistedPublishedWidgets = (rows: readonly PersistedPublish
             sourceWidgetId: row.source_widget_id,
             sourceBaseWidgetId: row.source_base_widget_id,
             zone: row.zone as PersistedAppLayoutZoneWidget['zone'],
-            widgetKey: row.widget_key,
+            widgetKey,
             sortOrder: requireApplicationLayoutSyncInteger(row.sort_order, `Persisted widget ${row.id} sortOrder`),
             config: encodeLayoutWidgetConfigEnvelope(
                 { rendererConfig, neutral },
-                { templateKey, widgetKey: row.widget_key, zone: row.zone, requireBindings: validation.requireBindings }
+                { templateKey, widgetKey, zone: row.zone, requireBindings: validation.requireBindings }
             ),
             isActive: requireApplicationLayoutSyncBoolean(row.is_active, `Persisted widget ${row.id} isActive`)
         }

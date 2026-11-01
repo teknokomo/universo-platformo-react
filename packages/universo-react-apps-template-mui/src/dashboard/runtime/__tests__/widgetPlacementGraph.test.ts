@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { dashboardWidgetConfigSchemaByKey } from '@universo-react/types'
-import { childrenForSlot, rootPlacements, runtimePlacementGraphSchema, runtimeWidgetDataSchema } from '../widgetPlacementGraph'
+import {
+    childrenForSlot,
+    createRuntimePlacementGraphSchema,
+    rootPlacements,
+    runtimePlacementGraphSchema,
+    runtimeWidgetDataSchema
+} from '../widgetPlacementGraph'
 
 const root = {
     instanceKey: 'overview-columns',
@@ -64,6 +70,16 @@ describe('Dashboard runtime placement graph', () => {
 
     it('rejects duplicate placement instance keys', () => {
         expect(runtimePlacementGraphSchema.safeParse([root, child, { ...child }]).success).toBe(false)
+    })
+
+    it('keeps the default graph cap and allows callers to select a larger bounded cap', () => {
+        const placements = Array.from({ length: 513 }, (_, index) => ({
+            ...root,
+            instanceKey: `columns-${index + 1}`
+        }))
+
+        expect(runtimePlacementGraphSchema.safeParse(placements).success).toBe(false)
+        expect(createRuntimePlacementGraphSchema(513).safeParse(placements).success).toBe(true)
     })
 
     it('rejects a placement that parents itself', () => {

@@ -67,7 +67,16 @@ const staleInDocs = Array.from(documentedRouteFiles)
     .filter((filePath) => !mountedRouteFiles.has(filePath))
     .sort()
 
-if (missingInDocs.length > 0 || staleInDocs.length > 0) {
+const missingExplicitPaths = routeSources.flatMap((source) => {
+    if (!source.routePathAllowlist) return []
+
+    const sourceContent = fs.readFileSync(path.join(repoRoot, source.file), 'utf8')
+    return source.routePathAllowlist
+        .filter((routePath) => !sourceContent.includes(`'${routePath}'`) && !sourceContent.includes(`"${routePath}"`))
+        .map((routePath) => `${source.file}: ${routePath}`)
+})
+
+if (missingInDocs.length > 0 || staleInDocs.length > 0 || missingExplicitPaths.length > 0) {
     const lines = [
         '[verify-route-sources] Metahubs OpenAPI routeSources are out of sync with packages/universo-react-metahubs-backend/src/domains/router.ts'
     ]
@@ -83,6 +92,13 @@ if (missingInDocs.length > 0 || staleInDocs.length > 0) {
         lines.push('Stale route files still documented but no longer mounted:')
         for (const filePath of staleInDocs) {
             lines.push(`- ${filePath}`)
+        }
+    }
+
+    if (missingExplicitPaths.length > 0) {
+        lines.push('Explicit OpenAPI route paths missing from their source files:')
+        for (const routePath of missingExplicitPaths) {
+            lines.push(`- ${routePath}`)
         }
     }
 

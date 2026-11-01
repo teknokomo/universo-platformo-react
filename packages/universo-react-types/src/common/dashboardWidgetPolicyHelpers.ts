@@ -1,5 +1,6 @@
 import type { LayoutWidgetAuthoringCapabilities, LayoutWidgetPresentationField, WidgetBindingSlotDefinition } from './widgetBindings'
 import type { DashboardLayoutWidgetDefinition, DashboardLayoutZone, DashboardWidgetSeedPolicy } from './dashboardWidgetOwnership'
+import type { ApplicationTemplateKey } from './marketingPagePrimitives'
 
 export const DASHBOARD_SEMANTIC_KEY_PATTERN = '^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$'
 
@@ -258,18 +259,24 @@ export const registerWidget = <TKey extends string, const TZones extends readonl
     key: TKey,
     allowedZones: TZones,
     multiInstance: boolean,
-    policy: DashboardWidgetPolicy
+    policy: DashboardWidgetPolicy,
+    options: {
+        supportedTemplates?: readonly ApplicationTemplateKey[]
+        allowedZonesByTemplate?: Partial<Record<ApplicationTemplateKey, readonly DashboardLayoutZone[]>>
+    } = {}
 ): DashboardLayoutWidgetDefinition & { readonly key: TKey; readonly allowedZones: TZones } => {
     const shared = key === 'languageSwitcher' || key === 'colorModeSwitcher'
-    const supportedTemplates = shared ? (['dashboard', 'marketing-page'] as const) : (['dashboard'] as const)
+    const supportedTemplates =
+        options.supportedTemplates ?? (shared ? (['dashboard', 'marketing-page'] as const) : (['dashboard'] as const))
+    const allowedZonesByTemplate =
+        options.allowedZonesByTemplate ??
+        (shared ? { dashboard: allowedZones, 'marketing-page': ['marketing-header'] as const } : { dashboard: allowedZones })
     return {
         key,
         templateKey: 'dashboard',
         supportedTemplates,
         allowedZones,
-        allowedZonesByTemplate: shared
-            ? { dashboard: allowedZones, 'marketing-page': ['marketing-header'] as const }
-            : { dashboard: allowedZones },
+        allowedZonesByTemplate,
         multiInstance,
         shared,
         labelKey: 'layouts.widgets.' + key,

@@ -130,13 +130,7 @@ export interface MetahubSnapshot {
      * Default layout id (must reference one of `layouts` when present).
      */
     defaultLayoutId?: string | null
-    /**
-     * UI layout configuration captured at publication time.
-     * This is used by runtime UI (apps-template-mui) to render Dashboard sections.
-     *
-     * NOTE: This represents the DEFAULT layout config for backward/forward compatibility.
-     */
-    layoutConfig?: Record<string, unknown>
+    /** Canonical application layouts and widgets are serialized in their scoped collections above. */
     runtimePolicy?: MetahubRuntimePolicySnapshot
 }
 

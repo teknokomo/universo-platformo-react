@@ -124,6 +124,35 @@ The marketing-page contract currently exposes `marketing-header.position` with
 other template zones can add registry-backed settings without introducing
 template-specific fields into the platform protocol.
 
+## Shared Application Template And Widget Contracts
+
+`common/applicationTemplates` is the canonical registry for the Dashboard,
+Marketing Page, and Messenger App layout templates. The Messenger App key is
+`messenger-app`; its strict renderer config is currently empty, and its physical
+zones are `top`, `center`, and `bottom`, mapped to the semantic regions `header`,
+`main`, and `footer`.
+
+`supportsDashboardWidgets` describes a template capability. It does not grant
+every Dashboard widget to that template. `common/layoutWidgetDefinitions` is the
+single widget registry and carries each widget's supported templates, allowed
+zones, binding requirements, authoring metadata, and copy/seed policies.
+Template-specific code must use those policies and fail closed for an unknown
+template or unsupported placement.
+
+The public Dashboard placement schema is a DTO boundary, not a widget registry.
+It accepts shell placements, presentation-only tabs, and bounded read-only table
+data with mutation fields omitted. Messenger App public rendering uses the
+Applications runtime's separate template-aware projector and read-only DTO
+contract; the Dashboard schema alone does not grant Messenger widget access.
+Neither public contract may expose mutation actions, binding metadata, or
+unprojected Entity fields.
+
+`common/applicationBotBindings` is the shared strict request contract and
+projected response DTO for Telegram and MAX bot bindings. It validates UUID v7
+record identifiers and bounded launch short IDs, rejects unknown mutation
+fields, and strips unknown response properties so credential or audit fields
+cannot reach frontend consumers.
+
 ## Install (workspace)
 
 This package lives at `packages/universo-react-types` and is consumed via `workspace:*` by other packages in the monorepo.

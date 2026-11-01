@@ -3,6 +3,8 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { DbExecutor } from '@universo-react/utils'
 import { asyncHandler } from '../shared/asyncHandler'
 import { createApplicationsController } from '../controllers/applicationsController'
+import { createApplicationMembershipController } from '../controllers/applicationMembershipController'
+import { createApplicationBotBindingsController } from '../controllers/applicationBotBindingsController'
 import { createRuntimeRowsController } from '../controllers/runtimeRowsController'
 import { createRuntimeChildRowsController } from '../controllers/runtimeChildRowsController'
 import { createRuntimeLedgersController } from '../controllers/runtimeLedgersController'
@@ -31,6 +33,8 @@ export function createApplicationsRoutes(
     router.use(ensureAuth)
 
     const app = createApplicationsController(getDbExecutor)
+    const membership = createApplicationMembershipController(getDbExecutor)
+    const botBindings = createApplicationBotBindingsController(getRequestDbExecutor)
     const runtime = createRuntimeRowsController(getDbExecutor)
     const childRows = createRuntimeChildRowsController(getDbExecutor)
     const ledgers = createRuntimeLedgersController(getDbExecutor)
@@ -48,8 +52,7 @@ export function createApplicationsRoutes(
     const runtimeReference = createApplicationRuntimeReferenceController(getDbExecutor, getRequestDbExecutor)
 
     // ── Application CRUD ──
-    // Keep this before /:applicationId so a short reference cannot be treated
-    // as an application UUID by the generic detail route.
+    // Resolve UUIDs and aliases before the dynamic UUID-based Application routes.
     router.get('/runtime-reference/:applicationRef', readLimiter, asyncHandler(runtimeReference.resolve))
     router.get('/', readLimiter, asyncHandler(app.list))
     router.get('/:applicationId', readLimiter, asyncHandler(app.get))
@@ -58,13 +61,19 @@ export function createApplicationsRoutes(
     router.patch('/:applicationId', writeLimiter, asyncHandler(app.update))
     router.delete('/:applicationId', writeLimiter, asyncHandler(app.remove))
 
+    // ── Manual MAX and Telegram bot bindings ──
+    router.get('/:applicationId/bot-bindings', readLimiter, asyncHandler(botBindings.list))
+    router.post('/:applicationId/bot-bindings', writeLimiter, asyncHandler(botBindings.create))
+    router.patch('/:applicationId/bot-bindings/:bindingId', writeLimiter, asyncHandler(botBindings.update))
+    router.delete('/:applicationId/bot-bindings/:bindingId', writeLimiter, asyncHandler(botBindings.release))
+
     // ── Membership ──
-    router.post('/:applicationId/join', writeLimiter, asyncHandler(app.join))
-    router.post('/:applicationId/leave', writeLimiter, asyncHandler(app.leave))
+    router.post('/:applicationId/join', writeLimiter, asyncHandler(membership.join))
+    router.post('/:applicationId/leave', writeLimiter, asyncHandler(membership.leave))
 
     // ── Settings ──
-    router.get('/:applicationId/settings/limits', readLimiter, asyncHandler(app.getLimits))
-    router.put('/:applicationId/settings/limits', writeLimiter, asyncHandler(app.updateLimits))
+    router.get('/:applicationId/settings/limits', readLimiter, asyncHandler(membership.getLimits))
+    router.put('/:applicationId/settings/limits', writeLimiter, asyncHandler(membership.updateLimits))
     router.get('/:applicationId/settings/public-entry-workspace', readLimiter, asyncHandler(publicEntryWorkspace.get))
     router.patch('/:applicationId/settings/public-entry-workspace', writeLimiter, asyncHandler(publicEntryWorkspace.update))
 
@@ -96,10 +105,10 @@ export function createApplicationsRoutes(
     router.delete('/:applicationId/layouts/:layoutId/zone-widget/:widgetId', writeLimiter, asyncHandler(layouts.removeWidget))
 
     // ── Members ──
-    router.get('/:applicationId/members', readLimiter, asyncHandler(app.listMembers))
-    router.post('/:applicationId/members', writeLimiter, asyncHandler(app.addMember))
-    router.patch('/:applicationId/members/:memberId', writeLimiter, asyncHandler(app.updateMember))
-    router.delete('/:applicationId/members/:memberId', writeLimiter, asyncHandler(app.removeMember))
+    router.get('/:applicationId/members', readLimiter, asyncHandler(membership.listMembers))
+    router.post('/:applicationId/members', writeLimiter, asyncHandler(membership.addMember))
+    router.patch('/:applicationId/members/:memberId', writeLimiter, asyncHandler(membership.updateMember))
+    router.delete('/:applicationId/members/:memberId', writeLimiter, asyncHandler(membership.removeMember))
 
     // ── Runtime rows ──
     router.get('/:applicationId/runtime/effective-layout', readLimiter, asyncHandler(effectiveLayoutRuntime.getEffectiveLayout))

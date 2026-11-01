@@ -2,6 +2,12 @@
 // Namespaced exports for tree-shaking friendly consumption
 
 export * as validation from './validation'
+export {
+    parseMessengerBotUsername,
+    type MessengerBotPlatform,
+    type MessengerBotUsernameFailureReason,
+    type MessengerBotUsernameValidation
+} from './validation/messengerBotUsername'
 export * as delta from './delta'
 export * as serialization from './serialization'
 export * as math from './math'

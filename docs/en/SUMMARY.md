@@ -58,6 +58,7 @@
 -   [Applications](platform/applications.md)
 -   [Public applications and aliases](platform/public-applications-and-aliases.md)
 -   [Marketing Page Template](platform/marketing-page-template.md)
+-   [Messenger App Template](platform/messenger-app-template.md)
 -   [PlayCanvas Editor Package](platform/playcanvas-editor.md)
 -   [PlayCanvas Editor Assets](platform/playcanvas-editor-assets.md)
 -   [PlayCanvas Projects](platform/playcanvas-projects.md)

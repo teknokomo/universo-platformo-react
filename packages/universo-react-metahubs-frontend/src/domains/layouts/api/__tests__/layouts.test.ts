@@ -12,6 +12,7 @@ import {
     duplicateLayoutZoneWidgetPlacement,
     duplicateLayoutZoneWidgetWithRecordCopy,
     getLayoutZoneWidgetBindings,
+    getLayoutZoneWidgetMetadata,
     getLayoutZoneWidgetObjects,
     listLayouts,
     listWidgetBindingRecords,
@@ -54,21 +55,22 @@ describe('layout metadata API wrapper', () => {
         const widget = LAYOUT_WIDGET_DEFINITIONS.find((item) => item.key === 'languageSwitcher')
         if (!widget) throw new Error('languageSwitcher metadata is missing')
 
-        get.mockResolvedValueOnce({
-            data: {
-                items: [widget],
-                templates: [
-                    {
-                        ...APPLICATION_TEMPLATE_REGISTRY.dashboard,
-                        zones: LAYOUT_ZONE_DEFINITIONS.filter((zone) => zone.templateKey === 'dashboard'),
-                        widgets: [widget]
-                    }
-                ]
-            }
-        })
+        const metadata = {
+            items: [widget],
+            templates: [
+                {
+                    ...APPLICATION_TEMPLATE_REGISTRY.dashboard,
+                    zones: LAYOUT_ZONE_DEFINITIONS.filter((zone) => zone.templateKey === 'dashboard'),
+                    widgets: [widget]
+                }
+            ]
+        }
+        get.mockResolvedValueOnce({ data: metadata }).mockResolvedValueOnce({ data: metadata })
 
+        await expect(getLayoutZoneWidgetMetadata('metahub-1', 'layout-1')).resolves.toEqual(metadata)
         await expect(getLayoutZoneWidgetObjects('metahub-1', 'layout-1')).resolves.toEqual([widget])
-        expect(get).toHaveBeenCalledWith('/metahub/metahub-1/layout/layout-1/zone-widgets/object')
+        expect(get).toHaveBeenNthCalledWith(1, '/metahub/metahub-1/layout/layout-1/zone-widgets/object')
+        expect(get).toHaveBeenNthCalledWith(2, '/metahub/metahub-1/layout/layout-1/zone-widgets/object')
     })
 
     it('rejects an incomplete registry response before it reaches the layout editor', async () => {

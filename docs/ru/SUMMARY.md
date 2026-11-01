@@ -58,6 +58,7 @@
 -   [Приложения](platform/applications.md)
 -   [Публичные приложения и адреса](platform/public-applications-and-aliases.md)
 -   [Шаблон маркетинговой страницы](platform/marketing-page-template.md)
+-   [Шаблон Messenger App](platform/messenger-app-template.md)
 -   [Пакет PlayCanvas Editor](platform/playcanvas-editor.md)
 -   [Ассеты PlayCanvas Editor](platform/playcanvas-editor-assets.md)
 -   [Проекты PlayCanvas](platform/playcanvas-projects.md)

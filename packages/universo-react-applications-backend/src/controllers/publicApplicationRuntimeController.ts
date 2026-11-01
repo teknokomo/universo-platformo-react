@@ -29,6 +29,7 @@ import {
     PublicDashboardMaterializationError,
     PublicRuntimeTransientError
 } from '../services/publicDashboardRuntime'
+import { projectPublicMessengerRuntime } from '../services/publicMessengerRuntime'
 import {
     PublicInterpretationNetworkUnavailableError,
     readPublicInterpretationNetwork,
@@ -288,6 +289,30 @@ export function createPublicApplicationRuntimeController(getDbExecutor: () => Db
                             locale: query.locale,
                             effectiveLayout,
                             pageBlockContent
+                        })
+                    } satisfies PublicApplicationRuntime
+                }
+                if (effectiveLayout.layout.templateKey === 'messenger-app') {
+                    let messengerWorkspace = publicWorkspace
+                    if (resolved.application.workspacesEnabled && !messengerWorkspace) {
+                        messengerWorkspace = await resolvePublicDashboardWorkspace(tx, resolved.application.schemaName)
+                        if (messengerWorkspace) {
+                            effectiveLayout = await resolvePublicRuntimeLayoutStructure(tx, target, messengerWorkspace.workspaceId)
+                            if (effectiveLayout.layout.templateKey !== 'messenger-app') {
+                                throw new PublicApplicationUnavailableError('materialization_invalid')
+                            }
+                        }
+                    }
+                    return {
+                        route: toPublicApplicationRouteResolution(resolved.route),
+                        templateKey: 'messenger-app' as const,
+                        messengerApp: await projectPublicMessengerRuntime({
+                            executor: tx,
+                            resolved,
+                            workspaceId: messengerWorkspace?.workspaceId ?? null,
+                            workspaceAvailable: !resolved.application.workspacesEnabled || messengerWorkspace !== null,
+                            locale: query.locale,
+                            effectiveLayout
                         })
                     } satisfies PublicApplicationRuntime
                 }

@@ -126,6 +126,13 @@ const routeSources = [
         security: publicSecurity
     },
     {
+        file: 'packages/universo-react-applications-backend/src/routes/publicApplicationsRoutes.ts',
+        mountPrefix: '',
+        tag: 'Applications',
+        security: publicSecurity,
+        routePathAllowlist: ['/public/applications/:applicationRef/attribution/:shortId']
+    },
+    {
         file: 'packages/universo-react-applications-backend/src/routes/connectorsRoutes.ts',
         mountPrefix: '',
         tag: 'Connectors',
@@ -685,6 +692,98 @@ const effectiveLayoutTargetParameters = [
 
 const packageOperationOverrides = {
     ...interpretationNetworkOperationOverrides,
+    'GET /applications': {
+        responses: {
+            200: successResponse('ApplicationListResponse')
+        }
+    },
+    'POST /applications': {
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('ApplicationCreateRequest')
+        },
+        responses: {
+            201: createdResponse('ApplicationControlSummary')
+        }
+    },
+    'GET /applications/{applicationId}': {
+        responses: {
+            200: successResponse('ApplicationControlSummary')
+        }
+    },
+    'GET /applications/runtime-reference/{applicationRef}': {
+        summary: 'Resolve an authenticated application runtime reference',
+        description:
+            'Resolves an Application UUID or active alias for the authenticated user, then applies the normal Application access guard. Returns the application ID required by the runtime and uses a generic not-found response for inaccessible references.',
+        responses: {
+            200: successResponse('GenericObject')
+        }
+    },
+    'PATCH /applications/{applicationId}': {
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('ApplicationUpdateRequest')
+        },
+        responses: {
+            200: successResponse('ApplicationControlSummary')
+        }
+    },
+    'POST /applications/{applicationId}/copy': {
+        requestBody: {
+            required: false,
+            ...jsonSchemaRef('ApplicationCopyRequest')
+        },
+        responses: {
+            201: createdResponse('ApplicationControlSummary')
+        }
+    },
+    'GET /applications/{applicationId}/bot-bindings': {
+        description: 'Lists bot bindings for the requested Application after owner/admin authorization.',
+        responses: {
+            200: successResponse('ApplicationBotBindingListResponse')
+        }
+    },
+    'POST /applications/{applicationId}/bot-bindings': {
+        description:
+            'Creates a manual MAX or Telegram bot binding. Bot tokens, init data, messenger user identifiers, and contact details are not accepted or stored.',
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('ApplicationBotBindingCreateRequest')
+        },
+        responses: {
+            201: createdResponse('ApplicationBotBinding')
+        }
+    },
+    'PATCH /applications/{applicationId}/bot-bindings/{bindingId}': {
+        description: 'Updates a binding with optimistic version checking. The short_id is immutable.',
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('ApplicationBotBindingUpdateRequest')
+        },
+        responses: {
+            200: successResponse('ApplicationBotBinding')
+        }
+    },
+    'DELETE /applications/{applicationId}/bot-bindings/{bindingId}': {
+        summary: 'Release an Application bot binding',
+        description: 'Irreversibly releases a bot binding using expectedVersion. The historical bot identity and short_id remain reserved.',
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('ApplicationBotBindingReleaseRequest')
+        },
+        responses: {
+            200: successResponse('ApplicationBotBinding')
+        },
+        removeResponses: ['204']
+    },
+    'GET /public/applications/{applicationRef}/attribution/{shortId}': {
+        summary: 'Resolve public messenger attribution for an Application',
+        description:
+            'Resolves applicationRef as a public alias or UUID before looking up shortId within that Application. Returns platform=null for an invalid or unavailable public reference, unknown, cross-Application, disabled, released, deleted, or non-public binding and never returns the binding-to-Application mapping.',
+        responses: {
+            200: successResponse('PublicApplicationAttributionResponse')
+        }
+    },
     'GET /applications/{applicationId}/runtime/effective-layout': {
         summary: 'Resolve the effective application layout before renderer selection',
         description:
@@ -960,7 +1059,9 @@ const buildSpec = () => {
     for (const source of routeSources) {
         const absolutePath = path.join(repoRoot, source.file)
         const fileContent = fs.readFileSync(absolutePath, 'utf8')
-        const operations = parseRoutePaths(fileContent)
+        const operations = parseRoutePaths(fileContent).filter(
+            (operation) => !source.routePathAllowlist || source.routePathAllowlist.includes(operation.routePath)
+        )
 
         for (const operation of operations) {
             const concretePath = joinPaths(source.mountPrefix, operation.routePath)
@@ -1066,6 +1167,193 @@ const buildSpec = () => {
                     additionalProperties: true,
                     description:
                         'Generic JSON object used where the route inventory is current but payload-specific schemas remain handler-defined.'
+                },
+                ApplicationLocalizedInput: {
+                    oneOf: [{ type: 'string' }, { type: 'object', additionalProperties: { type: 'string' } }]
+                },
+                ApplicationNameInput: {
+                    oneOf: [
+                        { type: 'string', minLength: 1, maxLength: 255 },
+                        { type: 'object', additionalProperties: { type: 'string' } }
+                    ]
+                },
+                ApplicationCreateRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        name: { $ref: '#/components/schemas/ApplicationNameInput' },
+                        description: { $ref: '#/components/schemas/ApplicationLocalizedInput' },
+                        namePrimaryLocale: { type: 'string' },
+                        descriptionPrimaryLocale: { type: 'string' },
+                        isPublic: { type: 'boolean', default: false },
+                        showInAppList: {
+                            type: 'boolean',
+                            default: true,
+                            description: 'Controls public catalog discovery independently of Application access.'
+                        }
+                    },
+                    required: ['name']
+                },
+                ApplicationCopyRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        name: { $ref: '#/components/schemas/ApplicationNameInput' },
+                        description: { $ref: '#/components/schemas/ApplicationLocalizedInput' },
+                        settings: { $ref: '#/components/schemas/GenericObject' },
+                        namePrimaryLocale: { type: 'string' },
+                        descriptionPrimaryLocale: { type: 'string' },
+                        isPublic: { type: 'boolean' },
+                        showInAppList: {
+                            type: 'boolean',
+                            description: 'Overrides the source Application catalog visibility when supplied.'
+                        },
+                        copyConnector: { type: 'boolean' },
+                        copyAccess: { type: 'boolean', default: false }
+                    }
+                },
+                ApplicationUpdateRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        name: { $ref: '#/components/schemas/ApplicationNameInput' },
+                        description: { $ref: '#/components/schemas/ApplicationLocalizedInput' },
+                        settings: { $ref: '#/components/schemas/GenericObject' },
+                        namePrimaryLocale: { type: 'string' },
+                        descriptionPrimaryLocale: { type: 'string' },
+                        isPublic: { type: 'boolean' },
+                        workspacesEnabled: { type: 'boolean', description: 'Immutable after Application creation.' },
+                        showInAppList: { type: 'boolean' },
+                        expectedVersion: { type: 'integer', minimum: 1 }
+                    },
+                    anyOf: [{ not: { required: ['showInAppList'] } }, { required: ['showInAppList', 'expectedVersion'] }]
+                },
+                ApplicationControlSummary: {
+                    type: 'object',
+                    additionalProperties: true,
+                    properties: {
+                        id: { type: 'string', format: 'uuid' },
+                        name: { $ref: '#/components/schemas/GenericObject' },
+                        description: { oneOf: [{ $ref: '#/components/schemas/GenericObject' }, { type: 'null' }] },
+                        settings: { $ref: '#/components/schemas/GenericObject' },
+                        isPublic: { type: 'boolean' },
+                        showInAppList: { type: 'boolean' },
+                        workspacesEnabled: { type: 'boolean' },
+                        version: { type: 'integer', minimum: 1 },
+                        createdAt: { type: 'string', format: 'date-time' },
+                        updatedAt: { type: 'string', format: 'date-time' }
+                    },
+                    required: ['id', 'name', 'isPublic', 'showInAppList', 'workspacesEnabled', 'version']
+                },
+                ApplicationListResponse: {
+                    type: 'object',
+                    properties: {
+                        items: { type: 'array', items: { $ref: '#/components/schemas/ApplicationControlSummary' } },
+                        total: { type: 'integer', minimum: 0 },
+                        limit: { type: 'integer', minimum: 0 },
+                        offset: { type: 'integer', minimum: 0 }
+                    },
+                    required: ['items', 'total', 'limit', 'offset']
+                },
+                ApplicationBotPlatform: { type: 'string', enum: ['max', 'telegram'] },
+                ApplicationBotBindingStatus: { type: 'string', enum: ['draft', 'active', 'disabled'] },
+                ApplicationBotBinding: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        id: { type: 'string', format: 'uuid' },
+                        applicationId: { type: 'string', format: 'uuid' },
+                        platform: { $ref: '#/components/schemas/ApplicationBotPlatform' },
+                        botUsername: {
+                            type: 'string',
+                            minLength: 5,
+                            maxLength: 60,
+                            description: 'Canonical provider bot username; platform-specific validation applies.'
+                        },
+                        displayName: { type: ['string', 'null'], maxLength: 120 },
+                        status: { $ref: '#/components/schemas/ApplicationBotBindingStatus' },
+                        shortId: { type: 'string', pattern: '^[A-Za-z0-9_-]{22}$', minLength: 22, maxLength: 22 },
+                        releasedAt: { type: ['string', 'null'], format: 'date-time' },
+                        version: { type: 'integer', minimum: 1 },
+                        createdAt: { type: 'string', format: 'date-time' },
+                        updatedAt: { type: 'string', format: 'date-time' }
+                    },
+                    required: [
+                        'id',
+                        'applicationId',
+                        'platform',
+                        'botUsername',
+                        'displayName',
+                        'status',
+                        'shortId',
+                        'releasedAt',
+                        'version',
+                        'createdAt',
+                        'updatedAt'
+                    ]
+                },
+                ApplicationBotBindingListResponse: {
+                    type: 'object',
+                    properties: { items: { type: 'array', items: { $ref: '#/components/schemas/ApplicationBotBinding' } } },
+                    required: ['items']
+                },
+                ApplicationBotBindingCreateRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        platform: { $ref: '#/components/schemas/ApplicationBotPlatform' },
+                        botUsername: { type: 'string', minLength: 1, maxLength: 64 },
+                        displayName: { type: ['string', 'null'], minLength: 1, maxLength: 120 }
+                    },
+                    required: ['platform', 'botUsername'],
+                    allOf: [
+                        {
+                            if: { properties: { platform: { const: 'max' } }, required: ['platform'] },
+                            then: {
+                                properties: {
+                                    botUsername: {
+                                        type: 'string',
+                                        minLength: 11,
+                                        maxLength: 60,
+                                        pattern: '^[a-z][a-z0-9_]{7,56}bot$'
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    description:
+                        'Contains no token, init data, messenger-user identity, phone, or email fields. MAX usernames must be lowercase, 11-60 characters, and end with bot or _bot.'
+                },
+                ApplicationBotBindingUpdateRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        botUsername: { type: 'string', minLength: 1, maxLength: 64 },
+                        displayName: { type: ['string', 'null'], minLength: 1, maxLength: 120 },
+                        status: { $ref: '#/components/schemas/ApplicationBotBindingStatus' },
+                        expectedVersion: { type: 'integer', minimum: 1 }
+                    },
+                    required: ['expectedVersion'],
+                    anyOf: [{ required: ['botUsername'] }, { required: ['displayName'] }, { required: ['status'] }],
+                    description:
+                        'Username validation uses the stored platform. MAX usernames must be lowercase, 11-60 characters, and end with bot or _bot.'
+                },
+                ApplicationBotBindingReleaseRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: { expectedVersion: { type: 'integer', minimum: 1 } },
+                    required: ['expectedVersion']
+                },
+                PublicApplicationAttributionResponse: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        platform: {
+                            oneOf: [{ $ref: '#/components/schemas/ApplicationBotPlatform' }, { type: 'null' }]
+                        }
+                    },
+                    required: ['platform'],
+                    description: 'The response never includes a binding id or Application id.'
                 },
                 MetahubWidgetBindingSelectorInput: {
                     oneOf: [

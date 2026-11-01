@@ -1,6 +1,10 @@
 export { default as AppsDashboard } from './dashboard/Dashboard'
 export { PublicDashboardRuntime } from './public-runtime/PublicDashboardRuntime'
 export type { PublicDashboardRuntimeProps } from './public-runtime/PublicDashboardRuntime'
+export { PublicMessengerRuntime } from './public-runtime/PublicMessengerRuntime'
+export type { PublicMessengerRuntimeProps } from './public-runtime/PublicMessengerRuntime'
+export { MessengerRuntimeShell } from './messenger/MessengerRuntimeShell'
+export type { MessengerRuntimeShellProps } from './messenger/MessengerRuntimeShell'
 export { DashboardWidgetSelectionProvider, useDashboardWidgetSelection } from './dashboard/DashboardWidgetSelectionContext'
 export { useDashboardBoundRowActions } from './dashboard/useDashboardBoundRowActions'
 export { resolveDashboardEntityTargetSectionId } from './dashboard/runtime/resolveDashboardEntityTargetSectionId'
@@ -115,6 +119,7 @@ export {
     resolveDashboardRuntimeLayoutTarget,
     toAuthenticatedRuntimePlacementScopes,
     toDashboardZoneWidgets,
+    toMessengerZoneWidgets,
     runtimeZoneWidgetsSchema
 } from './api/api'
 export { effectiveLayoutResultSchema } from '@universo-react/types'
@@ -125,6 +130,7 @@ export type {
     RuntimeTargetKind,
     RuntimeEffectiveLayoutResponse,
     RuntimeEffectiveLayoutSuccess,
+    MessengerZoneWidgets,
     MarketingPageRuntimeResponse
 } from './api/api'
 export type { EffectiveLayoutResult } from '@universo-react/types'

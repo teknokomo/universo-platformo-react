@@ -1,10 +1,12 @@
 import type { EntityDefinition } from '@universo-react/schema-ddl'
 import {
-    MARKETING_LAYOUT_ZONES,
+    applicationLayoutZoneSchema,
     decodeLayoutConfigEnvelope,
     encodeLayoutConfigEnvelope,
     encodeLayoutWidgetConfigEnvelope,
     getLayoutWidgetAllowedZones,
+    getLayoutZonesForTemplate,
+    applicationLayoutWidgetKeySchema,
     layoutInstanceKeySchema,
     parseApplicationLayoutConfig,
     type ApplicationLayoutWidget,
@@ -32,13 +34,10 @@ import type {
     SnapshotWidgetRow
 } from './syncTypes'
 
-const DASHBOARD_LAYOUT_ZONE_SET = new Set<ApplicationLayoutWidget['zone']>(['left', 'top', 'right', 'bottom', 'center'])
-const MARKETING_LAYOUT_ZONE_SET = new Set<ApplicationLayoutWidget['zone']>(MARKETING_LAYOUT_ZONES)
-
 const normalizeLayoutZone = (value: unknown, templateKey: ApplicationTemplateKey): ApplicationLayoutWidget['zone'] => {
-    const zones = templateKey === 'dashboard' ? DASHBOARD_LAYOUT_ZONE_SET : MARKETING_LAYOUT_ZONE_SET
-    if (typeof value === 'string' && zones.has(value as ApplicationLayoutWidget['zone'])) {
-        return value as ApplicationLayoutWidget['zone']
+    const parsedZone = applicationLayoutZoneSchema.safeParse(value)
+    if (parsedZone.success && getLayoutZonesForTemplate(templateKey).includes(parsedZone.data)) {
+        return parsedZone.data
     }
     throw new Error(`[SchemaSync] Invalid ${templateKey} layout widget zone`)
 }
@@ -447,10 +446,13 @@ const normalizeSnapshotWidgetEntries = (
         const normalizedItem = (item ?? {}) as SnapshotWidgetRow
         const id = readOptionalSnapshotString(normalizedItem.id, 'id', 'layout widget', { defaultValue: '' })
         const layoutId = readOptionalSnapshotString(normalizedItem.layoutId, 'layoutId', `layout widget ${id}`, { defaultValue: '' })
-        const widgetKey = readOptionalSnapshotString(normalizedItem.widgetKey, 'widgetKey', `layout widget ${id}`, { defaultValue: '' })
-        if (!id || !layoutId || !widgetKey) {
+        const rawWidgetKey = readOptionalSnapshotString(normalizedItem.widgetKey, 'widgetKey', `layout widget ${id}`, { defaultValue: '' })
+        if (!id || !layoutId || !rawWidgetKey) {
             throw new Error('[SchemaSync] Snapshot layout widget has an invalid identity')
         }
+        const parsedWidgetKey = applicationLayoutWidgetKeySchema.safeParse(rawWidgetKey)
+        if (!parsedWidgetKey.success) throw new Error(`[SchemaSync] Snapshot layout widget ${id} has an invalid widget key`)
+        const widgetKey = parsedWidgetKey.data
         const templateKey = templateByLayoutId.get(layoutId)
         if (!templateKey) {
             throw new Error('[SchemaSync] Snapshot layout widget references an unknown layout')
@@ -608,10 +610,14 @@ const normalizeSnapshotLayoutWidgetOverrides = (snapshot: PublishedApplicationSn
 }
 
 export function buildMergedDashboardLayoutConfig(snapshot: PublishedApplicationSnapshot): Record<string, unknown> {
-    if (snapshot.layoutConfig !== undefined && !isRecord(snapshot.layoutConfig)) {
-        throw new Error('[SchemaSync] Snapshot layoutConfig must be an object')
+    if (Object.prototype.hasOwnProperty.call(snapshot, 'layoutConfig')) {
+        throw new Error('[SchemaSync] Snapshot layoutConfig is retired; use the selected layout config')
     }
-    const decoded = decodeLayoutConfigEnvelope(snapshot.layoutConfig ?? {}, { templateKey: 'dashboard' })
+    const defaultLayout = normalizeSnapshotLayoutEntries(snapshot).find(
+        (layout) => layout.scopeEntityId === null && layout.templateKey === 'dashboard' && layout.isActive && layout.isDefault
+    )
+    if (!defaultLayout) throw new Error('[SchemaSync] Snapshot has no active default Dashboard layout')
+    const decoded = decodeLayoutConfigEnvelope(defaultLayout.config, { templateKey: 'dashboard' })
     const parsed = parseApplicationLayoutConfig('dashboard', decoded.rendererConfig)
     return normalizeDashboardLayoutConfig(parsed) as unknown as Record<string, unknown>
 }

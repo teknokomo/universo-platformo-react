@@ -60,12 +60,12 @@ export class MetahubLayoutServiceBase {
         return new MetahubNotFoundError(message, '')
     }
 
-    protected shouldSkipDefaultZoneWidgetSeed(layoutConfig: unknown): boolean {
+    protected shouldSkipDefaultZoneWidgetSeed(templateKey: LayoutTemplateKey, layoutConfig: unknown): boolean {
         if (!layoutConfig || typeof layoutConfig !== 'object') {
             return false
         }
 
-        return decodeLayoutForStorage('dashboard', layoutConfig).neutral.skipDefaultZoneWidgetSeed === true
+        return decodeLayoutForStorage(templateKey, layoutConfig).neutral.skipDefaultZoneWidgetSeed === true
     }
 
     protected buildAutoScopedLayoutName(presentation: unknown, codename: unknown): VersionedLocalizedContent<string> {
@@ -132,12 +132,13 @@ export class MetahubLayoutServiceBase {
     protected parseWidgetConfig(
         templateKey: LayoutTemplateKey,
         widgetKey: ApplicationLayoutWidgetKey,
-        config: unknown
+        config: unknown,
+        requireBindings = true
     ): Record<string, unknown> {
         const codecZone = this.resolveWidgetZone(templateKey, widgetKey, config)
         let decoded: ReturnType<typeof decodeWidgetForStorage>
         try {
-            decoded = decodeWidgetForStorage(templateKey, widgetKey, codecZone, config)
+            decoded = decodeWidgetForStorage(templateKey, widgetKey, codecZone, config, requireBindings)
         } catch (error) {
             throw new MetahubValidationError('Layout widget configuration is invalid', {
                 widgetKey,
@@ -204,8 +205,11 @@ export class MetahubLayoutServiceBase {
         }
 
         const definition = getWidgetDefinition(widgetKey)
-        const zones = definition?.allowedZonesByTemplate[templateKey] ?? definition?.allowedZones ?? []
-        return zones[0] ?? (templateKey === 'marketing-page' ? 'marketing-main' : 'top')
+        const zones = definition?.supportedTemplates.includes(templateKey) ? definition.allowedZonesByTemplate[templateKey] ?? [] : []
+        if (zones.length === 0) {
+            throw new MetahubValidationError(`Widget ${widgetKey} is not available for ${templateKey} layouts`)
+        }
+        return zones[0]
     }
 
     protected getPlacementInstanceKey(value: unknown): string {
@@ -224,9 +228,10 @@ export class MetahubLayoutServiceBase {
         templateKey: LayoutTemplateKey,
         widgetKey: ApplicationLayoutWidgetKey,
         zone: ApplicationLayoutZone,
-        persistedConfig: unknown
+        persistedConfig: unknown,
+        requireBindings = true
     ): { config: Record<string, unknown>; placement?: LayoutLogicalPlacement } {
-        const decoded = decodeWidgetForStorage(templateKey, widgetKey, zone, persistedConfig)
+        const decoded = decodeWidgetForStorage(templateKey, widgetKey, zone, persistedConfig, requireBindings)
         const defaultPlacement = getLayoutWidgetDefaultPlacement({ templateKey, widgetKey, zone })
         return {
             config: decoded.rendererConfig,
@@ -306,8 +311,9 @@ export class MetahubLayoutServiceBase {
     protected mapZoneWidgetRow(row: DbRow, templateKey: LayoutTemplateKey, parentInstanceKey: string | null): LayoutZoneWidgetRow {
         const widgetKey = applicationLayoutWidgetKeySchema.parse(row.widget_key)
         const zone = applicationLayoutZoneSchema.parse(row.zone)
-        const parsedConfig = this.parseWidgetConfig(templateKey, widgetKey, row.config)
-        const presentation = this.mapWidgetPresentation(templateKey, widgetKey, zone, parsedConfig)
+        const requireBindings = row.is_active !== false
+        const parsedConfig = this.parseWidgetConfig(templateKey, widgetKey, row.config, requireBindings)
+        const presentation = this.mapWidgetPresentation(templateKey, widgetKey, zone, parsedConfig, requireBindings)
         const instanceKey = this.getPlacementInstanceKey(row.instance_key)
         const slotKey = typeof row.slot_key === 'string' ? row.slot_key : null
         this.assertSemanticPlacementPair(String(row.id), parentInstanceKey, slotKey)

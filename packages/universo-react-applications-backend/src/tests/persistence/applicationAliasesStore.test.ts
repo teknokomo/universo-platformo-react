@@ -1,10 +1,12 @@
 import { createMockDbExecutor } from '../utils/dbMocks'
 import {
     createApplicationAliasAtomically,
+    ensureCanonicalApplicationAliasPrimary,
+    findApplicationAliasForManagement,
     findApplicationIdByActiveAlias,
     listApplicationAliases,
     lockApplicationAliasTransitions,
-    releaseApplicationAlias,
+    mutateApplicationAlias,
     updateApplicationAliasPolicy
 } from '../../persistence/applicationAliasesStore'
 
@@ -36,18 +38,45 @@ describe('applicationAliasesStore', () => {
         expect(parameters).toEqual([applicationId, 'meridian-73', true, userId])
     })
 
-    it('releases an alias by clearing primary and setting released_at in one fail-closed UPDATE', async () => {
+    it('reads an alias for a specific mutation action through the guarded management function', async () => {
+        const { executor } = createMockDbExecutor()
+        executor.query.mockResolvedValueOnce([row])
+
+        await expect(findApplicationAliasForManagement(executor, aliasId, userId, 'update')).resolves.toEqual(row)
+
+        const [sql, parameters] = executor.query.mock.calls[0]
+        expect(String(sql)).toContain('applications.get_application_alias_for_management($1, $2, $3)')
+        expect(String(sql)).toContain('application_id AS "applicationId"')
+        expect(String(sql)).toContain('is_primary AS "isPrimary"')
+        expect(String(sql)).toContain('created_at AS "createdAt"')
+        expect(String(sql)).not.toContain('applications.obj_application_aliases')
+        expect(parameters).toEqual([aliasId, userId, 'update'])
+    })
+
+    it('mutates aliases through the operation-checked SECURITY DEFINER function', async () => {
         const { executor } = createMockDbExecutor()
         executor.query.mockResolvedValueOnce([{ ...row, releasedAt: new Date('2026-09-15T11:00:00.000Z') }])
 
-        await releaseApplicationAlias(executor, aliasId, userId)
+        await mutateApplicationAlias(executor, { aliasId, operation: 'release', userId })
 
         const [sql, parameters] = executor.query.mock.calls[0]
-        expect(String(sql)).toContain('SET is_primary = false')
-        expect(String(sql)).toContain('released_at = now()')
-        expect(String(sql)).toContain('AND released_at IS NULL')
-        expect(String(sql)).toContain('RETURNING')
-        expect(parameters).toEqual([aliasId, userId])
+        expect(String(sql)).toContain('applications.mutate_application_alias($1, $2, $3, $4)')
+        expect(String(sql)).toContain('application_id AS "applicationId"')
+        expect(String(sql)).toContain('is_primary AS "isPrimary"')
+        expect(String(sql)).toContain('created_at AS "createdAt"')
+        expect(String(sql)).not.toContain('applications.obj_application_aliases')
+        expect(parameters).toEqual([aliasId, null, 'release', userId])
+    })
+
+    it('repairs canonical primary selection through the guarded function', async () => {
+        const { executor } = createMockDbExecutor()
+
+        await ensureCanonicalApplicationAliasPrimary(executor, applicationId, userId)
+
+        const [sql, parameters] = executor.query.mock.calls[0]
+        expect(String(sql)).toContain('applications.ensure_application_alias_primary($1, $2)')
+        expect(String(sql)).not.toContain('applications.obj_application_aliases')
+        expect(parameters).toEqual([applicationId, userId])
     })
 
     it('serializes application alias transitions with a parameterized advisory transaction lock', async () => {

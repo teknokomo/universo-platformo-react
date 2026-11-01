@@ -5,10 +5,9 @@ import { qSchemaTable } from '@universo-react/database'
 import {
     getLayoutZoneSettingDefinition,
     encodeLayoutConfigEnvelope,
+    parseApplicationLayoutConfig,
     type ApplicationLayoutZone,
-    applicationTemplateKeySchema,
-    marketingPageConfigSchema,
-    dashboardLayoutConfigSchema
+    applicationTemplateKeySchema
 } from '@universo-react/types'
 import { OptimisticLockError } from '@universo-react/utils'
 import { updateWithVersionCheck } from '../../../utils/optimisticLock'
@@ -73,8 +72,9 @@ export class MetahubLayoutCrudService extends MetahubLayoutScopeVisibilityServic
             const templateKey = input.templateKey ?? baseTemplateKey ?? 'dashboard'
             const decodedInputEnvelope = decodeLayoutForStorage(templateKey, input.config ?? {})
             const skipDefaultWidgetSeed =
-                templateKey === 'dashboard' &&
-                ((input.config === undefined && scopeEntityId === null) || decodedInputEnvelope.neutral.skipDefaultZoneWidgetSeed === true)
+                (templateKey === 'dashboard' && input.config === undefined && scopeEntityId === null) ||
+                ((templateKey === 'dashboard' || templateKey === 'messenger-app') &&
+                    decodedInputEnvelope.neutral.skipDefaultZoneWidgetSeed === true)
             const inputEnvelope = {
                 ...decodedInputEnvelope,
                 neutral: skipDefaultWidgetSeed
@@ -105,24 +105,16 @@ export class MetahubLayoutCrudService extends MetahubLayoutScopeVisibilityServic
                 nextConfig = encodeLayoutConfigEnvelope({ rendererConfig, neutral: inputEnvelope.neutral }, { templateKey })
                 nextConfig = withIndependentLayoutComposition(templateKey, nextConfig)
             }
-            if (templateKey === 'marketing-page') {
-                const parsedConfig = marketingPageConfigSchema.safeParse(decodeLayoutForStorage(templateKey, nextConfig).rendererConfig)
-                if (!parsedConfig.success) {
-                    throw new MetahubValidationError('Marketing layout configuration is invalid')
-                }
-                const neutral = decodeLayoutForStorage(templateKey, nextConfig).neutral
-                nextConfig = encodeLayoutConfigEnvelope({ rendererConfig: parsedConfig.data, neutral }, { templateKey })
-            } else {
-                const decoded = decodeLayoutForStorage(templateKey, nextConfig)
-                const parsedConfig = dashboardLayoutConfigSchema.safeParse(decoded.rendererConfig)
-                if (!parsedConfig.success) {
-                    throw new MetahubValidationError('Dashboard layout configuration is invalid')
-                }
-                nextConfig = encodeLayoutConfigEnvelope(
-                    { rendererConfig: parsedConfig.data ?? {}, neutral: decoded.neutral },
-                    { templateKey }
-                )
+            const decoded = decodeLayoutForStorage(templateKey, nextConfig)
+            let parsedConfig: Record<string, unknown>
+            try {
+                parsedConfig = parseApplicationLayoutConfig(templateKey, decoded.rendererConfig)
+            } catch {
+                const templateLabel =
+                    templateKey === 'marketing-page' ? 'Marketing' : templateKey === 'messenger-app' ? 'Messenger App' : 'Dashboard'
+                throw new MetahubValidationError(`${templateLabel} layout configuration is invalid`)
             }
+            nextConfig = encodeLayoutConfigEnvelope({ rendererConfig: parsedConfig, neutral: decoded.neutral }, { templateKey })
             const created = await queryOneOrThrow<DbRow>(
                 tx,
                 `INSERT INTO ${lt} (scope_entity_id, base_layout_id, template_key, name, description, config, is_active, is_default, sort_order, owner_id,
@@ -147,7 +139,7 @@ export class MetahubLayoutCrudService extends MetahubLayoutScopeVisibilityServic
                 ]
             )
 
-            if (!scopeEntityId && !this.shouldSkipDefaultZoneWidgetSeed(nextConfig)) {
+            if (!scopeEntityId && !this.shouldSkipDefaultZoneWidgetSeed(templateKey, nextConfig)) {
                 await this.ensureDefaultZoneWidgets(tx, schemaName, String(created.id), userId ?? null)
             }
             return this.mapRow(created)
@@ -199,28 +191,23 @@ export class MetahubLayoutCrudService extends MetahubLayoutScopeVisibilityServic
             } else {
                 nextConfig = withIndependentLayoutComposition(existingTemplateKey, nextConfig)
             }
-            if (existingTemplateKey === 'marketing-page') {
-                const parsedConfig = marketingPageConfigSchema.safeParse(
-                    decodeLayoutForStorage(existingTemplateKey, nextConfig).rendererConfig
-                )
-                if (!parsedConfig.success) {
-                    throw new MetahubValidationError('Marketing layout configuration is invalid')
-                }
-                nextConfig = encodeLayoutConfigEnvelope(
-                    { rendererConfig: parsedConfig.data, neutral: decodeLayoutForStorage(existingTemplateKey, nextConfig).neutral },
-                    { templateKey: existingTemplateKey }
-                )
-            } else {
-                const decoded = decodeLayoutForStorage(existingTemplateKey, nextConfig)
-                const parsedConfig = dashboardLayoutConfigSchema.safeParse(decoded.rendererConfig)
-                if (!parsedConfig.success) {
-                    throw new MetahubValidationError('Dashboard layout configuration is invalid')
-                }
-                nextConfig = encodeLayoutConfigEnvelope(
-                    { rendererConfig: parsedConfig.data ?? {}, neutral: decoded.neutral },
-                    { templateKey: existingTemplateKey }
-                )
+            const decoded = decodeLayoutForStorage(existingTemplateKey, nextConfig)
+            let parsedConfig: Record<string, unknown>
+            try {
+                parsedConfig = parseApplicationLayoutConfig(existingTemplateKey, decoded.rendererConfig)
+            } catch {
+                const templateLabel =
+                    existingTemplateKey === 'marketing-page'
+                        ? 'Marketing'
+                        : existingTemplateKey === 'messenger-app'
+                        ? 'Messenger App'
+                        : 'Dashboard'
+                throw new MetahubValidationError(`${templateLabel} layout configuration is invalid`)
             }
+            nextConfig = encodeLayoutConfigEnvelope(
+                { rendererConfig: parsedConfig, neutral: decoded.neutral },
+                { templateKey: existingTemplateKey }
+            )
 
             const nextIsActive = input.isActive ?? Boolean(existing.is_active)
             const nextIsDefault = input.isDefault ?? Boolean(existing.is_default)
@@ -272,7 +259,7 @@ export class MetahubLayoutCrudService extends MetahubLayoutScopeVisibilityServic
             if (input.name !== undefined) updateData.name = JSON.stringify(input.name)
             if (input.description !== undefined)
                 updateData.description = input.description != null ? JSON.stringify(input.description) : null
-            if (input.config !== undefined || existingTemplateKey === 'marketing-page') {
+            if (input.config !== undefined || existingTemplateKey !== 'dashboard') {
                 updateData.config = nextConfig != null ? JSON.stringify(nextConfig) : null
             }
             if (input.sortOrder !== undefined) updateData.sort_order = input.sortOrder

@@ -51,6 +51,21 @@ Dedicated E2E local ports:
 
 Shared/main Supabase mode is only for manual debugging. It requires `E2E_ALLOW_MAIN_SUPABASE=true` and `E2E_FULL_RESET_MODE=off`; otherwise the E2E loader refuses to use `.env` or the dev local Supabase profile.
 
+### Messenger App verification
+
+Run the Messenger acceptance wrapper on the dedicated minimal local Supabase
+profile:
+
+```bash
+pnpm test:e2e:messenger-app:verify:local-supabase
+```
+
+The wrapper generates the canonical fixture through the product flow, checks
+fixture contract and drift, imports it into the fresh test database, and saves
+real public-runtime screenshots for the English and Russian GitBook pages. It
+does not require `pnpm dev`. Inspect the generated files under
+`docs/{en,ru}/.gitbook/assets/messenger-app-template/` after the assertions pass.
+
 ## What The Suite Must Cover
 
 -   Real login and least-privilege navigation boundaries.

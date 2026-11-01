@@ -411,7 +411,7 @@ export const useApplicationLayoutsController = () => {
             if (
                 !currentLayout ||
                 !definition?.supportedTemplates.includes(currentLayout.templateKey) ||
-                !canAddApplicationLayoutWidget(definition, currentLayout.sourceKind)
+                !canAddApplicationLayoutWidget(definition, currentLayout.sourceKind, currentLayout.templateKey)
             ) {
                 throw new Error('APPLICATION_LAYOUT_WIDGET_ADD_NOT_ALLOWED')
             }
@@ -645,6 +645,7 @@ export const useApplicationLayoutsController = () => {
     })
 
     const layouts = useMemo(() => layoutsQuery.data?.items ?? [], [layoutsQuery.data?.items])
+    const canSelectGlobalTemplate = !layouts.some((layout) => layout.scopeEntityId == null && layout.sourceKind === 'application')
     const [applicationTemplateKey, setApplicationTemplateKey] = useState<ApplicationTemplateKey>('dashboard')
     useEffect(() => {
         const globalLayout =
@@ -666,9 +667,13 @@ export const useApplicationLayoutsController = () => {
             const title = resolveLocalizedText(layout.name, i18n.language, t('layouts.unnamed', 'Untitled layout')).toLowerCase()
             const description = resolveLocalizedText(layout.description ?? {}, i18n.language, '').toLowerCase()
             const scopeName = (scopesById.get(layout.scopeId ?? 'global')?.name ?? t('layouts.globalScope', 'Global')).toLowerCase()
-            const templateName = t(
-                layout.templateKey === 'marketing-page' ? 'layouts.templates.marketingPage' : 'layouts.templates.dashboard',
-                layout.templateKey === 'marketing-page' ? 'Marketing page' : 'Dashboard'
+            const templateName = (
+                layout.templateKey === 'messenger-app'
+                    ? tc('templates.messengerApp.name', { defaultValue: 'Messenger app' })
+                    : t(
+                          layout.templateKey === 'marketing-page' ? 'layouts.templates.marketingPage' : 'layouts.templates.dashboard',
+                          layout.templateKey === 'marketing-page' ? 'Marketing page' : 'Dashboard'
+                      )
             ).toLowerCase()
             return (
                 !normalizedSearch ||
@@ -678,7 +683,7 @@ export const useApplicationLayoutsController = () => {
                 templateName.includes(normalizedSearch)
             )
         })
-    }, [i18n.language, layouts, scopesById, searchValue, t, templateFilter])
+    }, [i18n.language, layouts, scopesById, searchValue, t, tc, templateFilter])
 
     const formatScopeKind = (scopeKind: string | null | undefined) => {
         const normalizedKind = scopeKind?.trim().toLowerCase()
@@ -696,11 +701,16 @@ export const useApplicationLayoutsController = () => {
         return `${formatScopeKind(scope?.scopeEntityKind ?? scope?.kind ?? layout.scopeEntityKind)}: ${targetName}`
     }
 
-    const formatTemplate = (templateKey: ApplicationTemplateKey) =>
-        t(
-            templateKey === 'marketing-page' ? 'layouts.templates.marketingPage' : 'layouts.templates.dashboard',
-            templateKey === 'marketing-page' ? 'Marketing page' : 'Dashboard'
-        )
+    const formatTemplate = (templateKey: ApplicationTemplateKey) => {
+        switch (templateKey) {
+            case 'dashboard':
+                return t('layouts.templates.dashboard', 'Dashboard')
+            case 'marketing-page':
+                return t('layouts.templates.marketingPage', 'Marketing page')
+            case 'messenger-app':
+                return tc('templates.messengerApp.name', { defaultValue: 'Messenger app' })
+        }
+    }
 
     const formatComposition = (layout: ApplicationLayout) => {
         if (layout.scopeKind === 'global' || layout.scopeEntityId === null) return t('layouts.composition.global', 'Global default')
@@ -850,6 +860,7 @@ export const useApplicationLayoutsController = () => {
         updateWidgetConfigMutation,
         resetWidgetConfigMutation,
         applicationTemplateKey,
+        canSelectGlobalTemplate,
         isLoading,
         isSchemaNotReady,
         filteredLayouts,

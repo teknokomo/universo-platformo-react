@@ -188,6 +188,14 @@ export default function CustomizedDataGrid({
                                       wordWrap: 'break-word',
                                       lineHeight: 1.5,
                                       py: 1
+                                  },
+                                  '& .MuiDataGrid-cellContent': {
+                                      minWidth: 0,
+                                      maxWidth: '100%',
+                                      whiteSpace: 'normal',
+                                      overflowWrap: 'anywhere',
+                                      textOverflow: 'clip',
+                                      lineHeight: 1.5
                                   }
                               }
                             : {}),

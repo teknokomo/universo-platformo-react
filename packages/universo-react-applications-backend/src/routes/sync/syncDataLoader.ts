@@ -499,7 +499,6 @@ export async function loadApplicationRuntimeLayouts(
     layoutZoneWidgets: unknown[]
     layoutWidgetOverrides: unknown[]
     defaultLayoutId: string | null
-    layoutConfig: Record<string, unknown>
 }> {
     const schemaIdent = quoteSchemaName(schemaName)
 
@@ -597,16 +596,6 @@ export async function loadApplicationRuntimeLayouts(
     })
 
     const defaultLayoutId = globalLayouts.find((layout) => layout.isActive && layout.isDefault)?.id ?? null
-    const dashboardLayouts = globalLayouts.filter((layout) => layout.templateKey === 'dashboard')
-    const dashboardLayout =
-        dashboardLayouts.find((layout) => layout.isActive && layout.isDefault) ?? dashboardLayouts.find((layout) => layout.isActive)
-    const layoutConfig = dashboardLayout
-        ? parseApplicationLayoutConfig(
-              'dashboard',
-              decodeLayoutConfigEnvelope(dashboardLayout.config, { templateKey: 'dashboard' }).rendererConfig
-          )
-        : {}
-
     const widgets = await exec.query<RuntimeApplicationWidgetRow>(
         `
             SELECT
@@ -828,8 +817,7 @@ export async function loadApplicationRuntimeLayouts(
         scopedLayouts: scopedLayouts.map(serializeLayout),
         layoutZoneWidgets,
         layoutWidgetOverrides,
-        defaultLayoutId,
-        layoutConfig: isRecord(layoutConfig) ? layoutConfig : {}
+        defaultLayoutId
     }
 }
 
@@ -880,7 +868,6 @@ export async function createExistingApplicationReleaseBundle(options: {
     if (runtimeLayouts.layouts.length > 0) {
         snapshot.layouts = runtimeLayouts.layouts
         snapshot.defaultLayoutId = runtimeLayouts.defaultLayoutId
-        snapshot.layoutConfig = runtimeLayouts.layoutConfig
     }
     if (runtimeLayouts.scopedLayouts.length > 0) {
         snapshot.scopedLayouts = runtimeLayouts.scopedLayouts

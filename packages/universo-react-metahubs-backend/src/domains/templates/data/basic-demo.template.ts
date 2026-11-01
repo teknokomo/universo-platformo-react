@@ -34,6 +34,7 @@ const metricComponents: TemplateSeedComponent[] = [
         name: vlc('Title', 'Название'),
         isRequired: true,
         sortOrder: 2,
+        uiConfig: { publicMessengerSafe: true },
         validationRules: { maxLength: 255, localized: true, versioned: true }
     },
     {
@@ -41,6 +42,7 @@ const metricComponents: TemplateSeedComponent[] = [
         dataType: 'STRING',
         name: vlc('Interval', 'Период'),
         sortOrder: 3,
+        uiConfig: { publicMessengerSafe: true },
         validationRules: { maxLength: 128, localized: true, versioned: true }
     },
     {
@@ -49,6 +51,7 @@ const metricComponents: TemplateSeedComponent[] = [
         name: vlc('Value', 'Значение'),
         isRequired: true,
         sortOrder: 4,
+        uiConfig: { publicMessengerSafe: true },
         validationRules: { min: 0, max: 1_000_000, nonNegative: true }
     },
     {
@@ -76,6 +79,7 @@ const seriesComponents: TemplateSeedComponent[] = [
         name: vlc('Timestamp', 'Метка времени'),
         isRequired: true,
         sortOrder: 3,
+        uiConfig: { publicMessengerSafe: true },
         validationRules: { maxLength: 64 }
     },
     {
@@ -84,6 +88,7 @@ const seriesComponents: TemplateSeedComponent[] = [
         name: vlc('Series label', 'Название ряда'),
         isRequired: true,
         sortOrder: 2,
+        uiConfig: { publicMessengerSafe: true },
         validationRules: { maxLength: 160, localized: true, versioned: true }
     },
     {
@@ -92,6 +97,7 @@ const seriesComponents: TemplateSeedComponent[] = [
         name: vlc('Value', 'Значение'),
         isRequired: true,
         sortOrder: 4,
+        uiConfig: { publicMessengerSafe: true },
         validationRules: { min: 0, max: 1_000_000, nonNegative: true }
     },
     {
@@ -112,6 +118,7 @@ const tableComponents: TemplateSeedComponent[] = [
         isRequired: true,
         isDisplayComponent: true,
         sortOrder: 1,
+        uiConfig: { publicMessengerSafe: true },
         validationRules: { maxLength: 255, localized: true, versioned: true }
     },
     {
@@ -128,7 +135,7 @@ const tableComponents: TemplateSeedComponent[] = [
         name: vlc('Description', 'Описание'),
         sortOrder: 3,
         validationRules: { maxLength: 1000, localized: true, versioned: true },
-        uiConfig: { widget: 'textarea', rows: 3 }
+        uiConfig: { publicMessengerSafe: true, widget: 'textarea', rows: 3 }
     }
 ]
 
@@ -148,6 +155,7 @@ const contentComponents: TemplateSeedComponent[] = [
         isRequired: true,
         isDisplayComponent: true,
         sortOrder: 2,
+        uiConfig: { publicMessengerSafe: true },
         validationRules: { maxLength: 255, localized: true, versioned: true }
     },
     {

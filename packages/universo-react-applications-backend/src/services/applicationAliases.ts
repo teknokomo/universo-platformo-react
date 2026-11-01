@@ -9,20 +9,16 @@ import { database, isUuidV7, type DbExecutor } from '@universo-react/utils'
 import {
     APPLICATION_ALIAS_ACTIVE_UNIQUE_INDEX,
     APPLICATION_ALIAS_PRIMARY_UNIQUE_INDEX,
-    clearOtherPrimaryApplicationAliases,
     createApplicationAliasAtomically,
-    findApplicationAliasById,
-    findApplicationAliasByIdForUpdate,
+    ensureCanonicalApplicationAliasPrimary,
+    findApplicationAliasForManagement,
     getApplicationAliasPolicy,
     getApplicationAliasPolicyForUpdate,
-    listActiveApplicationAliasesForUpdate,
     listApplicationAliases,
     listApplicationAliasesByApplication,
     lockApplicationAliasTransitions,
-    releaseApplicationAlias,
-    setApplicationAliasPrimary,
+    mutateApplicationAlias,
     updateApplicationAliasPolicy,
-    updateApplicationAliasValue,
     type ApplicationAliasManagementRow,
     type ApplicationAliasPolicyRow,
     type ApplicationAliasRow,
@@ -160,25 +156,16 @@ const ensureCanonicalPrimary = async (
     userId: string
 ): Promise<void> => {
     if (routingMode !== 'canonical') return
-
-    const aliases = await listActiveApplicationAliasesForUpdate(executor, applicationId)
-    if (aliases.length === 0) return
-
-    const primaries = aliases.filter((alias) => alias.isPrimary)
-    if (primaries.length === 1) return
-
-    const selected = primaries[0] ?? aliases[0]
-    await clearOtherPrimaryApplicationAliases(executor, applicationId, selected.id, userId)
-    const updated = await setApplicationAliasPrimary(executor, applicationId, selected.id, userId)
-    if (!updated) throw new Error('Failed to establish canonical application alias primary')
+    await ensureCanonicalApplicationAliasPrimary(executor, applicationId, userId)
 }
 
-const resolveLockedAlias = async (executor: DbExecutor, aliasId: string): Promise<ApplicationAliasRow> => {
-    const hint = await findApplicationAliasById(executor, aliasId)
-    if (!hint) return serviceError('APPLICATION_ALIAS_NOT_FOUND', 404)
-
-    await lockApplicationAliasTransitions(executor, hint.applicationId)
-    const locked = await findApplicationAliasByIdForUpdate(executor, aliasId)
+const resolveLockedAlias = async (
+    executor: DbExecutor,
+    aliasId: string,
+    userId: string,
+    action: 'update' | 'delete'
+): Promise<ApplicationAliasRow> => {
+    const locked = await findApplicationAliasForManagement(executor, aliasId, userId, action)
     if (!locked) return serviceError('APPLICATION_ALIAS_NOT_FOUND', 404)
     return locked
 }
@@ -227,10 +214,7 @@ export function createApplicationAliasesService(executor: DbExecutor) {
                         makePrimary: input.makePrimary === true,
                         userId: input.userId
                     })
-
-                    const current = await findApplicationAliasByIdForUpdate(tx, inserted.id)
-                    if (!current) throw new Error('Created application alias disappeared inside its transaction')
-                    return { ...mapAliasRow(current), routingMode }
+                    return { ...mapAliasRow(inserted), routingMode }
                 })
             )
         },
@@ -241,9 +225,9 @@ export function createApplicationAliasesService(executor: DbExecutor) {
 
             return withAliasConflictMapping(() =>
                 executor.transaction(async (tx) => {
-                    const current = await resolveLockedAlias(tx, aliasId)
+                    const current = await resolveLockedAlias(tx, aliasId, userId, 'update')
                     if (current.releasedAt) return serviceError('APPLICATION_ALIAS_RELEASED', 409)
-                    const updated = await updateApplicationAliasValue(tx, aliasId, alias, userId)
+                    const updated = await mutateApplicationAlias(tx, { aliasId, alias, operation: 'rename', userId })
                     if (!updated) return serviceError('APPLICATION_ALIAS_NOT_FOUND', 404)
                     const policy = await getApplicationAliasPolicyForUpdate(tx, current.applicationId, true)
                     return { ...mapAliasRow(updated), routingMode: policy ? parseRoutingMode(policy.routingMode) : 'direct' }
@@ -256,11 +240,10 @@ export function createApplicationAliasesService(executor: DbExecutor) {
 
             return withAliasConflictMapping(() =>
                 executor.transaction(async (tx) => {
-                    const current = await resolveLockedAlias(tx, aliasId)
+                    const current = await resolveLockedAlias(tx, aliasId, userId, 'update')
                     if (current.releasedAt) return serviceError('APPLICATION_ALIAS_RELEASED', 409)
 
-                    await clearOtherPrimaryApplicationAliases(tx, current.applicationId, current.id, userId)
-                    const updated = await setApplicationAliasPrimary(tx, current.applicationId, current.id, userId)
+                    const updated = await mutateApplicationAlias(tx, { aliasId, operation: 'set_primary', userId })
                     if (!updated) return serviceError('APPLICATION_ALIAS_NOT_FOUND', 404)
                     const policy = await getApplicationAliasPolicyForUpdate(tx, current.applicationId, true)
                     return { ...mapAliasRow(updated), routingMode: policy ? parseRoutingMode(policy.routingMode) : 'direct' }
@@ -273,15 +256,10 @@ export function createApplicationAliasesService(executor: DbExecutor) {
 
             await withAliasConflictMapping(() =>
                 executor.transaction(async (tx) => {
-                    const current = await resolveLockedAlias(tx, aliasId)
+                    const current = await resolveLockedAlias(tx, aliasId, userId, 'delete')
                     if (current.releasedAt) return serviceError('APPLICATION_ALIAS_RELEASED', 409)
-                    const policy = await getApplicationAliasPolicyForUpdate(tx, current.applicationId, true)
-                    const released = await releaseApplicationAlias(tx, aliasId, userId)
+                    const released = await mutateApplicationAlias(tx, { aliasId, operation: 'release', userId })
                     if (!released) return serviceError('APPLICATION_ALIAS_NOT_FOUND', 404)
-
-                    if (policy) {
-                        await ensureCanonicalPrimary(tx, current.applicationId, parseRoutingMode(policy.routingMode), userId)
-                    }
                 })
             )
         },

@@ -1,4 +1,4 @@
-import { projectSeries } from '../../services/effectiveWidgetRuntimeDataBindingProjectors'
+import { projectMetrics, projectSeries } from '../../services/effectiveWidgetRuntimeDataBindingProjectors'
 
 const seriesTarget = {
     slot: 'series',
@@ -12,11 +12,11 @@ const seriesTarget = {
     }
 }
 
-const preparedWidget = (config: Record<string, unknown> = {}) =>
+const preparedWidget = (config: Record<string, unknown> = {}, widgetKey = 'sessionsChart') =>
     ({
         candidate: {
             id: 'placement-sessions-chart',
-            widgetKey: 'sessionsChart',
+            widgetKey,
             config,
             isActive: true,
             bindings: { version: 1, slots: [] }
@@ -46,5 +46,53 @@ describe('projectSeries', () => {
             title: 'Сессии',
             series: [{ id: 'learningActivity', label: 'Учебная активность', values: [42] }]
         })
+    })
+
+    it('normalizes finite numeric text returned by PostgreSQL for chart values and order', () => {
+        const result = projectSeries(
+            preparedWidget(),
+            [
+                {
+                    ...seriesTarget,
+                    data: { ...seriesTarget.data, value: '42.5', order: '1' }
+                }
+            ] as unknown as Parameters<typeof projectSeries>[1],
+            'en'
+        )
+
+        expect(result).toMatchObject({ kind: 'series', labels: ['2026-09-25T00:00:00.000Z'], series: [{ values: [42.5] }] })
+    })
+
+    it.each(['', '1,000', 'Infinity', 'NaN', 'not-a-number'])('rejects non-numeric runtime text %j', (value) => {
+        const result = projectSeries(
+            preparedWidget(),
+            [{ ...seriesTarget, data: { ...seriesTarget.data, value } }] as unknown as Parameters<typeof projectSeries>[1],
+            'en'
+        )
+
+        expect(result).toBeNull()
+    })
+})
+
+describe('projectMetrics', () => {
+    it('normalizes finite numeric text returned by PostgreSQL for metric values', () => {
+        const result = projectMetrics(
+            preparedWidget({}, 'overviewCards'),
+            [
+                {
+                    slot: 'metrics',
+                    semanticKey: 'active-learners',
+                    data: {
+                        metricKey: 'active-learners',
+                        title: { locales: { en: { content: 'Active learners' } } },
+                        value: '128.5',
+                        interval: { locales: { en: { content: 'This week' } } }
+                    }
+                }
+            ] as unknown as Parameters<typeof projectMetrics>[1],
+            'en'
+        )
+
+        expect(result).toEqual({ kind: 'metrics', cards: [{ label: 'Active learners', value: '128.5', trendLabel: 'This week' }] })
     })
 })

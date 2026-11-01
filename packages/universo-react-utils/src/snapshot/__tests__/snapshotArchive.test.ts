@@ -31,8 +31,7 @@ function makeMinimalSnapshot(): MetahubSnapshotTransportEnvelope['snapshot'] {
         systemFields: {},
         layouts: [],
         layoutZoneWidgets: [],
-        defaultLayoutId: null,
-        layoutConfig: {}
+        defaultLayoutId: null
     }
 }
 
@@ -383,31 +382,12 @@ describe('validateSnapshotEnvelope', () => {
         expect(() => validateSnapshotEnvelope(envelope)).toThrow('too many elements')
     })
 
-    it('strips prototype pollution keys', () => {
+    it('rejects the retired snapshot layoutConfig projection', () => {
         const envelope = makeMinimalEnvelope()
-        const pollutedLayoutConfig: Record<string, unknown> = {
-            safe: true,
-            constructor: { polluted: true }
-        }
+        Object.assign(envelope.snapshot, { layoutConfig: { sideMenu: {} } })
+        envelope.snapshotHash = computeSnapshotHash(envelope.snapshot as Record<string, unknown>)
 
-        Object.defineProperty(pollutedLayoutConfig, '__proto__', {
-            value: { polluted: true },
-            enumerable: true,
-            configurable: true
-        })
-
-        envelope.snapshot.layoutConfig = pollutedLayoutConfig
-        envelope.snapshotHash = computeSnapshotHash({
-            ...envelope.snapshot,
-            layoutConfig: { safe: true }
-        } as Record<string, unknown>)
-
-        const result = validateSnapshotEnvelope(envelope)
-        const sanitizedLayoutConfig = result.snapshot.layoutConfig as Record<string, unknown>
-
-        expect(sanitizedLayoutConfig.safe).toBe(true)
-        expect(Object.prototype.hasOwnProperty.call(sanitizedLayoutConfig, 'constructor')).toBe(false)
-        expect(Object.prototype.hasOwnProperty.call(sanitizedLayoutConfig, '__proto__')).toBe(false)
+        expect(() => validateSnapshotEnvelope(envelope)).toThrow('Snapshot layoutConfig is retired')
     })
 
     it('rejects deeply nested JSON', () => {

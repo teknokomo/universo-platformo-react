@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useSnackbar } from 'notistack'
 import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material'
 import { useCommonTranslations } from '@universo-react/i18n'
-import { DragEndEvent } from '@dnd-kit/core'
+import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import type {
     ObjectCollectionRuntimeViewConfig,
     ApplicationLayoutZone,
@@ -16,10 +16,10 @@ import type {
     LayoutLogicalPlacement
 } from '@universo-react/types'
 import {
-    DASHBOARD_LAYOUT_ZONES,
     getLayoutWidgetAllowedZones,
     getLayoutWidgetDefinition,
-    MARKETING_LAYOUT_ZONES
+    getLayoutZonesForTemplate,
+    LAYOUT_ZONE_DEFINITIONS
 } from '@universo-react/types'
 import {
     LayoutAuthoringDetails,
@@ -41,7 +41,7 @@ import { useMetahubDetails } from '../../metahubs/hooks'
 import * as layoutsApi from '../api'
 import type { Metahub, MetahubLayout, MetahubLayoutZoneWidget } from '../../../types'
 import { getVLCString } from '../../../types'
-import DashboardNestedPlacements, { countNestedPlacementDescendants } from './DashboardNestedPlacements'
+import DashboardNestedPlacements, { canMovePlacementToNestedSlot, countNestedPlacementDescendants } from './DashboardNestedPlacements'
 import LayoutRuntimeSettingsPanel from './LayoutRuntimeSettingsPanel'
 import LayoutWidgetEditorDialogs from './LayoutWidgetEditorDialogs'
 import {
@@ -51,12 +51,12 @@ import {
     getMarketingRendererConfig,
     getWidgetDropIndex,
     isMarketingWidgetKey,
-    LAYOUT_ZONES_BY_TEMPLATE,
     LAYOUT_ZONE_ORDER,
     marketingHeaderSettingDefinition,
     normalizeEditableSideMenuConfig,
     readMarketingHeaderPosition,
-    readWidgetPlacement
+    readWidgetPlacement,
+    supportsNestedPlacementAuthoring
 } from './layoutDetailsWidgetAuthoringModel'
 import { useLayoutWidgetAuthoring } from './useLayoutWidgetAuthoring'
 import { resolveLayoutWidgetPlacementCapabilities, useLayoutAuthoringZones } from './useLayoutAuthoringZones'
@@ -69,6 +69,7 @@ export default function LayoutDetails() {
     const { t: tc } = useCommonTranslations()
     const { enqueueSnackbar } = useSnackbar()
     const { confirm } = useConfirm()
+    const layoutDndSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(KeyboardSensor))
     const notifyLayoutError = useCallback(
         (error: unknown) => notifyError((key, fallback) => String(t(key, { defaultValue: fallback })), enqueueSnackbar, error),
         [enqueueSnackbar, t]
@@ -126,7 +127,7 @@ export default function LayoutDetails() {
     const widgetObjects = widgetObjectsQuery.data ?? EMPTY_WIDGET_OBJECTS
     const isGlobalLayout = layout?.scopeEntityId == null
     const isMarketingOverlay = layout?.scopeEntityId != null && layout.baseLayoutId != null
-    const layoutZones = layout ? LAYOUT_ZONES_BY_TEMPLATE[layout.templateKey] : DASHBOARD_LAYOUT_ZONES
+    const layoutZones = getLayoutZonesForTemplate(layout?.templateKey ?? 'dashboard')
     const getExpectedLayoutVersion = useCallback((): number => {
         if (!layout || !Number.isSafeInteger(layout.version) || layout.version <= 0) {
             throw new Error(t('layouts.details.versionUnavailable', 'The latest layout version is unavailable. Refresh and try again.'))
@@ -143,7 +144,9 @@ export default function LayoutDetails() {
     const layoutName = layout
         ? getVLCString(layout.name, uiLocale) ||
           getVLCString(layout.name, 'en') ||
-          (layout.templateKey === 'marketing-page'
+          (layout.templateKey === 'messenger-app'
+              ? tc('templates.messengerApp.name', { defaultValue: 'Messenger app' })
+              : layout.templateKey === 'marketing-page'
               ? t('layouts.templates.marketingPage', 'Marketing page')
               : t('layouts.templates.dashboard', 'Dashboard'))
         : ''
@@ -154,8 +157,8 @@ export default function LayoutDetails() {
         [layout?.config]
     )
     const zoneToItems = useMemo(() => {
-        const initial = [...DASHBOARD_LAYOUT_ZONES, ...MARKETING_LAYOUT_ZONES].reduce((acc, zone) => {
-            acc[zone] = []
+        const initial = LAYOUT_ZONE_DEFINITIONS.reduce((acc, { key: zone }) => {
+            acc[zone] ??= []
             return acc
         }, {} as Record<ApplicationLayoutZone, MetahubLayoutZoneWidget[]>)
 
@@ -163,11 +166,11 @@ export default function LayoutDetails() {
             if (!initial[item.zone]) continue
             initial[item.zone].push(item)
         }
-        for (const zone of [...DASHBOARD_LAYOUT_ZONES, ...MARKETING_LAYOUT_ZONES]) {
+        for (const zone of layoutZones) {
             initial[zone].sort((a, b) => a.sortOrder - b.sortOrder)
         }
         return initial
-    }, [zoneWidgets])
+    }, [layoutZones, zoneWidgets])
     const persistAndRefresh = useCallback(async () => {
         if (!metahubId || !layoutId) return
         if (layout?.scopeEntityId == null) {
@@ -321,6 +324,30 @@ export default function LayoutDetails() {
         [canManageLayouts, layout, notifyLayoutError, persistLayoutConfig]
     )
 
+    const handleNestedPlacementMove = useCallback(
+        async (
+            placement: MetahubLayoutZoneWidget,
+            target: { targetIndex: number; targetParentInstanceKey?: string; targetSlotKey?: string }
+        ) => {
+            if (!metahubId || !layoutId || !canManageLayouts) return
+            try {
+                await layoutsApi.moveLayoutZoneWidget(metahubId, layoutId, {
+                    widgetId: placement.id,
+                    targetZone: placement.zone,
+                    targetIndex: target.targetIndex,
+                    ...(target.targetParentInstanceKey && target.targetSlotKey
+                        ? { targetParentInstanceKey: target.targetParentInstanceKey, targetSlotKey: target.targetSlotKey }
+                        : {}),
+                    expectedVersion: placement.version
+                })
+                await persistAndRefresh()
+            } catch (error: unknown) {
+                notifyLayoutError(error)
+            }
+        },
+        [canManageLayouts, layoutId, metahubId, notifyLayoutError, persistAndRefresh]
+    )
+
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event
         if (!metahubId || !layoutId || !layout || !canManageLayouts) return
@@ -332,9 +359,49 @@ export default function LayoutDetails() {
 
         const currentItem = zoneWidgets.find((item) => item.id === activeWidgetId)
         if (!currentItem) return
-        if (layout.templateKey === 'dashboard' && (currentItem.parentInstanceKey !== null || currentItem.slotKey !== null)) return
+        const supportsNestedPlacements = supportsNestedPlacementAuthoring(layout.templateKey)
+        const overData = over.data.current as { type?: unknown; parentInstanceKey?: unknown; slotKey?: unknown } | undefined
+
+        if (supportsNestedPlacements && currentItem.isInherited && currentItem.parentInstanceKey !== null) return
+
+        if (supportsNestedPlacements && overData?.type === 'nested-slot') {
+            const parentInstanceKey = typeof overData.parentInstanceKey === 'string' ? overData.parentInstanceKey : null
+            const slotKey = typeof overData.slotKey === 'string' ? overData.slotKey : null
+            const parent = parentInstanceKey ? zoneWidgets.find((item) => item.instanceKey === parentInstanceKey) : undefined
+            if (!parent || !slotKey || !canMovePlacementToNestedSlot(layout, currentItem, parent, slotKey, zoneWidgets, uiLocale, tc))
+                return
+            const targetIndex = zoneWidgets.filter(
+                (item) => item.id !== currentItem.id && item.parentInstanceKey === parent.instanceKey && item.slotKey === slotKey
+            ).length
+            await handleNestedPlacementMove(currentItem, {
+                targetIndex,
+                targetParentInstanceKey: parent.instanceKey,
+                targetSlotKey: slotKey
+            })
+            return
+        }
+
+        const overPlacement = zoneWidgets.find((item) => item.id === overId)
+        if (supportsNestedPlacements && overPlacement?.parentInstanceKey && overPlacement.slotKey) {
+            const parent = zoneWidgets.find((item) => item.instanceKey === overPlacement.parentInstanceKey)
+            if (!parent || !canMovePlacementToNestedSlot(layout, currentItem, parent, overPlacement.slotKey, zoneWidgets, uiLocale, tc)) {
+                return
+            }
+            const targetIndex = zoneWidgets
+                .filter((item) => item.parentInstanceKey === parent.instanceKey && item.slotKey === overPlacement.slotKey)
+                .sort((left, right) => left.sortOrder - right.sortOrder)
+                .findIndex((item) => item.id === overPlacement.id)
+            if (targetIndex < 0) return
+            await handleNestedPlacementMove(currentItem, {
+                targetIndex,
+                targetParentInstanceKey: parent.instanceKey,
+                targetSlotKey: overPlacement.slotKey
+            })
+            return
+        }
+
         const getSortableZoneItems = (zone: ApplicationLayoutZone) =>
-            layout.templateKey === 'dashboard'
+            supportsNestedPlacements
                 ? zoneToItems[zone].filter((item) => item.parentInstanceKey === null && item.slotKey === null)
                 : zoneToItems[zone]
         const placementCapabilities = resolveLayoutWidgetPlacementCapabilities(
@@ -353,9 +420,9 @@ export default function LayoutDetails() {
             targetPlacement = groupMatch?.[2] as LayoutLogicalPlacement | undefined
             targetIndex = getWidgetDropIndex(getSortableZoneItems(targetZone), activeWidgetId, targetPlacement)
         } else {
-            const overItem = zoneWidgets.find((item) => item.id === overId)
+            const overItem = overPlacement
             if (!overItem) return
-            if (layout.templateKey === 'dashboard' && (overItem.parentInstanceKey !== null || overItem.slotKey !== null)) return
+            if (supportsNestedPlacements && (overItem.parentInstanceKey !== null || overItem.slotKey !== null)) return
             targetZone = overItem.zone
             targetIndex = getWidgetDropIndex(getSortableZoneItems(targetZone), activeWidgetId, undefined, overItem.id)
             if (targetZone === 'marketing-header') targetPlacement = readWidgetPlacement(overItem)
@@ -369,14 +436,13 @@ export default function LayoutDetails() {
 
         const sourceZoneItems = getSortableZoneItems(currentItem.zone)
         const sourceIndex = sourceZoneItems.findIndex((item) => item.id === currentItem.id)
-        if (currentItem.zone === targetZone && sourceIndex === targetIndex) {
+        if (sourceIndex >= 0 && currentItem.zone === targetZone && sourceIndex === targetIndex) {
             return
         }
 
         // Optimistic update: reorder locally before API call
         const zoneWidgetsKey = metahubsQueryKeys.layoutZoneWidgets(metahubId, layoutId)
-        const previousData =
-            layout.templateKey === 'dashboard' ? undefined : queryClient.getQueryData<MetahubLayoutZoneWidget[]>(zoneWidgetsKey)
+        const previousData = supportsNestedPlacements ? undefined : queryClient.getQueryData<MetahubLayoutZoneWidget[]>(zoneWidgetsKey)
 
         if (previousData) {
             const optimistic = zoneWidgets.map((widget) => ({ ...widget }))
@@ -594,30 +660,6 @@ export default function LayoutDetails() {
         onOpenMarketingHeaderSettings: openMarketingHeaderSettings
     })
 
-    const handleNestedPlacementMove = useCallback(
-        async (
-            placement: MetahubLayoutZoneWidget,
-            target: { targetIndex: number; targetParentInstanceKey?: string; targetSlotKey?: string }
-        ) => {
-            if (!metahubId || !layoutId || !canManageLayouts) return
-            try {
-                await layoutsApi.moveLayoutZoneWidget(metahubId, layoutId, {
-                    widgetId: placement.id,
-                    targetZone: placement.zone,
-                    targetIndex: target.targetIndex,
-                    ...(target.targetParentInstanceKey && target.targetSlotKey
-                        ? { targetParentInstanceKey: target.targetParentInstanceKey, targetSlotKey: target.targetSlotKey }
-                        : {}),
-                    expectedVersion: placement.version
-                })
-                await persistAndRefresh()
-            } catch (error: unknown) {
-                notifyLayoutError(error)
-            }
-        },
-        [canManageLayouts, layoutId, metahubId, notifyLayoutError, persistAndRefresh]
-    )
-
     if (!metahubId || !layoutId) {
         return (
             <Box sx={{ p: 2 }}>
@@ -640,7 +682,7 @@ export default function LayoutDetails() {
                                   'layouts.widgetBindings.pageDescription',
                                   'Configure widget content from Entity records, then adjust its presentation separately.'
                               )
-                            : t('layouts.details.description', 'Configure dashboard zones and widgets.')
+                            : t('layouts.details.description', 'Configure layout zones and widgets.')
                     }
                     search={false}
                 />
@@ -671,50 +713,53 @@ export default function LayoutDetails() {
                         </Alert>
                     ) : (
                         <Stack spacing={2}>
-                            <LayoutAuthoringDetails
-                                dragHint={t('layouts.details.dragHint', 'Drag widgets between zones to change runtime composition.')}
-                                dragHandleLabel={t('layouts.details.dragHandleLabel', 'Reorder widget')}
-                                emptyZoneLabel={t('layouts.empty', 'No widgets in this zone yet.')}
-                                addWidgetLabel={t('layouts.details.addWidget', 'Add widget')}
-                                availableWidgetsLabel={t('layouts.details.widgetObjectsTitle', 'Available widgets')}
-                                moveWidgetLabel={t('layouts.moveWidget', 'Move widget')}
-                                zones={authoringZonesWithSettings}
-                                onDragEnd={handleDragEnd}
-                                onAddWidgetRequest={widgetAuthoring.handleAddWidgetRequest}
-                                beforeZonesContent={
-                                    <Stack spacing={2}>
-                                        <LayoutRuntimeSettingsPanel
-                                            t={t}
-                                            templateKey={layout?.templateKey}
-                                            isScopedLayout={Boolean(layout?.scopeEntityId)}
-                                            layoutConfig={layoutConfig}
-                                            objectBehaviorConfig={objectBehaviorConfig}
-                                            sideMenuConfig={sideMenuConfig}
-                                            viewSettingsSaving={viewSettingsSaving}
-                                            canManageLayouts={canManageLayouts}
-                                            onObjectBehaviorChange={(patch) => void handleObjectBehaviorChange(patch)}
-                                            onViewSettingChange={(key, value) => void handleViewSettingChange(key, value)}
-                                            onSideMenuConfigChange={(patch) => void handleSideMenuConfigChange(patch)}
-                                        />
-                                        {layout?.templateKey === 'dashboard' ? (
-                                            <DashboardNestedPlacements
-                                                layout={layout}
-                                                placements={zoneWidgets}
-                                                nestedPlacements={nestedPlacements}
-                                                zoneLabels={zoneLabels}
+                            <DndContext sensors={layoutDndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                                <LayoutAuthoringDetails
+                                    dragHint={t('layouts.details.dragHint', 'Drag widgets between zones to change runtime composition.')}
+                                    dragHandleLabel={t('layouts.details.dragHandleLabel', 'Reorder widget')}
+                                    emptyZoneLabel={t('layouts.empty', 'No widgets in this zone yet.')}
+                                    addWidgetLabel={t('layouts.details.addWidget', 'Add widget')}
+                                    availableWidgetsLabel={t('layouts.details.widgetObjectsTitle', 'Available widgets')}
+                                    moveWidgetLabel={t('layouts.moveWidget', 'Move widget')}
+                                    zones={authoringZonesWithSettings}
+                                    onDragEnd={handleDragEnd}
+                                    onAddWidgetRequest={widgetAuthoring.handleAddWidgetRequest}
+                                    externalDndContext
+                                    beforeZonesContent={
+                                        <Stack spacing={2}>
+                                            <LayoutRuntimeSettingsPanel
+                                                t={t}
+                                                templateKey={layout?.templateKey}
+                                                isScopedLayout={Boolean(layout?.scopeEntityId)}
+                                                layoutConfig={layoutConfig}
+                                                objectBehaviorConfig={objectBehaviorConfig}
+                                                sideMenuConfig={sideMenuConfig}
+                                                viewSettingsSaving={viewSettingsSaving}
                                                 canManageLayouts={canManageLayouts}
-                                                locale={uiLocale}
-                                                tc={tc}
-                                                widgetLabelByKey={widgetAuthoring.widgetLabelByKey}
-                                                getWidgetChipLabel={widgetAuthoring.getWidgetChipLabel}
-                                                getAvailableWidgetsForZone={widgetAuthoring.getAvailableWidgetsForZone}
-                                                onAddWidget={widgetAuthoring.handleAddWidgetRequest}
-                                                onMove={(placement, target) => void handleNestedPlacementMove(placement, target)}
+                                                onObjectBehaviorChange={(patch) => void handleObjectBehaviorChange(patch)}
+                                                onViewSettingChange={(key, value) => void handleViewSettingChange(key, value)}
+                                                onSideMenuConfigChange={(patch) => void handleSideMenuConfigChange(patch)}
                                             />
-                                        ) : null}
-                                    </Stack>
-                                }
-                            />
+                                            {supportsNestedPlacementAuthoring(layout?.templateKey) ? (
+                                                <DashboardNestedPlacements
+                                                    layout={layout}
+                                                    placements={zoneWidgets}
+                                                    nestedPlacements={nestedPlacements}
+                                                    zoneLabels={zoneLabels}
+                                                    canManageLayouts={canManageLayouts}
+                                                    locale={uiLocale}
+                                                    tc={tc}
+                                                    widgetLabelByKey={widgetAuthoring.widgetLabelByKey}
+                                                    getWidgetChipLabel={widgetAuthoring.getWidgetChipLabel}
+                                                    getAvailableWidgetsForZone={widgetAuthoring.getAvailableWidgetsForZone}
+                                                    onAddWidget={widgetAuthoring.handleAddWidgetRequest}
+                                                    onMove={(placement, target) => void handleNestedPlacementMove(placement, target)}
+                                                />
+                                            ) : null}
+                                        </Stack>
+                                    }
+                                />
+                            </DndContext>
                         </Stack>
                     )}
                 </Box>

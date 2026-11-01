@@ -18,6 +18,8 @@ export interface HexColorPickerPopoverProps {
     error?: boolean
     helperText?: string
     size?: 'small' | 'medium'
+    /** Pixel size for the picker trigger; defaults to the compact 32px control. */
+    pickerButtonSize?: 32 | 40
     sx?: SxProps<Theme>
     testId?: string
     onChange: (value: string) => void
@@ -33,13 +35,13 @@ export function HexColorPickerPopover({
     error = false,
     helperText,
     size = 'small',
+    pickerButtonSize = 32,
     sx,
     testId,
     onChange
 }: HexColorPickerPopoverProps) {
     const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
     const normalizedColor = parseInterpretationNetworkHexColor(value)?.toUpperCase() ?? '#000000'
-    const pickerButtonSize = 32
 
     return (
         <>
@@ -65,8 +67,8 @@ export function HexColorPickerPopover({
                             <InputAdornment
                                 position='end'
                                 sx={{
-                                    height: pickerButtonSize,
-                                    maxHeight: pickerButtonSize,
+                                    height: '100%',
+                                    maxHeight: 'none',
                                     alignItems: 'center',
                                     alignSelf: 'center',
                                     marginRight: 0

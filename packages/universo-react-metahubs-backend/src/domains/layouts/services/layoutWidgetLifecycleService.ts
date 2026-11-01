@@ -2,7 +2,12 @@ import { z } from 'zod'
 import type { SqlQueryable } from '@universo-react/utils/database'
 import { queryMany, queryOne } from '@universo-react/utils/database'
 import { qSchemaTable } from '@universo-react/database'
-import { applicationLayoutWidgetKeySchema, applicationLayoutZoneSchema, type ApplicationLayoutZone } from '@universo-react/types'
+import {
+    applicationLayoutWidgetKeySchema,
+    applicationLayoutZoneSchema,
+    getLayoutZonesForTemplate,
+    type ApplicationLayoutZone
+} from '@universo-react/types'
 import { MetahubNotFoundError, MetahubValidationError } from '../../shared/domainErrors'
 import { layoutWidgetOwnsComposition, requireLayoutWidgetOwnership } from '../widgetOwnership'
 import { assertAllowedLayoutWidgetChild } from '../widgetOwnership'
@@ -13,7 +18,6 @@ import {
     type LayoutWidgetOverrideDbRow,
     isRecord,
     resolveWidgetPlacementOverridePolicy,
-    LAYOUT_ZONES_BY_TEMPLATE,
     moveLayoutZoneWidgetSchema
 } from './layoutServiceContracts'
 import { MetahubLayoutWidgetPlacementService } from './layoutWidgetPlacementService'
@@ -139,7 +143,7 @@ export class MetahubLayoutWidgetLifecycleService extends MetahubLayoutWidgetPlac
                     }))
                 )
 
-                for (const zone of LAYOUT_ZONES_BY_TEMPLATE[templateKey]) {
+                for (const zone of getLayoutZonesForTemplate(templateKey)) {
                     let sortOrder = 1
                     for (const row of remaining) {
                         if (row.zone !== zone) continue

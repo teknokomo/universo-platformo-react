@@ -452,13 +452,18 @@ describe('sync layout workspace and scoped materialization', () => {
     })
 
     it('keeps menu widget side-menu settings out of the runtime layout config', () => {
+        const defaultLayout = createGlobalDashboardLayout()
         const snapshot: PublishedApplicationSnapshot = {
             entities: {},
-            layoutConfig: {
-                sideMenu: {},
-                __layout: { zoneSettings: { top: {} } }
-            },
-            layouts: [createGlobalDashboardLayout()],
+            layouts: [
+                {
+                    ...defaultLayout,
+                    config: {
+                        sideMenu: {},
+                        __layout: { zoneSettings: { top: {} } }
+                    }
+                }
+            ],
             layoutZoneWidgets: [
                 {
                     id: 'menu-widget-1',
@@ -483,9 +488,23 @@ describe('sync layout workspace and scoped materialization', () => {
             })
         )
 
-        expect(() => buildMergedDashboardLayoutConfig({ ...snapshot, layoutConfig: { sideMenu: { primaryMode: 'invalid' } } })).toThrow()
-        expect(() => buildMergedDashboardLayoutConfig({ ...snapshot, layoutConfig: 'false' as never })).toThrow(
-            /layoutConfig must be an object/
+        const layouts = snapshot.layouts as Array<Record<string, unknown>>
+        const [layout] = layouts
+        expect(layout).toBeDefined()
+        expect(() =>
+            buildMergedDashboardLayoutConfig({
+                ...snapshot,
+                layouts: [{ ...layout, config: { sideMenu: { primaryMode: 'invalid' } } }]
+            })
+        ).toThrow()
+        expect(() =>
+            buildMergedDashboardLayoutConfig({
+                ...snapshot,
+                layouts: [{ ...layout, config: 'false' }]
+            })
+        ).toThrow(/Snapshot layout .* config must be an object/)
+        expect(() => buildMergedDashboardLayoutConfig({ ...snapshot, layoutConfig: { sideMenu: {} } })).toThrow(
+            /Snapshot layoutConfig is retired/
         )
     })
 

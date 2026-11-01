@@ -43,6 +43,31 @@ describe('copyMetahubLayout', () => {
         ).toBe(false)
     })
 
+    it('copies a Messenger App layout without widgets and keeps the template seed policy', async () => {
+        const { executor, queries } = createCopyMetahubLayoutFixture({
+            sourceLayout: { template_key: 'messenger-app', config: {} },
+            copiedLayout: { template_key: 'messenger-app' }
+        })
+
+        await copyMetahubLayout({
+            executor,
+            metahubId: copyLayoutFixtureIds.metahub,
+            schemaName: copyLayoutFixtureSchema,
+            layoutId: copyLayoutFixtureIds.source,
+            userId: 'test-user-id',
+            input: { copyWidgets: false, name: { en: 'Messenger App copy' } }
+        })
+
+        const layoutInsert = queries.find(({ sql }) => sql.includes(`INSERT INTO "${copyLayoutFixtureSchema}"."_mhb_layouts"`))
+        expect(layoutInsert).toBeDefined()
+        expect(layoutInsert?.params).toContain('messenger-app')
+        const config = JSON.parse(String(layoutInsert?.params[5])) as Record<string, any>
+        expect(config.__layout).toMatchObject({
+            composition: { mode: 'independent', baseLayoutId: null },
+            skipDefaultZoneWidgetSeed: true
+        })
+    })
+
     it('checks the source version under its row lock before writing a copy', async () => {
         const { executor, queries } = createCopyMetahubLayoutFixture({
             sourceLayout: { _upl_version: 2 }

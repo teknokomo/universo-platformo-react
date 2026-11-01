@@ -111,6 +111,21 @@ describe('createEnsureAuthWithRls', () => {
         expect(getKnex).not.toHaveBeenCalled()
     })
 
+    it('skips auth and RLS for the public Messenger attribution endpoint', async () => {
+        const next = jest.fn()
+        const getKnex = jest.fn()
+        const middleware = createEnsureAuthWithRls({ getKnex: getKnex as never })
+        const originalUrl = `/api/v1/public/applications/meridian-73/attribution/${'A'.repeat(22)}`
+        const req = { originalUrl, url: originalUrl, path: originalUrl, method: 'GET' } as unknown as Request
+        const res = createResponse()
+
+        await middleware(req, res, next)
+
+        expect(next).toHaveBeenCalledTimes(1)
+        expect(mockedEnsureAuth).not.toHaveBeenCalled()
+        expect(getKnex).not.toHaveBeenCalled()
+    })
+
     it('does not include signed public route tokens in RLS debug logs', async () => {
         const previousDebugSetting = process.env.AUTH_RLS_DEBUG
         process.env.AUTH_RLS_DEBUG = 'true'

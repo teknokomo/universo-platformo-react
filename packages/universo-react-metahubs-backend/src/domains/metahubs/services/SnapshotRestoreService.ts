@@ -1,11 +1,13 @@
 import { createHash } from 'crypto'
 import {
     applicationTemplateKeySchema,
+    applicationLayoutWidgetKeySchema,
     decodeLayoutConfigEnvelope,
     decodeWidgetConfigEnvelope,
     encodeLayoutConfigEnvelope,
     encodeWidgetConfigEnvelope,
     getLayoutZoneSettingDefault,
+    parseApplicationLayoutConfig,
     parseApplicationLayoutWidgetConfig
 } from '@universo-react/types'
 import { createLocalizedContent, getCodenamePrimary, isUuidV7, validateSnapshotLayoutIdentities } from '@universo-react/utils'
@@ -1953,7 +1955,7 @@ export class SnapshotRestoreService {
         baseLayoutId: string | null
     ): Record<string, unknown> {
         const decoded = decodeLayoutConfigEnvelope(rawConfig ?? {}, { templateKey, allowSourceZoneSettings: false })
-        const rendererConfig = decoded.rendererConfig
+        const rendererConfig = parseApplicationLayoutConfig(templateKey, decoded.rendererConfig)
         const neutral: Record<string, unknown> = { ...decoded.neutral }
         if (compositionMode === 'overlay') {
             if (baseLayoutId === null || !isUuidV7(baseLayoutId)) {
@@ -1984,10 +1986,19 @@ export class SnapshotRestoreService {
         rawConfig: unknown,
         requireBindings = true
     ): Record<string, unknown> {
-        const decoded = decodeWidgetConfigEnvelope(rawConfig ?? {}, { templateKey, widgetKey, zone, requireBindings })
-        const rendererConfig =
-            templateKey === 'dashboard' ? decoded.rendererConfig : parseApplicationLayoutWidgetConfig(widgetKey, decoded.rendererConfig)
-        return encodeWidgetConfigEnvelope({ rendererConfig, neutral: decoded.neutral }, { templateKey, widgetKey, zone, requireBindings })
+        const parsedTemplateKey = applicationTemplateKeySchema.parse(templateKey)
+        const parsedWidgetKey = applicationLayoutWidgetKeySchema.parse(widgetKey)
+        const decoded = decodeWidgetConfigEnvelope(rawConfig ?? {}, {
+            templateKey: parsedTemplateKey,
+            widgetKey: parsedWidgetKey,
+            zone,
+            requireBindings
+        })
+        const rendererConfig = parseApplicationLayoutWidgetConfig(parsedWidgetKey, decoded.rendererConfig)
+        return encodeWidgetConfigEnvelope(
+            { rendererConfig, neutral: decoded.neutral },
+            { templateKey: parsedTemplateKey, widgetKey: parsedWidgetKey, zone, requireBindings }
+        )
     }
 
     private async restoreLayouts(
@@ -2137,7 +2148,8 @@ export class SnapshotRestoreService {
                         layoutsById.get(widget.layoutId)?.templateKey ?? 'dashboard',
                         widget.widgetKey,
                         widget.zone,
-                        this.remapLayoutConfigReferences(widget.config ?? {}, playCanvasRestoreResult)
+                        this.remapLayoutConfigReferences(widget.config ?? {}, playCanvasRestoreResult),
+                        widget.isActive !== false
                     ),
                     is_active: widget.isActive !== false,
                     _upl_created_at: now,

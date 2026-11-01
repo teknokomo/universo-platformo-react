@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import i18n from '@universo-react/i18n'
 
 vi.mock('../StatCard', async () => {
@@ -28,6 +28,84 @@ import { renderWidget } from '../widgetRenderer'
 
 describe('Dashboard runtime widget ownership renderers', () => {
     afterEach(resetRuntimeLanguage)
+
+    it('labels Details Tabs and associates every tab with a panel without mounting inactive widget children', async () => {
+        const tabsWidget = placement('detailsTabs', undefined, {
+            tabs: [
+                { slotKey: 'tab:summary', label: { en: 'Summary', ru: 'Сводка' }, isDefault: true },
+                { slotKey: 'tab:activity', label: { en: 'Activity', ru: 'Активность' } }
+            ]
+        })
+        const summaryWidget = {
+            ...placement('overviewTitle', { status: 'ready', data: { kind: 'title', text: 'Summary content' } }),
+            instanceKey: 'summary-content',
+            parentInstanceKey: tabsWidget.instanceKey,
+            slotKey: 'tab:summary'
+        }
+        const activityWidget = {
+            ...placement('overviewTitle', { status: 'ready', data: { kind: 'title', text: 'Activity content' } }),
+            id: '018f0000-0000-7000-8000-000000000002',
+            instanceKey: 'activity-content',
+            parentInstanceKey: tabsWidget.instanceKey,
+            slotKey: 'tab:activity'
+        }
+
+        render(
+            <DashboardDetailsProvider value={{ title: 'Runtime', locale: 'en' }}>
+                {renderWidget(tabsWidget, { placements: [tabsWidget, summaryWidget, activityWidget] })}
+            </DashboardDetailsProvider>
+        )
+
+        const tablist = screen.getByRole('tablist', { name: 'Details sections' })
+        const summaryTab = screen.getByRole('tab', { name: 'Summary' })
+        const activityTab = screen.getByRole('tab', { name: 'Activity' })
+        expect(tablist).toBeInTheDocument()
+        expect(summaryTab.id).toBeTruthy()
+        expect(activityTab.id).toBeTruthy()
+        expect(summaryTab.getAttribute('aria-controls')).not.toBe(activityTab.getAttribute('aria-controls'))
+
+        for (const tab of [summaryTab, activityTab]) {
+            const panel = document.getElementById(tab.getAttribute('aria-controls') ?? '')
+            expect(panel).not.toBeNull()
+            expect(panel).toHaveAttribute('role', 'tabpanel')
+            expect(panel).toHaveAttribute('aria-labelledby', tab.id)
+        }
+
+        const summaryPanel = document.getElementById(summaryTab.getAttribute('aria-controls') ?? '')
+        const activityPanel = document.getElementById(activityTab.getAttribute('aria-controls') ?? '')
+        expect(summaryPanel).toBe(screen.getByRole('tabpanel'))
+        expect(screen.getByText('Summary content')).toBeInTheDocument()
+        expect(screen.queryByText('Activity content')).not.toBeInTheDocument()
+        expect(activityPanel).toHaveAttribute('hidden')
+
+        fireEvent.click(activityTab)
+        expect(activityTab).toHaveAttribute('aria-selected', 'true')
+        expect(summaryTab).toHaveAttribute('aria-selected', 'false')
+        expect(screen.getByRole('tabpanel')).toBe(activityPanel)
+        expect(screen.getByText('Activity content')).toBeInTheDocument()
+        expect(screen.queryByText('Summary content')).not.toBeInTheDocument()
+        expect(summaryPanel).toHaveAttribute('hidden')
+
+        await act(async () => {
+            await i18n.changeLanguage('ru')
+        })
+        expect(screen.getByRole('tablist', { name: 'Разделы сведений' })).toBeInTheDocument()
+        expect(activityTab).toHaveAttribute('aria-selected', 'true')
+    })
+
+    it('shows a localized empty-section status when a details tab has no child placements', async () => {
+        const tabsWidget = placement('detailsTabs', undefined, {
+            tabs: [{ slotKey: 'tab:overview', label: { en: 'Overview', ru: 'Обзор' }, isDefault: true }]
+        })
+
+        renderRuntimeWidget(tabsWidget, { locale: 'en' })
+        expect(screen.getByRole('status')).toHaveTextContent('This section is empty.')
+
+        await act(async () => {
+            await i18n.changeLanguage('ru')
+        })
+        expect(screen.getByRole('status')).toHaveTextContent('В этом разделе пока нет содержимого.')
+    })
 
     it('renders Entity-backed info-card content with its declared presentation severity', () => {
         renderRuntimeWidget(

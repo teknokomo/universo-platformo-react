@@ -201,6 +201,7 @@ export const MatrixCellStylePolicyRows = ({ t, isSaving, localSettings, setLocal
                                     : t('settings.matrix.cellStylePolicy.invalidHexColor', 'Enter a valid HEX color, such as #1E88E5.')
                             }
                             disabled={isSaving}
+                            pickerButtonSize={40}
                             onChange={(value) => setDraftColor(value.toUpperCase())}
                             testId='application-settings-cell-style-new-color'
                             sx={{

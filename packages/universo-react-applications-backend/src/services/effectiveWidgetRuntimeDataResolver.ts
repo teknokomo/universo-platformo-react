@@ -3,6 +3,7 @@ import {
     expandWidgetBindingSlotFamilies,
     getLayoutWidgetDefinition,
     getPlacementSourcePolicy,
+    MAX_WIDGET_BINDING_RESOLVED_RECORDS,
     MAX_WIDGET_BINDING_TARGETS,
     validateWidgetBindings,
     type WidgetBindingTarget
@@ -67,14 +68,51 @@ const errorState = (error: unknown): EffectiveWidgetRuntimeData => {
     return state('server-error')
 }
 
-const prepareWidget = (candidate: EffectiveWidgetRuntimeCandidate): PreparedWidget | EffectiveWidgetRuntimeData => {
+const applyConfiguredRecordLimits = (
+    candidate: EffectiveWidgetRuntimeCandidate,
+    definition: NonNullable<ReturnType<typeof getLayoutWidgetDefinition>>,
+    maxResolvedRecordsPerSlot?: number
+): NonNullable<ReturnType<typeof getLayoutWidgetDefinition>> => {
+    const configuredLimits = new Map<string, number>()
+    if (candidate.widgetKey === 'detailsTable' && typeof candidate.config.maxRows === 'number') {
+        configuredLimits.set('rows', candidate.config.maxRows)
+    }
+    if (candidate.widgetKey === 'overviewCards') {
+        configuredLimits.set('metrics', typeof candidate.config.maxCards === 'number' ? candidate.config.maxCards : 8)
+    }
+    if ((configuredLimits.size === 0 && maxResolvedRecordsPerSlot === undefined) || !definition.bindingSlots?.length) return definition
+
+    return {
+        ...definition,
+        bindingSlots: definition.bindingSlots.map((slot) => {
+            const configuredLimit = configuredLimits.get(slot.key)
+            const hasRecordSelector = slot.selectorKinds.some((kind) => kind !== 'semantic-key')
+            const scopedLimit = maxResolvedRecordsPerSlot !== undefined && hasRecordSelector ? maxResolvedRecordsPerSlot : undefined
+            if (configuredLimit === undefined && scopedLimit === undefined) return slot
+            return {
+                ...slot,
+                maxResolvedRecords: Math.min(
+                    configuredLimit ?? MAX_WIDGET_BINDING_RESOLVED_RECORDS,
+                    slot.maxResolvedRecords ?? MAX_WIDGET_BINDING_RESOLVED_RECORDS,
+                    scopedLimit ?? MAX_WIDGET_BINDING_RESOLVED_RECORDS
+                )
+            }
+        })
+    }
+}
+
+const prepareWidget = (
+    candidate: EffectiveWidgetRuntimeCandidate,
+    maxResolvedRecordsPerSlot?: number
+): PreparedWidget | EffectiveWidgetRuntimeData => {
     const configSchema = dashboardWidgetConfigSchemaByKey[candidate.widgetKey as keyof typeof dashboardWidgetConfigSchemaByKey]
     if (!configSchema || !isRecord(candidate.config)) return state('malformed-config')
     const parsedConfig = configSchema.safeParse(candidate.config)
     if (!parsedConfig.success || !isRecord(parsedConfig.data)) return state('malformed-config')
     const config = parsedConfig.data
-    const baseDefinition = getLayoutWidgetDefinition(candidate.widgetKey, config)
-    if (!baseDefinition) return state('malformed-config')
+    const registeredDefinition = getLayoutWidgetDefinition(candidate.widgetKey, config)
+    if (!registeredDefinition) return state('malformed-config')
+    const baseDefinition = applyConfiguredRecordLimits({ ...candidate, config }, registeredDefinition, maxResolvedRecordsPerSlot)
     const validatedCandidate = { ...candidate, config }
     if (candidate.bindings == null && (baseDefinition.bindingSlots ?? []).some((slot) => slot.cardinality.min > 0)) {
         return state('required-missing')
@@ -207,7 +245,7 @@ const prepareRuntimeWidgetCandidate = async (
     const isSavedReport = candidate.widgetKey === 'detailsTable' && candidate.config.variant === 'report'
     if ((sourceMode === 'none' || sourceMode === 'specialized') && !isSavedReport) return
 
-    const preparedWidget = prepareWidget(candidate)
+    const preparedWidget = prepareWidget(candidate, context.scope.maxResolvedRecordsPerSlot)
     if (!('candidate' in preparedWidget)) {
         context.result.set(candidate.id, preparedWidget)
         return
@@ -305,6 +343,7 @@ const loadAuthorizedWidgetMetadataBatch = async (
     executor: DbExecutor,
     scope: EffectiveWidgetRuntimeReadScope,
     widgets: readonly PreparedWidget[],
+    locale: string,
     result: Map<string, EffectiveWidgetRuntimeData>
 ): Promise<AuthorizedWidgetMetadataBatch | null> => {
     const metadataRequests = collectBindingMetadataRequests(widgets)
@@ -328,7 +367,7 @@ const loadAuthorizedWidgetMetadataBatch = async (
 
     const authorizedWidgets: PreparedWidget[] = []
     for (const widget of widgets) {
-        if (authorizeWidgetTargets(widget, metadata)) authorizedWidgets.push(widget)
+        if (authorizeWidgetTargets(widget, metadata, scope, locale)) authorizedWidgets.push(widget)
         else {
             result.set(widget.candidate.id, state('stale-source'))
         }
@@ -524,9 +563,14 @@ const resolveAuthorizedWidgetBatch = async (
     result: Map<string, EffectiveWidgetRuntimeData>
 ): Promise<void> => {
     let estimatedRecords = 0
+    const requestedLayoutRecordLimit = scope.maxResolvedRecordsPerLayout
+    const maxRecordsPerLayout =
+        typeof requestedLayoutRecordLimit === 'number' && Number.isInteger(requestedLayoutRecordLimit) && requestedLayoutRecordLimit > 0
+            ? Math.min(requestedLayoutRecordLimit, MAX_RUNTIME_RECORDS_PER_LAYOUT)
+            : MAX_RUNTIME_RECORDS_PER_LAYOUT
     for (const widget of widgets) {
         estimatedRecords += estimateRecordBudget(widget)
-        if (estimatedRecords > MAX_RUNTIME_RECORDS_PER_LAYOUT) {
+        if (estimatedRecords > maxRecordsPerLayout) {
             result.set(widget.candidate.id, state('server-error'))
             continue
         }
@@ -557,7 +601,7 @@ export const resolveEffectiveWidgetRuntimeData = async (
     if (!applyRuntimeWorkspacePermissionFilter(scope, selection, result)) return result
     if (!selection.preparedWidgets.length) return result
 
-    const metadataBatch = await loadAuthorizedWidgetMetadataBatch(executor, scope, selection.preparedWidgets, result)
+    const metadataBatch = await loadAuthorizedWidgetMetadataBatch(executor, scope, selection.preparedWidgets, locale, result)
     if (!metadataBatch) return result
 
     await resolveAuthorizedWidgetBatch(

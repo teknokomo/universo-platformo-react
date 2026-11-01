@@ -4,6 +4,20 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { useEffect, useState, type ReactNode } from 'react'
+import commonEn from '@universo-react/i18n/locales/en/common.json'
+import commonRu from '@universo-react/i18n/locales/ru/common.json'
+
+const mockCommonTranslation = vi.hoisted(() => vi.fn())
+const commonResources = { en: commonEn.common, ru: commonRu.common }
+let activeLocale: keyof typeof commonResources = 'en'
+
+const translateCommon = (key: string, defaultValue?: string): string => {
+    const translated = key.split('.').reduce<unknown>((value, segment) => {
+        if (!value || typeof value !== 'object') return undefined
+        return (value as Record<string, unknown>)[segment]
+    }, commonResources[activeLocale])
+    return typeof translated === 'string' ? translated : defaultValue ?? key
+}
 
 const createLayoutMutate = vi.fn()
 const copyLayoutMutate = vi.fn()
@@ -23,7 +37,7 @@ vi.mock('react-i18next', () => ({
 
 vi.mock('@universo-react/i18n', () => ({
     useCommonTranslations: () => ({
-        t: (key: string, defaultValue?: string) => defaultValue ?? key
+        t: mockCommonTranslation
     })
 }))
 
@@ -217,7 +231,8 @@ vi.mock('@universo-react/template-mui/components/dialogs', () => ({
         title,
         onSave,
         initialExtraValues,
-        tabs
+        tabs,
+        extraFields
     }: {
         open: boolean
         title: string
@@ -229,6 +244,12 @@ vi.mock('@universo-react/template-mui/components/dialogs', () => ({
             isLoading: boolean
             errors: Record<string, string>
         }) => Array<{ id: string; label: string; content: ReactNode }>
+        extraFields?: (args: {
+            values: Record<string, unknown>
+            setValue: (name: string, value: unknown) => void
+            isLoading: boolean
+            errors: Record<string, string>
+        }) => ReactNode
     }) => {
         const [values, setValues] = useState<Record<string, unknown>>({})
 
@@ -245,6 +266,12 @@ vi.mock('@universo-react/template-mui/components/dialogs', () => ({
                 isLoading: false,
                 errors: {}
             }) ?? []
+        const dialogExtraFields = extraFields?.({
+            values,
+            setValue: (name, value) => setValues((current) => ({ ...current, [name]: value })),
+            isLoading: false,
+            errors: {}
+        })
 
         return (
             <div>
@@ -254,6 +281,7 @@ vi.mock('@universo-react/template-mui/components/dialogs', () => ({
                         {tab.content}
                     </section>
                 ))}
+                {dialogExtraFields}
                 {title === 'Create layout' ? (
                     <button onClick={() => void onSave?.(values)} type='button'>
                         submit-layout-create
@@ -290,6 +318,8 @@ import LayoutList from '../LayoutList'
 describe('LayoutList copy flow entry', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        activeLocale = 'en'
+        mockCommonTranslation.mockImplementation(translateCommon)
         vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(createVisibleDomRect)
         mockUseMetahubDetails.mockReturnValue({
             data: { permissions: { manageMetahub: true } }
@@ -543,7 +573,7 @@ describe('LayoutList copy flow entry', () => {
             </QueryClientProvider>
         )
 
-        expect(screen.queryByRole('button', { name: 'create' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /^create$/i })).not.toBeInTheDocument()
 
         const menuButton = screen.getByTestId('layout-more-icon').closest('button')
         expect(menuButton).not.toBeNull()
@@ -577,7 +607,7 @@ describe('LayoutList copy flow entry', () => {
             </QueryClientProvider>
         )
 
-        await user.click(screen.getByRole('button', { name: 'create' }))
+        await user.click(screen.getByRole('button', { name: /^(?:Create|Создать)$/ }))
         expect(screen.getByText('Create layout')).toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: 'submit-layout-create' }))
@@ -594,6 +624,37 @@ describe('LayoutList copy flow entry', () => {
             }
         })
         expect(payload.data.config).toBeUndefined()
+    })
+
+    it.each([
+        { locale: 'en' as const, labels: ['Dashboard', 'Marketing page', 'Messenger app'] },
+        { locale: 'ru' as const, labels: ['Дашборд', 'Маркетинговая страница', 'Приложение для мессенджера'] }
+    ])('renders registry template choices with shared $locale labels', async ({ locale, labels }) => {
+        activeLocale = locale
+        const queryClient = new QueryClient({
+            defaultOptions: {
+                queries: { retry: false },
+                mutations: { retry: false }
+            }
+        })
+        const user = userEvent.setup()
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/layouts']}>
+                    <Routes>
+                        <Route path='/metahub/:metahubId/layouts' element={<LayoutList />} />
+                    </Routes>
+                </MemoryRouter>
+            </QueryClientProvider>
+        )
+
+        await user.click(screen.getByRole('button', { name: /^(?:Create|Создать)$/ }))
+        await user.click(screen.getByRole('combobox', { name: 'User interface template' }))
+
+        for (const label of labels) {
+            expect(screen.getByRole('option', { name: label })).toBeVisible()
+        }
     })
 
     it('creates manual global layouts without pre-seeding dashboard config', async () => {
@@ -615,7 +676,7 @@ describe('LayoutList copy flow entry', () => {
             </QueryClientProvider>
         )
 
-        await user.click(screen.getByRole('button', { name: 'create' }))
+        await user.click(screen.getByRole('button', { name: /^(?:Create|Создать)$/ }))
         expect(screen.getByText('Create layout')).toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: 'submit-layout-create' }))

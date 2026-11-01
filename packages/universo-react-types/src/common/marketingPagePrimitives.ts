@@ -26,7 +26,7 @@ import { resourceSourceSchema, safeExternalUrlSchema } from './resourceSources'
  * metahub template codenames: a metahub may seed more than one application
  * layout and a runtime layout must never be inferred from a metahub codename.
  */
-export const APPLICATION_TEMPLATE_KEYS = ['dashboard', 'marketing-page'] as const
+export const APPLICATION_TEMPLATE_KEYS = ['dashboard', 'marketing-page', 'messenger-app'] as const
 export type ApplicationTemplateKey = (typeof APPLICATION_TEMPLATE_KEYS)[number]
 export const applicationTemplateKeySchema = z.enum(APPLICATION_TEMPLATE_KEYS)
 

@@ -26,7 +26,7 @@ import type {
     WidgetBindingSourceProvisionResult,
     WidgetBindingSourcesDto
 } from '@universo-react/types'
-import { layoutWidgetMetadataResponseSchema } from '@universo-react/types'
+import { layoutWidgetMetadataResponseSchema, type LayoutWidgetMetadataResponse } from '@universo-react/types'
 
 export type {
     MarketingWidgetRecordCopyIntent,
@@ -169,13 +169,18 @@ export const resetLayoutZoneSetting = (
 export const deleteLayout = (metahubId: string, layoutId: string, expectedVersion: number) =>
     apiClient.delete<void>(`/metahub/${metahubId}/layout/${layoutId}`, { params: { expectedVersion } })
 
-export const getLayoutZoneWidgetObjects = async (metahubId: string, layoutId: string): Promise<DashboardLayoutWidgetItem[]> => {
+export const getLayoutZoneWidgetMetadata = async (metahubId: string, layoutId: string): Promise<LayoutWidgetMetadataResponse> => {
     const response = await apiClient.get<unknown>(`/metahub/${metahubId}/layout/${layoutId}/zone-widgets/object`)
     const parsed = layoutWidgetMetadataResponseSchema.safeParse(response.data)
     if (!parsed.success) {
         throw new Error('LAYOUT_WIDGET_METADATA_INVALID')
     }
-    return parsed.data.items as DashboardLayoutWidgetItem[]
+    return parsed.data
+}
+
+export const getLayoutZoneWidgetObjects = async (metahubId: string, layoutId: string): Promise<DashboardLayoutWidgetItem[]> => {
+    const metadata = await getLayoutZoneWidgetMetadata(metahubId, layoutId)
+    return metadata.items as DashboardLayoutWidgetItem[]
 }
 
 export const listLayoutZoneWidgets = async (metahubId: string, layoutId: string): Promise<MetahubLayoutZoneWidget[]> => {

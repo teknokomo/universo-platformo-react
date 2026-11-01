@@ -51,6 +51,11 @@ import { applicationsQueryKeys } from '../api/queryKeys'
 import { Application, ApplicationDisplay, ApplicationLocalizedPayload, PaginationParams, toApplicationDisplay } from '../types'
 import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPendingAction, type ConflictInfo } from '@universo-react/utils'
 import applicationActions from './ApplicationActions'
+import {
+    ApplicationCatalogVisibilityBadge,
+    ApplicationCatalogVisibilityControl,
+    canManageApplicationRecord
+} from './ApplicationCatalogVisibility'
 import { extractLocalizedInput, hasPrimaryContent } from '../utils/localizedInput'
 import { canUseApplicationAliasAbility } from '../utils/applicationAliasAbility'
 
@@ -58,6 +63,7 @@ export type ApplicationFormValues = {
     nameVlc?: VersionedLocalizedContent<string> | null
     descriptionVlc?: VersionedLocalizedContent<string> | null
     isPublic?: boolean
+    showInAppList?: boolean
 }
 
 type ApplicationFormRenderState = {
@@ -115,14 +121,6 @@ const canUseApplicationAbility = (ability: AppAbility | null | undefined, action
     }
 
     return ability.can('manage', 'Application') || ability.can('create', 'Application')
-}
-
-const canManageApplicationRecord = (application: ApplicationDisplay): boolean => {
-    if (typeof application.permissions?.manageApplication === 'boolean') {
-        return application.permissions.manageApplication
-    }
-
-    return application.role === 'owner' || application.role === 'admin'
 }
 
 const ApplicationList = () => {
@@ -235,7 +233,10 @@ const ApplicationList = () => {
         return imagesMap
     }, [applicationsDisplay])
 
-    const localizedFormDefaults = useMemo<ApplicationFormValues>(() => ({ nameVlc: null, descriptionVlc: null, isPublic: false }), [])
+    const localizedFormDefaults = useMemo<ApplicationFormValues>(
+        () => ({ nameVlc: null, descriptionVlc: null, isPublic: false, showInAppList: true }),
+        []
+    )
 
     const renderLocalizedFields = useCallback(
         ({ values, setValue, isLoading, errors }: ApplicationFormRenderState) => {
@@ -298,6 +299,7 @@ const ApplicationList = () => {
                     <Alert severity='info'>
                         {t('parameters.visibilityHint', 'Application visibility cannot be changed after creation.')}
                     </Alert>
+                    <ApplicationCatalogVisibilityControl values={values} setValue={setValue} isLoading={isLoading} />
                 </Stack>
             )
         },
@@ -349,7 +351,8 @@ const ApplicationList = () => {
             description: descriptionInput,
             namePrimaryLocale,
             descriptionPrimaryLocale,
-            isPublic: data.isPublic === true
+            isPublic: data.isPublic === true,
+            showInAppList: data.showInAppList !== false
         })
 
         handleDialogSave()
@@ -508,9 +511,16 @@ const ApplicationList = () => {
                 width: '10%',
                 align: 'center' as const,
                 render: (row: ApplicationDisplay) => (typeof row.connectorsCount === 'number' ? row.connectorsCount : '—')
+            },
+            {
+                id: 'catalogVisibility',
+                label: t('table.catalogVisibility', 'Catalog'),
+                width: '12%',
+                align: 'center' as const,
+                render: (row: ApplicationDisplay) => <ApplicationCatalogVisibilityBadge application={row} isSuperuser={isSuperuser} />
             }
         ],
-        [handleJoinApplication, handlePendingApplicationInteraction, t, tc]
+        [handleJoinApplication, handlePendingApplicationInteraction, isSuperuser, t, tc]
     )
 
     // Removed N+1 counts loading; counts are provided by backend list response
@@ -552,6 +562,7 @@ const ApplicationList = () => {
                         namePrimaryLocale?: string
                         descriptionPrimaryLocale?: string
                         isPublic?: boolean
+                        showInAppList?: boolean
                         copyConnector?: boolean
                         createSchema?: boolean
                         copyAccess?: boolean
@@ -798,21 +809,27 @@ const ApplicationList = () => {
                                                 pendingAction={getPendingAction(application)}
                                                 onPendingInteractionAttempt={() => handlePendingApplicationInteraction(application.id)}
                                                 footerEndContent={
-                                                    application.canJoin ? (
-                                                        <Button
-                                                            size='small'
-                                                            variant='outlined'
-                                                            onClick={(event) => {
-                                                                event.preventDefault()
-                                                                event.stopPropagation()
-                                                                void handleJoinApplication(application)
-                                                            }}
-                                                        >
-                                                            {t('join.action', 'Join')}
-                                                        </Button>
-                                                    ) : application.role ? (
-                                                        <RoleChip role={application.role} accessType={application.accessType} />
-                                                    ) : null
+                                                    <Stack direction='row' spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                                                        <ApplicationCatalogVisibilityBadge
+                                                            application={application}
+                                                            isSuperuser={isSuperuser}
+                                                        />
+                                                        {application.canJoin ? (
+                                                            <Button
+                                                                size='small'
+                                                                variant='outlined'
+                                                                onClick={(event) => {
+                                                                    event.preventDefault()
+                                                                    event.stopPropagation()
+                                                                    void handleJoinApplication(application)
+                                                                }}
+                                                            >
+                                                                {t('join.action', 'Join')}
+                                                            </Button>
+                                                        ) : application.role ? (
+                                                            <RoleChip role={application.role} accessType={application.accessType} />
+                                                        ) : null}
+                                                    </Stack>
                                                 }
                                                 headerAction={
                                                     descriptors.length > 0 ? (
@@ -939,9 +956,12 @@ const ApplicationList = () => {
                     void queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.lists() })
                 }}
                 onOverwrite={async () => {
-                    if (conflictState.pendingUpdate) {
+                    if (conflictState.pendingUpdate && conflictState.conflict) {
                         const { id, patch } = conflictState.pendingUpdate
-                        void updateApplicationMutation.mutateAsync({ id, data: patch })
+                        void updateApplicationMutation.mutateAsync({
+                            id,
+                            data: { ...patch, expectedVersion: conflictState.conflict.actualVersion }
+                        })
                         setConflictState({ open: false, conflict: null, pendingUpdate: null })
                     }
                 }}

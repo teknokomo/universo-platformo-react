@@ -3,6 +3,7 @@ import { type DbExecutor } from '@universo-react/utils'
 import {
     parsePublicApplicationRef,
     PublicApplicationUnavailableError,
+    resolvePublicApplicationDisplayName,
     resolvePublicApplication,
     toPublicApplicationRouteResolution
 } from '../../services/publicApplicationRuntime'
@@ -15,6 +16,7 @@ const publicationVersionId = '0190a9b5-3cde-7abc-8def-0123456789ad'
 
 const readyApplication = (overrides: Partial<PublicRuntimeApplicationRow> = {}): PublicRuntimeApplicationRow => ({
     id: applicationId,
+    name: { _primary: 'en', locales: { en: { content: 'Public application' }, ru: { content: 'Публичное приложение' } } },
     schemaName: 'app_0190a9b53cde7abc8def0123456789ab',
     schemaStatus: 'synced',
     isPublic: true,
@@ -120,6 +122,30 @@ describe('public application reference parsing and routing', () => {
         expect(resolved.route.matchedBy).toBe('uuid')
         expect(resolved.route.primaryAlias).toBe('73rd-meridian')
         expect(resolved.route.canonicalAlias).toBeNull()
+    })
+
+    it('resolves a public application when it is hidden from the application catalog', async () => {
+        const catalogHiddenApplication = {
+            ...readyApplication(),
+            showInAppList: false
+        } as PublicRuntimeApplicationRow
+        const query = jest.fn().mockResolvedValue([catalogHiddenApplication])
+        const resolved = await resolvePublicApplication({ query } as unknown as DbExecutor, applicationId)
+        const [sql] = query.mock.calls[0]
+
+        expect(resolved.application.isPublic).toBe(true)
+        expect((resolved.application as PublicRuntimeApplicationRow & { showInAppList: boolean }).showInAppList).toBe(false)
+        expect(sql).toContain('a.name AS name')
+        expect(sql).not.toContain('show_in_app_list')
+    })
+
+    it('localizes and bounds the public application display name with a locale fallback', () => {
+        const name = { _primary: 'en', locales: { en: { content: 'Messenger' }, ru: { content: 'Мессенджер' } } }
+        expect(resolvePublicApplicationDisplayName(name, 'en')).toBe('Messenger')
+        expect(resolvePublicApplicationDisplayName(name, 'ru')).toBe('Мессенджер')
+        expect(resolvePublicApplicationDisplayName(null, 'en')).toBe('Application')
+        expect(resolvePublicApplicationDisplayName(null, 'ru')).toBe('Приложение')
+        expect(resolvePublicApplicationDisplayName({ en: 'x'.repeat(200) }, 'en')).toHaveLength(160)
     })
 
     it('fails closed when canonical mode has aliases but no primary', async () => {

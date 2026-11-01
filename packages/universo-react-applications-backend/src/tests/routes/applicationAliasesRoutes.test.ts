@@ -18,9 +18,14 @@ jest.mock('../../persistence/applicationAliasesStore', () => ({
     listApplicationAliasApplicationOptions: jest.fn()
 }))
 
+jest.mock('../../routes/guards', () => ({
+    getApplicationMembership: jest.fn()
+}))
+
 import { hasSubjectPermission, isSuperuser } from '@universo-react/admin-backend'
 import { createApplicationAliasesService } from '../../services/applicationAliases'
 import { listApplicationAliasApplicationOptions } from '../../persistence/applicationAliasesStore'
+import { getApplicationMembership } from '../../routes/guards'
 import { createApplicationAliasesRoutes } from '../../routes/applicationAliasesRoutes'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
@@ -28,6 +33,7 @@ const mockedIsSuperuser = jest.mocked(isSuperuser)
 const mockedHasSubjectPermission = jest.mocked(hasSubjectPermission)
 const mockedCreateService = jest.mocked(createApplicationAliasesService)
 const mockedListApplicationAliasApplicationOptions = jest.mocked(listApplicationAliasApplicationOptions)
+const mockedGetApplicationMembership = jest.mocked(getApplicationMembership)
 
 const mockRateLimiter: RateLimitRequestHandler = ((_req: Request, _res: Response, next: NextFunction) => next()) as RateLimitRequestHandler
 
@@ -73,7 +79,9 @@ describe('applicationAliases routes', () => {
         mockedCreateService.mockReturnValue(service as never)
         mockedIsSuperuser.mockResolvedValue(false)
         mockedHasSubjectPermission.mockResolvedValue(true)
+        mockedGetApplicationMembership.mockResolvedValue(null)
         service.list.mockResolvedValue({ items: [], total: 0 })
+        service.listByApplication.mockResolvedValue([])
         service.release.mockResolvedValue(undefined)
         service.updatePolicy.mockResolvedValue({ applicationId, routingMode: 'canonical' })
         mockedListApplicationAliasApplicationOptions.mockResolvedValue({ items: [], total: 0 })
@@ -151,6 +159,38 @@ describe('applicationAliases routes', () => {
 
         expect(response.status).toBe(403)
         expect(service.list).not.toHaveBeenCalled()
+    })
+
+    it('lets an application owner read only aliases attached to that application', async () => {
+        mockedHasSubjectPermission.mockResolvedValue(false)
+        mockedGetApplicationMembership.mockResolvedValue({ role: 'owner' } as never)
+        service.listByApplication.mockResolvedValue([{ alias: 'messenger-home' }] as never)
+
+        const response = await request(buildApp()).get(`/applications/${applicationId}/aliases`)
+
+        expect(response.status).toBe(200)
+        expect(mockedGetApplicationMembership).toHaveBeenCalledWith(executor, userId, applicationId)
+        expect(service.listByApplication).toHaveBeenCalledWith(applicationId, undefined)
+        expect(response.body).toEqual({ items: [{ alias: 'messenger-home' }] })
+    })
+
+    it('does not let an ordinary application member read application aliases', async () => {
+        mockedHasSubjectPermission.mockResolvedValue(false)
+        mockedGetApplicationMembership.mockResolvedValue({ role: 'member' } as never)
+
+        const response = await request(buildApp()).get(`/applications/${applicationId}/aliases`)
+
+        expect(response.status).toBe(403)
+        expect(service.listByApplication).not.toHaveBeenCalled()
+    })
+
+    it('validates the application id before scoped alias authorization', async () => {
+        mockedHasSubjectPermission.mockResolvedValue(false)
+
+        const response = await request(buildApp()).get('/applications/not-a-uuid/aliases')
+
+        expect(response.status).toBe(400)
+        expect(mockedGetApplicationMembership).not.toHaveBeenCalled()
     })
 
     it('uses delete permission for the canonical DELETE release endpoint', async () => {

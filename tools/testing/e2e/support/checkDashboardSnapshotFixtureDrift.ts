@@ -42,6 +42,11 @@ const profiles = {
         filename: 'metahubs-mmoomm-app-snapshot.json',
         contractModule: 'mmoommAppFixtureContract.ts',
         contractFunction: 'assertMmoommAppFixtureEnvelopeContract'
+    },
+    'messenger-app': {
+        filename: 'metahubs-messenger-app-snapshot.json',
+        contractModule: 'messengerAppFixtureContract.ts',
+        contractFunction: 'assertMessengerAppFixtureEnvelopeContract'
     }
 } as const
 
@@ -76,7 +81,7 @@ export const getNormalizedDashboardFixtureDifference = (tracked: unknown, genera
 }
 
 async function main(): Promise<void> {
-    const args = process.argv.slice(2)
+    const args = process.argv.slice(2).filter((argument) => argument !== '--')
     const [kindInput, generatedInput] = args
     if (kindInput === '--all-tracked') {
         for (const [kind, profile] of Object.entries(profiles)) {
@@ -95,7 +100,7 @@ async function main(): Promise<void> {
     }
     if (!kindInput || !(kindInput in profiles) || !generatedInput) {
         throw new Error(
-            'Usage: checkDashboardSnapshotFixtureDrift.ts <73rd-meridian|interpretation-network|lms|quiz|self-hosted|mmoomm> <fixture-path> [--drift] [--tracked <fixture-path>]'
+            'Usage: checkDashboardSnapshotFixtureDrift.ts <73rd-meridian|interpretation-network|lms|quiz|self-hosted|mmoomm|messenger-app> <fixture-path> [--drift] [--tracked <fixture-path>]'
         )
     }
 

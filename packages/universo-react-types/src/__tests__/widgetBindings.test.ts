@@ -956,4 +956,40 @@ describe('entity-backed widget binding contracts', () => {
             }).success
         ).toBe(false)
     })
+
+    it('binds resourcePreview to structured ResourceSource JSON components', () => {
+        const slot = getLayoutWidgetDefinition('resourcePreview')?.bindingSlots?.find(({ key }) => key === 'resource')
+        if (!slot) throw new Error('Resource preview binding slot is missing')
+
+        const entity = {
+            kind: 'object',
+            codename: 'MessengerResources',
+            config: {},
+            components: slot.requirements.components.map((requirement) => ({
+                codename: requirement.componentCodename,
+                dataType: requirement.valueType.toUpperCase(),
+                isRequired: requirement.required,
+                validationRules: {
+                    ...(requirement.localized ? { localized: true } : {}),
+                    ...(requirement.maxLength === undefined ? {} : { maxLength: requirement.maxLength }),
+                    ...(requirement.semanticKey ? { unique: true } : {}),
+                    ...(requirement.pattern === undefined ? {} : { pattern: requirement.pattern })
+                }
+            }))
+        }
+
+        expect(slot.requirements.components.find(({ componentCodename }) => componentCodename === 'Key')?.semanticKey).toBe(true)
+        expect(slot.requirements.components.find(({ componentCodename }) => componentCodename === 'Title')?.required).toBe(true)
+        expect(slot.requirements.components.find(({ componentCodename }) => componentCodename === 'Resource')?.valueType).toBe('json')
+        expect(slot.requirements.components.find(({ componentCodename }) => componentCodename === 'Resource')?.required).toBe(false)
+        expect(isCompatibleWidgetBindingEntity(slot, entity)).toBe(true)
+        expect(
+            isCompatibleWidgetBindingEntity(slot, {
+                ...entity,
+                components: entity.components.map((component) =>
+                    component.codename === 'Resource' ? { ...component, dataType: 'STRING' } : component
+                )
+            })
+        ).toBe(false)
+    })
 })

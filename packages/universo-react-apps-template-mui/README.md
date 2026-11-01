@@ -4,9 +4,9 @@ The [public Dashboard runtime](src/public-runtime/README.md) renders anonymous I
 
 The existing TABLE editors support metadata-driven sibling selectors, hidden UUID v7 keys and row-menu ordering. First-group and last-group changes use the canonical confirmation shell and update both TABLE drafts before one parent Save. Deferred runtime editors reconcile accepted external drafts and rejected candidates without losing the visible question assignments. Each configured group must contain a related row before persistence.
 
-> 🎨 **Modern Package** — TypeScript-first dashboard and marketing-page templates with Material UI v9
+> 🎨 **Modern Package** — TypeScript-first Dashboard, Marketing Page, and Messenger App runtime templates with Material UI v9
 
-Runtime dashboard template for published applications in the Universo Platformo ecosystem. Provides a zone-based widget system, data-driven grid rendering, app-side content authoring, and reusable CRUD UI components without depending on the legacy `@universo-react/template-mui` package.
+Runtime presentation primitives for published applications in the Universo Platformo ecosystem. Provides the existing zone-based Dashboard renderer, data-driven Marketing Page, a thin Messenger shell, and reusable CRUD UI components without depending on the legacy `@universo-react/template-mui` package.
 
 ## Package Information
 
@@ -31,6 +31,16 @@ Runtime dashboard template for published applications in the Universo Platformo 
 -   **Entity-backed Dashboard data**: Source-backed placements consume typed, bounded runtime projections; bindings and datasource query logic stay outside renderer configuration, and missing, denied, or stale sources render localized states.
 -   **Scoped bound-row actions**: Hosted and standalone Dashboard runtimes share `useDashboardBoundRowActions`; it resolves source Entities unambiguously, checks their permissions, reloads the row in the active workspace, and carries its current version into the existing CRUD, record-command, and workflow handlers. Its public load-state contract hides stale row data while a refetch is pending.
 -   **Entity target resolution**: `resolveDashboardEntityTargetSectionId` prefers explicit Entity IDs, resolves unique codenames, and fails closed when a codename matches more than one Entity.
+
+### 📱 Messenger App shell
+
+-   **Three semantic zones**: `messenger-app` layouts use `top`, `center`, and `bottom`; effective placements are adapted into those physical shell regions.
+-   **One widget renderer**: `MessengerRuntimeShell` delegates every placement to the existing `renderWidget()` path and passes the full placement graph so container widgets can resolve their children.
+-   **Shared host contract**: the shell receives the existing `DashboardDetailsSlot` and authenticated placement scopes. Standalone and authenticated hosts reuse their existing effective-layout and content-data bootstraps.
+-   **Page landmark**: the shell uses one semantic `<main>` by default. Embedding hosts that already supply a main landmark set `rootElement="div"` to avoid nesting landmarks.
+-   **Read-only public presentation**: the same shell accepts public host details with public permissions and no authenticated placement scopes; public transport and DTO validation remain owned by the public host contract.
+-   **Embedded viewport behavior**: Telegram's `--tg-content-safe-area-inset-*` and `--tg-safe-area-inset-*` variables take precedence, with ordinary `env(safe-area-inset-*)` fallbacks. The shell uses Telegram's stable/current viewport variables when available, then `100dvh` and `100vh`. It inherits the host MUI light/dark palette; Telegram `themeParams` do not override it.
+-   **Bridge enhancement**: the Telegram and MAX adapters feature-detect their globals independently. For a public runtime with an unambiguous provider launch marker, `MessengerRuntimeShell` uses the package-owned bridge loader to add the corresponding allowlisted official script when its global is absent. Authenticated and browser-only routes do not trigger remote script loading; hosts may provide the bridge themselves when they need native controls. Without a bridge, browser navigation remains active and no MAX native control is assumed. Launch short ids are optional attribution hints only; provider identity and initialization data are never trusted for authorization.
 
 ### 📣 Data-driven Marketing Page
 
@@ -188,6 +198,19 @@ const props: DashboardProps = {
 <AppsDashboard {...props} />
 ```
 
+### Messenger shell integration
+
+Hosts with an effective `messenger-app` layout can render its validated zones
+through the shared shell and renderer. The shell is presentation-only: the host
+continues to own data loading, permissions, navigation, and authenticated scope.
+
+```tsx
+import { MessengerRuntimeShell, toMessengerZoneWidgets } from '@universo-react/apps-template-mui'
+
+const zones = toMessengerZoneWidgets(effectiveLayout)
+return <MessengerRuntimeShell zones={zones} details={runtimeDetails} placementScopes={placementScopes} />
+```
+
 ### Route Factory
 
 ```tsx
@@ -303,6 +326,15 @@ different template is an explicit independent composition: it does not inherit
 incompatible widgets or physical zones. Missing or invalid materialization is a
 localized fail-closed runtime error, not a silent global-template fallback.
 
+Messenger App is a separate effective-layout template, not a Dashboard alias.
+Its canonical authoring zones (`top`, `center`, `bottom`) are converted by
+`toMessengerZoneWidgets`; unsupported zones or invalid placement graphs fail
+closed. The standalone host dispatches the effective Messenger layout through
+the same `DashboardRuntimeContent` data bootstrap, and the authenticated host
+reuses its existing scoped runtime adapter and details contract. Neither host
+creates a second widget renderer, registry, or data bootstrap. The shell inherits
+the host's MUI theme; bridge controls only enhance browser navigation.
+
 The standalone entry uses the same effective-layout API and requires an
 authenticated runtime adapter with target/workspace context. GuestApp and
 anonymous template selection are outside this contract.
@@ -324,6 +356,9 @@ layout is rendered.
 ```
 packages/universo-react-apps-template-mui/
 ├── src/
+│   ├── messenger/       # Thin Messenger shell and feature-detected bridges
+│   │   ├── MessengerRuntimeShell.tsx
+│   │   └── bridges/      # Independent Telegram and MAX adapters
 │   ├── api/              # Data adapter types and implementations
 │   │   ├── types.ts      # CrudDataAdapter, CellRendererOverrides interfaces
 │   │   ├── adapters.ts   # createStandaloneAdapter factory
@@ -391,6 +426,41 @@ interface DashboardProps {
     details?: DashboardDetailsSlot // Host/runtime context; widget data comes from typed runtime DTOs
 }
 ```
+
+### MessengerRuntimeShellProps
+
+```typescript
+interface MessengerRuntimeShellProps {
+    zones: MessengerZoneWidgets // Validated top, center, and bottom placements
+    details: DashboardDetailsSlot // Host context and existing runtime content contract
+    placementScopes?: AuthenticatedRuntimePlacementScopes
+    onBack?: () => void // Optional host navigation override
+}
+```
+
+`MessengerRuntimeShell` does not fetch Application data or authorize messenger
+users. The public launch helper may read only the validated short id from a
+provider `start_param` or documented URL parameter for optional attribution. It
+does not read signed `initData` or provider user identity, and attribution does
+not grant access. Public launches still require the host's strict public DTO and
+anonymous-safe content projection. Authenticated scopes are provided only by
+authenticated hosts.
+
+`src/messenger/bridgeScriptLoader.ts` owns the fixed official script URLs,
+deduplicated loading, and script cleanup. `MessengerRuntimeShell` calls it only
+for a public launch with exactly one provider-specific URL marker and only when
+the provider global is not already present. Telegram loads
+[`telegram-web-app.js`](https://telegram.org/js/telegram-web-app.js?64);
+MAX loads [`max-web-app.js`](https://st.max.ru/js/max-web-app.js). For
+authenticated or browser-only routes, hosts that need native controls or
+Telegram CSS variables must provide the official script. If no bridge is
+available, the shell keeps its standard browser fallback and CSS viewport and
+safe-area fallbacks.
+
+When MAX exposes `WebApp.getViewportSize()`, the runtime validates and applies
+its height, then re-reads it after window resize, `visualViewport` resize, and
+orientation changes. Missing, invalid, or failed responses keep the CSS
+viewport fallback.
 
 ### ZoneWidgetItem
 

@@ -1,4 +1,4 @@
-import type { RecordsUnionDatasource } from '@universo-react/types'
+import { isPublicPersonalIdentityFieldName, type RecordsUnionDatasource } from '@universo-react/types'
 import { isRuntimeSensitiveFieldName, isRuntimeTechnicalFieldName, isUuidV7, type DbExecutor } from '@universo-react/utils'
 import { quoteIdentifier, resolvePresentationName, resolveRuntimeCodenameText, UpdateFailure } from '../shared/runtimeHelpers'
 import { isRuntimeEnumerationKind, isRuntimeObjectTargetKind, type RuntimeReadableComponent } from './runtimeRowSupport/contracts'
@@ -16,9 +16,15 @@ import { issueRuntimeRecordHandle } from './runtimeRecordHandle'
 
 const MAX_RECORDS_TABLE_COLUMNS = 32
 
-const isSafeVisibleComponent = (component: RuntimeReadableComponent, locale: string): boolean => {
+const isSafeVisibleComponent = (
+    component: RuntimeReadableComponent,
+    locale: string,
+    excludePersonalIdentityFields: boolean,
+    requirePublicMessengerSafe: boolean
+): boolean => {
     const uiConfig = isRecord(component.ui_config) ? component.ui_config : {}
     if (
+        (requirePublicMessengerSafe && uiConfig.publicMessengerSafe !== true) ||
         uiConfig.hidden === true ||
         uiConfig.gridHidden === true ||
         uiConfig.formHidden === true ||
@@ -31,6 +37,9 @@ const isSafeVisibleComponent = (component: RuntimeReadableComponent, locale: str
     if (component.data_type === 'JSON' || component.data_type === 'TABLE') return false
     const codename = resolveRuntimeCodenameText(component.codename)
     const label = resolvePresentationName(component.presentation, locale, codename)
+    if (excludePersonalIdentityFields && (isPublicPersonalIdentityFieldName(codename) || isPublicPersonalIdentityFieldName(label))) {
+        return false
+    }
     if (
         isRuntimeTechnicalFieldName(codename) ||
         isRuntimeTechnicalFieldName(label) ||
@@ -51,8 +60,15 @@ const isSafeVisibleComponent = (component: RuntimeReadableComponent, locale: str
     return isRuntimeEnumerationKind(component.target_object_kind) || isRuntimeObjectTargetKind(component.target_object_kind)
 }
 
-const resolveVisibleComponents = (components: readonly RuntimeReadableComponent[], locale: string): RuntimeReadableComponent[] => {
-    const visible = components.filter((component) => isSafeVisibleComponent(component, locale)).slice(0, MAX_RECORDS_TABLE_COLUMNS)
+const resolveVisibleComponents = (
+    components: readonly RuntimeReadableComponent[],
+    locale: string,
+    excludePersonalIdentityFields: boolean,
+    requirePublicMessengerSafe: boolean
+): RuntimeReadableComponent[] => {
+    const visible = components
+        .filter((component) => isSafeVisibleComponent(component, locale, excludePersonalIdentityFields, requirePublicMessengerSafe))
+        .slice(0, MAX_RECORDS_TABLE_COLUMNS)
     if (visible.length === 0) {
         throw new UpdateFailure(409, { error: 'Entity-backed table has no safe display Components' })
     }
@@ -100,7 +116,10 @@ export const projectRecordsTable = async (
 
     const schemaIdent = quoteIdentifier(scope.schemaName)
     const components = await loadRuntimeReadableComponents(executor, schemaIdent, String(object.id))
-    const visibleComponents = resolveVisibleComponents(components, locale)
+    const excludePersonalIdentityFields = scope.publishedRecordsOnly === true && scope.currentUserId == null && scope.role == null
+    const requirePublicMessengerSafe =
+        scope.publicRuntimePolicy === 'messenger-app' && excludePersonalIdentityFields && scope.publishedRecordsOnly === true
+    const visibleComponents = resolveVisibleComponents(components, locale, excludePersonalIdentityFields, requirePublicMessengerSafe)
     const projectedFields = visibleComponents.map((component) => resolveRuntimeCodenameText(component.codename))
     if (projectedFields.some((field) => !field)) {
         throw new UpdateFailure(409, { error: 'Records table Component metadata is invalid' })

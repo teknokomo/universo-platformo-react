@@ -261,7 +261,6 @@ const makeSnapshot = (widgets: unknown[]): MetahubSnapshot => {
             }
         ],
         defaultLayoutId: ids.layout,
-        layoutConfig: {},
         layoutZoneWidgets: widgets
     } as unknown as MetahubSnapshot
 }

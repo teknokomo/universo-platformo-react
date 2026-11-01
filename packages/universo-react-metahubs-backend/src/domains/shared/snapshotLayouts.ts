@@ -10,6 +10,7 @@ import {
     parseApplicationLayoutWidgetConfig,
     getLayoutWidgetDefinition,
     expandWidgetBindingSlotFamilies,
+    parseApplicationLayoutConfig,
     validateWidgetBindings,
     normalizeWidgetBindingDataType,
     matchesWidgetBindingComponentValidationRules
@@ -29,14 +30,20 @@ const log = createLogger('snapshotLayouts')
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
-const resolveSnapshotWidgetBindingRequirement = (value: unknown, templateKey: string, widgetKey: string, zone: string): boolean => {
+const resolveSnapshotWidgetBindingRequirement = (
+    value: unknown,
+    templateKey: string,
+    widgetKey: string,
+    zone: string,
+    isActive: boolean
+): boolean => {
     const preview = decodeWidgetConfigEnvelope(value, { templateKey, widgetKey, zone, requireBindings: false })
     const parsedTemplateKey = applicationTemplateKeySchema.parse(templateKey)
     const definition = getLayoutWidgetDefinition(widgetKey, preview.rendererConfig)
     if (!definition || !definition.supportedTemplates.includes(parsedTemplateKey)) {
         throw new Error('Snapshot widget has no registered definition for its template')
     }
-    return definition.sourcePolicy.sourceMode === 'required'
+    return isActive && definition.sourcePolicy.sourceMode === 'required'
 }
 
 const validateSnapshotWidgetBindingComponents = (
@@ -185,7 +192,13 @@ export const validateSnapshotWidgetPlacements = (snapshot: MetahubSnapshot): voi
             // portable source reference as a missing same-layout parent.
             validateLayoutWidgetPlacementGraph(templateKey, effectivePlacementRows)
             for (const widget of ownRows) {
-                const requireBindings = resolveSnapshotWidgetBindingRequirement(widget.config, templateKey, widget.widgetKey, widget.zone)
+                const requireBindings = resolveSnapshotWidgetBindingRequirement(
+                    widget.config,
+                    templateKey,
+                    widget.widgetKey,
+                    widget.zone,
+                    widget.isActive !== false
+                )
                 const decoded = decodeWidgetConfigEnvelope(widget.config, {
                     templateKey,
                     widgetKey: widget.widgetKey,
@@ -287,6 +300,7 @@ const normalizeSnapshotLayoutConfig = (
             }
         }
     }
+    parseApplicationLayoutConfig(resolvedTemplateKey, decoded.rendererConfig)
     return encodeLayoutConfigEnvelope(
         { rendererConfig: decoded.rendererConfig, neutral },
         { templateKey: resolvedTemplateKey, omitSourceZoneSettings: true }
@@ -338,7 +352,6 @@ const collectPlayCanvasRuntimeManifestReferences = (snapshot: MetahubSnapshot): 
         }
     }
 
-    collectRuntimeManifestReferences(refs, snapshot.layoutConfig)
     for (const layout of snapshot.layouts ?? []) {
         collectRuntimeManifestReferences(refs, layout.config)
     }
@@ -445,9 +458,6 @@ export function alignPlayCanvasRuntimeManifestBindings(snapshot: MetahubSnapshot
         manifestsByProject.set(manifest.projectId, manifestsByProject.has(manifest.projectId) ? null : summary)
     }
 
-    snapshot.layoutConfig = alignRuntimeManifestReferences(snapshot.layoutConfig, manifestsByProjectScene, manifestsByProject) as
-        | Record<string, unknown>
-        | undefined
     snapshot.layouts = snapshot.layouts?.map((layout) => ({
         ...layout,
         config: alignRuntimeManifestReferences(layout.config, manifestsByProjectScene, manifestsByProject) as Record<string, unknown>
@@ -599,8 +609,6 @@ const attachLayoutsToSnapshotInTransaction = async (options: {
         compositionMode: decodedComposition.mode
     }))
     snapshot.defaultLayoutId = defaultLayout?.id ?? null
-    snapshot.layoutConfig = defaultLayout?.config ?? {}
-
     const hasTableRows = await executor.query<{ exists: boolean }>(
         `SELECT EXISTS (
           SELECT 1 FROM information_schema.tables
@@ -650,6 +658,7 @@ const attachLayoutsToSnapshotInTransaction = async (options: {
             const widgetKey = readStoredString(row.widget_key, 'widget key')
             const zone = readStoredString(row.zone, 'widget zone')
             const instanceKey = readStoredString(row.instance_key, 'widget instance key')
+            const isActive = readStoredBoolean(row.is_active, 'widget active state')
             return {
                 id: readStoredString(row.id, 'widget id'),
                 layoutId: layout.id,
@@ -665,9 +674,9 @@ const attachLayoutsToSnapshotInTransaction = async (options: {
                     widgetKey,
                     zone,
                     instanceKey,
-                    resolveSnapshotWidgetBindingRequirement(widgetConfig, layout.templateKey, widgetKey, zone)
+                    resolveSnapshotWidgetBindingRequirement(widgetConfig, layout.templateKey, widgetKey, zone, isActive)
                 ),
-                isActive: readStoredBoolean(row.is_active, 'widget active state')
+                isActive
             }
         })
     } else {

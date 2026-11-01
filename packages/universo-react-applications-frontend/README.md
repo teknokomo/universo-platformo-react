@@ -22,6 +22,7 @@ Frontend application for managing applications and connectors in the Universo Pl
 -   **Role-Based Access**: User roles and permissions for application access control
 -   **Context-Aware Navigation**: Application-aware routing with breadcrumbs and sidebar preservation
 -   **Mutable Visibility**: Application owners/admins can switch applications between closed and public after creation
+-   **Public Catalog Visibility**: `showInAppList` controls discovery in the public application catalog independently from `isPublic`; a privileged `Unlisted` badge marks public Applications hidden from discovery.
 -   **Public Discovery + Join**: Public applications are visible to regular users and support explicit join / leave flows
 -   **Anonymous Published Runtime**: Public, ready applications can render through a credential-free UUID or alias URL without exposing control-plane APIs
 -   **Application Addresses**: Superusers and users with the assignable `applicationAliases` capability can manage multiple deployment-wide aliases, primary routing, and direct/canonical behavior
@@ -37,6 +38,7 @@ Frontend application for managing applications and connectors in the Universo Pl
 ### 🧩 Layouts
 
 -   **Application Layouts**: Application admins can customize metahub-published layouts and create application-owned layouts.
+-   **Messenger App Layouts**: `messenger-app` layouts use the registered `top`, `center`, and `bottom` zones and share the existing effective-layout authoring flow.
 -   **Entity Scopes**: Global layouts and entity-scoped layouts share one authoring model, so Home-only widgets can stay scoped to a Page while other runtime sections use the global shell.
 -   **Source Awareness**: Layout cards show whether a layout came from a metahub publication or from the application.
 -   **Runtime-Safe Toggles**: Inactive layouts and widgets remain editable but are excluded from runtime rendering.
@@ -52,7 +54,7 @@ Frontend application for managing applications and connectors in the Universo Pl
 -   **Table & Grid Views**: Flexible data presentation with pagination and search
 -   **Dialog Forms**: Modal forms for creating and editing entities
 -   **Tabbed Application Forms**: Create, edit, and copy dialogs reuse the shared `General / Parameters` pattern
--   **Settings Surface**: Applications with runtime schema expose `General` and `Limits` settings tabs, plus feature-specific tabs derived from active materialized layout widgets. Interpretation Network Structure/Matrix settings are saved to the `interpretationNetworkWorkspace` widget config; LMS Learning Content is not shown or saved for unrelated configurations.
+-   **Settings Surface**: Applications with runtime schema expose `General` and `Limits` settings tabs, plus feature-specific tabs derived from active materialized layout widgets. The General tab separates public runtime access from catalog discovery. The `Bots and connections` tab manages Messenger bot bindings with optimistic versions. Interpretation Network Structure/Matrix settings are saved to the `interpretationNetworkWorkspace` widget config; LMS Learning Content is not shown or saved for unrelated configurations.
 -   **Addresses Tab**: The application editor reuses the standard tab/dialog/table primitives for the immutable UUID address and alias lifecycle actions. The central Instance addresses page uses the same API with localized application selection.
 -   **Layout Widget Customization**: Supported materialized widgets can be customized from the Application Layouts screen with typed editors and an inherited/customized status label instead of raw JSON.
 
@@ -178,7 +180,27 @@ POST   /api/v1/applications/:id/join           # Join a public application
 POST   /api/v1/applications/:id/leave          # Leave an application and archive personal workspace
 GET    /api/v1/applications/:id/settings/limits # Read workspace object limits
 PUT    /api/v1/applications/:id/settings/limits # Update workspace object limits
+GET    /api/v1/applications/:id/bot-bindings    # List manager-visible Messenger bot bindings
+POST   /api/v1/applications/:id/bot-bindings    # Create a draft Messenger bot binding
+PATCH  /api/v1/applications/:id/bot-bindings/:bindingId # Update a binding with expectedVersion
+DELETE /api/v1/applications/:id/bot-bindings/:bindingId # Irreversibly release with expectedVersion
 ```
+
+Application owners and admins can manage Telegram and MAX bot usernames, display
+names, and draft/enabled/disabled status. PATCH and DELETE send the current
+positive `expectedVersion`; successful mutations await binding-query invalidation.
+Management responses expose only the binding identity, platform, normalized
+username, display name, server-issued launch `shortId`, status, version, and
+timestamps. Bot tokens, webhook secrets, and messenger user identity are not
+accepted or displayed.
+
+The settings surface keeps the public web URL separate from the generated bot
+launch URL. It builds launch links from the saved normalized username and the
+server-issued `shortId`; the adjacent instructions explain where to configure
+the canonical public URL manually. The interface does not claim that an external
+bot has been configured or verified. `showInAppList=false` hides a public
+Application from catalog discovery only; it does not disable direct public
+runtime access. Closed Applications cannot be listed in the public catalog.
 
 ### Connectors
 

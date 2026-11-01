@@ -2,7 +2,7 @@ import {
     decodeLayoutConfigEnvelope,
     encodeLayoutConfigEnvelope,
     getLayoutZoneSettingDefault,
-    marketingPageConfigSchema,
+    parseApplicationLayoutConfig,
     type ApplicationTemplateKey
 } from '@universo-react/types'
 import { localizedContent } from '@universo-react/utils'
@@ -117,19 +117,18 @@ const validateSourceComposition = (
 }
 
 const prepareRendererConfig = (rendererConfig: Record<string, unknown>, templateKey: ApplicationTemplateKey): Record<string, unknown> => {
-    if (templateKey !== 'dashboard') {
-        if (!marketingPageConfigSchema.safeParse(rendererConfig).success) {
-            throw new MetahubDomainError({
-                message: 'Marketing layout configuration is invalid',
-                statusCode: 409,
-                code: 'VALIDATION_ERROR',
-                details: copyOperationDetails
-            })
-        }
-        return rendererConfig
+    try {
+        return parseApplicationLayoutConfig(templateKey, rendererConfig)
+    } catch {
+        const templateLabel =
+            templateKey === 'marketing-page' ? 'Marketing' : templateKey === 'messenger-app' ? 'Messenger App' : 'Dashboard'
+        throw new MetahubDomainError({
+            message: `${templateLabel} layout configuration is invalid`,
+            statusCode: 409,
+            code: 'VALIDATION_ERROR',
+            details: copyOperationDetails
+        })
     }
-
-    return rendererConfig
 }
 
 const prepareNeutralMetadata = (
@@ -138,7 +137,7 @@ const prepareNeutralMetadata = (
     skipDefaultZoneWidgetSeed: boolean
 ) => {
     const copiedNeutral = { ...neutral }
-    if (ownership.templateKey === 'dashboard' && skipDefaultZoneWidgetSeed) {
+    if ((ownership.templateKey === 'dashboard' || ownership.templateKey === 'messenger-app') && skipDefaultZoneWidgetSeed) {
         copiedNeutral.skipDefaultZoneWidgetSeed = true
     }
     if (ownership.isOverlayLayout && ownership.baseLayoutId) {

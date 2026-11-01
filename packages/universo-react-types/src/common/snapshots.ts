@@ -72,10 +72,18 @@ export const MetahubSnapshotTransportEnvelopeSchema = z.object({
             layoutZoneWidgets: z.array(z.unknown()).optional(),
             layoutWidgetOverrides: z.array(z.unknown()).optional(),
             defaultLayoutId: z.string().uuid().nullable().optional(),
-            layoutConfig: z.record(z.unknown()).optional(),
             settings: z.array(z.unknown()).optional()
         })
-        .passthrough(),
+        .passthrough()
+        .superRefine((snapshot, context) => {
+            if (Object.prototype.hasOwnProperty.call(snapshot, 'layoutConfig')) {
+                context.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['layoutConfig'],
+                    message: 'Snapshot layoutConfig is retired; use the selected layout config'
+                })
+            }
+        }),
     snapshotHash: z.string().min(64).max(64)
 })
 

@@ -8,6 +8,7 @@ import { validateListQuery } from '../schemas/queryParams'
 import { escapeLikeWildcards, getRequestDbExecutor, getRequestDbSession } from '../utils'
 import { ensureApplicationAccess, type ApplicationRole } from '../routes/guards'
 import { mergeApplicationGuestRuntimeConfig } from '../persistence/applicationsStore'
+import { acquireApplicationCopyMutationLock, withApplicationCopyMutationLock } from '../persistence/applicationCopyLocking'
 import {
     countConnectorPublicationLinks,
     deleteConnector,
@@ -244,6 +245,7 @@ export function createConnectorsController(getDbExecutor: () => DbExecutor) {
             }
 
             const saved = await getRequestDbExecutor(req, getDbExecutor()).transaction(async (trx) => {
+                await acquireApplicationCopyMutationLock(trx, applicationId)
                 const savedConnector = await insertConnector(trx, {
                     applicationId,
                     name: nameVlc,
@@ -343,19 +345,17 @@ export function createConnectorsController(getDbExecutor: () => DbExecutor) {
                 }
             }
 
-            const saved = await updateConnector(
-                {
-                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
-                },
-                {
+            const saved = await getRequestDbExecutor(req, getDbExecutor()).transaction(async (trx) => {
+                await acquireApplicationCopyMutationLock(trx, applicationId)
+                return updateConnector(trx, {
                     connectorId,
                     applicationId,
                     name: nextName,
                     description: nextDescription,
                     sortOrder,
                     userId
-                }
-            )
+                })
+            })
 
             if (!saved) {
                 return res.status(404).json({ error: 'Connector not found' })
@@ -389,6 +389,7 @@ export function createConnectorsController(getDbExecutor: () => DbExecutor) {
             }
 
             await transaction(req, async (executor) => {
+                await acquireApplicationCopyMutationLock(executor, applicationId)
                 await deleteConnector(executor, applicationId, connectorId, userId)
                 await touchApplicationSchemaSyncedIfUpdateAvailable(executor, applicationId, userId)
             })
@@ -486,6 +487,7 @@ export function createConnectorsController(getDbExecutor: () => DbExecutor) {
             }
 
             const link = await getRequestDbExecutor(req, getDbExecutor()).transaction(async (trx) => {
+                await acquireApplicationCopyMutationLock(trx, applicationId)
                 const createdLink = await insertConnectorPublicationLink(trx, {
                     connectorId,
                     publicationId,
@@ -540,10 +542,16 @@ export function createConnectorsController(getDbExecutor: () => DbExecutor) {
                 }
             }
 
-            await transaction(req, async (executor) => {
-                await deleteConnectorPublicationLink(executor, connectorId, linkId, userId)
-                await touchApplicationSchemaSyncedIfUpdateAvailable(executor, applicationId, userId)
-            })
+            const deleted = await transaction(req, (executor) =>
+                withApplicationCopyMutationLock(executor, applicationId, async () => {
+                    const removed = await deleteConnectorPublicationLink(executor, connectorId, linkId, userId)
+                    if (!removed) return false
+                    await touchApplicationSchemaSyncedIfUpdateAvailable(executor, applicationId, userId)
+                    return true
+                })
+            )
+
+            if (!deleted) return res.status(404).json({ error: 'Link not found' })
 
             return res.status(204).send()
         }

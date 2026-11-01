@@ -239,9 +239,12 @@ describe('applicationSyncRoutes', () => {
         res.status(statusCode).json({ error: err.message || 'Internal Server Error' })
     }
 
+    const schemaOptionsTransactionExecutor = {
+        query: jest.fn(async (_sql: string, _parameters?: unknown[]): Promise<unknown[]> => [])
+    }
     const exec = {
         query: jest.fn(async (_sql: string, _params?: unknown[]): Promise<unknown[]> => []),
-        transaction: jest.fn(async (callback: (executor: unknown) => Promise<unknown>) => callback({})),
+        transaction: jest.fn(async (callback: (executor: unknown) => Promise<unknown>) => callback(schemaOptionsTransactionExecutor)),
         isReleased: jest.fn(() => false),
         schema: {
             withSchema: jest.fn(() => ({
@@ -410,6 +413,8 @@ describe('applicationSyncRoutes', () => {
         mockedCreateDDLServices.mockReset()
         exec.query.mockReset()
         exec.query.mockResolvedValue([])
+        schemaOptionsTransactionExecutor.query.mockReset()
+        schemaOptionsTransactionExecutor.query.mockResolvedValue([])
         mockSchemaHasTable.mockReset()
         mockSchemaHasTable.mockResolvedValue(false)
         mockedCalculateSchemaDiff.mockClear()
@@ -618,7 +623,11 @@ describe('applicationSyncRoutes', () => {
             })
             .expect(200)
 
-        expect(mockUpdateConnectorPublicationSchemaOptions).toHaveBeenCalledWith(exec, {
+        expect(schemaOptionsTransactionExecutor.query).toHaveBeenCalledWith(
+            'SELECT pg_advisory_xact_lock_shared(hashtextextended($1::text, 0))',
+            ['application-copy:application-1']
+        )
+        expect(mockUpdateConnectorPublicationSchemaOptions).toHaveBeenCalledWith(schemaOptionsTransactionExecutor, {
             connectorId: 'connector-1',
             linkId: 'link-1',
             schemaOptions: expect.objectContaining({

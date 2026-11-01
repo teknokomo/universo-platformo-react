@@ -1,5 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
+import { DndContext } from '@dnd-kit/core'
 import { createInstance } from 'i18next'
+import type { ComponentProps } from 'react'
 import type { TFunction } from 'i18next'
 import { describe, expect, it, vi } from 'vitest'
 import { DASHBOARD_LAYOUT_ZONES, getLayoutWidgetDefinition } from '@universo-react/types'
@@ -52,6 +54,7 @@ const translate = ((key: string, options?: { number?: number; slot?: string; def
     if (key === 'nesting.duplicateSubtree') return 'Duplicate section and its content'
     if (key === 'nesting.moveUp') return 'Move up'
     if (key === 'nesting.moveDown') return 'Move down'
+    if (key === 'nesting.dragHandle') return 'Move nested content'
     return options?.defaultValue ?? key
 }) as unknown as TFunction
 
@@ -64,6 +67,13 @@ const rowFor = (placement: MetahubLayoutZoneWidget, overrides: Record<string, un
         moveActions: [],
         ...overrides
     } as DashboardNestedPlacementRow['row'])
+
+const renderNestedPlacements = (props: ComponentProps<typeof DashboardNestedPlacements>) =>
+    render(
+        <DndContext>
+            <DashboardNestedPlacements {...props} />
+        </DndContext>
+    )
 
 const createProps = (
     placements: MetahubLayoutZoneWidget[],
@@ -134,7 +144,7 @@ describe('DashboardNestedPlacements', () => {
             expect(translate('nesting.cancel')).toBe(cancelLabel)
 
             const props = createProps([makePlacement()], [], locale, translate)
-            render(<DashboardNestedPlacements {...props} />)
+            renderNestedPlacements(props)
 
             expect(screen.getByRole('region', { name: childrenLabel })).toBeInTheDocument()
             expect(screen.getByRole('heading', { name: childrenLabel })).toBeInTheDocument()
@@ -147,7 +157,7 @@ describe('DashboardNestedPlacements', () => {
     it('shows localized slot labels and adds a registry-compatible child with semantic parentage', async () => {
         const container = makePlacement()
         const props = createProps([container], [])
-        render(<DashboardNestedPlacements {...props} />)
+        renderNestedPlacements(props)
 
         expect(screen.getByText('Column 1')).toBeInTheDocument()
         expect(screen.queryByText('column:main')).not.toBeInTheDocument()
@@ -159,6 +169,59 @@ describe('DashboardNestedPlacements', () => {
             parentInstanceKey: container.instanceKey,
             slotKey: 'column:main'
         })
+    })
+
+    it('round-trips Messenger child placement through its semantic parent and slot', async () => {
+        const messengerLayout: MetahubLayout = { ...layout, templateKey: 'messenger-app' }
+        const container = makePlacement({
+            id: 'messenger-container-id',
+            layoutId: messengerLayout.id,
+            instanceKey: 'messenger-container-instance'
+        })
+        const childDefinition = getLayoutWidgetDefinition('detailsTitle')
+        if (!childDefinition) throw new Error('Messenger child widget metadata is missing')
+
+        const props = {
+            ...createProps([container], []),
+            layout: messengerLayout,
+            widgetLabelByKey: { detailsTitle: 'Details title' },
+            getWidgetChipLabel: (placement: MetahubLayoutZoneWidget) =>
+                placement.widgetKey === 'columnsContainer' ? 'Columns' : 'Details title',
+            getAvailableWidgetsForZone: () => [childDefinition]
+        }
+        const view = renderNestedPlacements(props)
+
+        fireEvent.click(screen.getByRole('button', { name: 'Add content: Columns · Column 1' }))
+        fireEvent.click(await screen.findByRole('menuitem', { name: 'Details title' }))
+
+        expect(props.onAddWidget).toHaveBeenCalledWith('center', 'detailsTitle', {
+            parentInstanceKey: container.instanceKey,
+            slotKey: 'column:main'
+        })
+
+        const persistedChild = makePlacement({
+            id: 'messenger-child-id',
+            layoutId: messengerLayout.id,
+            widgetKey: 'detailsTitle',
+            instanceKey: 'messenger-child-instance',
+            parentInstanceKey: container.instanceKey,
+            slotKey: 'column:main',
+            sortOrder: 1,
+            config: { align: 'left', level: 'h2' }
+        })
+        view.rerender(
+            <DndContext>
+                <DashboardNestedPlacements
+                    {...props}
+                    placements={[container, persistedChild]}
+                    nestedPlacements={[{ placement: persistedChild, row: rowFor(persistedChild, { label: 'Details title' }) }]}
+                />
+            </DndContext>
+        )
+
+        expect(screen.getByText('Details title')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Move nested content: Details title' })).toBeInTheDocument()
+        expect(screen.queryByText('column:main')).not.toBeInTheDocument()
     })
 
     it('moves a nested sibling by its slot index and reports complete descendant counts', () => {
@@ -198,7 +261,7 @@ describe('DashboardNestedPlacements', () => {
                 { placement: grandchild, row: rowFor(grandchild) }
             ]
         )
-        render(<DashboardNestedPlacements {...props} />)
+        renderNestedPlacements(props)
 
         fireEvent.click(screen.getAllByRole('button', { name: 'Move down' })[0])
 

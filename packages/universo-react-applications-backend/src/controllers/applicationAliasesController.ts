@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { applicationAliasRoutingModeSchema, readLocalizedTextValue } from '@universo-react/types'
 import { getRequestDbExecutor, isUuidV7, type DbExecutor } from '@universo-react/utils'
 import { hasSubjectPermission, isSuperuser } from '@universo-react/admin-backend'
+import { getApplicationMembership } from '../routes/guards'
 import { resolveUserId } from '../shared/runtimeHelpers'
 import { listApplicationAliasApplicationOptions } from '../persistence/applicationAliasesStore'
 import { ApplicationAliasServiceError, createApplicationAliasesService } from '../services/applicationAliases'
@@ -60,7 +61,7 @@ export function createApplicationAliasesController(
     getDbExecutor: () => DbExecutor,
     getRequestScopedDbExecutor: (req: Request) => DbExecutor = (req) => getRequestDbExecutor(req, getDbExecutor())
 ) {
-    const authorize = async (req: Request, res: Response, action: ApplicationAliasPermissionAction) => {
+    const authorize = async (req: Request, res: Response, action: ApplicationAliasPermissionAction, applicationId?: string) => {
         const userId = resolveUserId(req)
         if (!userId) {
             res.status(401).json({ error: 'Unauthorized' })
@@ -69,7 +70,11 @@ export function createApplicationAliasesController(
 
         const executor = getRequestScopedDbExecutor(req)
         const superuser = await isSuperuser(executor, userId)
-        const allowed = superuser || (await hasSubjectPermission(executor, userId, 'applicationAliases', action))
+        const globalPermission = superuser || (await hasSubjectPermission(executor, userId, 'applicationAliases', action))
+        const membership =
+            !globalPermission && action === 'read' && applicationId ? await getApplicationMembership(executor, userId, applicationId) : null
+        const scopedReadPermission = membership?.role === 'owner' || membership?.role === 'admin'
+        const allowed = globalPermission || scopedReadPermission
         if (!allowed) {
             res.status(403).json({ error: 'Access denied' })
             return null
@@ -183,12 +188,15 @@ export function createApplicationAliasesController(
         },
 
         async listByApplication(req: Request, res: Response) {
-            const ctx = await authorize(req, res, 'read')
+            const applicationId = req.params.applicationId
+            if (!isUuidV7(applicationId)) return res.status(400).json({ error: 'Invalid application id' })
+
+            const ctx = await authorize(req, res, 'read', applicationId)
             if (!ctx) return
             const locale = aliasListLocaleSchema.safeParse(req.query.locale)
             try {
                 return res.json({
-                    items: await ctx.service.listByApplication(req.params.applicationId, locale.success ? locale.data : undefined)
+                    items: await ctx.service.listByApplication(applicationId, locale.success ? locale.data : undefined)
                 })
             } catch (error) {
                 if (handleServiceError(res, error)) return

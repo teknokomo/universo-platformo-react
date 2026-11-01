@@ -76,63 +76,68 @@ export function hasDeclaredSlot(parent: RuntimePlacement, slotKey: string | null
     return getDeclaredSlot(parent, slotKey) !== undefined
 }
 
-export const runtimePlacementGraphSchema = z
-    .array(runtimePlacementSchema)
-    .max(512)
-    .superRefine((placements, context) => {
-        const byInstanceKey = new Map<string, number>()
-        placements.forEach((placement, index) => {
-            if (byInstanceKey.has(placement.instanceKey)) {
-                context.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    path: [index, 'instanceKey'],
-                    message: 'Placement instance keys must be unique.'
-                })
-            }
-            byInstanceKey.set(placement.instanceKey, index)
-        })
+/** Build the shared placement-graph validator with an explicit expansion budget. */
+export const createRuntimePlacementGraphSchema = (maxPlacements = 512) =>
+    z
+        .array(runtimePlacementSchema)
+        .max(maxPlacements)
+        .superRefine((placements, context) => {
+            const byInstanceKey = new Map<string, number>()
+            placements.forEach((placement, index) => {
+                if (byInstanceKey.has(placement.instanceKey)) {
+                    context.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: [index, 'instanceKey'],
+                        message: 'Placement instance keys must be unique.'
+                    })
+                }
+                byInstanceKey.set(placement.instanceKey, index)
+            })
 
-        placements.forEach((placement, index) => {
-            if (placement.parentInstanceKey === null) return
-            const parentIndex = byInstanceKey.get(placement.parentInstanceKey)
-            if (parentIndex === undefined) {
-                context.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    path: [index, 'parentInstanceKey'],
-                    message: 'Placement parent is unavailable.'
-                })
-                return
-            }
-            const parent = placements[parentIndex]
-            const childDefinition = widgetDefinition(placement.widgetKey)
-            const declaredSlot = getDeclaredSlot(parent, placement.slotKey)
-            const compatible = (childDefinition?.capabilities ?? []).some((capability) =>
-                declaredSlot?.allowedChildCapabilities.includes(capability)
-            )
-            if (parent.zone !== placement.zone || !compatible || !declaredSlot) {
-                context.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    path: [index, 'parentInstanceKey'],
-                    message: 'Placement parent or slot is incompatible.'
-                })
-            }
-
-            const visited = new Set([placement.instanceKey])
-            let current: RuntimePlacement | undefined = parent
-            while (current) {
-                if (visited.has(current.instanceKey)) {
+            placements.forEach((placement, index) => {
+                if (placement.parentInstanceKey === null) return
+                const parentIndex = byInstanceKey.get(placement.parentInstanceKey)
+                if (parentIndex === undefined) {
                     context.addIssue({
                         code: z.ZodIssueCode.custom,
                         path: [index, 'parentInstanceKey'],
-                        message: 'Placement graph cannot contain cycles.'
+                        message: 'Placement parent is unavailable.'
                     })
-                    break
+                    return
                 }
-                visited.add(current.instanceKey)
-                current = current.parentInstanceKey === null ? undefined : placements[byInstanceKey.get(current.parentInstanceKey) ?? -1]
-            }
+                const parent = placements[parentIndex]
+                const childDefinition = widgetDefinition(placement.widgetKey)
+                const declaredSlot = getDeclaredSlot(parent, placement.slotKey)
+                const compatible = (childDefinition?.capabilities ?? []).some((capability) =>
+                    declaredSlot?.allowedChildCapabilities.includes(capability)
+                )
+                if (parent.zone !== placement.zone || !compatible || !declaredSlot) {
+                    context.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: [index, 'parentInstanceKey'],
+                        message: 'Placement parent or slot is incompatible.'
+                    })
+                }
+
+                const visited = new Set([placement.instanceKey])
+                let current: RuntimePlacement | undefined = parent
+                while (current) {
+                    if (visited.has(current.instanceKey)) {
+                        context.addIssue({
+                            code: z.ZodIssueCode.custom,
+                            path: [index, 'parentInstanceKey'],
+                            message: 'Placement graph cannot contain cycles.'
+                        })
+                        break
+                    }
+                    visited.add(current.instanceKey)
+                    current =
+                        current.parentInstanceKey === null ? undefined : placements[byInstanceKey.get(current.parentInstanceKey) ?? -1]
+                }
+            })
         })
-    })
+
+export const runtimePlacementGraphSchema = createRuntimePlacementGraphSchema()
 
 export function childrenForSlot(graph: readonly RuntimePlacement[], parentInstanceKey: string, slotKey: string): RuntimePlacement[] {
     return graph

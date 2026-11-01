@@ -6,20 +6,16 @@ jest.mock('../../persistence/applicationAliasesStore', () => {
     const actual = jest.requireActual('../../persistence/applicationAliasesStore')
     return {
         ...actual,
-        clearOtherPrimaryApplicationAliases: jest.fn(),
         createApplicationAliasAtomically: jest.fn(),
-        findApplicationAliasById: jest.fn(),
-        findApplicationAliasByIdForUpdate: jest.fn(),
+        ensureCanonicalApplicationAliasPrimary: jest.fn(),
+        findApplicationAliasForManagement: jest.fn(),
         getApplicationAliasPolicy: jest.fn(),
         getApplicationAliasPolicyForUpdate: jest.fn(),
-        listActiveApplicationAliasesForUpdate: jest.fn(),
         listApplicationAliases: jest.fn(),
         listApplicationAliasesByApplication: jest.fn(),
         lockApplicationAliasTransitions: jest.fn(),
-        releaseApplicationAlias: jest.fn(),
-        setApplicationAliasPrimary: jest.fn(),
-        updateApplicationAliasPolicy: jest.fn(),
-        updateApplicationAliasValue: jest.fn()
+        mutateApplicationAlias: jest.fn(),
+        updateApplicationAliasPolicy: jest.fn()
     }
 })
 
@@ -28,7 +24,6 @@ const mockedStore = jest.mocked(aliasStore)
 describe('applicationAliases service', () => {
     const applicationId = '019ccefc-2f7b-7b36-82f4-85cdb1312268'
     const aliasId = '019ccefc-2f7b-7b36-82f4-85cdb1312269'
-    const secondAliasId = '019ccefc-2f7b-7b36-82f4-85cdb1312270'
     const userId = '019ccefc-2f7b-7b36-82f4-85cdb1312271'
     const timestamp = new Date('2026-09-15T10:00:00.000Z')
 
@@ -52,7 +47,6 @@ describe('applicationAliases service', () => {
         const inserted = aliasRow({ isPrimary: true })
         mockedStore.getApplicationAliasPolicyForUpdate.mockResolvedValue({ applicationId, routingMode: 'canonical' })
         mockedStore.createApplicationAliasAtomically.mockResolvedValue(inserted)
-        mockedStore.findApplicationAliasByIdForUpdate.mockResolvedValue(inserted)
 
         const service = createApplicationAliasesService(executor)
         const result = await service.create({ applicationId, alias: '  Meridian-73  ', userId })
@@ -64,6 +58,7 @@ describe('applicationAliases service', () => {
             makePrimary: false,
             userId
         })
+        expect(mockedStore.findApplicationAliasForManagement).not.toHaveBeenCalled()
         expect(result).toMatchObject({ alias: 'meridian-73', isPrimary: true, routingMode: 'canonical' })
     })
 
@@ -82,37 +77,54 @@ describe('applicationAliases service', () => {
         >({ code: 'APPLICATION_ALIAS_CONFLICT', statusCode: 409 })
     })
 
-    it('releases a primary alias and deterministically promotes the remaining canonical alias in the same transaction', async () => {
+    it('uses the returned camelCase application identity when renaming an alias', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+        const current = aliasRow()
+        const updated = aliasRow({ alias: 'meridian-renamed' })
+        mockedStore.findApplicationAliasForManagement.mockResolvedValue(current)
+        mockedStore.mutateApplicationAlias.mockResolvedValue(updated)
+        mockedStore.getApplicationAliasPolicyForUpdate.mockResolvedValue({ applicationId, routingMode: 'canonical' })
+
+        const service = createApplicationAliasesService(executor)
+        const result = await service.rename(aliasId, 'meridian-renamed', userId)
+
+        expect(mockedStore.findApplicationAliasForManagement).toHaveBeenCalledWith(txExecutor, aliasId, userId, 'update')
+        expect(mockedStore.mutateApplicationAlias).toHaveBeenCalledWith(txExecutor, {
+            aliasId,
+            alias: 'meridian-renamed',
+            operation: 'rename',
+            userId
+        })
+        expect(mockedStore.getApplicationAliasPolicyForUpdate).toHaveBeenCalledWith(txExecutor, applicationId, true)
+        expect(result).toMatchObject({ applicationId, alias: 'meridian-renamed', routingMode: 'canonical' })
+    })
+
+    it('releases an alias through the guarded mutation that repairs canonical primary selection', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
         const current = aliasRow({ isPrimary: true })
         const released = aliasRow({ isPrimary: false, releasedAt: new Date('2026-09-15T11:00:00.000Z') })
-        const remaining = aliasRow({ id: secondAliasId, alias: 'om73', isPrimary: false })
-        const promoted = { ...remaining, isPrimary: true }
 
-        mockedStore.findApplicationAliasById.mockResolvedValue(current)
-        mockedStore.findApplicationAliasByIdForUpdate.mockResolvedValue(current)
-        mockedStore.getApplicationAliasPolicyForUpdate.mockResolvedValue({ applicationId, routingMode: 'canonical' })
-        mockedStore.releaseApplicationAlias.mockResolvedValue(released)
-        mockedStore.listActiveApplicationAliasesForUpdate.mockResolvedValue([remaining])
-        mockedStore.clearOtherPrimaryApplicationAliases.mockResolvedValue([])
-        mockedStore.setApplicationAliasPrimary.mockResolvedValue(promoted)
+        mockedStore.findApplicationAliasForManagement.mockResolvedValue(current)
+        mockedStore.mutateApplicationAlias.mockResolvedValueOnce(released)
 
         const service = createApplicationAliasesService(executor)
         await service.release(aliasId, userId)
 
-        expect(mockedStore.lockApplicationAliasTransitions).toHaveBeenCalledWith(txExecutor, applicationId)
-        expect(mockedStore.releaseApplicationAlias).toHaveBeenCalledWith(txExecutor, aliasId, userId)
-        expect(mockedStore.setApplicationAliasPrimary).toHaveBeenCalledWith(txExecutor, applicationId, secondAliasId, userId)
+        expect(mockedStore.findApplicationAliasForManagement).toHaveBeenCalledWith(txExecutor, aliasId, userId, 'delete')
+        expect(mockedStore.mutateApplicationAlias).toHaveBeenCalledWith(txExecutor, {
+            aliasId,
+            operation: 'release',
+            userId
+        })
+        expect(mockedStore.getApplicationAliasPolicyForUpdate).not.toHaveBeenCalled()
+        expect(mockedStore.ensureCanonicalApplicationAliasPrimary).not.toHaveBeenCalled()
     })
 
     it('establishes exactly one primary when switching a populated application to canonical routing', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
-        const onlyAlias = aliasRow({ isPrimary: false })
         mockedStore.getApplicationAliasPolicyForUpdate.mockResolvedValue({ applicationId, routingMode: 'direct' })
         mockedStore.updateApplicationAliasPolicy.mockResolvedValue({ applicationId, routingMode: 'canonical' })
-        mockedStore.listActiveApplicationAliasesForUpdate.mockResolvedValue([onlyAlias])
-        mockedStore.clearOtherPrimaryApplicationAliases.mockResolvedValue([])
-        mockedStore.setApplicationAliasPrimary.mockResolvedValue({ ...onlyAlias, isPrimary: true })
+        mockedStore.ensureCanonicalApplicationAliasPrimary.mockResolvedValue(undefined)
 
         const service = createApplicationAliasesService(executor)
         await expect(service.updatePolicy(applicationId, 'canonical', userId)).resolves.toEqual({
@@ -121,7 +133,7 @@ describe('applicationAliases service', () => {
         })
 
         expect(mockedStore.lockApplicationAliasTransitions).toHaveBeenCalledWith(txExecutor, applicationId)
-        expect(mockedStore.setApplicationAliasPrimary).toHaveBeenCalledWith(txExecutor, applicationId, aliasId, userId)
+        expect(mockedStore.ensureCanonicalApplicationAliasPrimary).toHaveBeenCalledWith(txExecutor, applicationId, userId)
     })
 
     it('rejects non-v7 application identifiers before touching persistence', async () => {

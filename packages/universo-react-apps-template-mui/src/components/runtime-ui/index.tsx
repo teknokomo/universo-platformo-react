@@ -52,6 +52,7 @@ export interface ItemCardProps<T extends ItemCardData = ItemCardData> {
     onClick?: () => void
     href?: string
     allowStretch?: boolean
+    contentDisplayMode?: 'preview' | 'full'
     footerStartContent?: ReactNode
     footerEndContent?: ReactNode
     titleEndContent?: ReactNode
@@ -125,6 +126,7 @@ export function ItemCard<T extends ItemCardData = ItemCardData>({
     onClick,
     href,
     allowStretch = false,
+    contentDisplayMode = 'preview',
     footerStartContent,
     footerEndContent,
     titleEndContent,
@@ -134,6 +136,7 @@ export function ItemCard<T extends ItemCardData = ItemCardData>({
     const locale = i18n.language || 'en'
     const title = readSafeItemCardTitle(data, locale, t('runtime.card.untitled', 'Untitled item'))
     const description = formatRuntimeSafeValue(data.description, locale)
+    const showsFullContent = contentDisplayMode === 'full'
     const hasInlineActions = Boolean(headerAction || footerEndContent)
     const handleInteractiveCardKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
         if (event.target !== event.currentTarget) return
@@ -145,14 +148,16 @@ export function ItemCard<T extends ItemCardData = ItemCardData>({
     const content = (
         <Card
             variant='outlined'
+            data-testid='runtime-item-card'
             role={onClick && hasInlineActions ? 'button' : undefined}
             tabIndex={onClick && hasInlineActions ? 0 : undefined}
             onClick={onClick && hasInlineActions ? onClick : undefined}
             onKeyDown={onClick && hasInlineActions ? handleInteractiveCardKeyDown : undefined}
             sx={{
-                height: 180,
+                height: showsFullContent ? 'auto' : 180,
+                ...(showsFullContent ? { minHeight: 180 } : {}),
                 width: '100%',
-                minWidth: 220,
+                minWidth: showsFullContent ? 0 : 220,
                 maxWidth: allowStretch ? '100%' : 360,
                 bgcolor: 'background.paper',
                 borderRadius: 1,
@@ -177,10 +182,20 @@ export function ItemCard<T extends ItemCardData = ItemCardData>({
                     : null)
             }}
         >
-            <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', gap: 1.5, minWidth: 0, position: 'relative' }}>
+            <Box
+                sx={{
+                    p: 2,
+                    height: showsFullContent ? 'auto' : '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 1.5,
+                    minWidth: 0,
+                    position: 'relative'
+                }}
+            >
                 <Stack direction='row' spacing={1} sx={{ minWidth: 0, alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                    <Box sx={{ minWidth: 0 }}>
-                        <Stack direction='row' spacing={0.75} sx={{ minWidth: 0, alignItems: 'center' }}>
+                    <Box sx={{ minWidth: 0, ...(showsFullContent ? { flex: 1 } : {}) }}>
+                        <Stack direction='row' spacing={0.75} sx={{ minWidth: 0, alignItems: 'flex-start' }}>
                             {data.color ? (
                                 <Box
                                     aria-hidden='true'
@@ -194,12 +209,21 @@ export function ItemCard<T extends ItemCardData = ItemCardData>({
                                 />
                             ) : null}
                             <Typography
+                                data-runtime-text-preview={showsFullContent ? undefined : 'true'}
                                 sx={{
+                                    flex: 1,
                                     fontSize: '1.25rem',
                                     fontWeight: 500,
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap'
+                                    minWidth: 0,
+                                    overflowWrap: 'anywhere',
+                                    ...(showsFullContent
+                                        ? { display: 'block', overflow: 'visible' }
+                                        : {
+                                              display: '-webkit-box',
+                                              WebkitBoxOrient: 'vertical',
+                                              WebkitLineClamp: 2,
+                                              overflow: 'hidden'
+                                          })
                                 }}
                             >
                                 {title}
@@ -208,15 +232,20 @@ export function ItemCard<T extends ItemCardData = ItemCardData>({
                         </Stack>
                         {description ? (
                             <Typography
+                                data-runtime-text-preview={showsFullContent ? undefined : 'true'}
                                 variant='body2'
                                 sx={{
                                     color: 'text.secondary',
                                     mt: 0.75,
                                     overflowWrap: 'anywhere',
-                                    display: '-webkit-box',
-                                    WebkitBoxOrient: 'vertical',
-                                    WebkitLineClamp: 3,
-                                    overflow: 'hidden'
+                                    ...(showsFullContent
+                                        ? { display: 'block', overflow: 'visible', whiteSpace: 'pre-line' }
+                                        : {
+                                              display: '-webkit-box',
+                                              WebkitBoxOrient: 'vertical',
+                                              WebkitLineClamp: 3,
+                                              overflow: 'hidden'
+                                          })
                                 }}
                             >
                                 {description}
@@ -224,7 +253,10 @@ export function ItemCard<T extends ItemCardData = ItemCardData>({
                         ) : null}
                     </Box>
                     {headerAction ? (
-                        <Box sx={{ position: 'absolute', top: 4, right: 4 }} onClick={(event) => event.stopPropagation()}>
+                        <Box
+                            sx={showsFullContent ? { alignSelf: 'flex-start', flexShrink: 0 } : { position: 'absolute', top: 4, right: 4 }}
+                            onClick={(event) => event.stopPropagation()}
+                        >
                             {headerAction}
                         </Box>
                     ) : null}
@@ -300,7 +332,9 @@ const StyledTableCell = styled(TableCell)(({ theme }) => ({
     },
     [`&.${tableCellClasses.body}`]: {
         fontSize: 14,
-        height: 64
+        height: 64,
+        overflowWrap: 'anywhere',
+        whiteSpace: 'normal'
     }
 }))
 

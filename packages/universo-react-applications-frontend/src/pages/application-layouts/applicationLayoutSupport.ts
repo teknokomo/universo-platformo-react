@@ -2,7 +2,6 @@ import type {
     ApplicationLayout,
     ApplicationLayoutWidget,
     ApplicationLayoutWidgetKey,
-    ApplicationTemplateKey,
     ApplicationLayoutZone,
     DashboardSideMenuConfig,
     LayoutLogicalPlacement,
@@ -10,13 +9,7 @@ import type {
     LayoutWidgetDefinition
 } from '@universo-react/types'
 import { serialization } from '@universo-react/utils'
-import {
-    DASHBOARD_LAYOUT_ZONES,
-    getLayoutWidgetDefinition,
-    getLayoutZoneSettingDefinition,
-    MARKETING_LAYOUT_ZONES,
-    MARKETING_WIDGET_REGISTRY
-} from '@universo-react/types'
+import { getLayoutWidgetDefinition, getLayoutZoneSettingDefinition, MARKETING_WIDGET_REGISTRY } from '@universo-react/types'
 import { normalizeSideMenuConfig } from '@universo-react/template-mui'
 
 const resolveLocalizedText = (value: unknown, locale: string, fallback: string): string => {
@@ -274,11 +267,6 @@ const isApplicationOwnedWidget = (layout: ApplicationLayout, widget: Application
 const hasWidgetProvenance = (layout: ApplicationLayout, widget: ApplicationLayoutWidget): boolean =>
     layout.sourceKind === 'metahub' || widget.isCustomized === true || widgetHasSourceLineage(widget)
 
-const LAYOUT_ZONES_BY_TEMPLATE: Readonly<Record<ApplicationTemplateKey, readonly ApplicationLayoutZone[]>> = {
-    dashboard: DASHBOARD_LAYOUT_ZONES,
-    'marketing-page': MARKETING_LAYOUT_ZONES
-}
-
 const isMarketingWidgetKey = (value: ApplicationLayoutWidgetKey): value is keyof typeof MARKETING_WIDGET_REGISTRY =>
     Object.prototype.hasOwnProperty.call(MARKETING_WIDGET_REGISTRY, value)
 
@@ -433,7 +421,6 @@ export {
     canResetSourcePresentation,
     isApplicationOwnedWidget,
     hasWidgetProvenance,
-    LAYOUT_ZONES_BY_TEMPLATE,
     isMarketingWidgetKey,
     readWidgetPlacement,
     getWidgetDropIndex,

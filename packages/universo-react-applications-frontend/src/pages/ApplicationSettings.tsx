@@ -6,7 +6,7 @@ import { RESOURCE_TYPES, collectUnsupportedActiveCapabilityRules, sanitizeApplic
 import type { ApplicationLearningContentSettings, ResourceType } from '@universo-react/types'
 import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
-import { extractAxiosError } from '@universo-react/utils'
+import { extractAxiosError, isOptimisticLockConflict } from '@universo-react/utils'
 import {
     TemplateMainCard as MainCard,
     ViewHeaderMUI as ViewHeader,
@@ -36,6 +36,7 @@ import { buildRolePoliciesFromMatrix, resolveRolePolicyMatrix } from './applicat
 import { MatrixSettingsPanel, type InterpretationNetworkMatrixSettings } from './application-settings/MatrixSettingsPanel'
 import { areInterpretationNetworkMatrixSettingsEqual } from './application-layouts/interpretationNetworkWidgetSettings'
 import { ContentSettingsPanel } from './application-settings/ContentSettingsPanel'
+import { MessengerBindingsPanel } from './application-settings/MessengerBindingsPanel'
 import { usePublicEntryWorkspaceSettings } from './application-settings/usePublicEntryWorkspaceSettings'
 import { useApplicationDetails } from '../api/useApplicationDetails'
 import { applicationsQueryKeys } from '../api/queryKeys'
@@ -52,7 +53,7 @@ import {
 import { DEFAULT_APPLICATION_DIALOG_SETTINGS, sanitizeApplicationDialogSettingsForSave } from '../settings/dialogSettings'
 import { toApplicationDisplay, type ApplicationDialogSettings, type ApplicationRole, type ApplicationWorkspaceLimitItem } from '../types'
 
-type SettingsTab = 'general' | 'matrix' | 'learningContent' | 'connectors' | 'access' | 'limits'
+type SettingsTab = 'general' | 'matrix' | 'learningContent' | 'connectors' | 'access' | 'limits' | 'messenger'
 type LayoutScopeFilter = string | null | undefined
 
 const loadLayoutsForScope = async (applicationId: string, scopeEntityId: LayoutScopeFilter): Promise<ApplicationLayout[]> => {
@@ -83,6 +84,7 @@ const ApplicationSettings = () => {
     const [activeTab, setActiveTab] = useState<SettingsTab>('general')
     const [generalChanges, setGeneralChanges] = useState<Partial<ApplicationDialogSettings>>({})
     const [visibilityChange, setVisibilityChange] = useState<boolean | undefined>(undefined)
+    const [catalogVisibilityChange, setCatalogVisibilityChange] = useState<boolean | undefined>(undefined)
     const [localLimits, setLocalLimits] = useState<Record<string, string>>({})
     const [matrixSettingsOverride, setMatrixSettingsOverride] = useState<InterpretationNetworkMatrixSettings | null>(null)
     const [lastMaterializedLayoutState, setLastMaterializedLayoutState] = useState<MaterializedApplicationLayoutState | undefined>(
@@ -342,6 +344,9 @@ const ApplicationSettings = () => {
     )
     const effectiveVisibility = visibilityChange ?? applicationQuery.data?.isPublic ?? false
     const hasVisibilityChange = visibilityChange !== undefined && visibilityChange !== applicationQuery.data?.isPublic
+    const effectiveCatalogVisibility = catalogVisibilityChange ?? applicationQuery.data?.showInAppList ?? true
+    const hasCatalogVisibilityChange =
+        catalogVisibilityChange !== undefined && catalogVisibilityChange !== (applicationQuery.data?.showInAppList ?? true)
     const rolePolicyMatrix = useMemo(
         () => resolveRolePolicyMatrix(effectiveGeneralSettings.rolePolicies),
         [effectiveGeneralSettings.rolePolicies]
@@ -438,11 +443,12 @@ const ApplicationSettings = () => {
 
     const saveGeneralMutation = useMutation({
         mutationKey: ['applications', 'settings', 'general', 'update'],
-        mutationFn: async (input: { settings: ApplicationDialogSettings; isPublic?: boolean }) => {
+        mutationFn: async (input: { settings: ApplicationDialogSettings; isPublic?: boolean; showInAppList?: boolean }) => {
             const settings = buildGeneralSettingsSavePayload(input.settings)
             const response = await updateApplication(applicationId!, {
                 settings,
                 ...(input.isPublic !== undefined ? { isPublic: input.isPublic } : {}),
+                ...(input.showInAppList !== undefined ? { showInAppList: input.showInAppList } : {}),
                 expectedVersion: applicationQuery.data?.version ?? 1
             })
             return response.data
@@ -456,7 +462,8 @@ const ApplicationSettings = () => {
                 queryClient.setQueryData(applicationsQueryKeys.detail(applicationId), {
                     ...previousApplication,
                     settings: buildGeneralSettingsSavePayload(input.settings),
-                    ...(input.isPublic !== undefined ? { isPublic: input.isPublic } : {})
+                    ...(input.isPublic !== undefined ? { isPublic: input.isPublic } : {}),
+                    ...(input.showInAppList !== undefined ? { showInAppList: input.showInAppList } : {})
                 })
             }
 
@@ -473,14 +480,23 @@ const ApplicationSettings = () => {
             enqueueSnackbar(t('settings.generalSaved', 'Application settings saved'), { variant: 'success' })
             setGeneralChanges({})
             setVisibilityChange(undefined)
+            setCatalogVisibilityChange(undefined)
         },
-        onError: (error: Error, _input, context) => {
+        onError: async (error: unknown, _input, context) => {
             if (applicationId && context?.previousApplication) {
                 queryClient.setQueryData(applicationsQueryKeys.detail(applicationId), context.previousApplication)
             }
-            enqueueSnackbar(error.message || t('settings.generalSaveError', 'Failed to save application settings'), {
-                variant: 'error'
-            })
+            if (applicationId && isOptimisticLockConflict(error)) {
+                await queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.detail(applicationId) })
+            }
+            enqueueSnackbar(
+                isOptimisticLockConflict(error)
+                    ? t('settings.generalSaveConflict', 'These settings changed elsewhere. Reload the latest values and try again.')
+                    : t('settings.generalSaveError', 'Failed to save application settings'),
+                {
+                    variant: 'error'
+                }
+            )
         }
     })
 
@@ -509,7 +525,7 @@ const ApplicationSettings = () => {
         return <Alert severity='error'>{t('settings.loadError', 'Failed to load application settings')}</Alert>
     }
 
-    const hasGeneralChanges = Object.keys(generalChanges).length > 0 || hasVisibilityChange
+    const hasGeneralChanges = Object.keys(generalChanges).length > 0 || hasVisibilityChange || hasCatalogVisibilityChange
 
     return (
         <MainCard disableHeader border={false} shadow={false} contentSX={{ px: 0, py: 0 }} disableContentPadding>
@@ -519,6 +535,9 @@ const ApplicationSettings = () => {
                 <Tabs
                     value={activeTab}
                     onChange={(_, value: SettingsTab) => setActiveTab(value)}
+                    variant='scrollable'
+                    scrollButtons='auto'
+                    allowScrollButtonsMobile
                     aria-label={t('settings.tabs.ariaLabel', 'Application settings sections')}
                 >
                     <Tab
@@ -552,6 +571,12 @@ const ApplicationSettings = () => {
                         label={t('settings.tabs.connectors', 'Connectors')}
                     />
                     <Tab
+                        value='messenger'
+                        id='application-settings-tab-messenger'
+                        aria-controls='application-settings-panel-messenger'
+                        label={t('settings.tabs.messenger', 'Bots and connections')}
+                    />
+                    <Tab
                         value='access'
                         id='application-settings-tab-access'
                         aria-controls='application-settings-panel-access'
@@ -581,6 +606,8 @@ const ApplicationSettings = () => {
                         t={t}
                         effectiveVisibility={effectiveVisibility}
                         currentVisibility={applicationQuery.data?.isPublic}
+                        effectiveCatalogVisibility={effectiveCatalogVisibility}
+                        currentCatalogVisibility={applicationQuery.data?.showInAppList ?? true}
                         workspacesEnabled={applicationQuery.data?.workspacesEnabled}
                         publicEntryWorkspaceSupported={supportsPublicEntryWorkspace}
                         publicEntryWorkspaceId={publicEntryWorkspace.workspaceId}
@@ -594,6 +621,7 @@ const ApplicationSettings = () => {
                         hasChanges={hasGeneralChanges}
                         isSaving={saveGeneralMutation.isPending}
                         onVisibilityChange={setVisibilityChange}
+                        onCatalogVisibilityChange={setCatalogVisibilityChange}
                         onPublicEntryWorkspaceChange={publicEntryWorkspace.onChange}
                         onPublicEntryWorkspaceLoadMore={publicEntryWorkspace.loadMore}
                         onPublicEntryWorkspaceRetry={publicEntryWorkspace.retry}
@@ -601,7 +629,8 @@ const ApplicationSettings = () => {
                         onSave={() =>
                             saveGeneralMutation.mutate({
                                 settings: effectiveGeneralSettings,
-                                ...(hasVisibilityChange ? { isPublic: effectiveVisibility } : {})
+                                ...(hasVisibilityChange ? { isPublic: effectiveVisibility } : {}),
+                                ...(hasCatalogVisibilityChange ? { showInAppList: effectiveCatalogVisibility } : {})
                             })
                         }
                     />
@@ -627,7 +656,8 @@ const ApplicationSettings = () => {
                         onSave={() =>
                             saveGeneralMutation.mutate({
                                 settings: effectiveGeneralSettings,
-                                ...(hasVisibilityChange ? { isPublic: effectiveVisibility } : {})
+                                ...(hasVisibilityChange ? { isPublic: effectiveVisibility } : {}),
+                                ...(hasCatalogVisibilityChange ? { showInAppList: effectiveCatalogVisibility } : {})
                             })
                         }
                     />
@@ -645,10 +675,13 @@ const ApplicationSettings = () => {
                         onSave={() =>
                             saveGeneralMutation.mutate({
                                 settings: effectiveGeneralSettings,
-                                ...(hasVisibilityChange ? { isPublic: effectiveVisibility } : {})
+                                ...(hasVisibilityChange ? { isPublic: effectiveVisibility } : {}),
+                                ...(hasCatalogVisibilityChange ? { showInAppList: effectiveCatalogVisibility } : {})
                             })
                         }
                     />
+                ) : activeTab === 'messenger' ? (
+                    <MessengerBindingsPanel applicationId={applicationId} isPublic={applicationQuery.data?.isPublic ?? false} />
                 ) : activeTab === 'access' ? (
                     <AccessSettingsPanel
                         t={t}
@@ -667,7 +700,8 @@ const ApplicationSettings = () => {
                         onSave={() =>
                             saveGeneralMutation.mutate({
                                 settings: effectiveGeneralSettings,
-                                ...(hasVisibilityChange ? { isPublic: effectiveVisibility } : {})
+                                ...(hasVisibilityChange ? { isPublic: effectiveVisibility } : {}),
+                                ...(hasCatalogVisibilityChange ? { showInAppList: effectiveCatalogVisibility } : {})
                             })
                         }
                     />

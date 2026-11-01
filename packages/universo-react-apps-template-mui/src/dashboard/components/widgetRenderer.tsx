@@ -1,5 +1,6 @@
-import { useEffect, lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, lazy, Suspense, useId, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import Alert from '@mui/material/Alert'
 import Avatar from '@mui/material/Avatar'
 import Box from '@mui/material/Box'
 import Divider from '@mui/material/Divider'
@@ -44,6 +45,7 @@ function DetailsTabsWidget({ widget, options }: { widget: ZoneWidgetItem; option
     const details = useDashboardDetails()
     const widgetSelection = useDashboardWidgetSelection()
     const { t } = useTranslation('apps')
+    const tabsId = useId()
     const parsed = useMemo(() => dashboardWidgetConfigSchemaByKey.detailsTabs.safeParse(widget.config), [widget.config])
     const tabs = useMemo(
         () => (parsed.success ? (parsed.data.tabs as Array<{ slotKey: string; label: unknown; isDefault?: boolean }>) : []),
@@ -72,6 +74,7 @@ function DetailsTabsWidget({ widget, options }: { widget: ZoneWidgetItem; option
     return (
         <Box data-testid='runtime-details-tabs'>
             <Tabs
+                aria-label={t('detailsTabs.tablistLabel', 'Details sections')}
                 value={activeSlot}
                 onChange={(_, value: string) => {
                     if (widgetSelection) widgetSelection.setDetailsTab(widget.instanceKey, value)
@@ -80,25 +83,47 @@ function DetailsTabsWidget({ widget, options }: { widget: ZoneWidgetItem; option
                 variant='scrollable'
                 scrollButtons='auto'
             >
-                {tabs.map((tab) => (
+                {tabs.map((tab, index) => (
                     <Tab
                         key={tab.slotKey}
+                        id={`${tabsId}-tab-${index}`}
+                        aria-controls={`${tabsId}-tabpanel-${index}`}
                         value={tab.slotKey}
                         label={readLocalizedWidgetText(tab.label, details?.locale) ?? t('dashboard.widget.tab', 'Section')}
                     />
                 ))}
             </Tabs>
-            <Box sx={{ pt: 2, display: 'grid', gap: 2 }}>
-                {children.length === 0 ? (
-                    <RuntimeWidgetStatus state={{ status: 'empty' }} />
-                ) : (
-                    children.map((child) => (
-                        <Box key={child.instanceKey} sx={{ minWidth: 0, maxWidth: '100%' }}>
-                            {renderWidget(child, { ...options, depth: options.depth + 1, menuVariant: 'wide' })}
-                        </Box>
-                    ))
-                )}
-            </Box>
+            {tabs.map((tab, index) => {
+                const isActive = tab.slotKey === selectedTab.slotKey
+                let panelContent: ReactNode = null
+                if (isActive) {
+                    panelContent =
+                        children.length === 0 ? (
+                            <Alert severity='info' role='status'>
+                                {t('detailsTabs.emptySection', 'This section is empty.')}
+                            </Alert>
+                        ) : (
+                            children.map((child) => (
+                                <Box key={child.instanceKey} sx={{ minWidth: 0, maxWidth: '100%' }}>
+                                    {renderWidget(child, { ...options, depth: options.depth + 1, menuVariant: 'wide' })}
+                                </Box>
+                            ))
+                        )
+                }
+                return (
+                    <Box
+                        key={tab.slotKey}
+                        id={`${tabsId}-tabpanel-${index}`}
+                        role='tabpanel'
+                        aria-labelledby={`${tabsId}-tab-${index}`}
+                        tabIndex={0}
+                        hidden={!isActive}
+                        sx={{ pt: 2, display: isActive ? 'grid' : 'none', gap: 2 }}
+                    >
+                        {panelContent}
+                    </Box>
+                )
+            })}
         </Box>
     )
 }
@@ -304,11 +329,22 @@ function renderWidgetContent(
             const parsed = dashboardWidgetConfigSchemaByKey.columnsContainer.safeParse(widget.config)
             if (!parsed.success) return <RuntimeWidgetStatus invalid />
             return (
-                <Grid key={widget.instanceKey} container spacing={2} sx={{ width: '100%', minWidth: 0 }}>
-                    {(parsed.data.columns as Array<{ slotKey: string; width: number }>).map((column) => {
+                <Grid
+                    key={widget.instanceKey}
+                    container
+                    data-testid='runtime-columns-container'
+                    spacing={2}
+                    sx={{ width: '100%', minWidth: 0 }}
+                >
+                    {(parsed.data.columns as Array<{ slotKey: string; width: number }>).map((column, columnIndex) => {
                         const children = childrenForSlot(placements, widget.instanceKey, column.slotKey)
                         return (
-                            <Grid key={column.slotKey} size={{ xs: 12, md: column.width }} sx={{ minWidth: 0 }}>
+                            <Grid
+                                key={column.slotKey}
+                                data-testid={`runtime-columns-slot-${columnIndex + 1}`}
+                                size={{ xs: 12, md: column.width }}
+                                sx={{ minWidth: 0 }}
+                            >
                                 {children.length === 0 ? (
                                     <RuntimeWidgetStatus state={{ status: 'empty' }} />
                                 ) : (

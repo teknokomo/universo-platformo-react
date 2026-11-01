@@ -28,7 +28,7 @@
         "createMemberRequired": "Content creation is available to application members.",
         "createPermissionRequired": "You do not have permission to create content.",
         "createWorkflowUnavailable": "This application does not provide a content creation workflow.",
-        "relationLayoutUnavailable": "Related content is unavailable. Reload the application and try again.",
+        "relationLayoutUnavailable": "Related records cannot be created from this view.",
         "createTargetDisabled": "This action is disabled by its content settings.",
         "createTargetSourceCreationDisabled": "Creation is disabled for this content type in application settings.",
         "createTargetResourceTypeDisabled": "{{type}} is disabled in application settings.",
@@ -681,7 +681,9 @@
         }
     },
     "detailsTabs": {
-        "untitledTab": "Details"
+        "untitledTab": "Details",
+        "tablistLabel": "Details sections",
+        "emptySection": "This section is empty."
     },
     "playcanvasCanvas": {
         "title": "3D scene",
@@ -891,6 +893,13 @@
             "quizContinue": "Failed to continue to the next quiz question.",
             "quizFinalize": "Failed to finish the quiz."
         }
+    },
+    "messenger": {
+        "navigation": "Application navigation",
+        "back": "Back",
+        "close": "Close",
+        "empty": "No application content is available yet.",
+        "error": "Messenger application is unavailable."
     },
     "colorMode": {
         "label": "Color mode"

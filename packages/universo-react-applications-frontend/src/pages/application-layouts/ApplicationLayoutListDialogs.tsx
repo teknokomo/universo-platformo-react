@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from
 import { Button, FormControl, FormHelperText, InputLabel, MenuItem, Stack, TextField } from '@mui/material'
 import type { TFunction } from 'i18next'
 import { StandardDialog } from '@universo-react/template-mui'
-import type { ApplicationLayout, ApplicationLayoutScope, ApplicationTemplateKey } from '@universo-react/types'
+import {
+    getLayoutWidgetTemplateMetadataList,
+    type ApplicationLayout,
+    type ApplicationLayoutScope,
+    type ApplicationTemplateKey
+} from '@universo-react/types'
 import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 type Translate = TFunction
@@ -13,6 +18,7 @@ export interface ApplicationLayoutListDialogsProps {
     scopes: ApplicationLayoutScope[]
     templateKey: ApplicationTemplateKey
     defaultTemplateKey: ApplicationTemplateKey
+    canSelectGlobalTemplate: boolean
     setTemplateKey: Dispatch<SetStateAction<ApplicationTemplateKey>>
     createOpen: boolean
     setCreateOpen: Dispatch<SetStateAction<boolean>>
@@ -193,19 +199,24 @@ export function ApplicationLayoutListDialogs(props: ApplicationLayoutListDialogs
                     <TextField
                         select
                         fullWidth
-                        disabled={isGlobalScope}
+                        disabled={isGlobalScope && !props.canSelectGlobalTemplate}
                         label={t('layouts.template', 'Template')}
                         value={props.templateKey}
                         slotProps={{ inputLabel: { shrink: true } }}
                         onChange={(event) => props.setTemplateKey(event.target.value as ApplicationTemplateKey)}
                         helperText={
                             isGlobalScope
-                                ? t('layouts.templateGlobalHint', 'Global layouts use the application default template.')
+                                ? props.canSelectGlobalTemplate
+                                    ? t('layouts.templateFirstGlobalHint', "Choose this application's first global layout template.")
+                                    : t('layouts.templateGlobalHint', 'Global layouts use the application default template.')
                                 : t('layouts.templateScopedHint', 'This template is fixed after the layout is created.')
                         }
                     >
-                        <MenuItem value='dashboard'>{t('layouts.templates.dashboard', 'Dashboard')}</MenuItem>
-                        <MenuItem value='marketing-page'>{t('layouts.templates.marketingPage', 'Marketing page')}</MenuItem>
+                        {getLayoutWidgetTemplateMetadataList().map((template) => (
+                            <MenuItem key={template.key} value={template.key}>
+                                {tc(template.displayNameKey)}
+                            </MenuItem>
+                        ))}
                     </TextField>
                 </Stack>
             </StandardDialog>

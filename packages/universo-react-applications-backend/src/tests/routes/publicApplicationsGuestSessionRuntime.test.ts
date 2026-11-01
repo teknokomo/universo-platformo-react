@@ -541,7 +541,12 @@ describe('Public Applications Routes: guest runtime sessions and progress', () =
 
         const dataSource = buildDataSource(
             withPublicApplication((sql, params) => {
-                if (sql.includes('pg_advisory_xact_lock')) {
+                if (sql.includes('pg_advisory_xact_lock_shared')) {
+                    expect(params[0]).toBe(`${schemaName}:application-layout-mutations`)
+                    return []
+                }
+
+                if (sql.includes('pg_advisory_xact_lock(')) {
                     progressLockAttempted = true
                     expect(String(params[0])).toContain('guest-progress')
                     return []

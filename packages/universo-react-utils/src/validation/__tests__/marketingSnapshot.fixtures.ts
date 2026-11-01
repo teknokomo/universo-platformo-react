@@ -364,7 +364,6 @@ const createSnapshot = (widgets: unknown[] = [collectionWidget(ids.widget, 'logo
             }
         ],
         defaultLayoutId: ids.layout,
-        layoutConfig: {},
         elements: {
             ...sourceFixtures.sourceElements,
             [ids.heroEntity]: [{ data: heroRecordData() }]

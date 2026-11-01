@@ -54,11 +54,11 @@ test('validates strict renderer config after decoding the persisted neutral enve
     assert.doesNotThrow(() => assertDashboardSnapshotInvariants(makeSnapshot({}, [rootHeader({ config: { __layout: {} } })])))
 })
 
-test('rejects retired show flags and renderer-owned content in Dashboard config', () => {
+test('rejects retired show flags and top-level snapshot layoutConfig', () => {
     assert.throws(() => assertDashboardSnapshotInvariants(makeSnapshot({ showDetailsTable: false })), /showDetailsTable/u)
     assert.throws(
         () => assertDashboardSnapshotInvariants({ ...makeSnapshot(), layoutConfig: { showDetailsTable: false } }),
-        /retired show\*/u
+        /retired top-level layoutConfig projection/u
     )
     assert.throws(() => assertDashboardSnapshotInvariants(makeSnapshot({}, [rootHeader({ config: { content: 'demo' } })])))
 })

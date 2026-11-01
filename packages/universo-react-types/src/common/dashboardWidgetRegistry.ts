@@ -88,7 +88,7 @@ const dashboardWidgetRegistry = [
     ),
     registerWidget(
         'menuWidget',
-        ['left'],
+        ['left', 'center'],
         true,
         boundPolicy('entity', sourceOptional, 'share-bindings', 'record-set', [], ['shell'], {
             initialBindingVariantKey: 'generated',
@@ -118,7 +118,8 @@ const dashboardWidgetRegistry = [
             configFields: [{ path: 'variant', owner: 'host-runtime' }],
             copyPolicy: { placement: 'copy', binding: 'share-bindings' },
             capabilities: ['dashboard.host', 'dashboard.content']
-        })
+        }),
+        { supportedTemplates: ['dashboard', 'messenger-app'], allowedZonesByTemplate: { dashboard: ['left'], 'messenger-app': ['center'] } }
     ),
     registerWidget(
         'spacer',
@@ -168,7 +169,8 @@ const dashboardWidgetRegistry = [
         hostPolicy(['shell'], {
             copyPolicy: noPlacementCopy,
             applicationPlacementOverrides: noApplicationPlacementOverrides
-        })
+        }),
+        { supportedTemplates: ['dashboard', 'messenger-app'], allowedZonesByTemplate: { dashboard: ['top'], 'messenger-app': ['top'] } }
     ),
     registerWidget(
         'breadcrumbs',
@@ -285,7 +287,11 @@ const dashboardWidgetRegistry = [
                     { path: 'trendDisplay', owner: 'presentation' }
                 ]
             }
-        )
+        ),
+        {
+            supportedTemplates: ['dashboard', 'messenger-app'],
+            allowedZonesByTemplate: { dashboard: ['center'], 'messenger-app': ['center'] }
+        }
     ),
     registerWidget(
         'sessionsChart',
@@ -302,7 +308,11 @@ const dashboardWidgetRegistry = [
                 { path: 'chartStyle', owner: 'presentation' },
                 { path: 'maxPoints', owner: 'presentation' }
             ]
-        })
+        }),
+        {
+            supportedTemplates: ['dashboard', 'messenger-app'],
+            allowedZonesByTemplate: { dashboard: ['center'], 'messenger-app': ['center'] }
+        }
     ),
     registerWidget(
         'pageViewsChart',
@@ -319,7 +329,11 @@ const dashboardWidgetRegistry = [
                 { path: 'chartStyle', owner: 'presentation' },
                 { path: 'maxPoints', owner: 'presentation' }
             ]
-        })
+        }),
+        {
+            supportedTemplates: ['dashboard', 'messenger-app'],
+            allowedZonesByTemplate: { dashboard: ['center'], 'messenger-app': ['center'] }
+        }
     ),
     registerWidget(
         'detailsTitle',
@@ -334,7 +348,11 @@ const dashboardWidgetRegistry = [
                 { path: 'align', owner: 'presentation' },
                 { path: 'level', owner: 'presentation' }
             ]
-        })
+        }),
+        {
+            supportedTemplates: ['dashboard', 'messenger-app'],
+            allowedZonesByTemplate: { dashboard: ['center'], 'messenger-app': ['center'] }
+        }
     ),
     registerWidget(
         'detailsTable',
@@ -403,7 +421,11 @@ const dashboardWidgetRegistry = [
                 { path: 'variant', owner: 'specialized-runtime' },
                 { path: 'workflowActions[]', owner: 'specialized-runtime' }
             ]
-        })
+        }),
+        {
+            supportedTemplates: ['dashboard', 'messenger-app'],
+            allowedZonesByTemplate: { dashboard: ['center'], 'messenger-app': ['center'] }
+        }
     ),
     registerWidget(
         'relationBuilder',
@@ -466,7 +488,11 @@ const dashboardWidgetRegistry = [
                     { path: 'emptyParentMessage', owner: 'presentation' }
                 ]
             }
-        )
+        ),
+        {
+            supportedTemplates: ['dashboard', 'messenger-app'],
+            allowedZonesByTemplate: { dashboard: ['center'], 'messenger-app': ['center'] }
+        }
     ),
     registerWidget(
         'columnsContainer',
@@ -494,7 +520,11 @@ const dashboardWidgetRegistry = [
                 { path: 'columns[].slotKey', owner: 'composition' },
                 { path: 'columns[].width', owner: 'presentation' }
             ]
-        })
+        }),
+        {
+            supportedTemplates: ['dashboard', 'messenger-app'],
+            allowedZonesByTemplate: { dashboard: ['center'], 'messenger-app': ['center'] }
+        }
     ),
     registerWidget(
         'detailsTabs',
@@ -522,7 +552,11 @@ const dashboardWidgetRegistry = [
                 { path: 'tabs[].label', owner: 'presentation' },
                 { path: 'tabs[].isDefault', owner: 'presentation' }
             ]
-        })
+        }),
+        {
+            supportedTemplates: ['dashboard', 'messenger-app'],
+            allowedZonesByTemplate: { dashboard: ['center'], 'messenger-app': ['center'] }
+        }
     ),
     registerWidget(
         'interpretationNetworkWorkspace',
@@ -610,7 +644,15 @@ const dashboardWidgetRegistry = [
                 makeBindingSlot(
                     'resource',
                     'semantic-key',
-                    [component('title', 'Title', 'string', true, false), component('resource', 'Resource', 'string')],
+                    [
+                        component('key', 'Key', 'string', false, true, {
+                            semanticKey: true,
+                            maxLength: 128,
+                            pattern: DASHBOARD_SEMANTIC_KEY_PATTERN
+                        }),
+                        component('title', 'Title', 'string', true, true, { maxLength: 255 }),
+                        component('resource', 'Resource', 'json', false, false)
+                    ],
                     { required: false, entityKinds: ['object', 'page'] }
                 )
             ],
@@ -622,7 +664,11 @@ const dashboardWidgetRegistry = [
                     { path: 'titleOverride', owner: 'presentation' }
                 ]
             }
-        )
+        ),
+        {
+            supportedTemplates: ['dashboard', 'messenger-app'],
+            allowedZonesByTemplate: { dashboard: ['center', 'right'], 'messenger-app': ['center'] }
+        }
     ),
     registerWidget(
         'learnerPlayer',

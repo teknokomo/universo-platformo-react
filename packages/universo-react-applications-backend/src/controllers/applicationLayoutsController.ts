@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
-import { applicationLayoutZoneSchema } from '@universo-react/types'
+import { applicationLayoutZoneSchema, buildLayoutWidgetMetadataResponse } from '@universo-react/types'
 import { uuidV7Schema, type DbExecutor } from '@universo-react/utils'
 import { ensureApplicationAccess, type ApplicationRole } from '../routes/guards'
 import { getRequestDbExecutor } from '../utils'
@@ -28,7 +28,6 @@ import {
     getApplicationLayoutDetail,
     getApplicationRuntimeSchemaName,
     listApplicationLayoutScopes,
-    listApplicationLayoutWidgetObject,
     listApplicationLayoutWidgets,
     listApplicationLayouts,
     moveApplicationLayoutWidget,
@@ -457,7 +456,7 @@ export function createApplicationLayoutsController(
             const ctx = await ensureSchema(req, res, await resolveReadRoles(executor, req.params.applicationId))
             if (!ctx) return
             if (!parseLayoutParam(res, req.params.layoutId, 'APPLICATION_LAYOUT_ID_INVALID')) return
-            res.json({ items: listApplicationLayoutWidgetObject() })
+            res.json(buildLayoutWidgetMetadataResponse())
         },
 
         async upsertWidget(req: Request, res: Response) {

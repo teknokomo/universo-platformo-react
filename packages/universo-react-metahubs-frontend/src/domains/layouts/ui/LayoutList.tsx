@@ -52,7 +52,7 @@ import * as layoutsApi from '../api'
 import { useCopyLayout, useCreateLayout, useDeleteLayout, useUpdateLayout } from '../hooks/mutations'
 import type { Metahub, MetahubCreateLayoutPayload, MetahubLayout, MetahubLayoutLocalizedPayload } from '../../../types'
 import { getVLCString } from '../../../types'
-import type { ApplicationTemplateKey, VersionedLocalizedContent } from '@universo-react/types'
+import { getLayoutWidgetTemplateMetadataList, type ApplicationTemplateKey, type VersionedLocalizedContent } from '@universo-react/types'
 import { normalizeLayoutCopyOptions } from '@universo-react/utils'
 import { isPendingEntity, getPendingAction } from '@universo-react/utils'
 
@@ -554,8 +554,11 @@ export const LayoutListContent = ({
                         onChange={(e) => setValue('templateKey', e.target.value)}
                         slotProps={{ inputLabel: { shrink: true } }}
                     >
-                        <MenuItem value='dashboard'>{t('layouts.templates.dashboard', 'Dashboard')}</MenuItem>
-                        <MenuItem value='marketing-page'>{t('layouts.templates.marketingPage', 'Marketing page')}</MenuItem>
+                        {getLayoutWidgetTemplateMetadataList().map((template) => (
+                            <MenuItem key={template.key} value={template.key}>
+                                {tc(template.displayNameKey)}
+                            </MenuItem>
+                        ))}
                     </TextField>
                     <Divider />
                     <Stack spacing={1}>
@@ -656,12 +659,16 @@ export const LayoutListContent = ({
                     title: layoutName,
                     description: layoutDescription,
                     meta:
-                        layout.templateKey === 'marketing-page'
+                        layout.templateKey === 'messenger-app'
+                            ? tc('templates.messengerApp.name', { defaultValue: 'Messenger app' })
+                            : layout.templateKey === 'marketing-page'
                             ? t('layouts.templates.marketingPage', 'Marketing page')
                             : t('layouts.templates.dashboard', 'Dashboard'),
                     metaContent: (
                         <Typography sx={{ fontSize: 14 }}>
-                            {layout.templateKey === 'marketing-page'
+                            {layout.templateKey === 'messenger-app'
+                                ? tc('templates.messengerApp.name', { defaultValue: 'Messenger app' })
+                                : layout.templateKey === 'marketing-page'
                                 ? t('layouts.templates.marketingPage', 'Marketing page')
                                 : t('layouts.templates.dashboard', 'Dashboard')}
                         </Typography>
@@ -736,7 +743,7 @@ export const LayoutListContent = ({
                     )
                 }
             }),
-        [buildLayoutPath, goToLayout, handlePendingLayoutInteraction, i18n.language, layouts, t]
+        [buildLayoutPath, goToLayout, handlePendingLayoutInteraction, i18n.language, layouts, t, tc]
     )
 
     const listContent = (

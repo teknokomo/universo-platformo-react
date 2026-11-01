@@ -38,6 +38,27 @@ describe('ApplicationLayouts', () => {
     beforeAll(initializeApplicationLayouts, 30_000)
     beforeEach(resetApplicationLayoutsMocks)
 
+    it('allows choosing the first application global template when the metahub provides a global layout', async () => {
+        const user = userEvent.setup()
+        const metahubLayout = createSourceDashboardLayout()
+        apiMocks.listApplicationLayouts.mockResolvedValue({
+            items: [metahubLayout],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        })
+        renderPage('/a/app-1/admin/layouts')
+
+        await waitFor(() => expect(screen.getByText('Homepage')).toBeInTheDocument())
+        await user.click(screen.getByRole('button', { name: 'Create layout' }))
+
+        const dialog = screen.getByRole('dialog', { name: 'Create layout' })
+        const templateSelector = within(dialog).getByRole('combobox', { name: 'Template' })
+        expect(templateSelector).not.toHaveAttribute('aria-disabled', 'true')
+
+        await user.click(templateSelector)
+        await user.click(screen.getByRole('option', { name: 'Messenger app' }))
+        expect(templateSelector).toHaveTextContent('Messenger app')
+    })
+
     it('renders all supported zones and moves a widget to another zone', async () => {
         const user = userEvent.setup()
         renderPage()

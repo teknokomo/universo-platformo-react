@@ -1,5 +1,9 @@
 import type { DbExecutor } from '@universo-react/utils'
+import { qSchemaTable } from '@universo-react/database'
 import { activeAppRowCondition } from '@universo-react/utils'
+import { applicationLayoutTablesExist } from './applicationLayoutCapabilitiesStore'
+import { lockApplicationLayoutMutationFamilyShared } from './applicationLayoutStoreSupport'
+import { buildPublicMarketingLifecyclePredicate } from '../shared/marketingRuntimeLifecycleSql'
 
 export interface PublicGuestWithdrawalApplication {
     id: string
@@ -7,6 +11,31 @@ export interface PublicGuestWithdrawalApplication {
     settings: unknown
     isPublic: boolean
     workspacesEnabled: boolean
+}
+
+/** Return whether this published application contains an active Messenger layout. */
+export const hasPublicMessengerApplicationLayout = async (executor: DbExecutor, schemaName: string): Promise<boolean> => {
+    if (!(await applicationLayoutTablesExist(executor, schemaName))) return false
+
+    const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
+    const rows = await executor.query<{ id: string }>(
+        `SELECT l.id
+         FROM ${layoutsTable} l
+         WHERE l.template_key = $1
+           AND l.is_active = true
+           AND ${buildPublicMarketingLifecyclePredicate('l')}
+         ORDER BY l.id ASC
+         LIMIT 1
+         FOR SHARE`,
+        ['messenger-app']
+    )
+
+    return rows.length > 0
+}
+
+/** Keep layout policy stable for the full anonymous guest-runtime transaction. */
+export const lockPublicGuestRuntimeLayoutState = async (executor: DbExecutor, schemaName: string): Promise<void> => {
+    await lockApplicationLayoutMutationFamilyShared(executor, schemaName)
 }
 
 /** Serialize guest assessment operations with an application access withdrawal. */

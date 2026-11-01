@@ -12,9 +12,10 @@ vi.mock('@mui/x-data-grid', async () => {
     return {
         ...actual,
         useGridApiRef: () => gridApi.apiRef,
-        DataGrid: (props: { getRowHeight?: () => number | 'auto'; density?: string; apiRef?: unknown; sx?: unknown }) => {
+        DataGrid: (props: { rows?: unknown[]; getRowHeight?: () => number | 'auto'; density?: string; apiRef?: unknown; sx?: unknown }) => {
             rowHeightCallbacks.push(props.getRowHeight)
             dataGridSxValues.push(props.sx)
+            dataGridRows.push(props.rows ?? [])
             return (
                 <div
                     data-testid='mock-customized-data-grid'
@@ -28,6 +29,7 @@ vi.mock('@mui/x-data-grid', async () => {
 
 const rowHeightCallbacks: Array<(() => number | 'auto') | undefined> = []
 const dataGridSxValues: unknown[] = []
+const dataGridRows: unknown[][] = []
 const pendingAnimationFrames = new Map<number, FrameRequestCallback>()
 let nextAnimationFrameId = 0
 
@@ -76,6 +78,7 @@ class MockResizeObserver {
 beforeEach(() => {
     rowHeightCallbacks.length = 0
     dataGridSxValues.length = 0
+    dataGridRows.length = 0
     MockResizeObserver.instances = []
     pendingAnimationFrames.clear()
     nextAnimationFrameId = 0
@@ -114,6 +117,35 @@ describe('getCustomizedDataGridRowClassName', () => {
         )
 
         expect(screen.getByTestId('mock-customized-data-grid')).toHaveAttribute('data-row-height', 'auto')
+        expect(dataGridSxValues.at(-1)).toMatchObject({
+            '& .MuiDataGrid-cellContent': {
+                whiteSpace: 'normal',
+                overflowWrap: 'anywhere',
+                textOverflow: 'clip'
+            }
+        })
+    })
+
+    it('wraps long unbroken values within auto-height cell bounds', () => {
+        const unbrokenValue = 'MessengerBindingIdentifier'.repeat(12)
+        render(
+            <CustomizedDataGrid
+                rows={[{ id: 'row-1', description: unbrokenValue }]}
+                columns={[{ field: 'description', headerName: 'Description' }]}
+            />
+        )
+
+        expect(dataGridRows.at(-1)).toEqual([{ id: 'row-1', description: unbrokenValue }])
+        expect(screen.getByTestId('mock-customized-data-grid')).toHaveAttribute('data-row-height', 'auto')
+        expect(dataGridSxValues.at(-1)).toMatchObject({
+            '& .MuiDataGrid-cellContent': {
+                minWidth: 0,
+                maxWidth: '100%',
+                whiteSpace: 'normal',
+                overflowWrap: 'anywhere',
+                textOverflow: 'clip'
+            }
+        })
     })
 
     it('keeps explicit fixed row-height overrides intact', () => {

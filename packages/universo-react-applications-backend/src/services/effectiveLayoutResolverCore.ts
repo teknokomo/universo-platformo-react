@@ -640,8 +640,21 @@ const buildResult = async (
             })
         )
     })
+    const shouldResolveWidgetRuntimeData = (() => {
+        switch (layout.templateKey) {
+            case 'dashboard':
+                return true
+            case 'marketing-page':
+                return false
+            case 'messenger-app':
+                // Public Messenger uses its dedicated allowlisted projector.
+                return runtimeReadScope.currentUserId !== null && runtimeReadScope.currentUserId !== undefined
+            default:
+                return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+        }
+    })()
     const runtimeDataByWidgetId =
-        layout.templateKey === 'dashboard' && runtimeDataResolver
+        shouldResolveWidgetRuntimeData && runtimeDataResolver
             ? await runtimeDataResolver(
                   tx,
                   runtimeReadScope,

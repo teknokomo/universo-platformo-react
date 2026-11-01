@@ -30,6 +30,7 @@ import {
     resolveDashboardRuntimeLayoutTarget,
     toAuthenticatedRuntimePlacementScopes,
     toDashboardZoneWidgets,
+    toMessengerZoneWidgets,
     updateLearningContentProgress
 } from '../api/api'
 import type { RuntimeEffectiveLayoutSuccess, RuntimeLayoutTarget } from '../api/api'
@@ -41,6 +42,7 @@ import { CrudDialogs } from '../components/CrudDialogs'
 import { RowActionsMenu } from '../components/RowActionsMenu'
 import { RuntimeWorkspacesPage } from '../workspaces/RuntimeWorkspacesPage'
 import MarketingRuntimeContent from '../marketing-page/MarketingRuntimeContent'
+import { MessengerRuntimeShell } from '../messenger/MessengerRuntimeShell'
 import {
     useDashboardBoundRowActions,
     type DashboardBoundRowActionGuardFailure,
@@ -193,7 +195,9 @@ function DashboardRuntimeContent({ effectiveLayout, onRuntimeDataChanged, onNavi
     const routeMatchesLoadedSection = !runtimeRouteSectionId || getLoadedRuntimeSectionId(state.appData) === runtimeRouteSectionId
     const detailsAppData = routeProjectedAppData ?? (routeMatchesLoadedSection ? state.appData : undefined)
     const effectiveDashboardLayout = effectiveLayout?.layout.templateKey === 'dashboard' ? effectiveLayout : undefined
+    const effectiveMessengerLayout = effectiveLayout?.layout.templateKey === 'messenger-app' ? effectiveLayout : undefined
     const effectiveZoneWidgets = effectiveDashboardLayout ? toDashboardZoneWidgets(effectiveDashboardLayout) : undefined
+    const messengerZoneWidgets = effectiveMessengerLayout ? toMessengerZoneWidgets(effectiveMessengerLayout) : undefined
     const dashboardZoneWidgets = useMemo(() => {
         if (!effectiveZoneWidgets || !isWorkspacesRoute) return effectiveZoneWidgets
         return withoutWorkspaceDashboardContent(effectiveZoneWidgets)
@@ -201,6 +205,10 @@ function DashboardRuntimeContent({ effectiveLayout, onRuntimeDataChanged, onNavi
     const authenticatedPlacementScopes = useMemo(
         () => (effectiveDashboardLayout ? toAuthenticatedRuntimePlacementScopes(effectiveDashboardLayout) : undefined),
         [effectiveDashboardLayout]
+    )
+    const messengerPlacementScopes = useMemo(
+        () => (effectiveMessengerLayout ? toAuthenticatedRuntimePlacementScopes(effectiveMessengerLayout) : undefined),
+        [effectiveMessengerLayout]
     )
     const detailsTitle = isWorkspacesRoute
         ? t('workspace.title', 'Workspaces')
@@ -656,6 +664,14 @@ function DashboardRuntimeContent({ effectiveLayout, onRuntimeDataChanged, onNavi
         )
     }
 
+    if (effectiveMessengerLayout && messengerZoneWidgets) {
+        return (
+            <AppMainLayout>
+                <MessengerRuntimeShell zones={messengerZoneWidgets} details={details} placementScopes={messengerPlacementScopes} />
+            </AppMainLayout>
+        )
+    }
+
     return (
         <AppMainLayout>
             <Dashboard
@@ -889,44 +905,57 @@ function DashboardAppContent(props: DashboardAppProps) {
     if (templateQuery.isError || !templateQuery.data || templateQuery.data.status === 'failed') {
         return <RuntimeBoundary error errorCode={runtimeLayoutErrorCode} onRetry={() => void templateQuery.refetch()} />
     }
-    if (templateQuery.data.layout.templateKey === 'marketing-page') {
-        return (
-            <MarketingRuntimeContent
-                {...props}
-                workspaceId={workspaceId}
-                themeVariant={runtimeTarget.themeVariant}
-                target={marketingTarget}
-                layoutIdentity={
-                    templateQuery.data.effectiveHash
-                        ? {
-                              layoutVersion: templateQuery.data.layout.version ?? 1,
-                              layoutHash: templateQuery.data.effectiveHash
-                          }
-                        : undefined
-                }
-                effectiveLayoutWidgets={templateQuery.data.widgets}
-                effectiveLayoutConfig={templateQuery.data.layout}
-                onLayoutStale={() => void templateQuery.refetch()}
-                loadingLabel={t('runtime.loading', 'Loading application')}
-                errorLabel={t('runtime.loadError', 'The application could not be loaded.')}
-                retryLabel={t('runtime.retry', 'Retry')}
-                onAction={(action) => {
-                    if (action.actionKind !== 'internal' || typeof window === 'undefined') return
-                    if (action.href.startsWith('#')) {
-                        window.location.hash = action.href.slice(1)
-                        return
+    switch (String(templateQuery.data.layout.templateKey)) {
+        case 'marketing-page':
+            return (
+                <MarketingRuntimeContent
+                    {...props}
+                    workspaceId={workspaceId}
+                    themeVariant={runtimeTarget.themeVariant}
+                    target={marketingTarget}
+                    layoutIdentity={
+                        templateQuery.data.effectiveHash
+                            ? {
+                                  layoutVersion: templateQuery.data.layout.version ?? 1,
+                                  layoutHash: templateQuery.data.effectiveHash
+                              }
+                            : undefined
                     }
-                    window.location.assign(action.href)
-                }}
-            />
-        )
+                    effectiveLayoutWidgets={templateQuery.data.widgets}
+                    effectiveLayoutConfig={templateQuery.data.layout}
+                    onLayoutStale={() => void templateQuery.refetch()}
+                    loadingLabel={t('runtime.loading', 'Loading application')}
+                    errorLabel={t('runtime.loadError', 'The application could not be loaded.')}
+                    retryLabel={t('runtime.retry', 'Retry')}
+                    onAction={(action) => {
+                        if (action.actionKind !== 'internal' || typeof window === 'undefined') return
+                        if (action.href.startsWith('#')) {
+                            window.location.hash = action.href.slice(1)
+                            return
+                        }
+                        window.location.assign(action.href)
+                    }}
+                />
+            )
+        case 'dashboard':
+        case 'messenger-app':
+            return (
+                <DashboardRuntimeContent
+                    {...props}
+                    effectiveLayout={templateQuery.data}
+                    onRuntimeDataChanged={refreshEffectiveLayout}
+                    onNavigate={navigate}
+                />
+            )
+        default:
+            return (
+                <RuntimeBoundary
+                    error
+                    errorMessage={t(
+                        'runtime.layoutErrors.LAYOUT_CAPABILITY_UNSUPPORTED',
+                        'This layout uses a capability that is not available here.'
+                    )}
+                />
+            )
     }
-    return (
-        <DashboardRuntimeContent
-            {...props}
-            effectiveLayout={templateQuery.data}
-            onRuntimeDataChanged={refreshEffectiveLayout}
-            onNavigate={navigate}
-        />
-    )
 }

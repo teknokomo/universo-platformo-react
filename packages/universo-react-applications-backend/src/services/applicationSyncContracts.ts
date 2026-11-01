@@ -72,7 +72,6 @@ export interface PublishedApplicationSnapshot {
     scopedLayouts?: unknown[]
     layoutWidgetOverrides?: unknown[]
     defaultLayoutId?: string | null
-    layoutConfig?: unknown
     [key: string]: unknown
 }
 

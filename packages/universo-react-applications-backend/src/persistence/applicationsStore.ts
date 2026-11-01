@@ -4,6 +4,9 @@ import { quoteIdentifier } from '@universo-react/migrations-core'
 import { isValidSchemaName } from '@universo-react/schema-ddl'
 import { releaseActiveGlobalShortLinksForApplication } from './globalShortLinksStore'
 import { revokeGuestSessionIdempotencyForApplication } from './guestSessionIdempotencyStore'
+import { releaseActiveApplicationBotBindingsForApplication } from './applicationBotBindingsStore'
+import { APPLICATION_RETURNING } from './applicationPersistenceSql'
+import { acquireApplicationCopyLock } from './applicationCopyLocking'
 
 export interface ApplicationRecord {
     id: string
@@ -11,6 +14,7 @@ export interface ApplicationRecord {
     description: VersionedLocalizedContent<string> | null
     settings: Record<string, unknown> | null
     isPublic: boolean
+    showInAppList: boolean
     workspacesEnabled: boolean
     schemaName: string | null
     schemaStatus: string | null
@@ -58,27 +62,6 @@ export interface ApplicationCopySourceRecord extends ApplicationRecord {
     installedReleaseMetadata?: Record<string, unknown> | null
 }
 
-export interface ApplicationCopyMemberRecord {
-    userId: string
-    role: string
-    comment: VersionedLocalizedContent<string> | null
-}
-
-export interface ConnectorCopyRecord {
-    id: string
-    name: VersionedLocalizedContent<string>
-    description: VersionedLocalizedContent<string> | null
-    sortOrder: number
-    isSingleMetahub: boolean
-    isRequiredMetahub: boolean
-}
-
-export interface ConnectorPublicationCopyRecord {
-    connectorId: string
-    publicationId: string
-    sortOrder: number
-}
-
 export interface AuthUserRecord {
     id: string
     email: string | null
@@ -108,6 +91,7 @@ const APPLICATION_SELECT = `
     a.description,
     a.settings,
     a.is_public AS "isPublic",
+    a.show_in_app_list AS "showInAppList",
     a.workspaces_enabled AS "workspacesEnabled",
     a.schema_name AS "schemaName",
     a.schema_status AS "schemaStatus",
@@ -123,23 +107,6 @@ const APPLICATION_DETAIL_SELECT = `
     ${APPLICATION_SELECT},
     COALESCE(connector_counts.count, 0)::int AS "connectorsCount",
     COALESCE(member_counts.count, 0)::int AS "membersCount"
-`
-
-const APPLICATION_RETURNING = `
-    id,
-    name,
-    description,
-    settings,
-    is_public AS "isPublic",
-    workspaces_enabled AS "workspacesEnabled",
-    schema_name AS "schemaName",
-    schema_status AS "schemaStatus",
-    schema_synced_at AS "schemaSyncedAt",
-    schema_error AS "schemaError",
-    COALESCE(_upl_version, 1) AS "version",
-    _upl_created_at AS "createdAt",
-    _upl_updated_at AS "updatedAt",
-    _upl_updated_by AS "updatedBy"
 `
 
 const DETAILS_JOIN_SQL = `
@@ -177,7 +144,7 @@ const resolveSortDirection = (sortOrder: 'asc' | 'desc'): 'ASC' | 'DESC' => (sor
 
 const resolveApplicationOrderColumn = (sortBy: 'name' | 'created' | 'updated'): string => {
     if (sortBy === 'name') {
-        return `COALESCE(a.name->>(a.name->>'_primary'), a.name->>'en', '')`
+        return `COALESCE(a.name->'locales'->(a.name->>'_primary')->>'content', a.name->'locales'->'en'->>'content', a.name #>> '{}', '')`
     }
 
     if (sortBy === 'created') {
@@ -213,7 +180,7 @@ export async function listApplications(
 ): Promise<{ items: ApplicationListItemRecord[]; total: number }> {
     const parameters: unknown[] = [input.userId, input.showAll]
     let whereSql = `WHERE ${activeRowPredicate('a')}
-        AND ($2::boolean = true OR a.is_public = true OR membership.user_id IS NOT NULL)`
+        AND ($2::boolean = true OR membership.user_id IS NOT NULL OR (a.is_public = true AND a.show_in_app_list = true))`
 
     if (input.search) {
         parameters.push(`%${input.search}%`)
@@ -237,7 +204,7 @@ export async function listApplications(
               AND ${activeRowPredicate('membership')}
         ${DETAILS_JOIN_SQL}
         ${whereSql}
-        ORDER BY ${resolveApplicationOrderColumn(input.sortBy)} ${resolveSortDirection(input.sortOrder)}
+        ORDER BY ${resolveApplicationOrderColumn(input.sortBy)} ${resolveSortDirection(input.sortOrder)}, a.id ASC
         LIMIT $${parameters.length - 1}
         OFFSET $${parameters.length}
         `,
@@ -410,64 +377,6 @@ export async function findAuthUserByEmail(executor: SqlQueryable, email: string)
     return rows[0] ?? null
 }
 
-export async function listApplicationMembersForCopy(executor: SqlQueryable, applicationId: string): Promise<ApplicationCopyMemberRecord[]> {
-    return executor.query<ApplicationCopyMemberRecord>(
-        `
-        SELECT
-            user_id AS "userId",
-            role,
-            comment
-        FROM applications.rel_application_users
-        WHERE application_id = $1
-                    AND ${activeRowPredicate()}
-        ORDER BY _upl_created_at ASC, id ASC
-        `,
-        [applicationId]
-    )
-}
-
-export async function listApplicationConnectorsForCopy(executor: SqlQueryable, applicationId: string): Promise<ConnectorCopyRecord[]> {
-    return executor.query<ConnectorCopyRecord>(
-        `
-        SELECT
-            id,
-            name,
-            description,
-            sort_order AS "sortOrder",
-            is_single_metahub AS "isSingleMetahub",
-            is_required_metahub AS "isRequiredMetahub"
-        FROM applications.obj_connectors
-        WHERE application_id = $1
-                    AND ${activeRowPredicate()}
-        ORDER BY sort_order ASC, _upl_created_at ASC, id ASC
-        `,
-        [applicationId]
-    )
-}
-
-export async function listConnectorPublicationsForCopy(
-    executor: SqlQueryable,
-    connectorIds: string[]
-): Promise<ConnectorPublicationCopyRecord[]> {
-    if (connectorIds.length === 0) {
-        return []
-    }
-
-    return executor.query<ConnectorPublicationCopyRecord>(
-        `
-        SELECT
-            connector_id AS "connectorId",
-            publication_id AS "publicationId",
-            sort_order AS "sortOrder"
-        FROM applications.rel_connector_publications
-        WHERE connector_id = ANY($1::uuid[])
-                    AND ${activeRowPredicate()}
-        ORDER BY sort_order ASC, _upl_created_at ASC, id ASC
-        `,
-        [connectorIds]
-    )
-}
-
 export async function insertApplicationMember(
     executor: SqlQueryable,
     input: {
@@ -589,299 +498,6 @@ export async function deleteApplicationMember(
     )
 
     return rows.length > 0
-}
-
-export async function createApplicationWithOwner(
-    executor: DbExecutor,
-    input: {
-        name: VersionedLocalizedContent<string>
-        description: VersionedLocalizedContent<string> | null
-        isPublic: boolean
-        workspacesEnabled: boolean
-        userId: string
-        resolveSchemaName: (applicationId: string) => string
-        validateSchemaName?: (schemaName: string) => boolean
-    }
-): Promise<ApplicationRecord> {
-    return executor.transaction(async (trx) => {
-        const [{ id }] = await trx.query<{ id: string }>(`SELECT public.uuid_generate_v7() AS id`)
-        const schemaName = input.resolveSchemaName(id)
-        if (input.validateSchemaName && !input.validateSchemaName(schemaName)) {
-            throw new Error(`Invalid generated application schema name: ${schemaName}`)
-        }
-
-        const insertedRows = await trx.query<ApplicationRecord>(
-            `
-            INSERT INTO applications.obj_applications (
-                id,
-                name,
-                description,
-                is_public,
-                workspaces_enabled,
-                schema_name,
-                _upl_created_by,
-                _upl_updated_by
-            )
-            VALUES ($1, $2::jsonb, $3::jsonb, $4, $5, $6, $7, $8)
-            RETURNING ${APPLICATION_RETURNING}
-            `,
-            [
-                id,
-                JSON.stringify(input.name),
-                JSON.stringify(input.description),
-                input.isPublic,
-                input.workspacesEnabled,
-                schemaName,
-                input.userId,
-                input.userId
-            ]
-        )
-
-        await trx.query(
-            `
-            INSERT INTO applications.rel_application_users (
-                application_id,
-                user_id,
-                role,
-                _upl_created_by,
-                _upl_updated_by
-            )
-            VALUES ($1, $2, 'owner', $3, $4)
-            `,
-            [id, input.userId, input.userId, input.userId]
-        )
-
-        return insertedRows[0]
-    })
-}
-
-export async function copyApplicationWithOptions(
-    executor: DbExecutor,
-    input: {
-        newApplicationId: string
-        sourceApplicationId: string
-        sourceApplication: ApplicationCopySourceRecord
-        copiedName: VersionedLocalizedContent<string>
-        copiedDescription: VersionedLocalizedContent<string> | null
-        settings: Record<string, unknown> | null
-        isPublic: boolean
-        workspacesEnabled: boolean
-        schemaName: string
-        schemaStatus: string
-        copyAccess: boolean
-        copyConnector: boolean
-        actorUserId: string
-    }
-): Promise<ApplicationRecord> {
-    return executor.transaction(async (trx) => {
-        const insertedRows = await trx.query<ApplicationRecord>(
-            `
-            INSERT INTO applications.obj_applications (
-                id,
-                name,
-                description,
-                settings,
-                is_public,
-                workspaces_enabled,
-                schema_name,
-                schema_status,
-                schema_synced_at,
-                schema_error,
-                schema_snapshot,
-                app_structure_version,
-                last_synced_publication_version_id,
-                _upl_created_by,
-                _upl_updated_by
-            )
-            VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5, $6, $7, $8::applications.application_schema_status, NULL, NULL, NULL, NULL, NULL, $9, $10)
-            RETURNING ${APPLICATION_RETURNING}
-            `,
-            [
-                input.newApplicationId,
-                JSON.stringify(input.copiedName),
-                JSON.stringify(input.copiedDescription),
-                JSON.stringify(input.settings ?? {}),
-                input.isPublic,
-                input.workspacesEnabled,
-                input.schemaName,
-                input.schemaStatus,
-                input.actorUserId,
-                input.actorUserId
-            ]
-        )
-
-        await trx.query(
-            `
-            INSERT INTO applications.rel_application_users (
-                application_id,
-                user_id,
-                role,
-                _upl_created_by,
-                _upl_updated_by
-            )
-            VALUES ($1, $2, 'owner', $3, $4)
-            `,
-            [input.newApplicationId, input.actorUserId, input.actorUserId, input.actorUserId]
-        )
-
-        if (input.copyAccess) {
-            await trx.query(
-                `
-                INSERT INTO applications.rel_application_users (
-                    application_id,
-                    user_id,
-                    role,
-                    comment,
-                    _upl_created_by,
-                    _upl_updated_by
-                )
-                SELECT
-                    $1,
-                    user_id,
-                    CASE
-                        WHEN role = 'owner' THEN 'admin'
-                        ELSE role
-                    END,
-                    comment,
-                    $2,
-                    $3
-                FROM applications.rel_application_users
-                WHERE application_id = $4
-                  AND user_id <> $5
-                                    AND ${activeRowPredicate()}
-                `,
-                [input.newApplicationId, input.actorUserId, input.actorUserId, input.sourceApplicationId, input.actorUserId]
-            )
-        }
-
-        if (input.copyConnector) {
-            await trx.query(
-                `
-                WITH source_connectors AS (
-                    SELECT
-                        public.uuid_generate_v7() AS new_id,
-                        id AS source_id,
-                        name,
-                        description,
-                        sort_order,
-                        is_single_metahub,
-                        is_required_metahub
-                    FROM applications.obj_connectors
-                    WHERE application_id = $1
-                                            AND ${activeRowPredicate()}
-                    ORDER BY sort_order ASC, _upl_created_at ASC, id ASC
-                ),
-                inserted_connectors AS (
-                    INSERT INTO applications.obj_connectors (
-                        id,
-                        application_id,
-                        name,
-                        description,
-                        sort_order,
-                        is_single_metahub,
-                        is_required_metahub,
-                        _upl_created_by,
-                        _upl_updated_by
-                    )
-                    SELECT
-                        new_id,
-                        $2,
-                        name,
-                        description,
-                        sort_order,
-                        is_single_metahub,
-                        is_required_metahub,
-                        $3,
-                        $4
-                    FROM source_connectors
-                )
-                INSERT INTO applications.rel_connector_publications (
-                    connector_id,
-                    publication_id,
-                    sort_order,
-                    schema_options,
-                    _upl_created_by,
-                    _upl_updated_by
-                )
-                    SELECT
-                        sc.new_id,
-                        cp.publication_id,
-                        cp.sort_order,
-                        cp.schema_options,
-                        $3,
-                        $4
-                FROM source_connectors sc
-                JOIN applications.rel_connector_publications cp ON cp.connector_id = sc.source_id
-                                WHERE ${activeRowPredicate('cp')}
-                `,
-                [input.sourceApplicationId, input.newApplicationId, input.actorUserId, input.actorUserId]
-            )
-        }
-
-        return insertedRows[0]
-    })
-}
-
-export async function updateApplication(
-    executor: SqlQueryable,
-    input: {
-        applicationId: string
-        name?: VersionedLocalizedContent<string>
-        description?: VersionedLocalizedContent<string> | null
-        settings?: Record<string, unknown> | null
-        isPublic?: boolean
-        userId: string
-        expectedVersion?: number
-    }
-): Promise<ApplicationRecord | null> {
-    const assignments: string[] = []
-    const parameters: unknown[] = []
-
-    if (input.name !== undefined) {
-        parameters.push(JSON.stringify(input.name))
-        assignments.push(`name = $${parameters.length}::jsonb`)
-    }
-
-    if (input.description !== undefined) {
-        parameters.push(JSON.stringify(input.description))
-        assignments.push(`description = $${parameters.length}::jsonb`)
-    }
-
-    if (input.settings !== undefined) {
-        parameters.push(JSON.stringify(input.settings ?? {}))
-        assignments.push(`settings = $${parameters.length}::jsonb`)
-    }
-
-    if (input.isPublic !== undefined) {
-        parameters.push(input.isPublic)
-        assignments.push(`is_public = $${parameters.length}`)
-    }
-
-    parameters.push(input.userId)
-    assignments.push(`_upl_updated_by = $${parameters.length}`)
-    assignments.push(`_upl_updated_at = NOW()`)
-    assignments.push(`_upl_version = COALESCE(_upl_version, 1) + 1`)
-
-    parameters.push(input.applicationId)
-    let whereSql = `WHERE id = $${parameters.length}
-        AND ${activeRowPredicate()}`
-
-    if (input.expectedVersion !== undefined) {
-        parameters.push(input.expectedVersion)
-        whereSql += ` AND COALESCE(_upl_version, 1) = $${parameters.length}`
-    }
-
-    const rows = await executor.query<ApplicationRecord>(
-        `
-        UPDATE applications.obj_applications
-        SET ${assignments.join(', ')}
-        ${whereSql}
-        RETURNING ${APPLICATION_RETURNING}
-        `,
-        parameters
-    )
-
-    return rows[0] ?? null
 }
 
 export async function mergeApplicationGuestRuntimeConfig(
@@ -1018,6 +634,10 @@ export async function deleteApplicationWithSchema(
     return executor.transaction(async (trx) => {
         if (input.schemaName) assertApplicationSchemaName(input.schemaName)
 
+        // Serialize deletion with both copies and relation writers before taking
+        // the application row lock. This preserves parent-before-child lock order.
+        await acquireApplicationCopyLock(trx, input.applicationId)
+
         const applicationRows = await trx.query<{ id: string }>(
             `
             SELECT id
@@ -1061,6 +681,8 @@ export async function deleteApplicationWithSchema(
             `,
             [input.applicationId, input.userId ?? null]
         )
+
+        await releaseActiveApplicationBotBindingsForApplication(trx, input.applicationId)
 
         // Release links through their owning store before the application tombstone,
         // while RLS still recognizes the deleting actor as an active application manager.

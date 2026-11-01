@@ -46,6 +46,9 @@ export const decodeSnapshotLayoutRendererConfig = (config: unknown, templateKey:
  */
 export const validateSnapshotLayoutNeutralMetadata = (snapshot: unknown, failSnapshotLayout: SnapshotMetadataFailure): void => {
     if (!isRecord(snapshot)) failSnapshotLayout('Snapshot must be an object', {})
+    if (Object.prototype.hasOwnProperty.call(snapshot, 'layoutConfig')) {
+        failSnapshotLayout('Snapshot layoutConfig is retired; use the selected layout config', {})
+    }
 
     const layouts = [
         ...readSnapshotRecordArray(snapshot.layouts, 'layouts', failSnapshotLayout),
@@ -81,29 +84,6 @@ export const validateSnapshotLayoutNeutralMetadata = (snapshot: unknown, failSna
         if (typeof layout.id === 'string') layoutsById.set(layout.id, layout)
     }
 
-    const defaultLayout = typeof snapshot.defaultLayoutId === 'string' ? layoutsById.get(snapshot.defaultLayoutId) : undefined
-    if (snapshot.layoutConfig !== undefined && defaultLayout) {
-        const templateKey = readSnapshotTemplateKey(defaultLayout.templateKey, `layout:${String(defaultLayout.id)}`, failSnapshotLayout)
-        let decoded: ReturnType<typeof decodeLayoutConfigEnvelope>
-        try {
-            decoded = decodeLayoutConfigEnvelope(snapshot.layoutConfig, { templateKey })
-        } catch {
-            failSnapshotLayout('Snapshot default layout neutral metadata is invalid', { defaultLayoutId: snapshot.defaultLayoutId })
-        }
-        try {
-            parseApplicationLayoutConfig(templateKey, decoded.rendererConfig)
-        } catch {
-            failSnapshotLayout('Snapshot default layout renderer configuration is invalid', {
-                defaultLayoutId: snapshot.defaultLayoutId
-            })
-        }
-        if (decoded.neutral.composition !== undefined || decoded.neutral.sourceZoneSettings !== undefined) {
-            failSnapshotLayout('Snapshot default layout config contains forbidden composition or source metadata', {
-                defaultLayoutId: snapshot.defaultLayoutId
-            })
-        }
-    }
-
     const widgets = readSnapshotRecordArray(snapshot.layoutZoneWidgets, 'layout widgets', failSnapshotLayout)
     const widgetsById = new Map<string, Record<string, unknown>>()
     for (const widget of widgets) {
@@ -115,7 +95,7 @@ export const validateSnapshotLayoutNeutralMetadata = (snapshot: unknown, failSna
                 templateKey,
                 widgetKey: String(widget.widgetKey),
                 zone: String(widget.zone),
-                requireBindings: true
+                requireBindings: widget.isActive !== false
             })
             parseApplicationLayoutWidgetConfig(String(widget.widgetKey), decoded.rendererConfig)
         } catch (error) {

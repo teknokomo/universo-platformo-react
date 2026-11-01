@@ -100,6 +100,14 @@ widgets are not injected into that layout; section order and visibility are
 validated by the marketing contract. Content changes are made through the
 published Object records, not through dashboard CRUD controls.
 
+For a `messenger-app` layout, the immutable template key selects the compact
+read-only Messenger shell with `top`, `center`, and `bottom` zones. Placements
+remain in the canonical layout and widget collections; the anonymous runtime
+renders only widgets with a safe read-only projector. Dashboard navigation,
+workspace controls, and authoring actions are outside this shell. Renderer
+configuration is stored in `layouts[].config`, and snapshots do not carry the
+retired duplicate top-level `layoutConfig` projection.
+
 The shared capability registry exposes `languageSwitcher` in the Dashboard
 `top` zone and the marketing `marketing-header` zone. Other widgets remain
 template-specific and are rejected if a placement targets an unsupported

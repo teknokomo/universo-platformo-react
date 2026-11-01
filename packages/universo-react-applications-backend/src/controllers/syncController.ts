@@ -5,6 +5,7 @@ import type { ApplicationLayoutChange, ApplicationLayoutSyncPolicy, ApplicationL
 import { parseWorkspaceModePolicy, resolveWorkspaceModeDecision, WorkspacePolicyError, type DbExecutor } from '@universo-react/utils'
 import { ensureApplicationAccess, type ApplicationRole } from '../routes/guards'
 import { findApplicationCopySource } from '../persistence/applicationsStore'
+import { acquireApplicationCopyMutationLock } from '../persistence/applicationCopyLocking'
 import { APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT } from '../persistence/applicationLayoutSyncStore'
 import {
     findFirstConnectorByApplicationId,
@@ -364,11 +365,14 @@ export function createSyncController(
                 })
 
                 if (isAppliedSyncResult(result) && parsed.data.schemaOptions !== undefined) {
-                    await updateConnectorPublicationSchemaOptions(exec, {
-                        connectorId: connector.id,
-                        linkId: connectorPublication.id,
-                        schemaOptions: connectorSchemaOptions.options,
-                        userId
+                    await exec.transaction(async (tx) => {
+                        await acquireApplicationCopyMutationLock(tx, applicationId)
+                        await updateConnectorPublicationSchemaOptions(tx, {
+                            connectorId: connector.id,
+                            linkId: connectorPublication.id,
+                            schemaOptions: connectorSchemaOptions.options,
+                            userId
+                        })
                     })
                 }
 

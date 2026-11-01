@@ -12,6 +12,8 @@ import {
     applicationId,
     workspaceId,
     childRecordId,
+    dashboardRowsRuntimeComponents,
+    recordSetCandidate,
     resolveDetailsTable,
     metadataForSlot,
     metadataEnvelope,
@@ -20,6 +22,33 @@ import {
 
 describe('resolveEffectiveWidgetRuntimeData detailsTable projection', () => {
     beforeEach(resetEffectiveWidgetRuntimeDataResolverMocks)
+
+    it('caps the records union read and binding slot at the configured maxRows', async () => {
+        const { executor } = createMockDbExecutor()
+        const config = { variant: 'records', maxRows: 4 }
+        const definition = getLayoutWidgetDefinition('detailsTable', config)
+        const rowsSlot = definition?.bindingSlots?.find(({ key }) => key === 'rows')
+        if (!rowsSlot) throw new Error('detailsTable rows binding is missing')
+        ;(runtimeStore.loadRuntimeWidgetBindingMetadata as jest.Mock).mockResolvedValueOnce(
+            metadataEnvelope([metadataForSlot(objectId, 'DashboardRows', rowsSlot)])
+        )
+        ;(runtimeUnion.executeRuntimeRecordsUnionQuery as jest.Mock).mockResolvedValueOnce({
+            targetPayloads: [{ objectCollection: {}, columns: [{ field: 'Title', headerName: 'Title' }] }],
+            rows: [],
+            total: 0,
+            limit: 4,
+            offset: 0
+        })
+
+        await resolveEffectiveWidgetRuntimeData(
+            executor,
+            scope,
+            [recordSetCandidate('detailsTable', 'rows', 'DashboardRows', config)],
+            'en'
+        )
+
+        expect(runtimeUnion.executeRuntimeRecordsUnionQuery).toHaveBeenCalledWith(expect.objectContaining({ limit: 4, offset: 0 }))
+    })
 
     it('passes the anonymous published-record scope into records.union queries', async () => {
         const publicScope = { ...scope, currentUserId: null, role: null, publishedRecordsOnly: true } as typeof scope
@@ -33,6 +62,59 @@ describe('resolveEffectiveWidgetRuntimeData detailsTable projection', () => {
                     publishedRecordsOnly: true
                 })
             })
+        )
+    })
+
+    it('excludes personal name fields before querying anonymous published records', async () => {
+        const publicScope = { ...scope, currentUserId: null, role: null, publishedRecordsOnly: true } as typeof scope
+        const components = ['Name', 'PersonName', 'CustomerName', 'MemberName', 'ProfileName', 'Subject'].map((codename, index) => ({
+            ...dashboardRowsRuntimeComponents[0]!,
+            id: `component-${index}`,
+            codename,
+            column_name: `cmp_${index}`,
+            presentation: {
+                name: {
+                    _primary: 'en',
+                    locales: { en: { content: codename }, ru: { content: codename } }
+                }
+            },
+            sort_order: index
+        }))
+
+        const result = await resolveDetailsTable(
+            { variant: 'records', maxRows: 20 },
+            publicScope,
+            [
+                {
+                    recordId,
+                    data: {
+                        Name: 'Private name value',
+                        PersonName: 'Private person name value',
+                        CustomerName: 'Private customer name value',
+                        MemberName: 'Private member name value',
+                        ProfileName: 'Private profile name value',
+                        Subject: 'Public subject'
+                    }
+                }
+            ],
+            { components }
+        )
+
+        expect(result).toMatchObject({
+            status: 'ready',
+            data: {
+                kind: 'table',
+                columns: [{ key: 'Subject', label: 'Subject' }],
+                rows: [{ cells: [{ key: 'Subject', value: 'Public subject' }] }]
+            }
+        })
+        expect(JSON.stringify(result)).not.toContain('Private name value')
+        expect(JSON.stringify(result)).not.toContain('Private person name value')
+        expect(JSON.stringify(result)).not.toContain('Private customer name value')
+        expect(JSON.stringify(result)).not.toContain('Private member name value')
+        expect(JSON.stringify(result)).not.toContain('Private profile name value')
+        expect(runtimeUnion.executeRuntimeRecordsUnionQuery).toHaveBeenLastCalledWith(
+            expect.objectContaining({ datasource: expect.objectContaining({ projectedFields: ['Subject'] }) })
         )
     })
 

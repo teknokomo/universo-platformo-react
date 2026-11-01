@@ -2,6 +2,7 @@ import { qSchemaTable } from '@universo-react/database'
 import {
     applicationLayoutsListResponseSchema,
     applicationTemplateKeySchema,
+    DEFAULT_MESSENGER_APP_ZONE_WIDGETS,
     getLayoutZoneSettingDefinition,
     type ApplicationLayout,
     type ApplicationLayoutConfigResetMutation,
@@ -11,7 +12,7 @@ import {
     type ApplicationLayoutUpdate,
     type LayoutZoneSettings
 } from '@universo-react/types'
-import { type DbExecutor } from '@universo-react/utils'
+import { generateUuidV7, type DbExecutor } from '@universo-react/utils'
 import { acquireAdvisoryXactLock, activeAppRowCondition, softDeleteSetClause } from '@universo-react/utils/database'
 import { hashApplicationLayoutContent } from '../utils/applicationLayoutHash'
 import { hashApplicationLayoutContentFromStore, resolveApplicationLayoutHashContext } from './applicationLayoutHashContext'
@@ -32,11 +33,15 @@ import {
     GLOBAL_SCOPE_ID,
     applicationLayoutMutationLockKey,
     applicationLayoutScopeLockKey,
+    assertApplicationLayoutWidgetConfig,
+    assertWidgetPlacementForTemplate,
     assertRendererConfigInput,
+    encodeWidgetConfigForStorage,
     encodeLayoutConfigForStorage,
     getApplicationLayoutDetail as readApplicationLayoutDetail,
     getApplicationLayoutRawConfig,
     getApplicationLayoutWidgetSourceBindingState,
+    getWidgetPlacement,
     isRecord,
     layoutCompositionToNeutral,
     layoutSelect,
@@ -74,6 +79,32 @@ interface ApplicationLayoutWidgetTombstoneRow {
     is_active: boolean
     _upl_deleted: boolean
     _app_deleted: boolean
+}
+
+const prepareMessengerLayoutSeedWidgets = () => {
+    const idsBySeedKey = new Map(DEFAULT_MESSENGER_APP_ZONE_WIDGETS.map((placement) => [placement.instanceKey, generateUuidV7()]))
+
+    return DEFAULT_MESSENGER_APP_ZONE_WIDGETS.map((placement) => {
+        assertWidgetPlacementForTemplate('messenger-app', placement.widgetKey, placement.zone)
+        const rendererConfig = assertApplicationLayoutWidgetConfig(placement.widgetKey, placement.config ?? {})
+        const logicalPlacement = getWidgetPlacement('messenger-app', placement.widgetKey, placement.zone, rendererConfig)
+        const parentWidgetId = placement.parentInstanceKey === null ? null : idsBySeedKey.get(placement.parentInstanceKey)
+        if (placement.parentInstanceKey !== null && !parentWidgetId) {
+            throw new Error('APPLICATION_LAYOUT_WIDGET_SEED_PARENT_MISSING')
+        }
+
+        return {
+            id: idsBySeedKey.get(placement.instanceKey)!,
+            instanceKey: generateUuidV7(),
+            zone: placement.zone,
+            widgetKey: placement.widgetKey,
+            parentWidgetId: parentWidgetId ?? null,
+            slotKey: placement.slotKey,
+            sortOrder: placement.sortOrder,
+            config: encodeWidgetConfigForStorage('messenger-app', placement.widgetKey, placement.zone, rendererConfig, logicalPlacement),
+            isActive: placement.isActive ?? true
+        }
+    })
 }
 
 export async function getApplicationLayoutDetail(executor: DbExecutor, schemaName: string, layoutId: string) {
@@ -331,6 +362,7 @@ export async function createApplicationLayout(
     const templateKey = applicationTemplateKeySchema.parse(data.templateKey)
     const config = parseLayoutConfigForStorage(templateKey, data.config ?? {}, { compositionMode: 'independent', baseLayoutId: null })
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
+    const widgetsTable = qSchemaTable(schemaName, '_app_widgets')
     const scopeId = data.scopeEntityId ?? null
     return runApplicationLayoutTransaction(executor, async (tx) => {
         await acquireAdvisoryXactLock(tx, applicationLayoutMutationLockKey(schemaName))
@@ -342,6 +374,7 @@ export async function createApplicationLayout(
         )
         const isDefault = data.isDefault ?? Number(activeRows[0]?.count ?? 0) === 0
         const isActive = isDefault ? true : data.isActive ?? true
+        const seedWidgets = templateKey === 'messenger-app' && scopeId === null ? prepareMessengerLayoutSeedWidgets() : []
         if (isDefault) {
             await tx.query(
                 `UPDATE ${layoutsTable}
@@ -359,7 +392,17 @@ export async function createApplicationLayout(
         }
         const localHash = await hashApplicationLayoutContentFromStore(tx, schemaName, {
             layout: { ...data, templateKey, config, scopeEntityId: scopeId, isDefault, isActive },
-            widgets: []
+            widgets: seedWidgets.map(({ id, instanceKey, zone, widgetKey, parentWidgetId, slotKey, sortOrder, config, isActive }) => ({
+                id,
+                instanceKey,
+                zone,
+                widgetKey,
+                parentWidgetId,
+                slotKey,
+                sortOrder,
+                config,
+                isActive
+            }))
         })
         const rows = await tx.query<LayoutRow>(
             `
@@ -383,7 +426,43 @@ export async function createApplicationLayout(
                 localHash
             ]
         )
-        return mapLayout(rows[0])
+        const createdLayout = rows[0]
+        if (!createdLayout) throw new Error('APPLICATION_LAYOUT_CREATE_FAILED')
+
+        for (const widget of seedWidgets) {
+            const insertedWidgets = await tx.query<{ id: string; instance_key: string }>(
+                `
+                INSERT INTO ${widgetsTable} (
+                  id, layout_id, zone, widget_key, instance_key, parent_widget_id, slot_key,
+                  sort_order, config, is_active, _upl_created_by, _upl_updated_by
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $11)
+                RETURNING id, instance_key
+                `,
+                [
+                    widget.id,
+                    createdLayout.id,
+                    widget.zone,
+                    widget.widgetKey,
+                    widget.instanceKey,
+                    widget.parentWidgetId,
+                    widget.slotKey,
+                    widget.sortOrder,
+                    JSON.stringify(widget.config),
+                    widget.isActive,
+                    userId
+                ]
+            )
+            if (
+                insertedWidgets.length !== 1 ||
+                insertedWidgets[0]?.id !== widget.id ||
+                insertedWidgets[0]?.instance_key !== widget.instanceKey
+            ) {
+                throw new Error('APPLICATION_LAYOUT_WIDGET_SEED_FAILED')
+            }
+        }
+
+        return mapLayout(createdLayout)
     })
 }
 

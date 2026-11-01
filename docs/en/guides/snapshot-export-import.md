@@ -87,6 +87,8 @@ metahub snapshot without going through publication versions.
 
 ## Shared Authoring Data
 
+-   `layouts` and `scopedLayouts` carry each template's renderer config in that layout's `config`; `defaultLayoutId` selects the global default.
+-   `layoutZoneWidgets` and `layoutWidgetOverrides` carry widget placements and scoped changes. A duplicate top-level `snapshot.layoutConfig` is rejected.
 -   `sharedComponents`, `sharedFixedValues`, and `sharedOptionValues` preserve the Resources-workspace shared pools.
 -   `sharedEntityOverrides` preserves per-target exclusions, inactive overrides, and sparse sort-order changes.
 -   Publication runtime loading materializes those shared sections before application sync and runtime deserialization.

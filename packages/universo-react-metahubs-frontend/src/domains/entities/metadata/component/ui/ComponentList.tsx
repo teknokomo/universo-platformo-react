@@ -822,6 +822,7 @@ export const ComponentListContent = ({
                                 targetEntityKind={values.targetEntityKind ?? null}
                                 targetEntityId={values.targetEntityId ?? null}
                                 isRequired={Boolean(values.isRequired)}
+                                showPublicMessengerSafe
                             />
                             {sharedEntityMode ? (
                                 <SharedEntitySettingsFields

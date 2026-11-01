@@ -246,8 +246,7 @@ export const createMarketingSnapshot = (): PublishedApplicationSnapshot =>
                 isActive: true
             }
         ],
-        defaultLayoutId: marketingIds.layout,
-        layoutConfig: {}
+        defaultLayoutId: marketingIds.layout
     } as unknown as PublishedApplicationSnapshot)
 
 export const createMarketingHeroSnapshot = (): PublishedApplicationSnapshot =>

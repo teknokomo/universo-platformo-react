@@ -1,6 +1,7 @@
 import type { GridLocaleText } from '@mui/x-data-grid'
 import type {
     ApplicationTemplateHostCapability,
+    ApplicationTemplateKey,
     CreateTargetDefault,
     DashboardLayoutConfig,
     DashboardSideMenuMode,
@@ -49,6 +50,8 @@ export interface DashboardDetailsSlot {
     /** Allowlisted application/site metadata exposed to the host-owned footer widget. */
     footerMetadata?: DashboardFooterMetadata
     runtimeAccessMode?: 'member' | 'public'
+    /** Concrete renderer template for template-specific shared widget behavior. */
+    runtimeTemplateKey?: ApplicationTemplateKey
     /** One server-projected, semantic next section available from the public start page. */
     publicNavigationAction?: { label: string; href: string }
     /** Semantic selector already authorized by the public runtime bootstrap. */

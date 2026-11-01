@@ -43,6 +43,18 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 -   Own deployment-wide application aliases in `applications.obj_application_aliases`, including direct/canonical routing policy, UUID v7 alias identities, reserved-name lifecycle, and transactional primary-alias invariants.
 -   Reuse shared guards, identifier helpers, and query helpers from the database standard packages.
 
+## Catalog Visibility and Messenger Bot Bindings
+
+-   `show_in_app_list` controls public Application catalog discovery independently of `is_public`. A public Application with this flag disabled stays directly reachable through its public runtime routes; membership visibility and privileged `showAll` results remain available. The fresh Applications schema defaults the flag to `true`.
+-   Catalog visibility changes require the current positive `expectedVersion`. Creation, copying, and successful visibility changes write immutable control-audit rows in the same transaction as the Application mutation.
+-   Owner/admins manage manual MAX and Telegram bindings at `/applications/:applicationId/bot-bindings`. The API supports list, create, optimistic-version PATCH, and irreversible DELETE-as-release.
+-   A binding has a server-generated UUID v7 and an opaque `short_id` made from 16 cryptographically random bytes encoded as 22-character unpadded base64url. The short id is immutable and globally reserved across released rows; canonical bot usernames are unique per Application and platform across retained rows.
+-   `draft`, `active`, and `disabled` are binding states. `disabled` can be changed again before release; release tombstones the binding and permanently reserves its bot identity and short id. Application deletion releases retained bindings and writes their audits in the Application deletion transaction.
+-   Binding create, update, status change, release, and Application-deletion release write immutable control-audit records transactionally. Audit values contain event names, changed field names, actor/version metadata, and no bot credentials.
+-   Optional `displayName` is a short operator label of at most 120 Unicode code points. The shared API contract and PostgreSQL boundary reject common contact/credential patterns, including phone-like strings written with non-ASCII decimal digits; the field is not a contact directory or a secret store.
+-   Bot tokens, Telegram/MAX `initData`, messenger-user identifiers, phone numbers, and email addresses are not accepted or stored. `short_id` is attribution only, never authorization. Anonymous attribution at `/public/applications/:applicationRef/attribution/:shortId` is scoped to that Application and returns only the platform or `null` for unknown, disabled, released, deleted, or non-public bindings.
+-   Anonymous Messenger data projectors require `ui_config.publicMessengerSafe: true` on every projected Component. The allowlist is opt-in, remains subject to the existing hidden/private/technical checks, and does not replace review of the values written to an approved field.
+
 ## Workspaces, Public Access, and Limits
 
 -   Applications can be created as `closed` or `public`, and owners/admins can later change visibility from Application Settings.

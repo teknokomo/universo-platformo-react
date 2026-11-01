@@ -3,7 +3,6 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import CircularProgress from '@mui/material/CircularProgress'
 import Alert from '@mui/material/Alert'
-import Stack from '@mui/material/Stack'
 import { useQuery } from '@tanstack/react-query'
 import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -24,8 +23,13 @@ import { DashboardApplicationRuntime } from './application-runtime/DashboardAppl
 import { normalizeRuntimeLocale, UUID_PATH_SEGMENT_REGEX } from './application-runtime/runtimeLayout'
 import { usePublicApplicationRuntimeQuery } from './application-runtime/usePublicApplicationRuntimeQuery'
 import { PublicDashboardApplicationRuntime } from './application-runtime/PublicDashboardApplicationRuntime'
+import { PublicMessengerApplicationRuntime } from './application-runtime/PublicMessengerApplicationRuntime'
 
 type MarketingRuntimeContentProps = ComponentProps<typeof MarketingRuntimeContent>
+
+const assertNeverTemplate = (templateKey: never): void => {
+    void templateKey
+}
 
 const publicRuntimeRemainingPath = (pathname: string, applicationRef: string, wildcardPath?: string): string => {
     const encodedPrefix = `/a/${encodeURIComponent(applicationRef)}`
@@ -49,12 +53,16 @@ export const PublicApplicationRuntime = () => {
     const remainingPath = publicRuntimeRemainingPath(location.pathname, applicationRef, routeParams['*'])
 
     if (!applicationRef) {
-        return <Alert severity='error'>{t('app.errors.missingApplicationId', 'Application ID is missing in URL')}</Alert>
+        return (
+            <Box component='main'>
+                <Alert severity='error'>{t('app.errors.missingApplicationId', 'Application ID is missing in URL')}</Alert>
+            </Box>
+        )
     }
 
     if (publicRuntimeQuery.isLoading) {
         return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 240 }}>
+            <Box component='main' sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 240 }}>
                 <CircularProgress aria-label={t('app.runtime.loading', 'Loading application')} />
             </Box>
         )
@@ -63,30 +71,18 @@ export const PublicApplicationRuntime = () => {
     if (publicRuntimeQuery.isError || !publicRuntimeQuery.data) {
         const unavailable = isPublicApplicationUnavailableError(publicRuntimeQuery.error)
         return (
-            <Alert
-                severity='error'
-                action={
-                    unavailable ? (
-                        <Stack
-                            direction='row'
-                            spacing={1}
-                            sx={{
-                                flexWrap: 'wrap'
-                            }}
-                        >
-                            <Button color='inherit' size='small' onClick={() => navigate('/')}>
-                                {t('app.errors.goHome', 'Go home')}
-                            </Button>
-                        </Stack>
-                    ) : (
+            <Box component='main'>
+                <Alert
+                    severity='error'
+                    action={
                         <Button color='inherit' size='small' onClick={() => void publicRuntimeQuery.refetch()}>
                             {t('common.retry', 'Retry')}
                         </Button>
-                    )
-                }
-            >
-                {t(unavailable ? 'app.errors.applicationUnavailable' : 'app.errors.loadFailed', 'Failed to load runtime data')}
-            </Alert>
+                    }
+                >
+                    {t(unavailable ? 'app.errors.applicationUnavailable' : 'app.errors.loadFailed', 'Failed to load runtime data')}
+                </Alert>
+            </Box>
         )
     }
 
@@ -100,51 +96,69 @@ export const PublicApplicationRuntime = () => {
     })
     if (canonicalPath) return <Navigate to={canonicalPath} replace />
 
-    if (publicRuntime.templateKey === 'dashboard')
-        return (
-            <PublicDashboardApplicationRuntime
-                applicationRef={applicationRef}
-                locale={requestedLocale}
-                target={requestedTarget}
-                dashboard={publicRuntime.dashboard}
-                onNavigate={navigate}
-            />
-        )
+    switch (publicRuntime.templateKey) {
+        case 'messenger-app':
+            return (
+                <PublicMessengerApplicationRuntime
+                    applicationRef={applicationRef}
+                    messengerApp={publicRuntime.messengerApp}
+                    onNavigate={navigate}
+                />
+            )
+        case 'dashboard':
+            return (
+                <PublicDashboardApplicationRuntime
+                    applicationRef={applicationRef}
+                    locale={requestedLocale}
+                    target={requestedTarget}
+                    dashboard={publicRuntime.dashboard}
+                    onNavigate={navigate}
+                />
+            )
+        case 'marketing-page': {
+            const runtimePayload = {
+                templateKey: publicRuntime.templateKey,
+                marketingPage: publicRuntime.marketingPage
+            } as const
 
-    const runtimePayload = {
-        templateKey: publicRuntime.templateKey,
-        marketingPage: publicRuntime.marketingPage
-    } as const
+            // The public bootstrap carries the renderer-safe header placements directly.
+            const effectiveLayoutWidgets = publicRuntime.marketingPage
+                .headerWidgets as unknown as MarketingRuntimeContentProps['effectiveLayoutWidgets']
 
-    // The public bootstrap carries the renderer-safe header placements directly.
-    const effectiveLayoutWidgets = publicRuntime.marketingPage
-        .headerWidgets as unknown as MarketingRuntimeContentProps['effectiveLayoutWidgets']
-
-    return (
-        <MarketingRuntimeContent
-            applicationId={applicationRef}
-            locale={requestedLocale}
-            apiBaseUrl='/api/v1'
-            effectiveLayoutWidgets={effectiveLayoutWidgets}
-            effectiveLayoutConfig={{
-                templateKey: 'marketing-page',
-                zoneSettings: {
-                    'marketing-header': {
-                        position: publicRuntime.marketingPage.headerPosition
-                    }
-                }
-            }}
-            loadingLabel={t('app.runtime.loading', 'Loading application')}
-            errorLabel={t('app.errors.loadFailed', 'Failed to load runtime data')}
-            retryLabel={t('common.retry', 'Retry')}
-            // The shared public contract types atomic header records more broadly.
-            // MarketingRuntimeContent revalidates injected data with its strict renderer schema.
-            runtimePayload={runtimePayload as MarketingRuntimeContentProps['runtimePayload']}
-            onAction={(action) => {
-                if (action.actionKind === 'internal') navigate(action.href)
-            }}
-        />
-    )
+            return (
+                <MarketingRuntimeContent
+                    applicationId={applicationRef}
+                    locale={requestedLocale}
+                    apiBaseUrl='/api/v1'
+                    effectiveLayoutWidgets={effectiveLayoutWidgets}
+                    effectiveLayoutConfig={{
+                        templateKey: 'marketing-page',
+                        zoneSettings: {
+                            'marketing-header': {
+                                position: publicRuntime.marketingPage.headerPosition
+                            }
+                        }
+                    }}
+                    loadingLabel={t('app.runtime.loading', 'Loading application')}
+                    errorLabel={t('app.errors.loadFailed', 'Failed to load runtime data')}
+                    retryLabel={t('common.retry', 'Retry')}
+                    // The shared public contract types atomic header records more broadly.
+                    // MarketingRuntimeContent revalidates injected data with its strict renderer schema.
+                    runtimePayload={runtimePayload as MarketingRuntimeContentProps['runtimePayload']}
+                    onAction={(action) => {
+                        if (action.actionKind === 'internal') navigate(action.href)
+                    }}
+                />
+            )
+        }
+        default:
+            assertNeverTemplate(publicRuntime.templateKey)
+            return (
+                <Box component='main'>
+                    <Alert severity='error'>{t('app.errors.unsupportedTemplate', 'This application template is not supported.')}</Alert>
+                </Box>
+            )
+    }
 }
 
 export interface ApplicationRuntimeProps {
@@ -251,62 +265,69 @@ const ApplicationRuntime = ({ applicationIdOverride }: ApplicationRuntimeProps =
                 {runtimeLoadErrorMessage}
             </Alert>
         )
-    if (effectiveLayoutQuery.data.layout.templateKey === 'marketing-page') {
-        if (isWorkspacesRoute) {
-            return (
-                <AppMainLayout>
-                    <RuntimeWorkspacesPage
-                        applicationId={applicationId}
-                        apiBaseUrl='/api/v1'
-                        locale={requestedLocale}
-                        routeWorkspaceId={routeWorkspaceId}
-                        routeSection={workspaceRouteSection}
-                        currentUserId={user?.id ?? null}
-                        onNavigate={navigate}
-                    />
-                </AppMainLayout>
-            )
-        }
+    const effectiveLayout = effectiveLayoutQuery.data
+    switch (effectiveLayout.layout.templateKey) {
+        case 'marketing-page':
+            if (isWorkspacesRoute) {
+                return (
+                    <AppMainLayout>
+                        <RuntimeWorkspacesPage
+                            applicationId={applicationId}
+                            apiBaseUrl='/api/v1'
+                            locale={requestedLocale}
+                            routeWorkspaceId={routeWorkspaceId}
+                            routeSection={workspaceRouteSection}
+                            currentUserId={user?.id ?? null}
+                            onNavigate={navigate}
+                        />
+                    </AppMainLayout>
+                )
+            }
 
-        return (
-            <MarketingRuntimeContent
-                applicationId={applicationId}
-                locale={requestedLocale}
-                apiBaseUrl='/api/v1'
-                workspaceId={requestedWorkspaceId}
-                themeVariant={requestedThemeVariant}
-                target={hasMarketingTarget ? requestedMarketingTarget : null}
-                layoutIdentity={
-                    effectiveLayoutQuery.data.effectiveHash
-                        ? {
-                              layoutVersion: effectiveLayoutQuery.data.layout.version ?? 1,
-                              layoutHash: effectiveLayoutQuery.data.effectiveHash
-                          }
-                        : undefined
-                }
-                effectiveLayoutWidgets={effectiveLayoutQuery.data.widgets}
-                effectiveLayoutConfig={effectiveLayoutQuery.data.layout}
-                onLayoutStale={() => void effectiveLayoutQuery.refetch()}
-                loadingLabel={t('app.runtime.loading', 'Loading application')}
-                errorLabel={runtimeLoadErrorMessage}
-                retryLabel={t('common.retry', 'Retry')}
-                onAction={(action) => {
-                    if (action.actionKind === 'internal') navigate(action.href)
-                }}
-            />
-        )
+            return (
+                <MarketingRuntimeContent
+                    applicationId={applicationId}
+                    locale={requestedLocale}
+                    apiBaseUrl='/api/v1'
+                    workspaceId={requestedWorkspaceId}
+                    themeVariant={requestedThemeVariant}
+                    target={hasMarketingTarget ? requestedMarketingTarget : null}
+                    layoutIdentity={
+                        effectiveLayout.effectiveHash
+                            ? {
+                                  layoutVersion: effectiveLayout.layout.version ?? 1,
+                                  layoutHash: effectiveLayout.effectiveHash
+                              }
+                            : undefined
+                    }
+                    effectiveLayoutWidgets={effectiveLayout.widgets}
+                    effectiveLayoutConfig={effectiveLayout.layout}
+                    onLayoutStale={() => void effectiveLayoutQuery.refetch()}
+                    loadingLabel={t('app.runtime.loading', 'Loading application')}
+                    errorLabel={runtimeLoadErrorMessage}
+                    retryLabel={t('common.retry', 'Retry')}
+                    onAction={(action) => {
+                        if (action.actionKind === 'internal') navigate(action.href)
+                    }}
+                />
+            )
+        case 'messenger-app':
+        case 'dashboard':
+            return (
+                <DashboardWidgetSelectionProvider>
+                    <DashboardApplicationRuntime
+                        applicationIdOverride={applicationId}
+                        effectiveLayout={effectiveLayout}
+                        locale={requestedLocale}
+                        footerMetadata={dashboardSiteName ? { siteName: dashboardSiteName } : undefined}
+                        onRuntimeDataChanged={effectiveLayoutQuery.refetch}
+                    />
+                </DashboardWidgetSelectionProvider>
+            )
+        default:
+            assertNeverTemplate(effectiveLayout.layout.templateKey)
+            return <Alert severity='error'>{t('app.errors.unsupportedTemplate', 'This application template is not supported.')}</Alert>
     }
-    return (
-        <DashboardWidgetSelectionProvider>
-            <DashboardApplicationRuntime
-                applicationIdOverride={applicationId}
-                effectiveLayout={effectiveLayoutQuery.data}
-                locale={requestedLocale}
-                footerMetadata={dashboardSiteName ? { siteName: dashboardSiteName } : undefined}
-                onRuntimeDataChanged={effectiveLayoutQuery.refetch}
-            />
-        </DashboardWidgetSelectionProvider>
-    )
 }
 
 export default ApplicationRuntime

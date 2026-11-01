@@ -52,7 +52,7 @@ const createResponse = (events: string[] = []) => {
 }
 
 const executor = {
-    query: jest.fn(),
+    query: jest.fn().mockResolvedValue([{ layouts: false, widgets: false }]),
     transaction: jest.fn(),
     isReleased: jest.fn().mockReturnValue(false)
 } as unknown as DbExecutor
@@ -98,9 +98,17 @@ describe('public guest runtime context errors', () => {
         const events: string[] = []
         const transaction = jest.fn(async (work: (tx: DbExecutor) => Promise<void>) => {
             const tx = {
-                query: jest.fn(async () => {
-                    events.push('application-lock')
-                    return [{ id: applicationId }]
+                query: jest.fn(async (sql: string) => {
+                    if (sql.includes('pg_advisory_xact_lock_shared')) {
+                        events.push('layout-policy-lock')
+                        return []
+                    }
+                    if (sql.includes('FROM applications.obj_applications')) {
+                        events.push('application-lock')
+                        return [{ id: applicationId }]
+                    }
+                    if (sql.includes('information_schema.tables')) return [{ layouts: false, widgets: false }]
+                    return []
                 })
             } as unknown as DbExecutor
             await work(tx)
@@ -131,7 +139,7 @@ describe('public guest runtime context errors', () => {
             expect(jsonSpy).not.toHaveBeenCalled()
         })
 
-        expect(events).toEqual(['application-lock', 'guest-work', 'commit', 'header', 'json'])
+        expect(events).toEqual(['layout-policy-lock', 'application-lock', 'guest-work', 'commit', 'header', 'json'])
         expect(jsonSpy).toHaveBeenCalledWith({ ok: true })
         expect(headerSpy).toHaveBeenCalledWith('X-Guest-Test', 'committed')
         expect(response.statusCode).toBe(201)
@@ -140,7 +148,15 @@ describe('public guest runtime context errors', () => {
     it('defers binary-safe public bundle sends and response headers until commit', async () => {
         const events: string[] = []
         const transaction = jest.fn(async (work: (tx: DbExecutor) => Promise<void>) => {
-            const tx = { query: jest.fn().mockResolvedValue([{ id: applicationId }]) } as unknown as DbExecutor
+            const tx = {
+                query: jest.fn(async (sql: string) =>
+                    sql.includes('FROM applications.obj_applications')
+                        ? [{ id: applicationId }]
+                        : sql.includes('information_schema.tables')
+                        ? [{ layouts: false, widgets: false }]
+                        : []
+                )
+            } as unknown as DbExecutor
             await work(tx)
             events.push('commit')
         })
@@ -175,7 +191,15 @@ describe('public guest runtime context errors', () => {
 
     it('does not send a staged response or headers when the public transaction fails to commit', async () => {
         const transaction = jest.fn(async (work: (tx: DbExecutor) => Promise<void>) => {
-            const tx = { query: jest.fn().mockResolvedValue([{ id: applicationId }]) } as unknown as DbExecutor
+            const tx = {
+                query: jest.fn(async (sql: string) =>
+                    sql.includes('FROM applications.obj_applications')
+                        ? [{ id: applicationId }]
+                        : sql.includes('information_schema.tables')
+                        ? [{ layouts: false, widgets: false }]
+                        : []
+                )
+            } as unknown as DbExecutor
             await work(tx)
             throw new Error('public runtime commit failed')
         })

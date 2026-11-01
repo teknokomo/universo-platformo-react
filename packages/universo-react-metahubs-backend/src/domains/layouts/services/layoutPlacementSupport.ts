@@ -5,6 +5,7 @@ import {
     decodeWidgetConfigEnvelope,
     encodeLayoutConfigEnvelope,
     encodeWidgetConfigEnvelope,
+    getLayoutZonesForTemplate,
     applicationLayoutWidgetKeySchema,
     applicationLayoutZoneSchema,
     type ApplicationLayoutWidgetKey,
@@ -12,7 +13,7 @@ import {
     applicationTemplateKeySchema
 } from '@universo-react/types'
 import { generateUuidV7 } from '@universo-react/utils'
-import { DEFAULT_DASHBOARD_ZONE_WIDGETS } from '../../shared/layoutDefaults'
+import { DEFAULT_DASHBOARD_ZONE_WIDGETS, DEFAULT_MESSENGER_APP_ZONE_WIDGETS } from '../../shared/layoutDefaults'
 import { MetahubNotFoundError, MetahubValidationError } from '../../shared/domainErrors'
 import { assertLayoutWidgetBindingAuthority, layoutWidgetOwnsComposition, requireLayoutWidgetOwnership } from '../widgetOwnership'
 import { assertAllowedLayoutWidgetChild } from '../widgetOwnership'
@@ -28,7 +29,6 @@ import {
     type ResolvedLayoutWidgetState,
     isRecord,
     resolveWidgetPlacementOverridePolicy,
-    LAYOUT_ZONES_BY_TEMPLATE,
     decodeLayoutForStorage,
     decodeWidgetForStorage,
     withIndependentLayoutComposition
@@ -234,7 +234,7 @@ export class MetahubLayoutPlacementSupport extends MetahubLayoutServiceBase {
                     slotKey: typeof row.slot_key === 'string' ? row.slot_key : null,
                     zone,
                     sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 1,
-                    config: this.parseWidgetConfig(templateKey, widgetKey, row.config),
+                    config: this.parseWidgetConfig(templateKey, widgetKey, row.config, row.is_active !== false),
                     isActive: row.is_active !== false,
                     createdAt: String(row._upl_created_at),
                     updatedAt: String(row._upl_updated_at),
@@ -285,7 +285,7 @@ export class MetahubLayoutPlacementSupport extends MetahubLayoutServiceBase {
             const override = overrideMap.get(baseWidgetId)
             const widgetKey = applicationLayoutWidgetKeySchema.parse(row.widget_key)
             const baseZone = applicationLayoutZoneSchema.parse(row.zone)
-            const baseConfig = this.parseWidgetConfig(templateKey, widgetKey, row.config)
+            const baseConfig = this.parseWidgetConfig(templateKey, widgetKey, row.config, row.is_active !== false)
             const overridePolicy = resolveWidgetPlacementOverridePolicy(templateKey, widgetKey, baseConfig)
             if (override?.is_deleted_override === true && overridePolicy.canExclude) {
                 continue
@@ -350,7 +350,7 @@ export class MetahubLayoutPlacementSupport extends MetahubLayoutServiceBase {
                 slotKey: typeof row.slot_key === 'string' ? row.slot_key : null,
                 zone,
                 sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 1,
-                config: this.parseWidgetConfig(templateKey, widgetKey, row.config),
+                config: this.parseWidgetConfig(templateKey, widgetKey, row.config, row.is_active !== false),
                 isActive: row.is_active !== false,
                 createdAt: String(row._upl_created_at),
                 updatedAt: String(row._upl_updated_at),
@@ -615,7 +615,7 @@ export class MetahubLayoutPlacementSupport extends MetahubLayoutServiceBase {
         const now = new Date()
         const templateKey = this.assertLayoutSupportsWidgets(layoutScope)
 
-        for (const zone of LAYOUT_ZONES_BY_TEMPLATE[templateKey]) {
+        for (const zone of getLayoutZonesForTemplate(templateKey)) {
             const zoneItems = widgets
                 .filter((item) => item.zone === zone)
                 .sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id))
@@ -677,7 +677,7 @@ export class MetahubLayoutPlacementSupport extends MetahubLayoutServiceBase {
     }
 
     protected mapResolvedLayoutWidgetState(row: ResolvedLayoutWidgetState): LayoutZoneWidgetRow {
-        const presentation = this.mapWidgetPresentation(row.templateKey, row.widgetKey, row.zone, row.config)
+        const presentation = this.mapWidgetPresentation(row.templateKey, row.widgetKey, row.zone, row.config, row.isActive)
         const instanceKey = this.getPlacementInstanceKey(row.instanceKey)
         this.assertSemanticPlacementPair(row.id, row.parentInstanceKey, row.slotKey)
         return {
@@ -767,7 +767,7 @@ export class MetahubLayoutPlacementSupport extends MetahubLayoutServiceBase {
         }
 
         const templateKey = applicationTemplateKeySchema.parse(layoutRow.template_key)
-        if (templateKey !== 'dashboard') {
+        if (templateKey !== 'dashboard' && templateKey !== 'messenger-app') {
             return
         }
 
@@ -779,7 +779,7 @@ export class MetahubLayoutPlacementSupport extends MetahubLayoutServiceBase {
             return
         }
 
-        if (this.shouldSkipDefaultZoneWidgetSeed(layoutRow.config)) {
+        if (this.shouldSkipDefaultZoneWidgetSeed(templateKey, layoutRow.config)) {
             return
         }
 
@@ -794,43 +794,108 @@ export class MetahubLayoutPlacementSupport extends MetahubLayoutServiceBase {
             return
         }
 
-        this.assertNoDuplicateActiveSingleInstanceWidgets(DEFAULT_DASHBOARD_ZONE_WIDGETS)
+        const defaultWidgets: readonly {
+            zone: ApplicationLayoutZone
+            widgetKey: ApplicationLayoutWidgetKey
+            sortOrder: number
+            config?: Record<string, unknown>
+            isActive?: boolean
+            instanceKey?: string
+            parentInstanceKey?: string | null
+            slotKey?: string | null
+        }[] = templateKey === 'messenger-app' ? DEFAULT_MESSENGER_APP_ZONE_WIDGETS : DEFAULT_DASHBOARD_ZONE_WIDGETS
+        this.assertNoDuplicateActiveSingleInstanceWidgets(defaultWidgets)
         const now = new Date()
-        for (const item of DEFAULT_DASHBOARD_ZONE_WIDGETS) {
+        const seededWidgets: Array<{
+            seedKey: string | null
+            parentSeedKey: string | null
+            id: string
+            instanceKey: string
+            parentWidgetId: string | null
+            slotKey: string | null
+            zone: ApplicationLayoutZone
+            widgetKey: ApplicationLayoutWidgetKey
+            sortOrder: number
+            config: Record<string, unknown>
+            rendererConfig: Record<string, unknown>
+            isActive: boolean
+        }> = []
+
+        for (const item of defaultWidgets) {
             const widgetKey = applicationLayoutWidgetKeySchema.parse(item.widgetKey)
             const zone = applicationLayoutZoneSchema.parse(item.zone)
             const ownership = requireLayoutWidgetOwnership(templateKey, widgetKey, item.config ?? {})
-            if (ownership.sourcePolicy.sourceMode === 'required' || ownership.sourcePolicy.sourceMode === 'specialized') {
+            if (
+                ownership.sourcePolicy.sourceMode === 'specialized' ||
+                (ownership.sourcePolicy.sourceMode === 'required' && item.isActive !== false)
+            ) {
                 continue
             }
-            const widgetEnvelope = decodeWidgetForStorage('dashboard', widgetKey, zone, item.config ?? {})
+            const requireBindings = item.isActive !== false
+            const widgetEnvelope = decodeWidgetForStorage(templateKey, widgetKey, zone, item.config ?? {}, requireBindings)
             const widgetConfig = encodeWidgetConfigEnvelope(
                 { rendererConfig: widgetEnvelope.rendererConfig, neutral: widgetEnvelope.neutral },
-                { templateKey: 'dashboard', widgetKey, zone }
+                { templateKey, widgetKey, zone, requireBindings }
             )
-            const id = generateUuidV7()
-            const instanceKey = generateUuidV7()
+            seededWidgets.push({
+                seedKey: item.instanceKey ?? null,
+                parentSeedKey: item.parentInstanceKey ?? null,
+                id: generateUuidV7(),
+                instanceKey: generateUuidV7(),
+                parentWidgetId: null,
+                slotKey: item.slotKey ?? null,
+                zone,
+                widgetKey,
+                sortOrder: item.sortOrder,
+                config: widgetConfig,
+                rendererConfig: widgetEnvelope.rendererConfig,
+                isActive: item.isActive !== false
+            })
+        }
+
+        const seededWidgetIds = new Map<string, string>()
+        for (const widget of seededWidgets) {
+            if (widget.seedKey === null) continue
+            if (seededWidgetIds.has(widget.seedKey)) throw new MetahubValidationError('Default layout widget seed identity is duplicated')
+            seededWidgetIds.set(widget.seedKey, widget.id)
+        }
+
+        for (const widget of seededWidgets) {
+            if (widget.parentSeedKey !== null) {
+                const parent = seededWidgets.find((candidate) => candidate.seedKey === widget.parentSeedKey)
+                const parentWidgetId = seededWidgetIds.get(widget.parentSeedKey)
+                if (!parent || !parentWidgetId || parent.zone !== widget.zone || !widget.slotKey) {
+                    throw new MetahubValidationError('Default layout widget parent is invalid')
+                }
+                const parentDefinition = requireLayoutWidgetOwnership(templateKey, parent.widgetKey, parent.rendererConfig)
+                const childDefinition = requireLayoutWidgetOwnership(templateKey, widget.widgetKey, widget.rendererConfig)
+                assertAllowedLayoutWidgetChild(parentDefinition, childDefinition, widget.slotKey)
+                widget.parentWidgetId = parentWidgetId
+            }
+
             const insertedRows = await db.query<{ id: string; instance_key: string }>(
                 `INSERT INTO ${wt} (id, layout_id, instance_key, parent_widget_id, slot_key, zone, widget_key, sort_order, config, is_active,
                     _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by,
                     _upl_version, _upl_archived, _upl_deleted, _upl_locked,
                     _mhb_published, _mhb_archived, _mhb_deleted)
-                 VALUES ($1, $2, $3, NULL, NULL, $4, $5, $6, $7, $8, $9, $10, $9, $10, 1, false, false, false, true, false, false)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $11, $12, 1, false, false, false, true, false, false)
                  RETURNING id, instance_key`,
                 [
-                    id,
+                    widget.id,
                     layoutId,
-                    instanceKey,
-                    item.zone,
-                    item.widgetKey,
-                    item.sortOrder,
-                    JSON.stringify(widgetConfig),
-                    item.isActive !== false,
+                    widget.instanceKey,
+                    widget.parentWidgetId,
+                    widget.slotKey,
+                    widget.zone,
+                    widget.widgetKey,
+                    widget.sortOrder,
+                    JSON.stringify(widget.config),
+                    widget.isActive,
                     now,
                     userId ?? null
                 ]
             )
-            if (insertedRows.length !== 1 || insertedRows[0].id !== id || insertedRows[0].instance_key !== instanceKey) {
+            if (insertedRows.length !== 1 || insertedRows[0].id !== widget.id || insertedRows[0].instance_key !== widget.instanceKey) {
                 throw this.createConflictError('Default layout widgets could not be initialized')
             }
         }
