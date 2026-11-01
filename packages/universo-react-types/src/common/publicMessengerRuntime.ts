@@ -438,6 +438,37 @@ const publicMessengerResourceUrlSchema = z
             return false
         }
     }, 'Public Messenger resources must use a safe HTTPS URL.')
+
+const publicMessengerPageBlockSchema = runtimePageBlockSchema.superRefine((block, context) => {
+    const validatePublicValues = (value: unknown, path: (string | number)[] = []): void => {
+        if (typeof value === 'string') {
+            const isUrl = path.at(-1) === 'url'
+            const isSafe = isUrl ? publicMessengerResourceUrlSchema.safeParse(value).success : isPublicMessengerTextSafe(value)
+            if (!isSafe) {
+                context.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path,
+                    message: isUrl
+                        ? 'Public Messenger page resources must use a safe HTTPS URL.'
+                        : 'Public Messenger page content must not contain identifiers, credentials, or private contact data.'
+                })
+            }
+            return
+        }
+
+        if (Array.isArray(value)) {
+            value.forEach((item, index) => validatePublicValues(item, [...path, index]))
+            return
+        }
+
+        if (value && typeof value === 'object') {
+            Object.entries(value).forEach(([key, item]) => validatePublicValues(item, [...path, key]))
+        }
+    }
+
+    validatePublicValues(block)
+})
+
 const publicMessengerResourceSourceSchema = z.discriminatedUnion('type', [
     z
         .object({
@@ -662,7 +693,7 @@ export const publicMessengerAppRuntimeSchema = z
     .object({
         locale: z.enum(['en', 'ru']),
         title: publicMessengerTextSchema(160).refine((value) => value.trim().length > 0),
-        pageBlocks: z.array(runtimePageBlockSchema).max(500).optional(),
+        pageBlocks: z.array(publicMessengerPageBlockSchema).max(500).optional(),
         placements: z.array(publicMessengerPlacementSchema).max(MAX_PUBLIC_MESSENGER_PLACEMENTS)
     })
     .strict()

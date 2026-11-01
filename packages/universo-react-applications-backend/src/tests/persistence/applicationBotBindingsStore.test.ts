@@ -85,6 +85,30 @@ describe('Application bot binding persistence', () => {
         expect(txExecutor.query.mock.calls[1]?.[1]).toEqual([applicationId, bindingId, 3, JSON.stringify({ botUsername: 'mnewnamebot' })])
     })
 
+    it('validates expectedVersion atomically for a no-op update without changing the record version', async () => {
+        const { txExecutor } = createMockDbExecutor()
+        const current = buildBinding()
+        txExecutor.query.mockResolvedValueOnce([current]).mockResolvedValueOnce([current])
+
+        const unchanged = await updateApplicationBotBindingInTransaction(txExecutor, {
+            applicationId,
+            bindingId,
+            expectedVersion: current.version,
+            botUsername: current.botUsername
+        })
+
+        expect(unchanged).toEqual(current)
+        expect(unchanged?.version).toBe(current.version)
+        expect(txExecutor.query).toHaveBeenCalledTimes(2)
+        expect(txExecutor.query.mock.calls[1]?.[0]).toContain('applications.update_application_bot_binding')
+        expect(txExecutor.query.mock.calls[1]?.[1]).toEqual([
+            applicationId,
+            bindingId,
+            current.version,
+            JSON.stringify({ botUsername: current.botUsername })
+        ])
+    })
+
     it('rejects stale update and release versions before invoking mutation functions', async () => {
         const { txExecutor } = createMockDbExecutor()
         txExecutor.query.mockResolvedValueOnce([buildBinding({ version: 5 })])

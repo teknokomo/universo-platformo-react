@@ -116,6 +116,37 @@ describe('MessengerRuntimeShell', () => {
         expect(styles).toContain('100vh')
     })
 
+    it('keeps Messenger navigation visible before the selected Page content', () => {
+        const pageZones: MessengerZoneWidgets = {
+            ...zones,
+            center: [
+                { ...placement('overview-tabs', 'center'), widgetKey: 'detailsTabs' },
+                { ...placement('page-navigation', 'center'), widgetKey: 'menuWidget' },
+                placement('overview-divider', 'center')
+            ]
+        }
+        const runtimeDetails: DashboardDetailsSlot = {
+            ...details,
+            contentMode: 'page',
+            content: <div data-testid='selected-page-content'>Welcome page</div>
+        }
+
+        render(
+            <ThemeProvider theme={createTheme({ palette: { mode: 'dark' } })}>
+                <MessengerRuntimeShell zones={pageZones} details={runtimeDetails} />
+            </ThemeProvider>
+        )
+
+        const centerZone = screen.getByTestId('messenger-zone-center')
+        const menu = screen.getByTestId('rendered-page-navigation')
+        const pageContent = screen.getByTestId('selected-page-content')
+        expect(centerZone).toContainElement(menu)
+        expect(centerZone).toContainElement(pageContent)
+        expect(menu.compareDocumentPosition(pageContent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(screen.queryByTestId('rendered-overview-tabs')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('rendered-overview-divider')).not.toBeInTheDocument()
+    })
+
     it('uses the MAX viewport capability without requiring a BackButton', async () => {
         const getViewportSize = vi.fn().mockResolvedValue({ width: '390px', height: '640px' })
         const onViewportHeightChange = vi.fn()

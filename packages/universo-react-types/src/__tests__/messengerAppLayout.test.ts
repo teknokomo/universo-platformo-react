@@ -41,6 +41,36 @@ const FR006_MESSENGER_PUBLIC_WIDGET_KEYS = [...FR006_MUST_WIDGET_KEYS, ...FR008_
 const emptyRuntimeData = { status: 'empty' } as const
 
 describe('Messenger App default composition', () => {
+    it('allows only safe public Page content and HTTPS resources without credential parameters', () => {
+        const base = { locale: 'en' as const, title: 'Public app', placements: [] }
+        const safePage = [
+            { id: 'welcome-heading', type: 'header' as const, data: { text: 'Welcome', level: 2 } },
+            { id: 'welcome-image', type: 'image' as const, data: { url: 'https://cdn.example.test/welcome.png', alt: 'Welcome image' } }
+        ]
+
+        expect(publicMessengerAppRuntimeSchema.safeParse({ ...base, pageBlocks: safePage }).success).toBe(true)
+        expect(
+            publicMessengerAppRuntimeSchema.safeParse({
+                ...base,
+                pageBlocks: [{ id: 'private-image', type: 'image', data: { url: 'https://cdn.example.test/image.png?token=private-test' } }]
+            }).success
+        ).toBe(false)
+        expect(
+            publicMessengerAppRuntimeSchema.safeParse({
+                ...base,
+                pageBlocks: [
+                    { id: 'private-embed', type: 'embed', data: { url: 'https://www.youtube.com/embed/public-video?api_key=fake-test' } }
+                ]
+            }).success
+        ).toBe(false)
+        expect(
+            publicMessengerAppRuntimeSchema.safeParse({
+                ...base,
+                pageBlocks: [{ id: 'private-copy', type: 'paragraph', data: { text: 'Contact private.person@example.test for access.' } }]
+            }).success
+        ).toBe(false)
+    })
+
     it('seeds the localized header and an unbound generated navigation list inside Overview', () => {
         expect(DEFAULT_MESSENGER_APP_ZONE_WIDGETS).toEqual([
             {

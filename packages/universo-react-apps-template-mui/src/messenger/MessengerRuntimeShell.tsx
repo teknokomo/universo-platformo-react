@@ -253,16 +253,24 @@ export function MessengerRuntimeShell({
 
     const renderedZones = useMemo(
         () =>
-            (['top', 'center', 'bottom'] as const).map((zone) => ({
-                zone,
-                content:
-                    details.contentMode === 'page' && (zone === 'center' || zone === 'bottom')
-                        ? []
-                        : selectRoots(zones[zone]).map((widget) => ({
-                              key: widget.instanceKey,
-                              element: renderWidget(widget, { placements })
-                          }))
-            })),
+            (['top', 'center', 'bottom'] as const).map((zone) => {
+                const isPageMode = details.contentMode === 'page'
+                const visiblePlacements = isPageMode
+                    ? zone === 'top'
+                        ? selectRoots(zones[zone])
+                        : zone === 'center'
+                        ? zones.center.filter((widget) => widget.isActive && widget.widgetKey === 'menuWidget')
+                        : []
+                    : selectRoots(zones[zone])
+
+                return {
+                    zone,
+                    content: visiblePlacements.map((widget) => ({
+                        key: widget.instanceKey,
+                        element: renderWidget(widget, { placements })
+                    }))
+                }
+            }),
         [details.contentMode, placements, zones]
     )
     const hostContent =
@@ -352,17 +360,32 @@ export function MessengerRuntimeShell({
                             {zone === 'center' ? (
                                 <>
                                     {details.banner ? <Box sx={{ minWidth: 0 }}>{details.banner}</Box> : null}
+                                    {details.contentMode === 'page'
+                                        ? content.map(({ key, element }) => (
+                                              <Box key={key} sx={{ minWidth: 0, maxWidth: '100%' }}>
+                                                  {element}
+                                              </Box>
+                                          ))
+                                        : null}
                                     {hostContent ? <Box data-testid='messenger-host-content'>{hostContent}</Box> : null}
                                     {!hostContent && content.length === 0 ? (
                                         <Alert severity='info'>{t('messenger.empty', 'No application content is available yet.')}</Alert>
                                     ) : null}
+                                    {details.contentMode !== 'page'
+                                        ? content.map(({ key, element }) => (
+                                              <Box key={key} sx={{ minWidth: 0, maxWidth: '100%' }}>
+                                                  {element}
+                                              </Box>
+                                          ))
+                                        : null}
                                 </>
-                            ) : null}
-                            {content.map(({ key, element }) => (
-                                <Box key={key} sx={{ minWidth: 0, maxWidth: '100%' }}>
-                                    {element}
-                                </Box>
-                            ))}
+                            ) : (
+                                content.map(({ key, element }) => (
+                                    <Box key={key} sx={{ minWidth: 0, maxWidth: '100%' }}>
+                                        {element}
+                                    </Box>
+                                ))
+                            )}
                         </Box>
                     ))}
                     {children}

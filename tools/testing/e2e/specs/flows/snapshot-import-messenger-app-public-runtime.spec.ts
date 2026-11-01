@@ -944,15 +944,44 @@ test('@flow @messenger-app @snapshot exercises catalog, authenticated member, an
 
         await test.step('Render the selected published Page through public Messenger navigation', async () => {
             await anonymousPage.setViewportSize({ width: 1920, height: 1080 })
+            const homeRuntime = await readAnonymousRuntime(anonymousPage, `/a/${primaryAlias}?locale=en`)
+            const homeMenu = homeRuntime.messengerApp.placements.find((placement) => placement.widgetKey === 'menuWidget')
+            if (homeMenu?.widgetKey !== 'menuWidget' || homeMenu.runtimeData.status !== 'ready') {
+                throw new Error('The anonymous Messenger home page must expose its published Page destinations')
+            }
+            const welcomeItem = homeMenu.runtimeData.data.items.find(
+                (item) => item.kind === 'section' && item.target?.kind === 'page' && item.target.codename === 'WelcomePage'
+            )
+            if (!welcomeItem) throw new Error('The anonymous Messenger menu must expose the Welcome Page destination')
+
+            const main = anonymousPage.getByRole('main')
+            const navigation = main.getByTestId('messenger-zone-center').getByRole('navigation')
+            await expect(navigation, 'The home page must render the public Messenger menu').toBeVisible()
+            const welcomeLink = navigation.getByRole('link', { name: welcomeItem.label, exact: true })
+            await expect(welcomeLink).toBeVisible()
+            await welcomeLink.click()
+            await expect(anonymousPage).toHaveURL(`/a/${primaryAlias}?targetKind=page&entityTypeCodename=WelcomePage&locale=en`, {
+                timeout: 30_000
+            })
+            await expect(main.getByRole('heading', { name: 'Welcome', exact: true })).toBeVisible({ timeout: 30_000 })
+            await expect(navigation, 'Page mode must keep the Messenger menu available').toBeVisible()
+            await expect(navigation.getByRole('link', { name: welcomeItem.label, exact: true })).toBeVisible()
+
             const runtime = await readAnonymousRuntime(
                 anonymousPage,
                 `/a/${primaryAlias}?targetKind=page&entityTypeCodename=WelcomePage&locale=en`
             )
-            const welcomeMenu = runtime.messengerApp.placements.find((placement) => placement.widgetKey === 'menuWidget')
-            if (welcomeMenu?.widgetKey !== 'menuWidget' || welcomeMenu.runtimeData.status !== 'ready') {
-                throw new Error('The anonymous Messenger menu must expose its published Page destinations')
+            const pageMenu = runtime.messengerApp.placements.find((placement) => placement.widgetKey === 'menuWidget')
+            if (pageMenu?.widgetKey !== 'menuWidget' || pageMenu.runtimeData.status !== 'ready') {
+                throw new Error('The published Messenger Page response must keep its navigation data')
             }
-            expect(welcomeMenu.runtimeData.data.items).toContainEqual(
+            expect(pageMenu.runtimeData.data.items).toContainEqual(
+                expect.objectContaining({
+                    kind: 'section',
+                    target: expect.objectContaining({ kind: 'page', codename: 'WelcomePage' })
+                })
+            )
+            expect(homeMenu.runtimeData.data.items).toContainEqual(
                 expect.objectContaining({
                     kind: 'section',
                     target: expect.objectContaining({ kind: 'page', codename: 'WelcomePage' })
@@ -966,7 +995,6 @@ test('@flow @messenger-app @snapshot exercises catalog, authenticated member, an
                     data: { text: 'Use this page to publish structured application content.' }
                 }
             ])
-            const main = anonymousPage.getByRole('main')
             await expect(main.getByRole('heading', { name: 'Welcome', exact: true })).toBeVisible()
             await expect(main.getByText('Use this page to publish structured application content.', { exact: true })).toBeVisible()
             await expectNoPageHorizontalOverflow(anonymousPage, 'Anonymous Messenger published Page content')

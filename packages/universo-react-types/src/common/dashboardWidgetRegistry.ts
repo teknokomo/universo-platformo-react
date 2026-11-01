@@ -88,7 +88,7 @@ const dashboardWidgetRegistry = [
     ),
     registerWidget(
         'menuWidget',
-        ['left', 'center'],
+        ['left'],
         true,
         boundPolicy('entity', sourceOptional, 'share-bindings', 'record-set', [], ['shell'], {
             initialBindingVariantKey: 'generated',

@@ -160,7 +160,11 @@ export async function updateApplicationBotBindingInTransaction(
     if (input.botUsername !== undefined && input.botUsername !== current.botUsername) patch.botUsername = input.botUsername
     if (input.displayName !== undefined && input.displayName !== current.displayName) patch.displayName = input.displayName
     if (input.status !== undefined && input.status !== current.status) patch.status = input.status
-    if (Object.keys(patch).length === 0) return current
+    if (Object.keys(patch).length === 0) {
+        // Keep the atomic database boundary in the flow so it can lock the row
+        // and validate expectedVersion even when the requested values are unchanged.
+        patch.botUsername = current.botUsername
+    }
 
     try {
         const rows = await executor.query<ApplicationBotBindingRecord>(

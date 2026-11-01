@@ -337,6 +337,23 @@ const createInput = (
 })
 
 describe('public Messenger runtime projection', () => {
+    it('fails closed when published Messenger Page blocks contain credential-bearing resource URLs', async () => {
+        await expect(
+            projectPublicMessengerRuntime({
+                ...createInput(),
+                pageBlockContent: {
+                    blocks: [
+                        {
+                            id: 'welcome-image',
+                            type: 'image',
+                            data: { url: 'https://cdn.example.test/welcome.png?access_token=fake-test' }
+                        }
+                    ]
+                }
+            })
+        ).rejects.toBeInstanceOf(PublicApplicationUnavailableError)
+    })
+
     it('bounds runtime reads while accepting the generated layout placement count', async () => {
         const runtime = await projectPublicMessengerRuntime(createInput(messengerLayout({ widgets: createOverviewCardWidgets(16) })))
         expect(runtime.placements).toHaveLength(16)
