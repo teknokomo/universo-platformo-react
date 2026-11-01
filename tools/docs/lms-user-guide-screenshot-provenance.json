@@ -1,8 +1,8 @@
 {
     "version": 1,
-    "generatedAt": "2026-10-25T07:14:06.050Z",
+    "generatedAt": "2026-11-01T20:25:55.532Z",
     "generator": "tools/testing/e2e/specs/generators/docs-lms-user-guide-screenshots.spec.ts",
-    "generatorSha256": "3c1bfef1d858629a1cfec9432313a9bfb526f2e3609592ecb6cc69269f635067",
+    "generatorSha256": "fd3f8201a5a0339e3e8135ceced490dd531af9bd7653ef084544d601f67cc805",
     "manifest": "tools/docs/lms-user-guide-screenshot-manifest.json",
     "manifestSha256": "a1c634aa0ccf64706977cc7c349eb94f158d0338b47ef35dbbbb1db72631cd29",
     "viewport": {
@@ -2513,7 +2513,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/dashboard-overview.png",
-            "sha256": "d674a10473f58a27fc66f4e155b94fdcac7c15e23ce55ce64b2e10dbd0b5eec1",
+            "sha256": "291987510e38101addab818554eecbc80301de3175a18363121a3861458ae96a",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2522,7 +2522,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/dashboard-overview-step-1.png",
-            "sha256": "973ddd1d59122deb41723287030107de1fe4f39faf83745524ba0ac69f92ad6a",
+            "sha256": "d456ac50053538c1c5da4b8009c83726d43096cbd85dd1491725a8ad5618b956",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2531,7 +2531,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/dashboard-overview-step-2.png",
-            "sha256": "183edd8b084f5cda66ac50087b58e8ae6f1e0e170448b604b488839d98a756ad",
+            "sha256": "004a5509d54a356c9abc3570c7d9decc60a6950e5f671a059ed54f126026ffe7",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2540,7 +2540,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/dashboard-overview-step-3.png",
-            "sha256": "c887416677dc687a00fc26b4c6fdcf9a42d72fe66710934a9d8fffef8050cf92",
+            "sha256": "d77ed55922f0c137319e9173ea0a0762393bec1ac2aece13360eb1b77f47a232",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2549,7 +2549,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/dashboard-overview-step-4.png",
-            "sha256": "a8ee14c2a7b4e6a3836890f71585625ff72cbe61f478fdc39ac752c6c8fe9864",
+            "sha256": "227799d7310fc70aecc795803e8e4fac98c5c08b534ff19c28d8849333d46e3f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2558,7 +2558,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/getting-around.png",
-            "sha256": "449db40cab83d58cd1d1c9ab7e7b0b2e5854b013d4ad039e1ce27ad63aec23af",
+            "sha256": "af6023c79f40db0f1fb0b9fddf0d400f23bf463962fb2fc12e386ffe6588667e",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2567,7 +2567,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/getting-around-step-1.png",
-            "sha256": "bf0eff7cf0c5398e73af8cad8e4ff24db2d1938757d3fc7691fc92e6dae01453",
+            "sha256": "df150f8baf1d3805d8222c4203af139529baf35239cffee95c2b05a898d05cc5",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2576,7 +2576,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/getting-around-step-2.png",
-            "sha256": "433dd078e0f468a17b06bdbec192c4f030fba56a2f320cec62257aa25c425817",
+            "sha256": "74fb50a2409e5ef8b3033066d52771a6240e1ad3ff8ade1b2f9d0866770ea606",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2585,7 +2585,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/getting-around-step-3.png",
-            "sha256": "fed38ad13594c359efbac91315d677df0261089f473bba6f56b06f6b3f447fe4",
+            "sha256": "81a47be2220efb6065e898e7e05df977610de0c1f70dae353729c035c9ad31f3",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2594,7 +2594,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/getting-around-step-4.png",
-            "sha256": "2da780dfb931bb31f5f395a315907ff76344ba2bf71508f6e9f518836c0c24f4",
+            "sha256": "d8440d50c8e23e6fa6012022c3aca610afd1328737d8099ebe255ca716e6c07d",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2603,7 +2603,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/getting-around-step-5.png",
-            "sha256": "d7152b2691c9f6d86b293e78116ed2308f870d37725d284fce56b5e4098427c5",
+            "sha256": "ce95b046f014beec0516e0eac3beceed8094507bb1ba619aacdc1c241b137a92",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2612,7 +2612,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-content-library.png",
-            "sha256": "d54879bd92bb455f13b6ab1a99a479c27bc1b34b3168def2e49bce40b14233fe",
+            "sha256": "4ac88d546d202ddf4c94983d11624139bcaf1c7294b5192799a7adadf6b79085",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2621,7 +2621,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-content-library-step-1.png",
-            "sha256": "3dce4f87fd33163442ca1938af799ae1c2ec9df873de6c3749b4aaeef5261e69",
+            "sha256": "97a33fde03f0dcc209e0d98427aacbf77440311ba54446b6e1c354f13d49f219",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2630,7 +2630,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-content-library-step-2.png",
-            "sha256": "d27284e3da247572c17b184bed2e219c445f61f662cf023521736268544f6537",
+            "sha256": "0287bea6e4f42dea3fa4e72d71f3c05464d383d7cfda90795b203a32aaa4f0bd",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2639,7 +2639,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-content-library-step-3.png",
-            "sha256": "0910b3dd842880a78e80ed4212f8c0eae8209a90145c5a0785b7510ef5b13757",
+            "sha256": "944b8ee5f8520b435f8276430df0611b603788c3d3d8e72bbf2f6f2914ad75c7",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2648,7 +2648,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-content-library-step-4.png",
-            "sha256": "c245eb700936eb6230c619f4bcab77b3cafe91d0b5b65ca62ddafcd29291ce8a",
+            "sha256": "3c8efe20564b0df8b0df4b13674e4c43076247c740249171f91c7b731ce37ac7",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2657,7 +2657,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-content-library-step-5.png",
-            "sha256": "3383d665a60bfb16a54f77bd5fecfff7b278623b40aa58465124e02f4c76cfd1",
+            "sha256": "12f4fab9f5cf7b08f66f05be0aa1189d1d135db56b22e6e7cd9f3210a8562b2e",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2666,7 +2666,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/projects.png",
-            "sha256": "c33612e2458f6e4d3a4b294e7b7387f3a6fbfb37c4f25659eee6f21f921013e7",
+            "sha256": "383bfd46bca0b7ba5bb84701769b0a4b411e2cfa9240c51dbf8611039eec8f9b",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2675,7 +2675,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/projects-step-1.png",
-            "sha256": "120b102ee1f1574c5c1401d2814f82acc9eaf79a3a36c31cb3f5067f830bdad2",
+            "sha256": "d22a23f5958b2f496bb43530687eddcacbe3a2b7bbb84ffd0d89aab1acbaa0e4",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2684,7 +2684,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/projects-step-2.png",
-            "sha256": "44fa99794aa5a35f56fb444b4674c31a2798d5989759df4d745e727dbe204827",
+            "sha256": "8df79430db72a3bd74871891b6492c04c32cb469392b656fe395c1e3f5e64109",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2693,7 +2693,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/projects-step-3.png",
-            "sha256": "86d998d3ba27b70e3e7d57d1966c27b3f2e5f8731720fbeb41324f22cf078cd0",
+            "sha256": "331ba54cf7f8962f7411ebc5a5bf39c31e0d698e116428fe8dabc793e529d7a7",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2702,7 +2702,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/projects-step-4.png",
-            "sha256": "7abd5f38d0312586b95daf05be0b9431a6f7c2618f32d7d965bd3e66ea70cc06",
+            "sha256": "750edac8175287a992b4b10def1a93fa65679b3321d03a45c18baf53608f2cbc",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2711,7 +2711,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/projects-step-5.png",
-            "sha256": "ec17ece55987a94402884dfb4b289aebe5b4a296f5d6fb2569833498463c094f",
+            "sha256": "8725331af603fe65ebd36324e530f19d5ef7bf745459967762bf04f4c24b81af",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2720,7 +2720,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/resources-pages-links.png",
-            "sha256": "212641d1011f9d81279474c9b03b0f511ffdaadf0836245a6a2a55209dbbcbe7",
+            "sha256": "be909c5afc39aa7292d64674dc494c571c6cf12e1537b6c305736f9ab884906e",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2729,7 +2729,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/resources-pages-links-step-1.png",
-            "sha256": "2c9ab2d2b09812c67179129fee6c7f73bd08c02b39643c67c04f73fb33b475a2",
+            "sha256": "85e11d674f70096284280ee9e522789b21fc5ff031d6ca5415a34c9332b76db1",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2738,7 +2738,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/resources-pages-links-step-2.png",
-            "sha256": "d8bb379003ca27fa1bafa16766a5892d7e4c4992cd724ef2293b54be99ee331d",
+            "sha256": "afd76a2575b0bc2afb6a9afe7562768cbacae0f257cb13670458a8be87447b8b",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2747,7 +2747,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/resources-pages-links-step-3.png",
-            "sha256": "8329a425b4611506136eaa0e7415e2e4aabf45c35627a838e863b69572f00948",
+            "sha256": "3f9c55ba7374377644976756016c40586483f79dcaa7c2d0b2b7cf0562d19993",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2756,7 +2756,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/resources-pages-links-step-4.png",
-            "sha256": "f5cb9404113121dd62be5bdf067ac80ecbb709f5c5668226edc56acc4fd222d3",
+            "sha256": "62407fc7ed9c138fcfcb2d96de563c6f0ad73a81be2c741d8f2a308e913c95ee",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2765,7 +2765,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/resources-pages-links-step-5.png",
-            "sha256": "78b53044ad94332645b1a3916f00c4a7638c24a7019d4743b65446d113c1bfc1",
+            "sha256": "c722b72dca3ece5caa093aeb978184232338734945fd981d584aef3317e896f2",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2774,7 +2774,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/courses.png",
-            "sha256": "31a69004d296005fa29cc8adcb8aa7877fb8611c844a937871a605ea20756c9e",
+            "sha256": "555a981a21d58df64fa08aca92debb392946163c274226e48f2cb2f2ae9d60fb",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2783,7 +2783,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/courses-step-1.png",
-            "sha256": "a42c02dd837c692d392544b6ddbf34a8389958fdd8290764dec92e3209c8290b",
+            "sha256": "bd26869d571492f2310430f1b9caa90997617b358ae2ec179d9f8c21fdc8a74f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2792,7 +2792,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/courses-step-2.png",
-            "sha256": "2eb0c31b49217b533b01ffc2be7b207c362ff37a90a3d86eed3d9dac8a92b4d2",
+            "sha256": "3eab14ad687691a7676814737d76bad9e3a68a420ab9ddfb8cbc71f5c095405a",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2801,7 +2801,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/courses-step-3.png",
-            "sha256": "99e286fc856153950a31c51f8192b1c4d0c9f00c29c5879cddf9d2a6d29c9f53",
+            "sha256": "ebffabdcb228951b72705df8dd08cc6d0b4b89796c2acecc85fd312e18576450",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2810,7 +2810,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/courses-step-4.png",
-            "sha256": "b9f65dac0e06aa9129bb2b1a75dbbc113ada0115ab6af83884d83c528f9334a9",
+            "sha256": "5405984944611e19b0120c93d2c6931a6b348ffa7229daa51cc0f555299552b4",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2819,7 +2819,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/courses-step-5.png",
-            "sha256": "23073caf364d27f27b5c0f8300e9d5bec214420bcd53468e18df87ebd22d7b0e",
+            "sha256": "ecfb2d1cdc81bfdbc38143576891569175956f844498c10ba3cc0be69608bc0a",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2828,7 +2828,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-tracks.png",
-            "sha256": "ea6472ae7aca454042227cedcaf3305d2fda48f2e97f729f84b295595e69793c",
+            "sha256": "76ecdc60d0aa8a61839a3e7f0f51d259ea6c0992b159f8b3fce746a3eef774c1",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2837,7 +2837,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-tracks-step-1.png",
-            "sha256": "c3fd900046b847b9c15725c7bedae6ce9afd29003c9595f04b345b42dea3f22f",
+            "sha256": "e9eb3981ac98f1dfb2ae9bb32fdcf8893bb16f43cf17ada0c9a9a23989018bdf",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2846,7 +2846,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-tracks-step-2.png",
-            "sha256": "755af79961752c5ba816f23f6a734d12680e1424b18e624851256b22e1a06c9a",
+            "sha256": "d3ef18532a222f49b76d6ccb57d7f701bab611804a7804dab39951d69343e104",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2855,7 +2855,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-tracks-step-3.png",
-            "sha256": "4e85497b6fe6fed90f2d926c7be1cf191f1eb4dabcc6b551b095a17664e82230",
+            "sha256": "0bad8c6c96be966138569d6dc456a5a291e646939b3910ddb118092a86854a27",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2864,7 +2864,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-tracks-step-4.png",
-            "sha256": "ed054faec643a01feb92967f4712ab8e9497c5d47d3904e311cba9968b9b3642",
+            "sha256": "078fb1d3a4059fb898c89b1555d79de6b2708190b1f9289096b43f288513df24",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2873,7 +2873,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-tracks-step-5.png",
-            "sha256": "0f733a96bb3d0208470d1a530b8fa3be4518018299ea9d24139422d3e3854857",
+            "sha256": "49e7829b342ff2dbc43df8186c2c134d8240b9e515578830f8de71844623add6",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2882,7 +2882,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash.png",
-            "sha256": "bbfb2f84ac62d5b8d2c5e0da235cee85aadbb51e24509833f5962e2e2b5d3755",
+            "sha256": "05c7e636b8a6814fc715d155afcc2d4c7ed3571d6962e233ef0f74b6801975bf",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2891,7 +2891,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash-step-1.png",
-            "sha256": "0a5d763ec455044ce02e5f0885aa184ef4a2ab639b5aa7719da57fd1292f6096",
+            "sha256": "73ffd9c7f9903ea66a7f4de4f8ad43d1f0342df608380a3d6300bd362f5b8389",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2900,7 +2900,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash-step-2.png",
-            "sha256": "e9ad7e54610bf892096d811d19c8e941a0d54f325730d37ce97049f3d364829e",
+            "sha256": "acb62b11d57106421f10db379a41720f9ab0e8298148d57b4679118fb62b03d3",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2909,7 +2909,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash-step-3.png",
-            "sha256": "c07dc648fc4ac81613b2d89e6fde5ad5fdcec74c46888873a04dd04338a5341a",
+            "sha256": "58b41b66fba9039484937a460f517ccb01ac478121c3905bb4d5d84c681ef548",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2918,7 +2918,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash-step-4.png",
-            "sha256": "c1eb9fed2bb5010c4a4b6c3a8d1898a3dfe50969bc60509f557ecab3b3dabadc",
+            "sha256": "3670ca0474a3f271d0da9f5942cbf4129da36056008745a6d0d5284ffc615f9b",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2927,7 +2927,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash-step-5.png",
-            "sha256": "328458737eb3cca63336b05e279a943a4061ae98348eeb0243fe11d266620407",
+            "sha256": "5008fb4c3a6f4c476ab9ffa66470a0b7361973c6c3bd4ac7e694619a57af76cc",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2936,7 +2936,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learner-experience.png",
-            "sha256": "786e10bc81a3a231421cf22d806254b351b6419ceae5748ffa5b28e120e9f797",
+            "sha256": "ef34b76a2cd56e295ab59bebe22a5f9e8f6d0ba59a156a7fce3f7ccd974a6bc7",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2945,7 +2945,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learner-experience-step-1.png",
-            "sha256": "ae10b66bb35b009f18c60021d3f2ed63ceb6b8ec8f20cb9c17597f86d6674955",
+            "sha256": "f3ca00456e93ccf395111eea57d510ffd93e3c30789db556df49113d2fbfed62",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2954,7 +2954,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learner-experience-step-2.png",
-            "sha256": "cc74c562edeecfae43e038c14e3dfcedcd76f85fb2b4c20c6e5df29c342e23a4",
+            "sha256": "60baa86fdde3161da88963c1274c6359d5404084ecc941dfa1f5b5cbb0892170",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2963,7 +2963,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learner-experience-step-3.png",
-            "sha256": "6c9867877cd2d0dba4c6de227172503c18f1f2fc85989bf5f10755d10b73ccb1",
+            "sha256": "c4b23627db11c554b0db7b4550ba6b47df7721a06477477a660a6b5ba48bb9ea",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2972,7 +2972,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learner-experience-step-4.png",
-            "sha256": "19883635f8228e501973757ad767c84068df4bb645e9e6b6451b66f52c7a022e",
+            "sha256": "e533d09ca29474dd47d71110e6521c9639978d834efd0516ac23148a37500ed9",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2981,7 +2981,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learner-experience-step-5.png",
-            "sha256": "b187ab11bf8d0cc5d09f3bd29225226ff31e153cd978099ab6516cae26d822f6",
+            "sha256": "4fe88685408c4caab2c8c359768a8a0cdaed003b2069e87719705ef02993e34f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2990,7 +2990,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/knowledge.png",
-            "sha256": "6714bb47a5954addf81690c09edfe34f5e5483f04f970f2c2b7d268a4961888e",
+            "sha256": "bbfb2c1d7d72f8b57082d270cedf33a0f7c6ebdc1a252bd9b04291bc50089d59",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2999,7 +2999,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/knowledge-step-1.png",
-            "sha256": "95ea0477553d56b45e47dfadd9d658cd6f05dd8ebd21e0b8966632b4505c2bbf",
+            "sha256": "a7257dd13fcb07b0a722d845933d3b7aee336247035674ff41ae4ef153ecae74",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3008,7 +3008,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/knowledge-step-2.png",
-            "sha256": "3af692b0e1cc65a29e35c233778d56ce42f35a1539951736de4d5adf287507d5",
+            "sha256": "b134751185ed1bdcf9b3bdb4b4c3d06c40a22259ba9775e99cfe417c78f1493f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3017,7 +3017,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/knowledge-step-3.png",
-            "sha256": "230b4107c8c0adfdd9feafcc46b6ee45d1fec45b7fa88e99547b5bac15b0ab88",
+            "sha256": "718e7457a021de67fea738e32359981cf803c27df4a392d9ba0faee58cbca687",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3026,7 +3026,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/knowledge-step-4.png",
-            "sha256": "e79893e7c83982756ce90d77489aaef8455e52d9fb22f11d743808e7c5b58e86",
+            "sha256": "b0f170559242b332f19f15d483980dc51d7715432c3392699f31dddd9d05b74f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3035,7 +3035,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/knowledge-step-5.png",
-            "sha256": "dbf365fca537afdad2403c71637b7966a57329dd454011f68be10713b5c5b6d6",
+            "sha256": "76665c8f5cd1808c0acbb61d2c6415f7c5f4526d5b31c2e60cfc07f52d3e528e",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3044,7 +3044,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/reports.png",
-            "sha256": "31d076ccb0887a39b0e8b95261545c8a31d76b7f6dfb8988fe0978dffb2292e6",
+            "sha256": "244b9fc8f440edf695f6a79d5b2a035d4951186b7f97e025b4a19ca4444bf943",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3053,7 +3053,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/reports-step-1.png",
-            "sha256": "9b8f943937db04bd8b443373c4d413cfbfa8a6ba8bc4a5499407258fb015a549",
+            "sha256": "b0546e18720801776dfe8d2a4e3c79075e15b02045bc46edfaad3c48db86257e",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3062,7 +3062,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/reports-step-2.png",
-            "sha256": "7895fe0e53a6234ad824d78c304c9019d85abd156db94dac326bd613c181f403",
+            "sha256": "9f0c25f8f55de7062cc2cd53d1ba02c58d1e8ee09c08f6bcd00549eee17df642",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3071,7 +3071,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/reports-step-3.png",
-            "sha256": "ac1dffb2fcc4751be63bbc5e369c0a76dbf05adb37fc4250996d0488f343152a",
+            "sha256": "b0da382014136e3fbcced03a7611cce31482634c67074c33e8e0c982bebbc98a",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3080,7 +3080,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/reports-step-4.png",
-            "sha256": "90d0f2eb4df8ed11503056fdc170c64cf2db0b4cfb6f51c9cb9ed590575ac0ba",
+            "sha256": "a6946fced0fe541a9b52c55da6bd7dd7ac182d40e1589e1e3896f83e665d2dde",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3089,7 +3089,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/reports-step-5.png",
-            "sha256": "54b92cd5ff664ca63a57ebf3e84f702f350126f133727f8ec22c9b9419cf4475",
+            "sha256": "b60b64c4e577bedab44591a6336129a27a3cd083d9f0010fe5f5c2a9ceb59202",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3107,7 +3107,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/guest-access-step-1.png",
-            "sha256": "5449b75aaae470106bd164b22d3d54382e94706a028e757787e1c3aa68c0797b",
+            "sha256": "28410495feee09cab11f1fe6f05c47e2f18bb1825895a0fec99f67acb50265eb",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3125,7 +3125,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/guest-access-step-3.png",
-            "sha256": "70ae2a7c91fd57f04d4ec239d4f7f30317d3af0d075bf2a7e0328185201d03ad",
+            "sha256": "0bf3ebec4f1955bdbc0e9d216c5adbde80d84bce9aab2cc463f77b8c95937cde",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3143,7 +3143,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/guest-access-step-5.png",
-            "sha256": "eec17d66246156020f4b0622968933f688ccd80d210bf507d2d7a898627155cb",
+            "sha256": "352263666d93d3cfbfe39f7323798ce4b23a2843734ed56a772cd90c47d61a00",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3152,7 +3152,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/troubleshooting.png",
-            "sha256": "435cc34763f546134264d6e80281da72beecc2e3d53c3ccab851b2a5b1e83ae3",
+            "sha256": "4728a8159dcbafd90be86df0ce3601d1a14b96e7b5b224a6284affd096b1f28e",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3161,7 +3161,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/troubleshooting-step-1.png",
-            "sha256": "8796b84129dfc623d506ed50851f312e9b5235bef606c13713846d07539958ab",
+            "sha256": "944ace2838e7d586cc3ebea7302a117f49302a77539592d29a1d39c219365e8d",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3170,7 +3170,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/troubleshooting-step-2.png",
-            "sha256": "5acbdfe91eeb518c8f74d3f5056b568edd0717223e56dfb5eebbe6f517632a9e",
+            "sha256": "c72abee96cbcb846547de76ff5cd5b7f621fc9f19118285560a8b751f190a9c0",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3179,7 +3179,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/troubleshooting-step-3.png",
-            "sha256": "123b9eb6deba65352ddeece29ef4c20d04128a00b0034b685f31431496aefd96",
+            "sha256": "60e25a8ac01ba8452385f266a24139141826e250bbaa0f8ff8492df866bfff10",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3188,7 +3188,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/troubleshooting-step-4.png",
-            "sha256": "a7f95f1a9398c0fb4096ceb84dfee8c6cb73bc092e591e017c2cf2d8aa877837",
+            "sha256": "82b5bbc5a90c336c5d009e82a463c8b0d79cc880ed36a9bfb88f2a611808b0f9",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3197,7 +3197,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/troubleshooting-step-5.png",
-            "sha256": "165d0a6cd376c2a6fa2b35633040dd4cf2b108109b3fce4282f96a26a42fbb4d",
+            "sha256": "e728e3d4ef8e417143cc5cfffc700138d37cf18352ce4ea0d02305710091084a",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3206,7 +3206,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/dashboard-overview.png",
-            "sha256": "2f6884cdcaedda860755205988ad0c0ad20a06c7258cff9730129c89d3c86f6a",
+            "sha256": "61e79179fa1d5b1cabe3ab6063dbcf6875e8c89ed5b5f4b3001c0b7e6fe3b18d",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3215,7 +3215,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/dashboard-overview-step-1.png",
-            "sha256": "764bb8bc1809c67c0dbf9e7aabe2fe4c308cc126ee0595b6dff052a04b271c8c",
+            "sha256": "2a69e75d8ebfc26ce7a9f8223ad3185ad3fc161583ee343c9e81502c3b8452e7",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3224,7 +3224,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/dashboard-overview-step-2.png",
-            "sha256": "b2e057ce63f57767cf4d826164ae998a0dde650287ca3441223e0633ff0ca706",
+            "sha256": "b16b61e6fe130a52c9dea9eeb286f833028454ea8cdd0a0ccc62c97164e48676",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3233,7 +3233,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/dashboard-overview-step-3.png",
-            "sha256": "76d8d01284cc4aac520f0e0b515a58cd7b7b0d52773e2fb64593ef52e5ec8ed0",
+            "sha256": "017b8b0b6a261926e0746540eae0b1c0ee3f9e7930181e8dfaff5bbc803db881",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3242,7 +3242,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/dashboard-overview-step-4.png",
-            "sha256": "11246dfca703764fa1f1e42429bfc410e61b0e58bad2c3ef304b367c8da23922",
+            "sha256": "9fc069f745e39cef028c0cae1a5bb5d0ff0a38f65bb0808939f455ffb445275a",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3251,7 +3251,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/getting-around.png",
-            "sha256": "e2671097bc47279320fba8d56e8c4ae5fa8ad2cdf72a945f8db1c18bcf1ea747",
+            "sha256": "4ff8ef8b3301193fa874f1ddb5b064c75d5ad6ba13368f6bf85d96590fd086c6",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3260,7 +3260,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/getting-around-step-1.png",
-            "sha256": "c8ef093020afc37fe5f4fa83267d39adc27a9ad3a1729219aa02fd5b90c596ea",
+            "sha256": "134ed7a4bb92b6e9cfcf398df94c1e013040e78255c8e5bb4edc77dac78021b9",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3269,7 +3269,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/getting-around-step-2.png",
-            "sha256": "3b87d782c09533f87f22ab1ffdf9af2a2df217ad1d5e4507e587cd1748b8e7f8",
+            "sha256": "c5297e2a84dbb9c06153a66d69f55bb6c6f957c54b0ecffdbb44f89a1bee38b3",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3278,7 +3278,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/getting-around-step-3.png",
-            "sha256": "3874c293cd872eead912f1831e6c75180b6823ba5a34f978f13f503edc73f5b3",
+            "sha256": "a6a11ed96b4e05b28700d76f2c701d939314749e15ea4cc16f5d10f4be2e9065",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3287,7 +3287,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/getting-around-step-4.png",
-            "sha256": "ee7fb1e4e9315dccf32006b945326abbcf40caf03d5bfcdc7210ad0a7a821cba",
+            "sha256": "b833e2531989aa121cd29b850719981163166955b0d3a1fa77d18ccb1dc013ed",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3296,7 +3296,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/getting-around-step-5.png",
-            "sha256": "bc596d1cd8d611b93e0ec25b1fd15042fb986e242280be964fe2d5d144d33f20",
+            "sha256": "741b90cba992e5e4871874daf36caea5310b326381262ceb94ca2f4489015959",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3305,7 +3305,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-content-library.png",
-            "sha256": "02191fe0973bca75746c0e8b49dc0fd25b57a90455c2299efe0ed725aa3d6735",
+            "sha256": "5a8505ef22487bf6cca213bd5a3281a64cb82a48752e90512b7674f277a10e1e",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3314,7 +3314,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-content-library-step-1.png",
-            "sha256": "2e3c6440089387b47b686991c4cde835a551b830dc391646d59eb9490117cd17",
+            "sha256": "90f1c78ec9aea85b7976579f8c16fc89161de605e93dd921b8b9d53815418a12",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3323,7 +3323,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-content-library-step-2.png",
-            "sha256": "6e42c8bb64681c9a5b003a8ea555cb62d64b398ea58c81235a0600665ad13434",
+            "sha256": "8118750a2ae8a3bfa9901ed32f822fb630eb1b005dd168d23ca313764661a948",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3332,7 +3332,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-content-library-step-3.png",
-            "sha256": "ccb25a0e7b67092f615bc97d00f85aec58ac2b8754e759b8a7ef346060d9af63",
+            "sha256": "ca687cdeeba6d9168c0b36b4d57629e7a7a364725ec21534953673cbb729bf25",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3341,7 +3341,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-content-library-step-4.png",
-            "sha256": "a7864c8de75a449a4b3ded270cf40298cb06789f209f0be4839091f91a8fc282",
+            "sha256": "d9dd1071cafe6bffbc1a1834786f1bffe566ef0d14fecf7138330cb24c72a8f4",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3350,7 +3350,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-content-library-step-5.png",
-            "sha256": "e97c982379ae5130e473c5150b5d16e7d24eaaae19c5142f21fe3d5f964f3a7c",
+            "sha256": "b60076772d9f86885f1a6fb0825ca85c25f1db63216d68abf16bec1a93b8b87d",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3359,7 +3359,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/projects.png",
-            "sha256": "4e6910cdde2ed5bc0701c975288175c4b4da66d556b4561a5516874f535d58c4",
+            "sha256": "7a7e1d1e19195a22f76014670152c124ab2215bd5b5b628e1fc938852699cb6f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3368,7 +3368,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/projects-step-1.png",
-            "sha256": "119247933eaf668073ee983a5c260048255ca627cf1fb20258059289f3bbbfaf",
+            "sha256": "2af542d3d7faa6150a352b60217fe0ac931ead3d14d409058a7d64f1a91f0b3f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3377,7 +3377,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/projects-step-2.png",
-            "sha256": "8640f163c14928c99c7293625cefcd7fde88e4473b58f593dbf50a8d2796ae4f",
+            "sha256": "6c2eb25a8c07c7f426aba1727cbc6a9addbf0a84f91a56bd8acab8f204f7db3f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3386,7 +3386,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/projects-step-3.png",
-            "sha256": "5ae8b95750ee32fc5ed2ac7d8ae149013e9759987174fe9cbc4a3986798a1b28",
+            "sha256": "413610ebec9bf7f6cafe23634d75a8440e7eb2b3fa0fd9677c46e93de69562d7",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3395,7 +3395,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/projects-step-4.png",
-            "sha256": "64c8d6d47c469e77ff08d39eedde0077b2760ddbe549090e82b0d2011152d742",
+            "sha256": "dadc7f967e7a468a5a980508f5aeb8b37fe1ae749b35ef2cdc16355525e2e868",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3404,7 +3404,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/projects-step-5.png",
-            "sha256": "1167979760e07ec01585d49ae6f0d8106c6ea13d905821ef8487d51a4244c804",
+            "sha256": "0604121dffdd5d7ca204780f3b3f5e94d066e87dd510b6032240a21fa023f08b",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3413,7 +3413,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/resources-pages-links.png",
-            "sha256": "05f964a6997f43dffa9b374e154cce657d4da05fcae1f1b660d6ec9cfcb9889e",
+            "sha256": "680d90f009632ee38db2330f9576245f0ac4300b9bb843ace846a0d80f1c7264",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3422,7 +3422,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/resources-pages-links-step-1.png",
-            "sha256": "3f0abccc62ff8fc1c56c4f0ba7ba26af5858e25e4a26a875a4b6b3b7def7fe7b",
+            "sha256": "0e9194b5615b082b8defeaf4c3432cb879a1db7eab059d24afe4a81a9b6ab26b",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3431,7 +3431,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/resources-pages-links-step-2.png",
-            "sha256": "38a9da2787f70bcd5b87b51a7fa4f83832309e2bf045e3ee5fe944423c12821e",
+            "sha256": "d2aa47515ad32dbcc4cd17cf9c0a992946021aa290862e610473194e014a5a43",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3440,7 +3440,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/resources-pages-links-step-3.png",
-            "sha256": "ee0d2db940f39b9e61dbbbb801a88fff0f59294ea1cea8ea2e7256dd3f53a55c",
+            "sha256": "f480db04af091308243551412b5733bfeab2b084287339dd1e7ff589c2ea9604",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3449,7 +3449,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/resources-pages-links-step-4.png",
-            "sha256": "0ccd18e7965e8eddf353e1479a1de637086618fe9a413847bb5bfd0b99d1e40c",
+            "sha256": "f5672b69b79c5f515cd66712792b5259c820f287f56d37d3deddc8ff78251282",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3458,7 +3458,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/resources-pages-links-step-5.png",
-            "sha256": "02f320e575defce5f69124c30dbe0af96df89fa80abbe2e7c864e3902131cdde",
+            "sha256": "cc04d3fe70d5a7019140b1286d03f95eb3eeb8a96bdceece5bea722a6dabe611",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3467,7 +3467,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/courses.png",
-            "sha256": "7811b63c6e64b83b32577d02497686ff47af49853f357bf59beb5e470bcfa875",
+            "sha256": "251b7f3396c57a1487f3a8db0370363053300460fa9a5afc0725454227c0b335",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3476,7 +3476,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/courses-step-1.png",
-            "sha256": "ebcb132b69c64ab566c713e11345395040980b87238dff2375ba187b58e3e85a",
+            "sha256": "a23f8d51303f3dbab3efdb9290f35901827378c4b1650822bffeabd11aabdca1",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3485,7 +3485,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/courses-step-2.png",
-            "sha256": "68339a37669e37ae5fc7112e8b7fde57be83388071d5ac10c89a2feca3374467",
+            "sha256": "e61ec37e858040599998df650ef0838a7900d2cfaa6647cac883a54ebc92f4bc",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3494,7 +3494,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/courses-step-3.png",
-            "sha256": "44d6ee7aa7e4674bbfa09d02ed58e2e3e18519c8f4641713a9c702d14e2fa984",
+            "sha256": "58a611021f33890178b824499b79344dcf73d248099410da34be292f257c91fc",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3503,7 +3503,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/courses-step-4.png",
-            "sha256": "177382b4d028791e8274e501a8e2f2f3b29f68ab538caf0939390060672b47bf",
+            "sha256": "750937d0b130201948aabbfcdccd38609459cfa93ac91d49d2624f269e81bba1",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3512,7 +3512,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/courses-step-5.png",
-            "sha256": "41fa2c2ea4f20c644166cc0aa0f62f86169513ee33267407715233ab198f0455",
+            "sha256": "9d921726a987dfa0ef3059770d6614895917d894faaae3373bdb4214d9246545",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3521,7 +3521,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-tracks.png",
-            "sha256": "71252983cce21c3386aeee756eb52527f281e30a5c205409232c2f26073ed86c",
+            "sha256": "5ad710c60363563a88352223ca636b379b3079c2583af80ea6c2d3b6ac08b866",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3530,7 +3530,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-tracks-step-1.png",
-            "sha256": "76feb2bd8681d051513ff82c0346432b50b400094158144b457b3b2b8b330fc8",
+            "sha256": "3cdbb2a6edff7e43bcec8873dab7d9036e8302e1a39307e240009949b88ef6d4",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3539,7 +3539,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-tracks-step-2.png",
-            "sha256": "64fb53c9fdf0848e03b75a975b4d2d75d53b1ff015fba2b1d61eda1bf35a6010",
+            "sha256": "51696440e5b89d4059105403cf322a56c1a479b13235661facc2b85ad284559f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3548,7 +3548,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-tracks-step-3.png",
-            "sha256": "250bb40e678a601de78dfce39c93e44fa275442ed3c9bef39f825cad136eb5a4",
+            "sha256": "078613a48c35e588e832e5ad977c90779d82bec27c3171e1b9d17efb3c99304f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3557,7 +3557,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-tracks-step-4.png",
-            "sha256": "3a68781fba6daf1458d60cd026ca09d59acad5dd7888bf6f3a5f2773713c9019",
+            "sha256": "73275f61fc8b0a55c20067c1de4476abe862e7f70cc4c3b8bbb96b8982015b7f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3566,7 +3566,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-tracks-step-5.png",
-            "sha256": "b340430cbc1f5c9a2ab96cdeb3affc1bf652a872de42cf269d2e7b8c7457c188",
+            "sha256": "1e6ceb16481b06f1998d36b0c5bff01c18a92f8d412b83b236785edc8c074137",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3575,7 +3575,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash.png",
-            "sha256": "c6f9d52629678b242ceb98dcfd196d248edc335f7434c9741650b6b7a295f931",
+            "sha256": "d6bdd4e3ec1707068767eeca3963504c6a14567dd966c78e4774622f9057d7b1",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3584,7 +3584,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash-step-1.png",
-            "sha256": "c7b0f0d4283b6fd868f23eb484176710270b0f7c57b1a548326536c92982fbb5",
+            "sha256": "83f89bb1a85b60f58a15c42c60a94d5322cb2b16f59342d3467423e1bcddadf6",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3593,7 +3593,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash-step-2.png",
-            "sha256": "8f18374b9f03228b37f312a911e038c361be297db94c39691ded6ac981871d93",
+            "sha256": "f654c0ddef06e55ad7fccb68044c12b81012d1ad4bac97977aded9740e5c4a4f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3602,7 +3602,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash-step-3.png",
-            "sha256": "ca542501e8fc60a0f3b0833b1de8d4602a82465167ba993f855f36c308497a92",
+            "sha256": "365584c07b989dbec5d4a1a5034764c4504bd05df194ca4173deb4cfac8b32ec",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3611,7 +3611,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash-step-4.png",
-            "sha256": "b61e024dbc494a5c5e02ad62cdd9a5a9b82b107537b09e2df1f0b3d44e3c917c",
+            "sha256": "55e75863a77fad647ba3de81494dc96f2555c3608afe4a824bf9f2ec8abfa5f5",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3620,7 +3620,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash-step-5.png",
-            "sha256": "b25afe9ab9ebbda443f852e59c072431f3f1c30963cad54876d9cfff2fe86eee",
+            "sha256": "9e208aa66b20e1414ae143ccf63d06dcd28045b018a6399ededbe316a1c2b532",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3629,7 +3629,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learner-experience.png",
-            "sha256": "a9af6f52d7694f83107674b564402099c83a98452d84bb49ef7af56d2556aee4",
+            "sha256": "09da77922796834ebefcd900cb4d626bb78c156997f70c15d30dcfc375bebce9",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3638,7 +3638,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learner-experience-step-1.png",
-            "sha256": "9aa5d47c70eab610f630b40d2ff97f30cbf0188a69f25f36d5e819dc7fb435e6",
+            "sha256": "e69f8cc8caa3d53211d4cfe1a17bbd0508a130908c54a1b5f62edf6de8e11d04",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3647,7 +3647,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learner-experience-step-2.png",
-            "sha256": "1a58d980b427e00a4b1d95f7a2ba780c305741d1fbcbb9a956728ba56cbbbb21",
+            "sha256": "2a8273a76f635a04392e1ccaa239cbd2b8c3951cd1ef9ad69b57a0ef1334361c",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3656,7 +3656,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learner-experience-step-3.png",
-            "sha256": "311f46e006dfadab9a4118eb769887abfa88c40ebbb3b9708a0313911dd19365",
+            "sha256": "04be22a4d26752ab50d2ed58228e01ad583d37b1820518355509d0d9cc8a0090",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3665,7 +3665,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learner-experience-step-4.png",
-            "sha256": "05649d4c197f82d25381bb4eee8cdf374e3d42ba9bd32de9e13635647dd80513",
+            "sha256": "1f0e821850cb638de458e4e87a36fc5f726bae7408b05db12b658e14140f68b0",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3674,7 +3674,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learner-experience-step-5.png",
-            "sha256": "48b823873d3294aafa149a6a5ade08eed05b7eeca8e154a0b560e99f9c915571",
+            "sha256": "f1ab57f3e09a35276670f518589f09032e7358646441cdf82757e78b0b80a2b7",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3683,7 +3683,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/knowledge.png",
-            "sha256": "9c59c9a6efe5b90574a26c8596006969a3fd11c068ec8d113abc78615e5e0d30",
+            "sha256": "259029578b2e79ea6c2fc14e2a59837645cbd80930f31b6c95938cd982351b1f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3692,7 +3692,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/knowledge-step-1.png",
-            "sha256": "3a49492d062e018912d0f9f7e1d69fa22870200894a78f4d56430ee756c6bca0",
+            "sha256": "9ec07eb9e2dcc5ca3d04784ca8ddb02848e4865826a5c39a30b0d6d9cb5c715c",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3701,7 +3701,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/knowledge-step-2.png",
-            "sha256": "50b0f3cbefdcac7fb19db2e9b326f4fdfe448a5de96fb6a7a46fffe8d11187b9",
+            "sha256": "9b228e7269e2812928f5a910c3b64039e8011c3e6eb5e5202acda89904096fa0",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3710,7 +3710,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/knowledge-step-3.png",
-            "sha256": "06cd89d4e4d95927cebe90f36c96229ce631529c4a2f5854c629403927ffedcd",
+            "sha256": "dd711387451f02a1344d9e256944c0b51662d7b858b72d7b654f0a523a032f2c",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3719,7 +3719,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/knowledge-step-4.png",
-            "sha256": "e04456cef51ec8fbb55d3f0c51433696ed244dc4a2a9ae84e6231bb872f57ffe",
+            "sha256": "b52d1eefcbcb216ac85b05c51aa834dafa371ea70a8ca788983cf0218bb270e8",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3728,7 +3728,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/knowledge-step-5.png",
-            "sha256": "d2dfb5f17af6a90807b9223e415d6f811cfe4a04fff5c5bb9053db9fcac8172b",
+            "sha256": "6de25820f47d416b443e538ad8584469293328e3d60383e7de2275ad677425d6",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3737,7 +3737,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/reports.png",
-            "sha256": "29019afb668cab328283473438c4d235474da788fc7b8d4ef38363d14f56918b",
+            "sha256": "737ae8b29c3ef66daaaa2cf0f911ed0574f35c98614e7f2a3d7853441797faf2",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3746,7 +3746,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/reports-step-1.png",
-            "sha256": "e618bd522fe22ea698b1e19022d60048fe9da8acf4c9516fabfce31323e4cdd2",
+            "sha256": "0504151bf851be40dfaecead22b68879d97b2eaab90fcdf3c4ebf783d2a1cda4",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3755,7 +3755,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/reports-step-2.png",
-            "sha256": "9a8db47ce69ab19814fc3a428c71eb702e52f72cd3ea838708abb5cb9c51479d",
+            "sha256": "d7bbcc05144eedb6742675f7e8fee38047ca59547fbe1fb9a0c6d45b45ea662a",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3764,7 +3764,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/reports-step-3.png",
-            "sha256": "99a935dc7db078d37b81e481a7a0699c0c818c55e555fcd5f6f64068cfebfed3",
+            "sha256": "dce0b9aadc52ae463e482bd23e4c6d8f101bc34f9a58e0532645cd851d4122ad",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3773,7 +3773,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/reports-step-4.png",
-            "sha256": "1e0f0ceb9975eff648321c11fa7444adca569eb6d79a893288c91c74a3dc6e83",
+            "sha256": "015974f5635da57ffb8e06a6b2cb8e7b79e6b186c0b2ec29d0706c0f5cb06937",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3782,7 +3782,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/reports-step-5.png",
-            "sha256": "ebd97f5bcd7211639dfb72f47940f020c3313a0aa7e2f2a62075f1f28d66f4dd",
+            "sha256": "3d9e236806873d3f826a23c2a85a545c56e034567d9014245f367b6f2f6ab629",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3800,7 +3800,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/guest-access-step-1.png",
-            "sha256": "0be93b2d5a9a009b998bb0756ec672f0eeca7b94b2e1aa785f8830f902ce6382",
+            "sha256": "270da5aef1ae57ef9d751b36803d97b914be2955364b88a2aeeb9ab450c4df1e",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3818,7 +3818,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/guest-access-step-3.png",
-            "sha256": "8f8b1ad27f5b5f69dfd38844e0deaaca8e29be5a9754503ae25d54fe972fdb12",
+            "sha256": "0205c48c99ef612efb5237a5a6801a5e74486550ce99ea1209ece529c54d0571",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3836,7 +3836,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/guest-access-step-5.png",
-            "sha256": "15f6aa0e142d638304de7fa41867128a3c7747dc6396a506811941926ef8d8af",
+            "sha256": "9f5012a277da32f883a1dcc1d97fda61fa2d9030be1564651460253137b0b0b3",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3845,7 +3845,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/troubleshooting.png",
-            "sha256": "1a7ef14271401fbbd5e0dcb68645a165edc8bf226308288fbac55a7f6630963a",
+            "sha256": "d429fd1bdbf62a1fff3aade33f0ecb93c9f7ffbe53119609238a194701516b2b",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3854,7 +3854,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/troubleshooting-step-1.png",
-            "sha256": "7822708940d348763a36040dcf22a960c8b1f5466cb4d0fb3fa1f0c45434a6d6",
+            "sha256": "111d09ff273be5f6fcf3cdfc9fa32d19da210e62a6c0b50c3e0e1e8ececf99e7",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3863,7 +3863,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/troubleshooting-step-2.png",
-            "sha256": "b95947ff495cd9d2e5fcfb20ca160a473c2a0e7154070451378ac98fc8f4c821",
+            "sha256": "3f603684af240ab2925dcb88a5843cdc45177d47dbff2187af80d7cc8de2de64",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3872,7 +3872,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/troubleshooting-step-3.png",
-            "sha256": "3cf476255a120c326a17cd989aad65df2fee3e558fd78f02a1c106380cf69151",
+            "sha256": "912c69119fcbaa60c2c6076fff3eea4a6d30eb396b47ac3f36e09838bf4edf92",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3881,7 +3881,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/troubleshooting-step-4.png",
-            "sha256": "8fa7fb9e27d9e1400d992cbe827aa86441a35f2a6fa3f9c8405fd935e5949cc4",
+            "sha256": "b4d3b10e04c4a2d44a29b71266b1f3e273db5a13743b7a0e300ac7c75ae9b337",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3890,7 +3890,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/troubleshooting-step-5.png",
-            "sha256": "ccee4cfd2a2eb7b55a443ad4f3b9f04c028546a9b65c7cfdfc6e3849d535c701",
+            "sha256": "54ba7033fc3ee048c687e587ee7689817b9ad6afb3a993eddab5faf727c830a6",
             "dimensions": {
                 "width": 1920,
                 "height": 1080

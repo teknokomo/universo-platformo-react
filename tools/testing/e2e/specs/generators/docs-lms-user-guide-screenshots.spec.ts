@@ -1017,13 +1017,20 @@ async function captureLearnerExperienceGuide(page: Page, locale: Locale, applica
     await expect(itemTabs, `${locale} course learning items`).toHaveCount(2, { timeout: 30_000 })
     await expect(itemTabs.first()).toHaveAttribute('aria-selected', 'true')
     await expect(itemTabs.nth(1), `${locale} next course item starts locked`).toBeDisabled()
-    await captureDocsStepScreenshot(page, locale, 'learner-experience', 2, page.locator('body'))
-
     const completeButton = player.getByRole('button', {
         name: localized(locale, 'Mark complete', 'Отметить завершенным'),
         exact: true
     })
     await expect(completeButton, `${locale} current item completion action`).toBeEnabled({ timeout: 30_000 })
+    await courseTab.focus()
+    for (let focusStep = 0; focusStep < 6; focusStep += 1) {
+        if (await completeButton.evaluate((button) => button === document.activeElement)) break
+        await page.keyboard.press('Tab')
+    }
+    await expect(completeButton, `${locale} keyboard focus reaches current item completion action`).toBeFocused()
+    await expect.poll(() => completeButton.evaluate((button) => button.matches(':focus-visible'))).toBe(true)
+    await captureDocsStepScreenshot(page, locale, 'learner-experience', 2, page.locator('body'))
+
     const completionResponsePromise = page.waitForResponse(
         (response) =>
             response.request().method() === 'POST' &&
