@@ -160,7 +160,7 @@ const renderParametersTab = (
                     }
                     label={ctx.t('parameters.showInAppList', 'Show in the public application catalog')}
                 />
-                <Typography variant='body2' color='text.secondary'>
+                <Typography variant='body2' sx={{ color: 'text.secondary' }}>
                     {ctx.t(
                         isPublic ? 'parameters.showInAppListHint' : 'parameters.showInAppListDisabledHint',
                         isPublic

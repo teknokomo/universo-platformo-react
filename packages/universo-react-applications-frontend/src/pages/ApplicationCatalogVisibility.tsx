@@ -33,14 +33,14 @@ export const ApplicationCatalogVisibilityControl = ({ values, setValue, isLoadin
                 }
                 label={t('parameters.showInAppList', 'Show in the public application catalog')}
             />
-            <Typography variant='body2' color='text.secondary'>
+            <Typography variant='body2' sx={{ color: 'text.secondary' }}>
                 {t(
                     'parameters.showInAppListHint',
                     'This only controls catalog discovery. It does not change whether a public application can be opened directly.'
                 )}
             </Typography>
             {!isPublic ? (
-                <Typography variant='body2' color='text.secondary' sx={{ mt: 1 }}>
+                <Typography variant='body2' sx={{ color: 'text.secondary', mt: 1 }}>
                     {t('parameters.showInAppListDisabledHint', 'Set the application to Public to enable catalog listing.')}
                 </Typography>
             ) : null}

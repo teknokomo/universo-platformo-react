@@ -328,14 +328,14 @@ export const GeneralSettingsPanel = ({
             >
                 <Box sx={{ minWidth: 0 }}>
                     <Typography variant='subtitle2'>{t('settings.catalogVisibilityTitle', 'Public catalog visibility')}</Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography variant='body2' sx={{ color: 'text.secondary' }}>
                         {t(
                             'settings.catalogVisibilityDescription',
                             'Choose whether this public application appears in the application catalog. Hiding it does not restrict direct access.'
                         )}
                     </Typography>
                     {!effectiveVisibility ? (
-                        <Typography variant='body2' color='text.secondary' sx={{ mt: 1 }}>
+                        <Typography variant='body2' sx={{ color: 'text.secondary', mt: 1 }}>
                             {t('settings.catalogVisibilityDisabledHint', 'Set the application to Public to enable catalog listing.')}
                         </Typography>
                     ) : null}

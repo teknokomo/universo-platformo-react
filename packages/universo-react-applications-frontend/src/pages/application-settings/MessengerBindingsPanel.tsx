@@ -142,7 +142,7 @@ export function MessengerBindingsPanel({ applicationId, isPublic }: MessengerBin
             >
                 <Box>
                     <Typography variant='h6'>{t('messenger.title', 'Bots and connections')}</Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography variant='body2' sx={{ color: 'text.secondary' }}>
                         {t('messenger.description', 'Connect a Telegram or MAX bot to this public application.')}
                     </Typography>
                 </Box>

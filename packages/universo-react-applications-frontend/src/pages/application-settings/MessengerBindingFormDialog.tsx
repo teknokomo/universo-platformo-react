@@ -194,7 +194,7 @@ export function MessengerBindingFormDialog({ applicationId, binding, onClose }: 
                         </Select>
                     </FormControl>
                 ) : null}
-                <Typography variant='body2' color='text.secondary'>
+                <Typography variant='body2' sx={{ color: 'text.secondary' }}>
                     {t(
                         'messenger.activationHint',
                         'Enabling a connection allows its launch link to resolve; it does not configure or verify the external bot.'
