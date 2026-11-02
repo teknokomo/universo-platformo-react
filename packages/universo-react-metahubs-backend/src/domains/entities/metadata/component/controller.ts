@@ -201,6 +201,7 @@ const uiConfigSchema = z
         hidden: z.boolean().optional(),
         gridHidden: z.boolean().optional(),
         formHidden: z.boolean().optional(),
+        publicMessengerSafe: z.boolean().optional(),
         resetOnCopy: z.boolean().optional(),
         defaultValue: jsonUiValueSchema.optional(),
         serverOwned: z.boolean().optional(),

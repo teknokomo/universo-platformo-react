@@ -15,13 +15,12 @@ import type {
     ApplicationLayoutWidgetMutation,
     LayoutLogicalPlacement,
     ApplicationTemplateKey,
-    DashboardLayoutZone,
     ObjectCollectionRuntimeViewConfig,
     DashboardSideMenuConfig
 } from '@universo-react/types'
 import {
-    DASHBOARD_LAYOUT_ZONES,
     canAddApplicationLayoutWidget,
+    getLayoutZonesForTemplate,
     getLayoutWidgetAllowedZones,
     getLayoutWidgetDefinition,
     LAYOUT_ZONE_DEFINITIONS
@@ -55,7 +54,6 @@ import {
     isApplicationOwnedWidget,
     isMarketingWidgetKey,
     isRootPlacement,
-    LAYOUT_ZONES_BY_TEMPLATE,
     marketingHeaderSettingDefinition,
     normalizeEditableSideMenuConfig,
     readMarketingHeaderPosition,
@@ -140,6 +138,7 @@ const ApplicationLayouts = () => {
         updateWidgetConfigMutation,
         resetWidgetConfigMutation,
         applicationTemplateKey,
+        canSelectGlobalTemplate,
         isLoading,
         isSchemaNotReady,
         filteredLayouts,
@@ -208,7 +207,7 @@ const ApplicationLayouts = () => {
             string,
             string
         >
-        const layoutZones = LAYOUT_ZONES_BY_TEMPLATE[layout.templateKey]
+        const layoutZones = getLayoutZonesForTemplate(layout.templateKey)
         const widgetsByZone = layoutZones.reduce<Record<ApplicationLayoutZone, ApplicationLayoutWidget[]>>((accumulator, zone) => {
             accumulator[zone] = widgets
                 .filter((widget) => widget.zone === zone)
@@ -313,7 +312,7 @@ const ApplicationLayouts = () => {
 
         const getAvailableWidgetsForZone = (zone: ApplicationLayoutZone) =>
             widgetObject.filter((item) => {
-                const canAdd = canAddApplicationLayoutWidget(getLayoutWidgetDefinition(item.key), layout.sourceKind)
+                const canAdd = canAddApplicationLayoutWidget(getLayoutWidgetDefinition(item.key), layout.sourceKind, layout.templateKey)
                 return (
                     item.supportedTemplates.includes(layout.templateKey) &&
                     item.allowedZonesByTemplate[layout.templateKey]?.includes(zone) &&
@@ -401,7 +400,7 @@ const ApplicationLayouts = () => {
         const handleAddWidgetRequest = (zone: ApplicationLayoutZone, widgetKey: ApplicationLayoutWidgetMutation['widgetKey']) => {
             const definition = getLayoutWidgetDefinition(widgetKey)
             if (!definition || !definition.supportedTemplates.includes(layout.templateKey)) return
-            if (!canAddApplicationLayoutWidget(definition, layout.sourceKind)) return
+            if (!canAddApplicationLayoutWidget(definition, layout.sourceKind, layout.templateKey)) return
             if (!getLayoutWidgetAllowedZones(widgetKey, layout.templateKey)?.includes(zone)) return
             if (isMarketingWidgetKey(widgetKey)) {
                 setWidgetPresentationEditor({ open: true, zone, widgetId: null, widgetKey, config: null })
@@ -415,10 +414,8 @@ const ApplicationLayouts = () => {
                 })
                 return
             }
-            if (!DASHBOARD_LAYOUT_ZONES.includes(zone as DashboardLayoutZone)) return
-            const dashboardZone = zone as DashboardLayoutZone
             addWidgetMutation.mutate({
-                zone: dashboardZone,
+                zone,
                 widgetKey,
                 config: buildInitialWidgetConfig(widgetKey)
             })
@@ -568,6 +565,8 @@ const ApplicationLayouts = () => {
                     description={
                         layout.templateKey === 'marketing-page'
                             ? t('layouts.marketingDetailDescription', 'Configure the published marketing page appearance.')
+                            : layout.templateKey === 'messenger-app'
+                            ? t('layouts.messengerDetailDescription', 'Configure the Messenger app composition.')
                             : t('layouts.detailDescription', 'Configure layout widgets.')
                     }
                     search={false}
@@ -645,7 +644,7 @@ const ApplicationLayouts = () => {
                                     onChange={(key, value) => void handleViewSettingChange(key, value)}
                                     onReset={() => void requestMarketingAppearanceReset(layout)}
                                 />
-                            ) : (
+                            ) : layout.templateKey === 'dashboard' ? (
                                 <LayoutRuntimeSettingsPanels
                                     t={t}
                                     layout={layout}
@@ -654,7 +653,7 @@ const ApplicationLayouts = () => {
                                     onObjectBehaviorChange={(patch) => void handleObjectBehaviorChange(patch)}
                                     onSideMenuConfigChange={(patch) => void handleSideMenuConfigChange(patch)}
                                 />
-                            )
+                            ) : null
                         }
                         zones={layoutZones.map((zone) => ({
                             zone,
@@ -914,6 +913,7 @@ const ApplicationLayouts = () => {
                                 <MenuItem value='all'>{t('layouts.allTemplates', 'All')}</MenuItem>
                                 <MenuItem value='dashboard'>{formatTemplate('dashboard')}</MenuItem>
                                 <MenuItem value='marketing-page'>{formatTemplate('marketing-page')}</MenuItem>
+                                <MenuItem value='messenger-app'>{formatTemplate('messenger-app')}</MenuItem>
                             </Select>
                         </FormControl>
                     </Stack>
@@ -958,6 +958,7 @@ const ApplicationLayouts = () => {
                 scopes={scopesQuery.data ?? []}
                 templateKey={createTemplateKey}
                 defaultTemplateKey={applicationTemplateKey}
+                canSelectGlobalTemplate={canSelectGlobalTemplate}
                 setTemplateKey={setCreateTemplateKey}
                 createOpen={createOpen}
                 setCreateOpen={setCreateOpen}

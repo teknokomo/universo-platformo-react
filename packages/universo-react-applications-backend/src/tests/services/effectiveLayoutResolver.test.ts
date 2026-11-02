@@ -13,7 +13,8 @@ import {
     encodeLayoutWidgetConfigEnvelope,
     getLayoutWidgetDefinition,
     LAYOUT_WIDGET_DEFINITIONS,
-    validateWidgetBindings
+    validateWidgetBindings,
+    type ApplicationTemplateKey
 } from '@universo-react/types'
 import { resolveEffectiveLayoutForPublicTransaction, resolveEffectiveLayoutForRequest } from '../../services/effectiveLayoutResolver'
 import {
@@ -141,7 +142,7 @@ const layoutRow = (overrides: Record<string, unknown> = {}) => ({
     ...overrides
 })
 
-const widgetRow = (overrides: Record<string, unknown> = {}) => {
+const widgetRow = (overrides: Record<string, unknown> = {}, templateKey: ApplicationTemplateKey = 'marketing-page') => {
     const row = {
         id: globalWidgetId,
         layout_id: globalLayoutId,
@@ -165,7 +166,7 @@ const widgetRow = (overrides: Record<string, unknown> = {}) => {
         try {
             const inheritsMarketingBindings = row.source_base_widget_id !== null && row.source_base_widget_id !== undefined
             sourceState = createApplicationLayoutWidgetSourceState(
-                'marketing-page',
+                templateKey,
                 String(row.widget_key),
                 {
                     zone: String(row.zone),
@@ -364,6 +365,83 @@ describe('effectiveLayoutResolver', () => {
             expect.any(Array),
             'en'
         )
+        runtimeDataSpy.mockRestore()
+    })
+
+    it('resolves required source-bound Messenger widget data for an authenticated member', async () => {
+        const templateKey = 'messenger-app' as const
+        const config = { variant: 'records', maxRows: 20 }
+        const definition = getLayoutWidgetDefinition('detailsTable', config)
+        const rowsSlot = definition?.bindingSlots?.find(({ key }) => key === 'rows')
+        if (!definition || !rowsSlot) throw new Error('Messenger detailsTable rows binding is missing')
+        const bindings = validateWidgetBindings(definition, {
+            version: 1,
+            slots: [
+                {
+                    slot: 'rows',
+                    targets: [
+                        {
+                            entityKind: 'object',
+                            entityCodename: 'Products',
+                            selector: { kind: 'record-set' },
+                            projection: rowsSlot.requirements.components.map(({ field, componentCodename }) => ({
+                                field,
+                                componentCodename
+                            }))
+                        }
+                    ]
+                }
+            ]
+        })
+        const sourceConfig = encodeLayoutWidgetConfigEnvelope(
+            { rendererConfig: config, neutral: { bindings } },
+            { templateKey, widgetKey: 'detailsTable', zone: 'center' }
+        )
+        const runtimeData = {
+            status: 'ready',
+            data: { kind: 'table', columns: [{ key: 'Title', label: 'Title' }], rows: [] }
+        } as const
+        const runtimeDataSpy = jest
+            .spyOn(runtimeWidgetData, 'resolveEffectiveWidgetRuntimeData')
+            .mockResolvedValue(new Map([[globalWidgetId, runtimeData]]))
+        mockListCandidates.mockResolvedValue([layoutRow({ template_key: templateKey })])
+        mockListWidgets.mockResolvedValue([
+            widgetRow(
+                {
+                    zone: 'center',
+                    widget_key: 'detailsTable',
+                    instance_key: 'messenger-products',
+                    config: sourceConfig,
+                    source_config: sourceConfig
+                },
+                templateKey
+            )
+        ])
+
+        const result = await resolveEffectiveLayoutForRequest(
+            executor,
+            { applicationId, userId: 'member-user-id', role: 'member' },
+            resolverInput()
+        )
+
+        expect(runtimeDataSpy).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({
+                currentUserId: 'member-user-id',
+                role: 'member',
+                permissions: expect.objectContaining({ editContent: false, deleteContent: false })
+            }),
+            expect.arrayContaining([
+                expect.objectContaining({
+                    id: globalWidgetId,
+                    widgetKey: 'detailsTable',
+                    bindings: expect.objectContaining({ version: 1, slots: expect.any(Array) })
+                })
+            ]),
+            'en'
+        )
+        expect(result.layout.templateKey).toBe('messenger-app')
+        expect(result.widgets.find(({ widgetKey }) => widgetKey === 'detailsTable')?.runtimeData).toEqual(runtimeData)
         runtimeDataSpy.mockRestore()
     })
 

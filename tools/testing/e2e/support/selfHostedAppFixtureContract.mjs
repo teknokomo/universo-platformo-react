@@ -861,9 +861,9 @@ export function assertSelfHostedAppEnvelopeContract(envelope, options = {}) {
         const defaultLayoutConfig = defaultLayout?.config && typeof defaultLayout.config === 'object' ? defaultLayout.config : {}
         assertNoLegacyDashboardLayoutConfig(defaultLayoutConfig, 'Self-hosted app default layout config', errors)
 
-        const topLevelLayoutConfig =
-            envelope?.snapshot?.layoutConfig && typeof envelope.snapshot.layoutConfig === 'object' ? envelope.snapshot.layoutConfig : {}
-        assertNoLegacyDashboardLayoutConfig(topLevelLayoutConfig, 'Self-hosted app snapshot layoutConfig', errors)
+        if (Object.prototype.hasOwnProperty.call(envelope?.snapshot ?? {}, 'layoutConfig')) {
+            errors.push('Self-hosted app snapshot still contains the retired top-level layoutConfig projection')
+        }
 
         const layoutWidgets = Array.isArray(envelope?.snapshot?.layoutZoneWidgets) ? envelope.snapshot.layoutZoneWidgets : []
         const menuWidgets = layoutWidgets.filter((widget) => widget?.layoutId === defaultLayout.id && widget?.widgetKey === 'menuWidget')

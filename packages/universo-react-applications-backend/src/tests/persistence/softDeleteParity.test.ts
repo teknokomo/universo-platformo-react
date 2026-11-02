@@ -86,20 +86,25 @@ describe('Applications backend soft-delete parity', () => {
             })
         ).rejects.toThrow('Application was not found or is already deleted')
 
-        expect(txExecutor.query).toHaveBeenCalledTimes(1)
-        expect(txExecutor.query.mock.calls[0][0]).toContain('FOR UPDATE')
-        expect(txExecutor.query.mock.calls[0][1]).toEqual(['application-1'])
+        expect(txExecutor.query).toHaveBeenCalledTimes(2)
+        expect(txExecutor.query.mock.calls[0][0]).toContain('pg_advisory_xact_lock(hashtextextended($1::text, 0))')
+        expect(txExecutor.query.mock.calls[0][1]).toEqual(['application-copy:application-1'])
+        expect(txExecutor.query.mock.calls[1][0]).toContain('FOR UPDATE')
+        expect(txExecutor.query.mock.calls[1][1]).toEqual(['application-1'])
     })
 
     it('deleteApplicationWithSchema uses soft-delete UPDATE with cascade for children', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
-        // Lock active app, DROP SCHEMA, cascade links/connectors, release global links,
-        // purge guest replay secrets, tombstone the app, then cascade memberships.
+        // Take the exclusive copy lock, lock active app, DROP SCHEMA, cascade links/connectors,
+        // release bindings and global links, purge guest replay secrets, tombstone the app,
+        // then cascade memberships.
         txExecutor.query
+            .mockResolvedValueOnce([]) // exclusive application-copy lock
             .mockResolvedValueOnce([{ id: applicationId }]) // active application lock
             .mockResolvedValueOnce([]) // DROP SCHEMA
             .mockResolvedValueOnce([]) // publication links cascade
             .mockResolvedValueOnce([]) // connectors cascade
+            .mockResolvedValueOnce([{ releasedCount: 0 }]) // authorized database-owned bot binding release and audit
             .mockResolvedValueOnce([]) // global short-link release
             .mockResolvedValueOnce([]) // guest session replay cleanup
             .mockResolvedValueOnce([{ id: applicationId }]) // application soft-delete
@@ -112,42 +117,46 @@ describe('Applications backend soft-delete parity', () => {
         })
 
         expect(result).toBe(true)
-        expect(txExecutor.query.mock.calls[0][0]).toContain('FROM applications.obj_applications')
-        expect(txExecutor.query.mock.calls[0][0]).toContain('FOR UPDATE')
-        expect(txExecutor.query.mock.calls[0][1]).toEqual([applicationId])
+        expect(txExecutor.query.mock.calls[0][0]).toContain('pg_advisory_xact_lock(hashtextextended($1::text, 0))')
+        expect(txExecutor.query.mock.calls[0][1]).toEqual([`application-copy:${applicationId}`])
+        expect(txExecutor.query.mock.calls[1][0]).toContain('FROM applications.obj_applications')
+        expect(txExecutor.query.mock.calls[1][0]).toContain('FOR UPDATE')
+        expect(txExecutor.query.mock.calls[1][1]).toEqual([applicationId])
         // Schema drop
-        expect(txExecutor.query.mock.calls[1][0]).toContain('DROP SCHEMA IF EXISTS "app_018f8a787b8f7c1da111222233334444" CASCADE')
+        expect(txExecutor.query.mock.calls[2][0]).toContain('DROP SCHEMA IF EXISTS "app_018f8a787b8f7c1da111222233334444" CASCADE')
         // Cascade soft-delete publication links before connectors so active rows cannot be missed
-        expect(txExecutor.query.mock.calls[2][0]).toContain('UPDATE applications.rel_connector_publications')
-        expect(txExecutor.query.mock.calls[2][0]).toContain('_upl_deleted = true')
-        expect(txExecutor.query.mock.calls[2][0]).toContain('_app_deleted = true')
-        expect(txExecutor.query.mock.calls[2][0]).toContain('_upl_version = COALESCE(cp._upl_version, 1) + 1')
-        expect(txExecutor.query.mock.calls[2][0]).not.toContain('c._upl_deleted = false AND c._app_deleted = false')
-        // Cascade soft-delete connectors
-        expect(txExecutor.query.mock.calls[3][0]).toContain('UPDATE applications.obj_connectors')
+        expect(txExecutor.query.mock.calls[3][0]).toContain('UPDATE applications.rel_connector_publications')
         expect(txExecutor.query.mock.calls[3][0]).toContain('_upl_deleted = true')
         expect(txExecutor.query.mock.calls[3][0]).toContain('_app_deleted = true')
-        // Release active global links before the application tombstone; preserve audit/version fields.
-        expect(txExecutor.query.mock.calls[4][0]).toContain('UPDATE "applications"."obj_global_short_links"')
-        expect(txExecutor.query.mock.calls[4][0]).toContain('released_at = now()')
-        expect(txExecutor.query.mock.calls[4][0]).toContain('released_by = $2')
-        expect(txExecutor.query.mock.calls[4][0]).toContain('_upl_updated_by = $2')
-        expect(txExecutor.query.mock.calls[4][0]).toContain('_upl_version = COALESCE(_upl_version, 1) + 1')
-        expect(txExecutor.query.mock.calls[4][0]).toContain('application_id = $1')
-        expect(txExecutor.query.mock.calls[4][1]).toEqual([applicationId, 'user-1'])
-        // Purge encrypted replay secrets in the same transaction before the application tombstone.
-        expect(txExecutor.query.mock.calls[5][0]).toContain('DELETE FROM "applications"."obj_guest_session_idempotency"')
-        expect(txExecutor.query.mock.calls[5][0]).toContain('WHERE application_id = $1')
+        expect(txExecutor.query.mock.calls[3][0]).toContain('_upl_version = COALESCE(cp._upl_version, 1) + 1')
+        expect(txExecutor.query.mock.calls[3][0]).not.toContain('c._upl_deleted = false AND c._app_deleted = false')
+        // Cascade soft-delete connectors
+        expect(txExecutor.query.mock.calls[4][0]).toContain('UPDATE applications.obj_connectors')
+        expect(txExecutor.query.mock.calls[4][0]).toContain('_upl_deleted = true')
+        expect(txExecutor.query.mock.calls[4][0]).toContain('_app_deleted = true')
+        expect(txExecutor.query.mock.calls[5][0]).toContain('applications.release_application_bot_bindings_for_application')
         expect(txExecutor.query.mock.calls[5][1]).toEqual([applicationId])
+        // Release active global links before the application tombstone; preserve audit/version fields.
+        expect(txExecutor.query.mock.calls[6][0]).toContain('UPDATE "applications"."obj_global_short_links"')
+        expect(txExecutor.query.mock.calls[6][0]).toContain('released_at = now()')
+        expect(txExecutor.query.mock.calls[6][0]).toContain('released_by = $2')
+        expect(txExecutor.query.mock.calls[6][0]).toContain('_upl_updated_by = $2')
+        expect(txExecutor.query.mock.calls[6][0]).toContain('_upl_version = COALESCE(_upl_version, 1) + 1')
+        expect(txExecutor.query.mock.calls[6][0]).toContain('application_id = $1')
+        expect(txExecutor.query.mock.calls[6][1]).toEqual([applicationId, 'user-1'])
+        // Purge encrypted replay secrets in the same transaction before the application tombstone.
+        expect(txExecutor.query.mock.calls[7][0]).toContain('DELETE FROM "applications"."obj_guest_session_idempotency"')
+        expect(txExecutor.query.mock.calls[7][0]).toContain('WHERE application_id = $1')
+        expect(txExecutor.query.mock.calls[7][1]).toEqual([applicationId])
         // Soft-delete the application while manager membership still exists.
-        expect(txExecutor.query.mock.calls[6][0]).toContain('UPDATE applications.obj_applications')
-        expect(txExecutor.query.mock.calls[6][0]).toContain('_upl_deleted = true')
-        expect(txExecutor.query.mock.calls[6][0]).toContain('_app_deleted = true')
-        expect(txExecutor.query.mock.calls[6][0]).toContain('_upl_deleted = false AND _app_deleted = false')
+        expect(txExecutor.query.mock.calls[8][0]).toContain('UPDATE applications.obj_applications')
+        expect(txExecutor.query.mock.calls[8][0]).toContain('_upl_deleted = true')
+        expect(txExecutor.query.mock.calls[8][0]).toContain('_app_deleted = true')
+        expect(txExecutor.query.mock.calls[8][0]).toContain('_upl_deleted = false AND _app_deleted = false')
         // Cascade soft-delete members after the application RLS update succeeds.
-        expect(txExecutor.query.mock.calls[7][0]).toContain('UPDATE applications.rel_application_users')
-        expect(txExecutor.query.mock.calls[7][0]).toContain('_upl_deleted = true')
-        expect(txExecutor.query.mock.calls[7][0]).toContain('_app_deleted = true')
+        expect(txExecutor.query.mock.calls[9][0]).toContain('UPDATE applications.rel_application_users')
+        expect(txExecutor.query.mock.calls[9][0]).toContain('_upl_deleted = true')
+        expect(txExecutor.query.mock.calls[9][0]).toContain('_app_deleted = true')
     })
 
     it('aborts the enclosing transaction when the application tombstone fails after releasing links', async () => {
@@ -159,9 +168,11 @@ describe('Applications backend soft-delete parity', () => {
             return result
         })
         txExecutor.query
+            .mockResolvedValueOnce([]) // exclusive application-copy lock
             .mockResolvedValueOnce([{ id: applicationId }]) // active application lock
             .mockResolvedValueOnce([]) // publication links cascade
             .mockResolvedValueOnce([]) // connectors cascade
+            .mockResolvedValueOnce([{ releasedCount: 0 }]) // authorized database-owned bot binding release and audit
             .mockResolvedValueOnce([]) // global short-link release
             .mockResolvedValueOnce([]) // guest session replay cleanup
             .mockResolvedValueOnce([]) // application UPDATE returns no row and aborts transaction
@@ -175,9 +186,10 @@ describe('Applications backend soft-delete parity', () => {
         ).rejects.toThrow('Application was not soft-deleted')
 
         expect(executor.transaction).toHaveBeenCalledTimes(1)
-        expect(txExecutor.query).toHaveBeenCalledTimes(6)
-        expect(txExecutor.query.mock.calls[3][0]).toContain('UPDATE "applications"."obj_global_short_links"')
-        expect(txExecutor.query.mock.calls[4][0]).toContain('DELETE FROM "applications"."obj_guest_session_idempotency"')
+        expect(txExecutor.query).toHaveBeenCalledTimes(8)
+        expect(txExecutor.query.mock.calls[4][0]).toContain('applications.release_application_bot_bindings_for_application')
+        expect(txExecutor.query.mock.calls[5][0]).toContain('UPDATE "applications"."obj_global_short_links"')
+        expect(txExecutor.query.mock.calls[6][0]).toContain('DELETE FROM "applications"."obj_guest_session_idempotency"')
         expect(transactionCommitted).toBe(false)
     })
 
@@ -194,9 +206,11 @@ describe('Applications backend soft-delete parity', () => {
             }
         })
         txExecutor.query
+            .mockResolvedValueOnce([]) // exclusive application-copy lock
             .mockResolvedValueOnce([{ id: applicationId }]) // active application lock
             .mockResolvedValueOnce([]) // publication links cascade
             .mockResolvedValueOnce([]) // connectors cascade
+            .mockResolvedValueOnce([{ releasedCount: 0 }]) // authorized database-owned bot binding release and audit
             .mockResolvedValueOnce([]) // global short-link release
             .mockRejectedValueOnce(purgeError) // replay cleanup
 
@@ -209,8 +223,8 @@ describe('Applications backend soft-delete parity', () => {
         ).rejects.toBe(purgeError)
 
         expect(transactionRolledBack).toBe(true)
-        expect(txExecutor.query).toHaveBeenCalledTimes(5)
-        expect(txExecutor.query.mock.calls[4][0]).toContain('DELETE FROM "applications"."obj_guest_session_idempotency"')
+        expect(txExecutor.query).toHaveBeenCalledTimes(7)
+        expect(txExecutor.query.mock.calls[6][0]).toContain('DELETE FROM "applications"."obj_guest_session_idempotency"')
     })
 
     it('propagates a global-link release failure before completing application soft-delete cascades', async () => {
@@ -226,9 +240,11 @@ describe('Applications backend soft-delete parity', () => {
             }
         })
         txExecutor.query
+            .mockResolvedValueOnce([]) // exclusive application-copy lock
             .mockResolvedValueOnce([{ id: applicationId }]) // active application lock
             .mockResolvedValueOnce([]) // publication links cascade
             .mockResolvedValueOnce([]) // connectors cascade
+            .mockResolvedValueOnce([{ releasedCount: 0 }]) // authorized database-owned bot binding release and audit
             .mockRejectedValueOnce(releaseError) // global short-link release
 
         await expect(
@@ -240,8 +256,9 @@ describe('Applications backend soft-delete parity', () => {
         ).rejects.toBe(releaseError)
 
         expect(transactionRolledBack).toBe(true)
-        expect(txExecutor.query).toHaveBeenCalledTimes(4)
-        expect(txExecutor.query.mock.calls[3][0]).toContain('UPDATE "applications"."obj_global_short_links"')
+        expect(txExecutor.query).toHaveBeenCalledTimes(6)
+        expect(txExecutor.query.mock.calls[4][0]).toContain('applications.release_application_bot_bindings_for_application')
+        expect(txExecutor.query.mock.calls[5][0]).toContain('UPDATE "applications"."obj_global_short_links"')
     })
 })
 

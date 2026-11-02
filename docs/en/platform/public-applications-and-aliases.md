@@ -11,6 +11,8 @@ An application can expose a published, read-only runtime to anonymous visitors, 
 /a/<alias>
 ```
 
+Whether the application appears in the normal catalog is a separate discovery preference. A public unlisted application continues to resolve through its direct UUID or alias; a closed application remains unavailable to anonymous visitors. Messenger applications also support manual Telegram/MAX launch bindings; see [Messenger App Template](messenger-app-template.md).
+
 ![Application aliases administration](../.gitbook/assets/platform/application-aliases-desktop.png)
 
 The UUID remains a stable technical address. An alias is a mutable lowercase routing name with a maximum length of 63 characters. Aliases cannot contain slashes, percent escapes, control characters, non-ASCII characters, reserved route words, or UUID-shaped values.

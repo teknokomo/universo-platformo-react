@@ -48,7 +48,7 @@ export const dashboardRowsRuntimeComponents: RuntimeReadableComponent[] = [
         },
         validation_rules: { localized: true },
         sort_order: 0,
-        ui_config: {}
+        ui_config: { publicMessengerSafe: true }
     },
     {
         id: childRecordId,
@@ -400,7 +400,10 @@ export const metadataForSlot = (
                   targetObjectCodename: refTargetObject.codename
               }
             : {}),
-        ...(requirement.requireServerOwned === true ? { uiConfig: { serverOwned: true } } : {}),
+        uiConfig: {
+            publicMessengerSafe: true,
+            ...(requirement.requireServerOwned === true ? { serverOwned: true } : {})
+        },
         presentation: {
             name: {
                 _primary: 'en',

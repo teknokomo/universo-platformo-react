@@ -37,6 +37,91 @@ describe('resolveEffectiveWidgetRuntimeData relationBuilder projection', () => {
         expect(runtimeStore.loadWidgetBindingRuntimeRecords).not.toHaveBeenCalled()
     })
 
+    it('rejects anonymous relation labels backed by personal identity metadata before reading records', async () => {
+        const { executor } = createMockDbExecutor()
+        const candidate = relationBuilderCandidate()
+        const definition = getLayoutWidgetDefinition('relationBuilder', candidate.config)
+        const parent = definition?.bindingSlots?.find(({ key }) => key === 'parent')
+        const panel = definition ? resolveWidgetBindingSlotDefinition(definition, 'panel:materials') : undefined
+        if (!parent || !panel) throw new Error('relationBuilder slots are missing')
+        const parentMetadata = metadataForSlot(parentObjectId, 'ParentRecords', parent)
+        const childMetadata = metadataForSlot(childObjectId, 'MaterialRecords', panel, {
+            id: parentObjectId,
+            kind: 'object',
+            codename: 'ParentRecords'
+        })
+        const unsafeChildMetadata = {
+            ...childMetadata,
+            components: childMetadata.components.map((component) =>
+                component.codename === 'Title'
+                    ? {
+                          ...component,
+                          presentation: { name: { _primary: 'en', locales: { en: { content: 'Person Name' } } } }
+                      }
+                    : component
+            )
+        }
+        ;(runtimeStore.loadRuntimeWidgetBindingMetadata as jest.Mock).mockResolvedValueOnce(
+            metadataEnvelope([parentMetadata, unsafeChildMetadata])
+        )
+
+        const resolved = await resolveEffectiveWidgetRuntimeData(
+            executor,
+            {
+                ...scope,
+                currentUserId: null,
+                role: null,
+                publishedRecordsOnly: true,
+                publicRuntimePolicy: 'messenger-app'
+            },
+            [candidate],
+            'en'
+        )
+
+        expect(resolved.get('placement-relation-1')).toEqual({ status: 'stale-source' })
+        expect(runtimeStore.loadWidgetBindingRuntimeRecords).not.toHaveBeenCalled()
+    })
+
+    it('rejects anonymous relation display Components marked private before reading records', async () => {
+        const { executor } = createMockDbExecutor()
+        const candidate = relationBuilderCandidate([{ fieldCodename: 'Subject', valueType: 'string', localized: true, required: false }])
+        const definition = getLayoutWidgetDefinition('relationBuilder', candidate.config)
+        const parent = definition?.bindingSlots?.find(({ key }) => key === 'parent')
+        const panel = definition ? resolveWidgetBindingSlotDefinition(definition, 'panel:materials') : undefined
+        if (!parent || !panel) throw new Error('relationBuilder slots are missing')
+        const parentMetadata = metadataForSlot(parentObjectId, 'ParentRecords', parent)
+        const childMetadata = metadataForSlot(childObjectId, 'MaterialRecords', panel, {
+            id: parentObjectId,
+            kind: 'object',
+            codename: 'ParentRecords'
+        })
+        const privateChildMetadata = {
+            ...childMetadata,
+            components: childMetadata.components.map((component) =>
+                component.codename === 'Subject' ? { ...component, uiConfig: { private: true } } : component
+            )
+        }
+        ;(runtimeStore.loadRuntimeWidgetBindingMetadata as jest.Mock).mockResolvedValueOnce(
+            metadataEnvelope([parentMetadata, privateChildMetadata])
+        )
+
+        const resolved = await resolveEffectiveWidgetRuntimeData(
+            executor,
+            {
+                ...scope,
+                currentUserId: null,
+                role: null,
+                publishedRecordsOnly: true,
+                publicRuntimePolicy: 'messenger-app'
+            },
+            [candidate],
+            'en'
+        )
+
+        expect(resolved.get('placement-relation-1')).toEqual({ status: 'stale-source' })
+        expect(runtimeStore.loadWidgetBindingRuntimeRecords).not.toHaveBeenCalled()
+    })
+
     it.each([
         { title: 'Materials', locale: 'en', expectedTitle: 'Materials' },
         { title: { en: 'Materials', ru: 'Материалы' }, locale: 'en', expectedTitle: 'Materials' },

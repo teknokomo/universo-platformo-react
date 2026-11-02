@@ -1,4 +1,4 @@
-import { GLOBAL_SHORT_LINK_SLUG_PATTERN } from '@universo-react/types'
+import { APPLICATION_ALIAS_PATTERN, GLOBAL_SHORT_LINK_SLUG_PATTERN } from '@universo-react/types'
 
 /**
  * Universo Platformo | Public Routes Constants
@@ -50,6 +50,8 @@ const globalShortLinkSlugRoutePattern = GLOBAL_SHORT_LINK_SLUG_PATTERN.source
     .replace(/\$$/, '')
     .replace(/\[a-z/g, '[A-Za-z')
 const publicApplicationIdPathSegment = '[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}'
+const publicApplicationAliasPathSegment = APPLICATION_ALIAS_PATTERN.source.replace(/^\^/, '').replace(/\$$/, '')
+const publicApplicationRefPathSegment = `(?:${publicApplicationIdPathSegment}|${publicApplicationAliasPathSegment})`
 const publicRuntimeRecordIdPathSegment = publicApplicationIdPathSegment
 const publicAccessLinkSlugPathSegment = '[A-Za-z0-9][A-Za-z0-9_-]{0,254}'
 const publicApplicationRuntimePaths = [
@@ -78,6 +80,7 @@ export const API_WHITELIST_PATH_PATTERNS = [
     /^\/api\/v1\/metahub\/[^/]+\/packages\/[^/]+\/editor-artifact-token\/[^/]+\//,
     /^\/api\/v1\/public\/applications\/[^/]+\/runtime$/,
     /^\/api\/v1\/public\/applications\/[^/]+\/runtime\/widgets\/[^/]+\/interpretation-network$/,
+    new RegExp(`^/api/v1/public/applications/${publicApplicationRefPathSegment}/attribution/[A-Za-z0-9_-]{22}$`),
     new RegExp(`^/api/v1/public/l/${globalShortLinkSlugRoutePattern}$`),
     ...publicApplicationRuntimePathPatterns
 ] as const

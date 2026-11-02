@@ -1,7 +1,16 @@
-import { isCompatibleWidgetBindingEntity, MAX_WIDGET_BINDING_RESOLVED_RECORDS } from '@universo-react/types'
+import {
+    isCompatibleWidgetBindingEntity,
+    isPublicPersonalIdentityFieldName,
+    MAX_WIDGET_BINDING_RESOLVED_RECORDS
+} from '@universo-react/types'
+import { isRuntimeSensitiveFieldName, isRuntimeTechnicalFieldName } from '@universo-react/utils'
 import type { WidgetBindingTarget } from '@universo-react/types'
 import type { loadRuntimeWidgetBindingMetadata, RuntimeWidgetBindingObjectMetadata } from '../persistence/widgetBindingRuntimeStore'
+import { resolvePresentationName } from '../shared/runtimeHelpers'
+import type { EffectiveWidgetRuntimeReadScope } from './effectiveWidgetRuntimeDataContracts'
 import type { PreparedWidget } from './effectiveWidgetRuntimeDataProjectionShared'
+
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
 const targetComponents = (slot: string, slots: ReadonlyMap<string, NonNullable<PreparedWidget['definition']['bindingSlots']>[number]>) => {
     const definition = slots.get(slot)
@@ -19,6 +28,89 @@ export const collectBindingMetadataRequests = (prepared: readonly PreparedWidget
         }
     }
     return requested
+}
+
+const isPublicProjectionField = (widgetKey: string, slotKey: string, field: string): boolean => {
+    switch (widgetKey) {
+        case 'detailsTitle':
+            return slotKey === 'content' && field === 'title'
+        case 'overviewCards':
+            return slotKey === 'metrics' && (field === 'title' || field === 'value' || field === 'interval')
+        case 'sessionsChart':
+        case 'pageViewsChart':
+            return slotKey === 'series' && (field === 'seriesLabel' || field === 'timestamp' || field === 'value')
+        case 'detailsTable':
+            return slotKey === 'rows' && field === 'title'
+        case 'resourcePreview':
+            return slotKey === 'resource' && (field === 'title' || field === 'resource')
+        case 'relationBuilder':
+            return (slotKey === 'parent' || slotKey.startsWith('panel:')) && (field === 'title' || /^display[1-8]$/u.test(field))
+        default:
+            return false
+    }
+}
+
+const hasSafePublicProjectionMetadata = (
+    widget: PreparedWidget,
+    metadata: Awaited<ReturnType<typeof loadRuntimeWidgetBindingMetadata>>,
+    locale: string
+): boolean => {
+    for (const { slot: slotKey, target } of widget.targets) {
+        const slot = widget.slotByKey.get(slotKey)
+        const object = metadata.objectsByCodename.get(target.entityCodename)
+        if (!slot || !object || typeof object.id !== 'string') return false
+        const publicRequirements = slot.requirements.components.filter((requirement) =>
+            isPublicProjectionField(widget.candidate.widgetKey, slotKey, requirement.field)
+        )
+        if (publicRequirements.length === 0) continue
+
+        const components = metadata.componentsByObjectId.get(object.id)
+        if (!components) return false
+
+        for (const requirement of publicRequirements) {
+            const matches = components.filter((component) => component.codename === requirement.componentCodename)
+            if (matches.length !== 1) return false
+
+            const [component] = matches
+            if (
+                !component ||
+                typeof component.codename !== 'string' ||
+                typeof component.columnName !== 'string' ||
+                !component.columnName.trim()
+            ) {
+                return false
+            }
+            const presentation = component.presentation
+            const presentationName = isRecord(presentation) ? presentation.name : undefined
+            const locales = isRecord(presentationName) ? presentationName.locales : undefined
+            if (
+                !isRecord(locales) ||
+                !Object.values(locales).some((value) => isRecord(value) && typeof value.content === 'string' && value.content.trim())
+            ) {
+                return false
+            }
+
+            const label = resolvePresentationName(presentation, locale, '')
+            const uiConfig = component.uiConfig
+            if (uiConfig !== undefined && uiConfig !== null && !isRecord(uiConfig)) return false
+            if (
+                !isRecord(uiConfig) ||
+                uiConfig.publicMessengerSafe !== true ||
+                [component.codename, label].some(
+                    (name) =>
+                        !name.trim() ||
+                        isPublicPersonalIdentityFieldName(name) ||
+                        isRuntimeTechnicalFieldName(name) ||
+                        isRuntimeSensitiveFieldName(name)
+                ) ||
+                (isRecord(uiConfig) &&
+                    ['hidden', 'gridHidden', 'formHidden', 'serverOwned', 'sensitive', 'private'].some((key) => uiConfig[key] === true))
+            ) {
+                return false
+            }
+        }
+    }
+    return true
 }
 
 const isCompatibleTarget = (
@@ -73,7 +165,9 @@ const isCompatibleTarget = (
 
 export const authorizeWidgetTargets = (
     widget: PreparedWidget,
-    metadata: Awaited<ReturnType<typeof loadRuntimeWidgetBindingMetadata>>
+    metadata: Awaited<ReturnType<typeof loadRuntimeWidgetBindingMetadata>>,
+    scope: EffectiveWidgetRuntimeReadScope,
+    locale: string
 ): boolean => {
     for (const { slot, target } of widget.targets) {
         if (target.selector.kind !== 'relation-set') {
@@ -113,7 +207,12 @@ export const authorizeWidgetTargets = (
             return false
         }
     }
-    return true
+    const isAnonymousPublishedScope =
+        scope.publicRuntimePolicy === 'messenger-app' &&
+        scope.publishedRecordsOnly === true &&
+        scope.currentUserId == null &&
+        scope.role == null
+    return !isAnonymousPublishedScope || hasSafePublicProjectionMetadata(widget, metadata, locale)
 }
 
 export const estimateRecordBudget = (widget: PreparedWidget): number => {

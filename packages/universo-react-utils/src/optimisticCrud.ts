@@ -74,19 +74,24 @@ const stripPendingMetadata = <T extends Record<string, unknown>>(item: T, nextId
     } as T
 }
 
-const replaceOptimisticEntity = <T extends Record<string, unknown>>(collection: T[], optimisticId: string, realId: string): T[] => {
+const replaceOptimisticEntity = <T extends Record<string, unknown>>(
+    collection: T[],
+    optimisticId: string,
+    realId: string,
+    serverEntity?: Record<string, unknown>
+): T[] => {
     const realEntityAlreadyExists = optimisticId !== realId && collection.some((item) => item.id === realId)
 
     return collection.flatMap((item) => {
         if (item.id !== optimisticId) {
-            return [item]
+            return serverEntity && item.id === realId ? [{ ...item, ...serverEntity, id: realId } as T] : [item]
         }
 
         if (realEntityAlreadyExists) {
             return []
         }
 
-        return [stripPendingMetadata(item, realId)]
+        return [stripPendingMetadata({ ...item, ...serverEntity }, realId)]
     })
 }
 
@@ -489,7 +494,7 @@ export function confirmOptimisticCreate(
         if (!old) return old
 
         if (hasItemsCollection(old)) {
-            const newItems = replaceOptimisticEntity(old.items, optimisticId, realId)
+            const newItems = replaceOptimisticEntity(old.items, optimisticId, realId, options?.serverEntity)
             const entityPresent = newItems.some((item) => item.id === realId)
 
             if (!entityPresent && options?.serverEntity) {
@@ -506,7 +511,7 @@ export function confirmOptimisticCreate(
         }
 
         if (hasRowsCollection(old)) {
-            const newRows = replaceOptimisticEntity(old.rows, optimisticId, realId)
+            const newRows = replaceOptimisticEntity(old.rows, optimisticId, realId, options?.serverEntity)
             const entityPresent = newRows.some((row) => row.id === realId)
 
             if (!entityPresent && options?.serverEntity) {

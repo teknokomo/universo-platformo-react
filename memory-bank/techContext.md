@@ -1,4 +1,4 @@
-> **Last Reviewed**: 2026-10-14 (refreshed: repository 0.85.0-alpha; LMS runtime/report architecture, pnpm/Turbo/MUI, and PlayCanvas baselines rechecked)
+> **Last Reviewed**: 2026-11-01 (refreshed: repository 0.88.0-alpha; Messenger App runtime, catalog, and bot-binding contracts added)
 
 # Technical Context
 
@@ -291,6 +291,8 @@
 -   Feature areas (`metahubs-*`, `applications-*`, `admin-*`, `profile-*`, `start-*`, `auth-*`) currently live as separate workspace packages on top of `packages/universo-react-template-mui`.
 -   The long-term goal is "everything is an Application" rendered through `packages/universo-react-apps-template-mui`. Each legacy area becomes a regular application; the legacy package is removed once the new application covers its functionality.
 -   **`packages/universo-react-apps-template-mui` must stay isolated** from `universo-react-template-mui` and from any legacy feature package scheduled for removal. Component duplication between the two template packages is acceptable and intentional during the transition.
+-   Messenger App is an isolated published-application template using the shared layout/widget registries and the existing apps-template renderer. MAX and Telegram credentials stay outside public DTOs; anonymous runtime projection is bounded, read-only, and limited to explicitly approved public data.
+-   Public Messenger navigation resolves authored Page blocks through the public application runtime contract; provider-side behavior still requires validation with eligible external MAX and Telegram clients.
 -   System applications are bootstrapped today via the **pseudo-app pattern**: hand-built base snapshots → file migrations → first-run install. The likely future direction is JSON-snapshot configurations in the same shape as `tools/fixtures/metahubs-*-snapshot.json`.
 -   A first-run **Setup Wizard** is planned: it will list required and recommended system applications and let the user choose additional applications from the bundled set or from a central marketplace.
 -   Practical rule: continue developing in the existing legacy packages when the work fits there. Do not block tasks on the migration completing. Create a new workspace package only when significant new functionality warrants its own boundary.

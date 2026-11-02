@@ -252,12 +252,9 @@ export const parseResolvedWidget = (row: BindingWidgetRow): ResolvedWidgetContex
         const definition = rawDefinition
             ? expandWidgetBindingSlotFamilies(rawDefinition, decoded.neutral.bindings ?? { version: 1, slots: [] })
             : undefined
-        if (
-            !definition ||
-            !definition.bindingSlots?.length ||
-            !definition.supportedTemplates.includes(templateKey) ||
-            definition.templateKey !== templateKey
-        ) {
+        // Shared dashboard registry entries keep `templateKey: 'dashboard'`;
+        // `supportedTemplates` is the concrete host-template compatibility contract.
+        if (!definition || !definition.bindingSlots?.length || !definition.supportedTemplates.includes(templateKey)) {
             throw new Error('No registered binding contract')
         }
         return {

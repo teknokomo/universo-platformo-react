@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next'
 import type { ComponentProps } from 'react'
 import { MarketingWidgetConfigDialog } from '@universo-react/template-mui'
+import { getLayoutWidgetAllowedZones } from '@universo-react/types'
 
 import MenuWidgetEditorDialog from './MenuWidgetEditorDialog'
 import ColumnsContainerEditorDialog from './ColumnsContainerEditorDialog'
@@ -34,6 +35,12 @@ export default function LayoutWidgetEditorDialogs({
     t
 }: LayoutWidgetEditorDialogsProps) {
     const { editors, dialogs } = authoring
+    const defaultBindingWidgetKey =
+        authoring.templateKey === 'dashboard' ? 'overviewTitle' : authoring.templateKey === 'marketing-page' ? 'marketing.hero' : null
+    const bindingWidgetKey = editors.marketingBinding.widgetKey ?? defaultBindingWidgetKey
+    const allowedBindingZones = bindingWidgetKey ? getLayoutWidgetAllowedZones(bindingWidgetKey, authoring.templateKey) : undefined
+    const bindingZone = editors.marketingBinding.zone ?? allowedBindingZones?.[0]
+    const canRenderBindingDialog = Boolean(bindingWidgetKey && bindingZone && allowedBindingZones?.includes(bindingZone))
     const marketingConfigT: ComponentProps<typeof MarketingWidgetConfigDialog>['t'] = (key, defaultValue, options) =>
         String(t(key, { ...options, defaultValue }))
 
@@ -97,30 +104,30 @@ export default function LayoutWidgetEditorDialogs({
                 onSave={dialogs.saveBehavior}
                 onCancel={dialogs.closeBehavior}
             />
-            <MarketingWidgetBindingDialog
-                open={editors.marketingBinding.open}
-                templateKey={authoring.templateKey}
-                metahubId={metahubId}
-                layoutId={layoutId}
-                zone={editors.marketingBinding.zone ?? (authoring.templateKey === 'dashboard' ? 'center' : 'marketing-main')}
-                widgetKey={
-                    editors.marketingBinding.widgetKey ?? (authoring.templateKey === 'dashboard' ? 'overviewTitle' : 'marketing.hero')
-                }
-                widgetId={editors.marketingBinding.widgetId}
-                sourceWidgetId={editors.marketingBinding.sourceWidgetId}
-                duplicateMode={editors.marketingBinding.duplicateMode}
-                rendererConfigPending={editors.marketingBinding.rendererConfigPending}
-                openSelectedRecordOnOpen={editors.marketingBinding.openSelectedRecordOnOpen}
-                locale={locale}
-                rendererConfig={editors.marketingBinding.config ?? {}}
-                sectionTargets={authoring.sectionTargets}
-                canManageLayouts={canManageLayouts}
-                canEditContent={canEditContent}
-                onClose={dialogs.closeMarketingBinding}
-                onBindingSaved={dialogs.onBindingSaved}
-                onSelection={dialogs.saveMarketingSelection}
-                onConfigurePresentation={dialogs.configureMarketingPresentation}
-            />
+            {canRenderBindingDialog && bindingWidgetKey && bindingZone ? (
+                <MarketingWidgetBindingDialog
+                    open={editors.marketingBinding.open}
+                    templateKey={authoring.templateKey}
+                    metahubId={metahubId}
+                    layoutId={layoutId}
+                    zone={bindingZone}
+                    widgetKey={bindingWidgetKey}
+                    widgetId={editors.marketingBinding.widgetId}
+                    sourceWidgetId={editors.marketingBinding.sourceWidgetId}
+                    duplicateMode={editors.marketingBinding.duplicateMode}
+                    rendererConfigPending={editors.marketingBinding.rendererConfigPending}
+                    openSelectedRecordOnOpen={editors.marketingBinding.openSelectedRecordOnOpen}
+                    locale={locale}
+                    rendererConfig={editors.marketingBinding.config ?? {}}
+                    sectionTargets={authoring.sectionTargets}
+                    canManageLayouts={canManageLayouts}
+                    canEditContent={canEditContent}
+                    onClose={dialogs.closeMarketingBinding}
+                    onBindingSaved={dialogs.onBindingSaved}
+                    onSelection={dialogs.saveMarketingSelection}
+                    onConfigurePresentation={dialogs.configureMarketingPresentation}
+                />
+            ) : null}
             {editors.marketing.open && editors.marketing.widgetKey ? (
                 <MarketingWidgetConfigDialog
                     open={editors.marketing.open}

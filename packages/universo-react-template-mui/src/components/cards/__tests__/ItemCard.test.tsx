@@ -1,16 +1,28 @@
+jest.unmock('@universo-react/i18n')
+jest.unmock('react-i18next')
+
+import { TextEncoder as NodeTextEncoder } from 'node:util'
+Object.assign(globalThis, { TextEncoder: NodeTextEncoder })
+
 import React from 'react'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { act, render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import '@testing-library/jest-dom'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import { MemoryRouter } from 'react-router-dom'
+import { getInstance } from '@universo-react/i18n'
+import { I18nextProvider } from 'react-i18next'
 import { ItemCard, type ItemCardData } from '../ItemCard'
 
 const theme = createTheme()
+const i18n = getInstance()
 
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
-        <ThemeProvider theme={theme}>{children}</ThemeProvider>
-    </MemoryRouter>
+    <I18nextProvider i18n={i18n}>
+        <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+            <ThemeProvider theme={theme}>{children}</ThemeProvider>
+        </MemoryRouter>
+    </I18nextProvider>
 )
 
 describe('ItemCard', () => {
@@ -22,6 +34,10 @@ describe('ItemCard', () => {
         color: '#ff0000'
     }
 
+    beforeEach(async () => {
+        await i18n.changeLanguage('en')
+    })
+
     describe('Rendering', () => {
         it('should render with basic data', () => {
             render(
@@ -32,6 +48,36 @@ describe('ItemCard', () => {
 
             expect(screen.getByText('Test Item')).toBeInTheDocument()
             expect(screen.getByText('Test Description')).toBeInTheDocument()
+        })
+
+        it('wraps long titles when requested', () => {
+            const title = 'A long display name that should stay readable on narrow cards'
+            render(
+                <TestWrapper>
+                    <ItemCard data={{ name: title }} wrapTitle />
+                </TestWrapper>
+            )
+
+            expect(screen.getByText(title)).toHaveStyle({ whiteSpace: 'normal', overflowWrap: 'anywhere' })
+            expect(screen.getByText(title).closest('.MuiCard-root')).toHaveStyle({ height: 'auto', minHeight: '180px' })
+        })
+
+        it('shows the full description when wrapping is requested', () => {
+            render(
+                <TestWrapper>
+                    <ItemCard data={{ name: 'Bot', description: 'A long description that should wrap on narrow cards' }} wrapDescription />
+                </TestWrapper>
+            )
+
+            expect(screen.getByText('A long description that should wrap on narrow cards')).toHaveStyle({
+                display: 'block',
+                overflow: 'visible',
+                overflowWrap: 'anywhere'
+            })
+            expect(screen.getByText('A long description that should wrap on narrow cards').closest('.MuiCard-root')).toHaveStyle({
+                height: 'auto',
+                minHeight: '180px'
+            })
         })
 
         it('should render without name', () => {
@@ -84,7 +130,8 @@ describe('ItemCard', () => {
     })
 
     describe('Click Handler', () => {
-        it('should call onClick when card is clicked', () => {
+        it('exposes a named button and calls onClick when the card is activated', async () => {
+            const user = userEvent.setup()
             const handleClick = jest.fn()
 
             render(
@@ -93,10 +140,26 @@ describe('ItemCard', () => {
                 </TestWrapper>
             )
 
-            const card = screen.getByText('Test Item').closest('.MuiCard-root')
-            if (card) {
-                fireEvent.click(card)
-            }
+            const action = screen.getByRole('button', { name: 'Test Item', exact: true })
+            await user.click(action)
+
+            expect(handleClick).toHaveBeenCalledTimes(1)
+        })
+
+        it('activates a clickable card with Enter from the keyboard', async () => {
+            const user = userEvent.setup()
+            const handleClick = jest.fn()
+
+            render(
+                <TestWrapper>
+                    <ItemCard data={mockData} onClick={handleClick} />
+                </TestWrapper>
+            )
+
+            const action = screen.getByRole('button', { name: 'Test Item', exact: true })
+            await user.tab()
+            expect(action).toHaveFocus()
+            await user.keyboard('{Enter}')
 
             expect(handleClick).toHaveBeenCalledTimes(1)
         })
@@ -124,6 +187,74 @@ describe('ItemCard', () => {
             )
 
             expect(screen.getByText('Footer Content')).toBeInTheDocument()
+        })
+
+        it('keeps footer controls above the card action and prevents card activation', async () => {
+            const user = userEvent.setup()
+            const handleCardClick = jest.fn()
+            const handleFooterButtonClick = jest.fn()
+            const handleFooterLinkClick = jest.fn((event: React.MouseEvent<HTMLAnchorElement>) => event.preventDefault())
+
+            render(
+                <TestWrapper>
+                    <ItemCard
+                        data={mockData}
+                        onClick={handleCardClick}
+                        footerEndContent={
+                            <>
+                                <button type='button' onClick={handleFooterButtonClick}>
+                                    Footer action
+                                </button>
+                                <a href='/footer-details' onClick={handleFooterLinkClick}>
+                                    Footer link
+                                </a>
+                            </>
+                        }
+                    />
+                </TestWrapper>
+            )
+
+            const footerButton = screen.getByRole('button', { name: 'Footer action' })
+            const footerLink = screen.getByRole('link', { name: 'Footer link' })
+            const footerLayer = footerButton.parentElement?.parentElement
+            const cardAction = screen.getByRole('button', { name: 'Test Item', exact: true })
+
+            expect(cardAction).toHaveStyle({ zIndex: '1' })
+            expect(footerLayer).toHaveStyle({ position: 'relative', zIndex: '6' })
+            expect(footerLink).toHaveAttribute('href', '/footer-details')
+
+            await user.click(footerButton)
+            await user.click(footerLink)
+
+            expect(handleFooterButtonClick).toHaveBeenCalledTimes(1)
+            expect(handleFooterLinkClick).toHaveBeenCalledTimes(1)
+            expect(handleCardClick).not.toHaveBeenCalled()
+        })
+
+        it('keeps footer controls above the full-card link overlay', async () => {
+            const user = userEvent.setup()
+            const handleFooterButtonClick = jest.fn()
+
+            render(
+                <TestWrapper>
+                    <ItemCard
+                        data={mockData}
+                        href='/application'
+                        footerEndContent={<button onClick={handleFooterButtonClick}>Footer action</button>}
+                    />
+                </TestWrapper>
+            )
+
+            const footerButton = screen.getByRole('button', { name: 'Footer action' })
+            const footerLayer = footerButton.parentElement?.parentElement
+            const cardLink = screen.getByRole('link', { name: 'Test Item', exact: true })
+
+            expect(footerLayer).toHaveStyle({ position: 'relative', zIndex: '6' })
+            expect(cardLink).toHaveStyle({ zIndex: '5' })
+
+            await user.click(footerButton)
+
+            expect(handleFooterButtonClick).toHaveBeenCalledTimes(1)
         })
 
         it('should not render footer when no content provided', () => {
@@ -196,6 +327,24 @@ describe('ItemCard', () => {
         })
     })
 
+    describe('Touch-friendly title', () => {
+        it('reveals the full title when the truncated title is touched', async () => {
+            const fullTitle = 'Customer support and billing questions (@very_long_support_bot_username)'
+            render(
+                <TestWrapper>
+                    <ItemCard data={{ name: 'Customer support and billing questions' }} titleTooltip={fullTitle} footerStackOnMobile />
+                </TestWrapper>
+            )
+
+            const title = screen.getByLabelText(fullTitle)
+            fireEvent.touchStart(title, {
+                touches: [{ identifier: 1, target: title, clientX: 0, clientY: 0 }]
+            })
+
+            expect(await screen.findByRole('tooltip', {}, { timeout: 1500 })).toHaveTextContent(fullTitle)
+        })
+    })
+
     describe('Accessibility', () => {
         it('should have cursor pointer style for clickable cards', () => {
             render(
@@ -217,18 +366,66 @@ describe('ItemCard', () => {
                 </TestWrapper>
             )
 
-            // The overlay <Link> renders an <a> tag.
-            // We look for the anchor tag inside the card
-            const linkElement = screen.getByText('Test Item').closest('.MuiCard-root')?.querySelector('a')
-            expect(linkElement).toBeInTheDocument()
+            const linkElement = screen.getByRole('link', { name: 'Test Item', exact: true })
             expect(linkElement).toHaveAttribute('href', '/test-path')
         })
 
-        it('should not trigger navigation when headerAction is clicked', () => {
-            const handleMenuClick = jest.fn()
+        it('uses the full title tooltip as the accessible link name', () => {
             render(
                 <TestWrapper>
-                    <ItemCard data={mockData} href='/test-path' headerAction={<button onClick={handleMenuClick}>Menu</button>} />
+                    <ItemCard data={{ name: 'Short title' }} titleTooltip='Localized full title' href='/test-path' />
+                </TestWrapper>
+            )
+
+            expect(screen.getByRole('link', { name: 'Short title — Localized full title', exact: true })).toHaveAttribute(
+                'href',
+                '/test-path'
+            )
+        })
+
+        it('includes the visible card title in an explicit action name', () => {
+            render(
+                <TestWrapper>
+                    <ItemCard data={{ name: 'Platform foundations' }} onClick={noop} actionLabel='Open details' />
+                </TestWrapper>
+            )
+
+            expect(screen.getByRole('button', { name: 'Platform foundations — Open details', exact: true })).toBeInTheDocument()
+        })
+
+        it('uses the trimmed visible name when the preferred template name is whitespace', () => {
+            render(
+                <TestWrapper>
+                    <ItemCard data={{ name: 'Visible item name', templateName: '\n\t' }} href='/test-path' />
+                </TestWrapper>
+            )
+
+            expect(screen.getByText('Visible item name')).toBeInTheDocument()
+            expect(screen.getByRole('link', { name: 'Visible item name', exact: true })).toHaveAttribute('href', '/test-path')
+        })
+
+        it('uses a real localized fallback when all card titles are empty', async () => {
+            render(
+                <TestWrapper>
+                    <ItemCard data={{ name: '  ', templateName: '\n\t' }} href='/test-path' />
+                </TestWrapper>
+            )
+
+            expect(screen.getByRole('link', { name: 'Open item', exact: true })).toHaveAttribute('href', '/test-path')
+
+            await act(async () => {
+                await i18n.changeLanguage('ru')
+            })
+
+            expect(screen.getByRole('link', { name: 'Открыть элемент', exact: true })).toHaveAttribute('href', '/test-path')
+        })
+
+        it('keeps header actions operable without activating the clickable card', () => {
+            const handleMenuClick = jest.fn()
+            const handleCardClick = jest.fn()
+            render(
+                <TestWrapper>
+                    <ItemCard data={mockData} onClick={handleCardClick} headerAction={<button onClick={handleMenuClick}>Menu</button>} />
                 </TestWrapper>
             )
 
@@ -237,14 +434,7 @@ describe('ItemCard', () => {
 
             // Menu click handler should be called
             expect(handleMenuClick).toHaveBeenCalledTimes(1)
-            // We can't easily check "navigation didn't happen" without mocking,
-            // but we can verify the event propagation stopped if we had a spy on the window location or similar.
-            // However, the main point of this test in the previous version was to ensure the *router* didn't navigate.
-            // Since we removed the mock, we rely on the fact that the button is ON TOP of the link (z-index)
-            // and has stopPropagation.
-            // In a unit test with JSDOM, z-index doesn't prevent clicks, but stopPropagation does.
-            // So if we had a click handler on the link, we could check it wasn't called.
-            // But the link is an anchor tag.
+            expect(handleCardClick).not.toHaveBeenCalled()
         })
 
         it('should call onClick when provided without href', () => {
@@ -255,10 +445,7 @@ describe('ItemCard', () => {
                 </TestWrapper>
             )
 
-            const card = screen.getByText('Test Item').closest('.MuiCard-root')
-            if (card) {
-                fireEvent.click(card)
-            }
+            fireEvent.click(screen.getByRole('button', { name: 'Test Item', exact: true }))
 
             expect(handleClick).toHaveBeenCalledTimes(1)
         })
@@ -271,8 +458,7 @@ describe('ItemCard', () => {
                 </TestWrapper>
             )
 
-            const linkElement = screen.getByText('Test Item').closest('.MuiCard-root')?.querySelector('a')
-            expect(linkElement).toBeInTheDocument()
+            const linkElement = screen.getByRole('link', { name: 'Test Item', exact: true })
             expect(linkElement).toHaveAttribute('href', '/priority-test')
 
             // onClick passed to CardWrapper is undefined when href is present

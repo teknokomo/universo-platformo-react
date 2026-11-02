@@ -22,6 +22,7 @@ import {
     resetLayoutsRouteMocks
 } from './layoutsRoutes.testSupport'
 import {
+    APPLICATION_TEMPLATE_REGISTRY,
     buildSingleTargetWidgetBinding,
     decodeWidgetConfigEnvelope,
     encodeWidgetConfigEnvelope,
@@ -731,6 +732,15 @@ describe('Marketing widget binding and authoring routes', () => {
             const response = await request(app).get(`/metahub/metahub-1/layout/${layoutIdV7}/zone-widgets/object`).expect(200)
 
             expect(layoutWidgetMetadataResponseSchema.safeParse(response.body).success).toBe(true)
+            expect(response.body.templates.map(({ key }: { key: string }) => key)).toEqual(Object.keys(APPLICATION_TEMPLATE_REGISTRY))
+            for (const template of response.body.templates) {
+                expect(template).toMatchObject(APPLICATION_TEMPLATE_REGISTRY[template.key as keyof typeof APPLICATION_TEMPLATE_REGISTRY])
+                expect(template.widgets).toEqual(
+                    response.body.items.filter((widget: { supportedTemplates: string[] }) =>
+                        widget.supportedTemplates.includes(template.key)
+                    )
+                )
+            }
             expect(response.body.items).toEqual(
                 expect.arrayContaining([
                     expect.objectContaining({

@@ -93,6 +93,7 @@ export function useCreateApplication() {
                     description: data.description,
                     displayName: displayName || '',
                     isPublic: data.isPublic === true,
+                    showInAppList: data.showInAppList !== false,
                     workspacesEnabled: false,
                     role: 'owner',
                     accessType: 'member',
@@ -146,6 +147,8 @@ export function useUpdateApplication() {
                 updater: {
                     name: data.name,
                     description: data.description,
+                    ...(data.isPublic !== undefined ? { isPublic: data.isPublic } : {}),
+                    ...(data.showInAppList !== undefined ? { showInAppList: data.showInAppList } : {}),
                     ...(displayName ? { displayName } : {})
                 },
                 detailQueryKey: applicationsQueryKeys.detail(id)
@@ -265,6 +268,7 @@ export function useCopyApplication() {
                     description: existingApp?.description,
                     displayName: typeof existingApp?.displayName === 'string' ? existingApp.displayName : '',
                     isPublic: data?.isPublic ?? existingApp?.isPublic ?? false,
+                    showInAppList: data?.showInAppList ?? existingApp?.showInAppList ?? true,
                     workspacesEnabled: existingApp?.workspacesEnabled ?? false,
                     role: 'owner',
                     accessType: 'member',

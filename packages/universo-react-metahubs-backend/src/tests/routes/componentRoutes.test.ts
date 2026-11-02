@@ -557,6 +557,38 @@ describe('Field Definition Routes', () => {
             expect(response.body).toMatchObject({ id: 'attr-1', codename: 'Title' })
         })
 
+        it('persists the explicit public Messenger field opt-in through create validation', async () => {
+            mockComponentsService.create.mockResolvedValueOnce({
+                id: 'attr-public-title',
+                objectCollectionId: 'object-1',
+                codename: 'Title',
+                dataType: 'STRING',
+                isRequired: false,
+                isDisplayComponent: false,
+                uiConfig: { publicMessengerSafe: true },
+                validationRules: {}
+            })
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/metahub-1/entities/object/instance/object-1/components')
+                .send({
+                    codename: testCodenameVlc('title'),
+                    dataType: 'STRING',
+                    name: { en: 'Title' },
+                    uiConfig: { publicMessengerSafe: true }
+                })
+                .expect(201)
+
+            expect(mockComponentsService.create).toHaveBeenCalledWith(
+                'metahub-1',
+                expect.objectContaining({ uiConfig: { publicMessengerSafe: true } }),
+                'test-user-id',
+                expect.any(Object)
+            )
+            expect(response.body.uiConfig).toEqual({ publicMessengerSafe: true })
+        })
+
         it('accepts JSON block content widget configuration for application-side authoring', async () => {
             mockComponentsService.create.mockResolvedValueOnce({
                 id: 'attr-content',

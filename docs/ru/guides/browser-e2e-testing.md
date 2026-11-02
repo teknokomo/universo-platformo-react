@@ -51,6 +51,21 @@ pnpm run test:e2e:smoke:local-supabase
 
 Режим общего или основного Supabase предназначен только для ручной отладки. Он требует `E2E_ALLOW_MAIN_SUPABASE=true` и `E2E_FULL_RESET_MODE=off`; иначе загрузчик E2E откажется использовать `.env` или локальный профиль Supabase для разработки.
 
+### Проверка Messenger App
+
+Запустите приёмочный wrapper Messenger на выделенном минимальном локальном
+профиле Supabase:
+
+```bash
+pnpm test:e2e:messenger-app:verify:local-supabase
+```
+
+Wrapper создаёт canonical fixture через продуктовый поток, проверяет его
+контракт и drift, импортирует fixture в свежую тестовую базу и сохраняет
+реальные скриншоты публичного runtime для английской и русской страниц GitBook.
+`pnpm dev` не требуется. После успешных проверок просмотрите файлы в
+`docs/{en,ru}/.gitbook/assets/messenger-app-template/`.
+
 ## Что suite обязан покрывать
 
 -   Реальный вход и границы навигации с минимальными правами.

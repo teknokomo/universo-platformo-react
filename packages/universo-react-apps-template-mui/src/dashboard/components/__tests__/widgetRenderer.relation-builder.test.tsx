@@ -470,6 +470,7 @@ describe('Dashboard runtime widget ownership renderers', () => {
             ),
             {
                 runtimeAccessMode: 'public',
+                runtimeLayoutTarget: undefined,
                 permissions: { createContent: true, editContent: true, deleteContent: true },
                 onOpenCreateTarget,
                 onOpenRowTarget,
@@ -478,9 +479,10 @@ describe('Dashboard runtime widget ownership renderers', () => {
         )
 
         expect(screen.getByTestId('relation-table')).toHaveAttribute('data-sortable', 'false')
-        const createButton = screen.getByRole('button', { name: 'Create' })
-        expect(createButton).toBeDisabled()
-        expect(screen.getByText('Content creation is available to application members.')).toHaveAttribute('role', 'status')
+        expect(screen.getByText('Lesson One')).toBeVisible()
+        expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument()
+        expect(screen.queryByText('Content creation is available to application members.')).not.toBeInTheDocument()
+        expect(screen.queryByText('Related records cannot be created from this view.')).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Actions for Lesson One' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Move second row up' })).not.toBeInTheDocument()
         expect(onOpenCreateTarget).not.toHaveBeenCalled()

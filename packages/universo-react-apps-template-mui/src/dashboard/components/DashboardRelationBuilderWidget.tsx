@@ -118,6 +118,7 @@ export default function DashboardRelationBuilderWidget({ instanceKey, config, pa
 
     const createAccess = resolveCreateActionAvailability(details, t)
     const relationLayoutAvailable = Boolean(details?.runtimeLayoutTarget)
+    const isReadOnlyPublicRuntime = details?.runtimeAccessMode === 'public'
     const canReorder =
         details?.runtimeAccessMode !== 'public' &&
         details?.permissions?.editContent === true &&
@@ -183,12 +184,11 @@ export default function DashboardRelationBuilderWidget({ instanceKey, config, pa
                         ? guestLinkWorkspaceBlocked
                             ? { disabled: true, disabledReason: guestLinkWorkspaceMessage }
                             : createAccess
+                        : createAccess.disabled
+                        ? createAccess
                         : {
                               disabled: true,
-                              disabledReason: t(
-                                  'app.relationLayoutUnavailable',
-                                  'Related content is unavailable. Reload the application and try again.'
-                              )
+                              disabledReason: t('app.relationLayoutUnavailable', 'Related records cannot be created from this view.')
                           }
                     const reorderRows = (event: { active: { id: string }; over?: { id: string } | null }) => {
                         if (!canReorder || !relationScope || !details?.relationRowReorder || !event.over) return
@@ -320,38 +320,40 @@ export default function DashboardRelationBuilderWidget({ instanceKey, config, pa
                         <Grid key={panel.slotKey} size={{ xs: 12, lg: panelConfig.width ?? 12 }} sx={{ minWidth: 0 }}>
                             <Stack spacing={1} sx={{ minWidth: 0 }}>
                                 <ViewHeaderMUI title={panel.title} controlsWrap>
-                                    <Button
-                                        type='button'
-                                        variant='contained'
-                                        size='small'
-                                        startIcon={<AddRoundedIcon fontSize='small' />}
-                                        disabled={relationCreateAccess.disabled}
-                                        aria-describedby={relationCreateAccess.disabled ? createReasonId : undefined}
-                                        onClick={() => {
-                                            if (relationCreateAccess.disabled || !relationScope || !details?.onOpenCreateTarget) return
-                                            const createTarget = {
-                                                id: `relation-create:${panel.slotKey}`,
-                                                label: panelConfig.title,
-                                                objectCollectionCodename: panel.targetEntityCodename,
-                                                createDefaults,
-                                                createDefaultContext: {
-                                                    relation: { parentRecordId: selectedParent.target.recordHandle }
-                                                },
-                                                createWizard: panelConfig.createWizard,
-                                                relationScope
-                                            }
-                                            details.onOpenCreateTarget(createTarget)
-                                        }}
-                                    >
-                                        {t('app.createRow', 'Create')}
-                                    </Button>
+                                    {isReadOnlyPublicRuntime ? null : (
+                                        <Button
+                                            type='button'
+                                            variant='contained'
+                                            size='small'
+                                            startIcon={<AddRoundedIcon fontSize='small' />}
+                                            disabled={relationCreateAccess.disabled}
+                                            aria-describedby={relationCreateAccess.disabled ? createReasonId : undefined}
+                                            onClick={() => {
+                                                if (relationCreateAccess.disabled || !relationScope || !details?.onOpenCreateTarget) return
+                                                const createTarget = {
+                                                    id: `relation-create:${panel.slotKey}`,
+                                                    label: panelConfig.title,
+                                                    objectCollectionCodename: panel.targetEntityCodename,
+                                                    createDefaults,
+                                                    createDefaultContext: {
+                                                        relation: { parentRecordId: selectedParent.target.recordHandle }
+                                                    },
+                                                    createWizard: panelConfig.createWizard,
+                                                    relationScope
+                                                }
+                                                details.onOpenCreateTarget(createTarget)
+                                            }}
+                                        >
+                                            {t('app.createRow', 'Create')}
+                                        </Button>
+                                    )}
                                 </ViewHeaderMUI>
                                 {panelConfig.rowLink && guestLinkWorkspaceStatus !== 'available' ? (
                                     <Alert severity={guestLinkWorkspaceStatus === 'personal' ? 'warning' : 'info'} role='status'>
                                         {guestLinkWorkspaceMessage}
                                     </Alert>
                                 ) : null}
-                                {relationCreateAccess.disabled && relationCreateAccess.disabledReason ? (
+                                {!isReadOnlyPublicRuntime && relationCreateAccess.disabled && relationCreateAccess.disabledReason ? (
                                     <Typography id={createReasonId} role='status' variant='caption' sx={{ color: 'text.secondary' }}>
                                         {relationCreateAccess.disabledReason}
                                     </Typography>

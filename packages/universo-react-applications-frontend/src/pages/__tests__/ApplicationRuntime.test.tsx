@@ -56,6 +56,11 @@ const runtimeMocks = vi.hoisted(() => ({
         effectiveLayoutWidgets?: unknown
         effectiveLayoutConfig?: unknown
     } | null,
+    capturedMessengerProps: null as {
+        zones?: Record<string, unknown>
+        details?: { locale?: string }
+        placementScopes?: Record<string, { widgetId: string; layoutId: string }>
+    } | null,
     triggerRerender: undefined as undefined | (() => void)
 }))
 
@@ -254,6 +259,14 @@ vi.mock('@universo-react/apps-template-mui', async (importOriginal) => {
         }) => {
             runtimeMocks.capturedMarketingProps = props
             return <div data-testid='marketing-runtime-content'>marketing</div>
+        },
+        MessengerRuntimeShell: (props: {
+            zones: Record<string, unknown>
+            details: { locale?: string }
+            placementScopes?: Record<string, { widgetId: string; layoutId: string }>
+        }) => {
+            runtimeMocks.capturedMessengerProps = props
+            return <div data-testid='messenger-runtime-shell'>messenger</div>
         },
         AppsDashboard: ({
             details,
@@ -678,6 +691,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
         runtimeMocks.resolvedTargetKind = null
         runtimeMocks.capturedDashboardProps = null
         runtimeMocks.capturedMarketingProps = null
+        runtimeMocks.capturedMessengerProps = null
         runtimeMocks.triggerRerender = undefined
     })
 
@@ -715,6 +729,66 @@ describe('ApplicationRuntime pending interaction safety', () => {
             ],
             effectiveLayoutConfig: expect.objectContaining({ templateKey: 'marketing-page' })
         })
+    })
+
+    it('dispatches authenticated Messenger layouts to the shared Messenger shell', () => {
+        runtimeMocks.templateKey = 'messenger-app'
+        runtimeMocks.effectiveLayoutWidgets = [
+            {
+                id: 'effective-messenger-header',
+                layoutId: 'effective-messenger-layout',
+                instanceKey: 'messenger-header',
+                parentInstanceKey: null,
+                slotKey: null,
+                zone: 'top',
+                widgetKey: 'header',
+                sortOrder: 1,
+                config: {},
+                isActive: true,
+                version: 1
+            },
+            {
+                id: 'effective-messenger-title',
+                layoutId: 'effective-messenger-layout',
+                instanceKey: 'messenger-title',
+                parentInstanceKey: null,
+                slotKey: null,
+                zone: 'center',
+                widgetKey: 'detailsTitle',
+                sortOrder: 2,
+                config: { level: 'h2' },
+                isActive: true,
+                version: 1
+            }
+        ]
+
+        renderRuntimePageAt('/applications/app-1/runtime?locale=ru')
+
+        expect(screen.getByTestId('messenger-runtime-shell')).toBeInTheDocument()
+        expect(screen.queryByTestId('apps-dashboard')).not.toBeInTheDocument()
+        expect(runtimeMocks.capturedMessengerProps).toMatchObject({
+            zones: {
+                top: [expect.objectContaining({ instanceKey: 'messenger-header', widgetKey: 'header' })],
+                center: [expect.objectContaining({ instanceKey: 'messenger-title', widgetKey: 'detailsTitle' })],
+                bottom: []
+            },
+            details: { locale: 'ru' },
+            placementScopes: {
+                'messenger-header': { widgetId: 'effective-messenger-header', layoutId: 'effective-messenger-layout' },
+                'messenger-title': { widgetId: 'effective-messenger-title', layoutId: 'effective-messenger-layout' }
+            }
+        })
+    })
+
+    it('fails closed for an unsupported authenticated template', () => {
+        runtimeMocks.templateKey = 'future-template'
+
+        renderRuntimePageAt('/applications/app-1/runtime')
+
+        expect(screen.getByText('This application template is not supported.')).toBeInTheDocument()
+        expect(screen.queryByTestId('apps-dashboard')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('marketing-runtime-content')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('messenger-runtime-shell')).not.toBeInTheDocument()
     })
 
     it('routes marketing applications to the shared workspace runtime surface', () => {

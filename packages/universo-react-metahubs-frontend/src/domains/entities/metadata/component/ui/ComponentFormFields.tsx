@@ -469,6 +469,7 @@ export type PresentationTabFieldsProps = {
     targetEntityId?: string | null
     isRequired?: boolean
     forceDisplayComponentWhenLocked?: boolean
+    showPublicMessengerSafe?: boolean
 }
 
 export const PresentationTabFields = ({
@@ -485,7 +486,8 @@ export const PresentationTabFields = ({
     targetEntityKind,
     targetEntityId,
     isRequired,
-    forceDisplayComponentWhenLocked = true
+    forceDisplayComponentWhenLocked = true,
+    showPublicMessengerSafe = false
 }: PresentationTabFieldsProps) => {
     const { t, i18n } = useTranslation('metahubs')
     const isDisplayComponent = Boolean(values.isDisplayComponent)
@@ -564,6 +566,26 @@ export const PresentationTabFields = ({
                 />
                 {displayComponentHelper && <FormHelperText sx={{ mt: -0.5, ml: 7 }}>{displayComponentHelper}</FormHelperText>}
             </Box>
+            {showPublicMessengerSafe ? (
+                <Box>
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={uiConfig.publicMessengerSafe === true}
+                                onChange={(_, checked) => updateUiConfig({ publicMessengerSafe: checked })}
+                                disabled={isLoading}
+                            />
+                        }
+                        label={t('components.presentation.publicMessengerSafe', 'Allow anonymous Messenger display')}
+                    />
+                    <FormHelperText sx={{ mt: -0.5, ml: 7 }}>
+                        {t(
+                            'components.presentation.publicMessengerSafeHelper',
+                            'Enable only when every value in this field is safe to show to anyone in a public Messenger app.'
+                        )}
+                    </FormHelperText>
+                </Box>
+            ) : null}
             {dataType === 'STRING' && (
                 <>
                     <Divider />

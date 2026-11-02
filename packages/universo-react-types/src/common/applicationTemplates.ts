@@ -52,5 +52,14 @@ export const APPLICATION_TEMPLATE_REGISTRY: Readonly<Record<ApplicationTemplateK
         seedPolicyKey: 'initial-only',
         hostCapabilities: [...APPLICATION_TEMPLATE_HOST_CAPABILITIES],
         semanticRegions: ['header', 'main', 'footer']
+    },
+    'messenger-app': {
+        key: 'messenger-app',
+        displayNameKey: 'templates.messengerApp.name',
+        descriptionKey: 'templates.messengerApp.description',
+        supportsDashboardWidgets: true,
+        seedPolicyKey: 'messenger-app',
+        hostCapabilities: [...APPLICATION_TEMPLATE_HOST_CAPABILITIES],
+        semanticRegions: ['header', 'main', 'footer']
     }
 }

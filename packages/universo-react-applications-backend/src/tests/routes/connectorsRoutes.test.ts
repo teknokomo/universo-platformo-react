@@ -379,6 +379,53 @@ describe('Connectors Routes', () => {
         })
     })
 
+    describe('DELETE /applications/:applicationId/connectors/:connectorId/publications/:linkId', () => {
+        it('takes the Application mutation lock before deleting the link and touching its parent', async () => {
+            const linkId = 'connector-publication-1'
+            const dataSource = buildDataSource((sql, _params, scope) => {
+                if (scope === 'root' && sql.includes('FROM applications.obj_connectors')) {
+                    return [{ id: 'connector-1', applicationId: 'application-1', isRequiredMetahub: false }]
+                }
+                if (scope === 'root' && sql.includes('FROM applications.rel_connector_publications')) {
+                    return [{ id: linkId, connectorId: 'connector-1', publicationId: 'publication-1' }]
+                }
+                if (scope === 'tx' && sql.includes('UPDATE applications.rel_connector_publications')) return [{ id: linkId }]
+                return undefined
+            })
+
+            await request(buildApp(dataSource))
+                .delete(`/applications/application-1/connectors/connector-1/publications/${linkId}`)
+                .expect(204)
+
+            const statements = dataSource.manager.query.mock.calls.map(([sql]) => String(sql))
+            expect(statements).toHaveLength(3)
+            expect(statements[0]).toContain('pg_advisory_xact_lock_shared(hashtextextended($1::text, 0))')
+            expect(statements[1]).toContain('UPDATE applications.rel_connector_publications')
+            expect(statements[2]).toContain('UPDATE applications.obj_applications')
+        })
+
+        it('returns 404 and skips the parent touch when the link disappeared before mutation', async () => {
+            const dataSource = buildDataSource((sql, _params, scope) => {
+                if (scope === 'root' && sql.includes('FROM applications.obj_connectors')) {
+                    return [{ id: 'connector-1', applicationId: 'application-1', isRequiredMetahub: false }]
+                }
+                if (scope === 'root' && sql.includes('FROM applications.rel_connector_publications')) {
+                    return [{ id: 'connector-publication-1', connectorId: 'connector-1', publicationId: 'publication-1' }]
+                }
+                return undefined
+            })
+
+            await request(buildApp(dataSource))
+                .delete('/applications/application-1/connectors/connector-1/publications/connector-publication-1')
+                .expect(404)
+
+            const statements = dataSource.manager.query.mock.calls.map(([sql]) => String(sql))
+            expect(statements).toHaveLength(2)
+            expect(statements[0]).toContain('pg_advisory_xact_lock_shared(hashtextextended($1::text, 0))')
+            expect(statements[1]).toContain('UPDATE applications.rel_connector_publications')
+        })
+    })
+
     describe('GET /applications/:applicationId/connectors/:connectorId', () => {
         it('should return 404 for non-existent connector', async () => {
             const dataSource = buildDataSource((sql, _params, scope) => {
@@ -467,7 +514,7 @@ describe('Connectors Routes', () => {
                     ]
                 }
 
-                if (scope === 'root' && sql.includes('UPDATE applications.obj_connectors')) {
+                if (scope === 'tx' && sql.includes('UPDATE applications.obj_connectors')) {
                     return [
                         {
                             id: 'connector-1',

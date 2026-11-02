@@ -1,6 +1,10 @@
 import type { Response } from 'express'
 import type { DbExecutor } from '@universo-react/utils'
-import { lockPublicApplicationForGuestAssessment } from '../../persistence/publicGuestApplicationStore'
+import {
+    hasPublicMessengerApplicationLayout,
+    lockPublicApplicationForGuestAssessment,
+    lockPublicGuestRuntimeLayoutState
+} from '../../persistence/publicGuestApplicationStore'
 import { PublicApplicationUnavailableError, resolvePublicApplication } from '../../services/publicApplicationRuntime'
 import { resolvePublicRuntimeSchema, type PublicRuntimeSchemaContext } from '../../shared/publicRuntimeAccess'
 import { resolvePublicGuestRuntimeConfig, type PublicGuestRuntimeConfig } from '../../services/publicGuestRuntimeConfig'
@@ -99,6 +103,11 @@ export const createPublicRuntimeContextRunner = (getDbExecutor: () => DbExecutor
             return
         }
 
+        if (await hasPublicMessengerApplicationLayout(executor, ctx.schemaName)) {
+            res.status(404).json({ error: 'Public guest runtime is unavailable' })
+            return
+        }
+
         if (options.beforeTransaction) {
             await options.beforeTransaction(ctx)
             if (res.headersSent) return
@@ -108,7 +117,12 @@ export const createPublicRuntimeContextRunner = (getDbExecutor: () => DbExecutor
         // including apps without workspaces, so publication withdrawal serializes all guest requests.
         await runWithDeferredResponse(res, () =>
             ctx.manager.transaction(async (tx: DbExecutor) => {
+                await lockPublicGuestRuntimeLayoutState(tx, ctx.schemaName)
                 if (!(await lockPublicApplicationForGuestAssessment(tx, applicationId))) {
+                    res.status(404).json({ error: 'Public guest runtime is unavailable' })
+                    return
+                }
+                if (await hasPublicMessengerApplicationLayout(tx, ctx.schemaName)) {
                     res.status(404).json({ error: 'Public guest runtime is unavailable' })
                     return
                 }

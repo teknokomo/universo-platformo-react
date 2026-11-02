@@ -797,13 +797,8 @@ export function assertQuizFixtureEnvelopeContract(envelope: Record<string, any>)
         }
     }
 
-    const snapshotLayoutConfig =
-        envelope?.snapshot?.layoutConfig && typeof envelope.snapshot.layoutConfig === 'object' ? envelope.snapshot.layoutConfig : {}
-    const snapshotLegacyConfigKeys = findLegacyDashboardLayoutConfigKeys(snapshotLayoutConfig)
-    if (snapshotLegacyConfigKeys.length > 0) {
-        errors.push(
-            `Quiz fixture snapshot layoutConfig must not store global Dashboard widget settings: ${snapshotLegacyConfigKeys.join(', ')}`
-        )
+    if (Object.prototype.hasOwnProperty.call(envelope?.snapshot ?? {}, 'layoutConfig')) {
+        errors.push('Quiz fixture snapshot still contains the retired top-level layoutConfig projection')
     }
 
     const quizWidgets = Array.isArray(envelope?.snapshot?.layoutZoneWidgets)

@@ -1,6 +1,7 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import { styled } from '@mui/material/styles'
-import { Box, ButtonBase, Grid, Typography, useTheme, Card } from '@mui/material'
+import { Box, ButtonBase, Grid, Tooltip, Typography, useTheme, Card } from '@mui/material'
 import { Link } from 'react-router-dom'
 import type { SxProps, Theme } from '@mui/material'
 import type { PendingAction } from '@universo-react/utils'
@@ -29,8 +30,16 @@ export interface ItemCardProps<T extends ItemCardData = ItemCardData> {
     footerStartContent?: React.ReactNode
     /** Content to display at the end (right) of the footer */
     footerEndContent?: React.ReactNode
+    /** Stack footer content below the start content on narrow viewports. */
+    footerStackOnMobile?: boolean
     /** Content to display next to the title */
     titleEndContent?: React.ReactNode
+    /** Full title text to reveal when the visible title is truncated. */
+    titleTooltip?: string
+    /** Wrap long titles instead of truncating them to one line. */
+    wrapTitle?: boolean
+    /** Show the full description instead of clamping it to two lines. */
+    wrapDescription?: boolean
     headerAction?: React.ReactNode
     sx?: SxProps<Theme>
     /** Size of the color dot in pixels (default: 35) */
@@ -52,6 +61,9 @@ const CardWrapper = styled(Card, {
     overflow: 'hidden',
     position: 'relative',
     boxShadow: '0 2px 14px 0 rgb(32 40 45 / 8%)',
+    '&:focus-within': {
+        boxShadow: `inset 0 0 0 3px ${theme.palette.primary.main}`
+    },
     cursor: 'pointer',
     '&:hover': {
         background: theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[50],
@@ -76,7 +88,11 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
     allowStretch = false,
     footerStartContent = null,
     footerEndContent = null,
+    footerStackOnMobile = false,
     titleEndContent = null,
+    titleTooltip,
+    wrapTitle = false,
+    wrapDescription = false,
     headerAction = null,
     sx = {},
     colorDotSize = 35,
@@ -84,6 +100,7 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
     pendingAction,
     onPendingInteractionAttempt
 }: ItemCardProps<T>): React.ReactElement => {
+    const { t } = useTranslation('common')
     const theme = useTheme()
     const imageList = Array.isArray(images) ? images : []
     const hasImages = imageList.length > 0
@@ -91,9 +108,36 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
     const hasFooterEndContent = Boolean(footerEndContent)
     const showFooter = hasImages || hasFooterStartContent || hasFooterEndContent
     const interactionBlocked = pending && isPendingInteractionBlocked(data)
-    const hasActionButton = Boolean(actionLabel && onClick && !href)
+    const cardTitleText = data.templateName?.trim() || data.name?.trim() || ''
+    const buildAccessibleActionName = (label?: string): string => {
+        const normalizedLabel = label?.trim()
+        if (!cardTitleText) return normalizedLabel || t('openItem', 'Open item')
+        if (!normalizedLabel || normalizedLabel.includes(cardTitleText)) return normalizedLabel || cardTitleText
+        return `${cardTitleText} — ${normalizedLabel}`
+    }
+    const hasActionButton = Boolean(onClick && !href)
+    const linkAccessibleName = buildAccessibleActionName(titleTooltip)
+    const buttonAccessibleName = buildAccessibleActionName(actionLabel)
     // Deferred feedback: spinner + pulsating glow only after user clicks a pending entity
     const showPendingSpinner = pending && shouldShowPendingFeedback(data) && (pendingAction === 'create' || pendingAction === 'copy')
+    const cardTitle = (
+        <Typography
+            aria-label={titleTooltip}
+            sx={{
+                fontSize: '1.25rem',
+                fontWeight: 500,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: wrapTitle ? 'normal' : 'nowrap',
+                overflowWrap: wrapTitle ? 'anywhere' : undefined,
+                wordBreak: wrapTitle ? 'break-word' : undefined,
+                minWidth: 0,
+                flexShrink: 1
+            }}
+        >
+            {cardTitleText}
+        </Typography>
+    )
 
     const handleCardClick = () => {
         if (interactionBlocked) {
@@ -115,7 +159,14 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
                 borderColor: theme.palette.grey[300],
                 borderRadius: 1,
                 cursor: interactionBlocked ? 'wait' : pending ? 'default' : href || onClick ? 'pointer' : 'default',
+                ...(footerStackOnMobile
+                    ? {
+                          height: { xs: 'auto', sm: '180px' },
+                          minHeight: { xs: '180px', sm: '180px' }
+                      }
+                    : {}),
                 ...sx,
+                ...(wrapTitle || wrapDescription ? { height: 'auto', minHeight: '180px' } : {}),
                 ...(pending && pendingAction === 'delete' ? deletingCardSx : {}),
                 ...(showPendingSpinner ? pendingCardSx : {})
             }}
@@ -124,7 +175,7 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
                 <ButtonBase
                     type='button'
                     disableRipple
-                    aria-label={actionLabel}
+                    aria-label={buttonAccessibleName}
                     aria-disabled={pending || undefined}
                     onClick={handleCardClick}
                     sx={{
@@ -147,7 +198,7 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
                     }}
                 />
             )}
-            <Box sx={{ height: '100%', p: 2, position: 'relative' }}>
+            <Box sx={{ height: footerStackOnMobile ? { xs: 'auto', sm: '100%' } : '100%', p: 2, position: 'relative' }}>
                 {/* Spinner for pending create/copy cards */}
                 {showPendingSpinner && pendingAction && <PendingCardOverlay action={pendingAction} />}
                 {/* Header action positioned tighter to the top-right corner */}
@@ -188,7 +239,15 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
                         {headerAction}
                     </Box>
                 )}
-                <Grid container sx={{ height: '100%', gap: 1.5, flexDirection: 'column', justifyContent: 'space-between' }}>
+                <Grid
+                    container
+                    sx={{
+                        height: footerStackOnMobile ? { xs: 'auto', sm: '100%' } : '100%',
+                        gap: 1.5,
+                        flexDirection: 'column',
+                        justifyContent: 'space-between'
+                    }}
+                >
                     <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
                         <div
                             style={{
@@ -230,32 +289,24 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
                                 ></div>
                             )}
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, flex: 1 }}>
-                                <Typography
-                                    sx={{
-                                        fontSize: '1.25rem',
-                                        fontWeight: 500,
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
-                                        minWidth: 0,
-                                        flexShrink: 1
-                                    }}
-                                >
-                                    {data.templateName || data.name}
-                                </Typography>
+                                {titleTooltip ? <Tooltip title={titleTooltip}>{cardTitle}</Tooltip> : cardTitle}
                                 {titleEndContent ? <Box sx={{ display: 'inline-flex', flexShrink: 0 }}>{titleEndContent}</Box> : null}
                             </Box>
                         </div>
                         {data.description && (
                             <Typography
                                 sx={{
-                                    display: '-webkit-box',
+                                    display: wrapDescription ? 'block' : '-webkit-box',
                                     mt: 1.25,
                                     fontSize: '0.875rem',
-                                    WebkitLineClamp: 2,
-                                    WebkitBoxOrient: 'vertical',
-                                    textOverflow: 'ellipsis',
-                                    overflow: 'hidden',
+                                    ...(wrapDescription
+                                        ? { overflow: 'visible', overflowWrap: 'anywhere' }
+                                        : {
+                                              WebkitLineClamp: 2,
+                                              WebkitBoxOrient: 'vertical',
+                                              textOverflow: 'ellipsis',
+                                              overflow: 'hidden'
+                                          }),
                                     wordBreak: 'break-word'
                                 }}
                             >
@@ -266,14 +317,27 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
                     {showFooter && (
                         <Box
                             sx={{
+                                position: 'relative',
+                                zIndex: 6,
                                 display: 'flex',
-                                alignItems: 'center',
+                                flexDirection: footerStackOnMobile ? { xs: 'column', sm: 'row' } : 'row',
+                                alignItems: footerStackOnMobile ? { xs: 'stretch', sm: 'center' } : 'center',
                                 justifyContent: 'space-between',
-                                gap: 1
+                                gap: 1,
+                                width: '100%',
+                                minWidth: 0
                             }}
                         >
                             {/* Left side: footerStartContent or images */}
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+                            <Box
+                                sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 1,
+                                    flexShrink: footerStackOnMobile ? { xs: 1, sm: 0 } : 0,
+                                    minWidth: 0
+                                }}
+                            >
                                 {hasFooterStartContent && footerStartContent}
                                 {hasImages && (
                                     <Box
@@ -313,7 +377,16 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
                             </Box>
                             {/* Right side: footerEndContent */}
                             {hasFooterEndContent && (
-                                <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>{footerEndContent}</Box>
+                                <Box
+                                    sx={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        alignSelf: footerStackOnMobile ? { xs: 'flex-end', sm: 'auto' } : 'auto',
+                                        flexShrink: 0
+                                    }}
+                                >
+                                    {footerEndContent}
+                                </Box>
                             )}
                         </Box>
                     )}
@@ -322,6 +395,7 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
             {href && !pending && (
                 <Link
                     to={href}
+                    aria-label={linkAccessibleName}
                     style={{
                         position: 'absolute',
                         top: 0,

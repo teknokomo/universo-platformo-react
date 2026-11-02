@@ -38,3 +38,31 @@ describe('LayoutRuntimeSettingsPanel marketing appearance', () => {
         expect(onViewSettingChange).toHaveBeenCalledWith('primaryColor', '#123456')
     })
 })
+
+describe('LayoutRuntimeSettingsPanel Messenger App behavior', () => {
+    it('does not expose dashboard runtime settings for the empty Messenger App config', () => {
+        const { container } = render(
+            <LayoutRuntimeSettingsPanel
+                t={t}
+                templateKey='messenger-app'
+                isScopedLayout={false}
+                layoutConfig={{}}
+                objectBehaviorConfig={{
+                    showCreateButton: true,
+                    createSurface: 'dialog',
+                    editSurface: 'dialog',
+                    copySurface: 'dialog'
+                }}
+                sideMenuConfig={{ availableModes: ['wide'], primaryMode: 'wide', rememberUserChoice: true }}
+                viewSettingsSaving={false}
+                canManageLayouts
+                onObjectBehaviorChange={vi.fn()}
+                onViewSettingChange={vi.fn()}
+                onSideMenuConfigChange={vi.fn()}
+            />
+        )
+
+        expect(container).toBeEmptyDOMElement()
+        expect(screen.queryByText('Entity runtime behavior')).not.toBeInTheDocument()
+    })
+})

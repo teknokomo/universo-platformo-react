@@ -50,16 +50,6 @@ export interface ApplicationAliasApplicationOptionRow {
     contextValue: unknown
 }
 
-const ALIAS_RETURNING = `
-    id,
-    application_id AS "applicationId",
-    alias,
-    is_primary AS "isPrimary",
-    released_at AS "releasedAt",
-    _upl_created_at AS "createdAt",
-    _upl_updated_at AS "updatedAt"
-`
-
 const ALIAS_MANAGEMENT_SELECT = `
     aa.id,
     aa.application_id AS "applicationId",
@@ -94,6 +84,16 @@ const activeAliasPredicate = (alias = ''): string => `
     AND ${alias ? `${alias}.` : ''}_app_deleted = false
     AND ${alias ? `${alias}.` : ''}_upl_archived = false
     AND ${alias ? `${alias}.` : ''}_app_archived = false
+`
+
+const ALIAS_FUNCTION_RETURNING = `
+    id,
+    application_id AS "applicationId",
+    alias,
+    is_primary AS "isPrimary",
+    released_at AS "releasedAt",
+    created_at AS "createdAt",
+    updated_at AS "updatedAt"
 `
 
 const resolveAliasOrderColumn = (sortBy: ListApplicationAliasesInput['sortBy']): string => {
@@ -226,20 +226,6 @@ export async function listApplicationAliasesByApplication(
     )
 }
 
-export async function findApplicationAliasById(executor: SqlQueryable, aliasId: string): Promise<ApplicationAliasRow | null> {
-    const rows = await executor.query<ApplicationAliasRow>(
-        `
-        SELECT ${ALIAS_RETURNING}
-        FROM applications.obj_application_aliases
-        WHERE id = $1
-          AND ${activeAliasPredicate()}
-        LIMIT 1
-        `,
-        [aliasId]
-    )
-    return rows[0] ?? null
-}
-
 /**
  * Resolve an active alias to its application without returning alias metadata.
  * The SECURITY DEFINER resolver bypasses the alias SELECT policy (which is
@@ -257,34 +243,20 @@ export async function findApplicationIdByActiveAlias(executor: SqlQueryable, ali
     return rows[0]?.applicationId ?? null
 }
 
-export async function findApplicationAliasByIdForUpdate(executor: DbExecutor, aliasId: string): Promise<ApplicationAliasRow | null> {
+export async function findApplicationAliasForManagement(
+    executor: DbExecutor,
+    aliasId: string,
+    userId: string,
+    action: 'update' | 'delete'
+): Promise<ApplicationAliasRow | null> {
     const rows = await executor.query<ApplicationAliasRow>(
         `
-        SELECT ${ALIAS_RETURNING}
-        FROM applications.obj_application_aliases
-        WHERE id = $1
-          AND ${activeAliasPredicate()}
-        LIMIT 1
-        FOR UPDATE
+        SELECT ${ALIAS_FUNCTION_RETURNING}
+        FROM applications.get_application_alias_for_management($1, $2, $3)
         `,
-        [aliasId]
+        [aliasId, userId, action]
     )
     return rows[0] ?? null
-}
-
-export async function listActiveApplicationAliasesForUpdate(executor: DbExecutor, applicationId: string): Promise<ApplicationAliasRow[]> {
-    return executor.query<ApplicationAliasRow>(
-        `
-        SELECT ${ALIAS_RETURNING}
-        FROM applications.obj_application_aliases
-        WHERE application_id = $1
-          AND released_at IS NULL
-          AND ${activeAliasPredicate()}
-        ORDER BY _upl_created_at ASC, id ASC
-        FOR UPDATE
-        `,
-        [applicationId]
-    )
 }
 
 export async function lockApplicationAliasTransitions(executor: DbExecutor, applicationId: string): Promise<void> {
@@ -355,114 +327,24 @@ export async function createApplicationAliasAtomically(
     return rows[0]
 }
 
-export async function updateApplicationAliasValue(
+export type ApplicationAliasMutationOperation = 'rename' | 'set_primary' | 'release'
+
+export async function mutateApplicationAlias(
     executor: DbExecutor,
-    aliasId: string,
-    alias: string,
-    userId: string
+    input: { aliasId: string; alias?: string; operation: ApplicationAliasMutationOperation; userId: string }
 ): Promise<ApplicationAliasRow | null> {
     const rows = await executor.query<ApplicationAliasRow>(
         `
-        UPDATE applications.obj_application_aliases
-        SET alias = $2,
-            _upl_updated_at = now(),
-            _upl_updated_by = $3,
-            _upl_version = _upl_version + 1
-        WHERE id = $1
-          AND released_at IS NULL
-          AND ${activeAliasPredicate()}
-        RETURNING ${ALIAS_RETURNING}
+        SELECT ${ALIAS_FUNCTION_RETURNING}
+        FROM applications.mutate_application_alias($1, $2, $3, $4)
         `,
-        [aliasId, alias, userId]
+        [input.aliasId, input.alias ?? null, input.operation, input.userId]
     )
     return rows[0] ?? null
 }
 
-export async function clearOtherPrimaryApplicationAliases(
-    executor: DbExecutor,
-    applicationId: string,
-    keepAliasId: string,
-    userId: string
-): Promise<string[]> {
-    const rows = await executor.query<{ id: string }>(
-        `
-        UPDATE applications.obj_application_aliases
-        SET is_primary = false,
-            _upl_updated_at = now(),
-            _upl_updated_by = $3,
-            _upl_version = _upl_version + 1
-        WHERE application_id = $1
-          AND id <> $2
-          AND released_at IS NULL
-          AND is_primary = true
-          AND ${activeAliasPredicate()}
-        RETURNING id
-        `,
-        [applicationId, keepAliasId, userId]
-    )
-    return rows.map((row) => row.id)
-}
-
-export async function clearApplicationAliasPrimaries(executor: DbExecutor, applicationId: string, userId: string): Promise<string[]> {
-    const rows = await executor.query<{ id: string }>(
-        `
-        UPDATE applications.obj_application_aliases
-        SET is_primary = false,
-            _upl_updated_at = now(),
-            _upl_updated_by = $2,
-            _upl_version = _upl_version + 1
-        WHERE application_id = $1
-          AND released_at IS NULL
-          AND is_primary = true
-          AND ${activeAliasPredicate()}
-        RETURNING id
-        `,
-        [applicationId, userId]
-    )
-    return rows.map((row) => row.id)
-}
-
-export async function setApplicationAliasPrimary(
-    executor: DbExecutor,
-    applicationId: string,
-    aliasId: string,
-    userId: string
-): Promise<ApplicationAliasRow | null> {
-    const rows = await executor.query<ApplicationAliasRow>(
-        `
-        UPDATE applications.obj_application_aliases
-        SET is_primary = true,
-            _upl_updated_at = now(),
-            _upl_updated_by = $3,
-            _upl_version = _upl_version + 1
-        WHERE id = $2
-          AND application_id = $1
-          AND released_at IS NULL
-          AND ${activeAliasPredicate()}
-        RETURNING ${ALIAS_RETURNING}
-        `,
-        [applicationId, aliasId, userId]
-    )
-    return rows[0] ?? null
-}
-
-export async function releaseApplicationAlias(executor: DbExecutor, aliasId: string, userId: string): Promise<ApplicationAliasRow | null> {
-    const rows = await executor.query<ApplicationAliasRow>(
-        `
-        UPDATE applications.obj_application_aliases
-        SET is_primary = false,
-            released_at = now(),
-            _upl_updated_at = now(),
-            _upl_updated_by = $2,
-            _upl_version = _upl_version + 1
-        WHERE id = $1
-          AND released_at IS NULL
-          AND ${activeAliasPredicate()}
-        RETURNING ${ALIAS_RETURNING}
-        `,
-        [aliasId, userId]
-    )
-    return rows[0] ?? null
+export async function ensureCanonicalApplicationAliasPrimary(executor: DbExecutor, applicationId: string, userId: string): Promise<void> {
+    await executor.query('SELECT applications.ensure_application_alias_primary($1, $2)', [applicationId, userId])
 }
 
 export async function updateApplicationAliasPolicy(

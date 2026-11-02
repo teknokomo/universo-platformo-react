@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 
 const runtimeRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const publicRuntimeRoot = path.resolve(runtimeRoot, '../../../public-runtime')
+const messengerRuntimeRoot = path.resolve(runtimeRoot, '../../../messenger')
 const nonDestructiveDialogSurfaces = ['CellEditDialog.tsx', 'workspace/WorkspaceDialogs.tsx', 'workspace/StructurePane.tsx']
 const destructiveDialogSurfaces = ['workspace/WorkspaceDialogs.tsx', 'InterpretationNetworkDetailsPane.tsx']
 const favoritesSurface = 'workspace/FavoritesWorkspacePanel.tsx'
@@ -64,6 +65,18 @@ function usesJsxComponent(sourceFile: ts.SourceFile, localName: string) {
         ) {
             found = true
         }
+        if (!found) ts.forEachChild(node, visit)
+    }
+
+    visit(sourceFile)
+    return found
+}
+
+function usesFunctionCall(sourceFile: ts.SourceFile, localName: string) {
+    let found = false
+
+    function visit(node: ts.Node) {
+        if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === localName) found = true
         if (!found) ts.forEachChild(node, visit)
     }
 
@@ -330,6 +343,26 @@ describe('Interpretation Network runtime UI primitive reuse', () => {
         expect(publicWorkspaceSource).not.toMatch(/from ['"][^'"]*\/WorkspaceShell['"]/u)
         expect(publicWorkspaceSource).not.toMatch(/from ['"][^'"]*\/MatrixWorkspace['"]/u)
         expectImportedAndRendered(publicDashboardSurface, '/dashboard/Dashboard', 'default')
+    })
+
+    it('keeps Messenger placements on the shared renderer and rejects bespoke table or dialog primitives', () => {
+        const shellPath = path.join(messengerRuntimeRoot, 'MessengerRuntimeShell.tsx')
+        const shellSource = readFileSync(shellPath, 'utf8')
+        const shell = sourceFileFor(shellPath, shellSource)
+
+        expectImportedAndRendered('../../../public-runtime/PublicMessengerRuntime.tsx', '/MessengerRuntimeShell', 'MessengerRuntimeShell')
+
+        const sharedRendererLocals = getImportedLocals(shell, '/dashboard/components/widgetRenderer', 'renderWidget')
+        expect(sharedRendererLocals.length, 'MessengerRuntimeShell must import the shared Dashboard widget renderer').toBeGreaterThan(0)
+        expect(
+            sharedRendererLocals.some((localName) => usesFunctionCall(shell, localName)),
+            'MessengerRuntimeShell must render persisted placements through the shared widget renderer'
+        ).toBe(true)
+
+        const violations = listRuntimeTsxFiles(messengerRuntimeRoot).flatMap((absolutePath) =>
+            primitiveViolations(path.relative(messengerRuntimeRoot, absolutePath), readFileSync(absolutePath, 'utf8'))
+        )
+        expect(violations).toEqual([])
     })
 
     it('rejects raw MUI dialogs and one-off DataGrids across runtime surfaces', () => {

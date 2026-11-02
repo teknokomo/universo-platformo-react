@@ -16,7 +16,8 @@ import {
     getWidgetDropIndex,
     hasMarketingWidgetBindings,
     isMarketingWidgetKey,
-    readWidgetPlacement
+    readWidgetPlacement,
+    supportsNestedPlacementAuthoring
 } from './layoutDetailsWidgetAuthoringModel'
 import type { LayoutWidgetAuthoringResult } from './useLayoutWidgetAuthoring'
 
@@ -157,6 +158,7 @@ export function useLayoutAuthoringZones({
         () =>
             layout
                 ? layoutZones.map((zone) => {
+                      const supportsNestedPlacements = supportsNestedPlacementAuthoring(layout.templateKey)
                       const placementRows = zoneToItems[zone].map((item) => {
                           const isInheritedWidget = item.isInherited === true
                           const isBoundMarketingWidget =
@@ -356,12 +358,11 @@ export function useLayoutAuthoringZones({
                               }
                           }
                       })
-                      const nestedPlacementRows =
-                          layout.templateKey === 'dashboard'
-                              ? placementRows
-                                    .filter(({ placement }) => placement.parentInstanceKey !== null && placement.slotKey !== null)
-                                    .map(({ placement, row }) => ({ placement, row }))
-                              : []
+                      const nestedPlacementRows = supportsNestedPlacements
+                          ? placementRows
+                                .filter(({ placement }) => placement.parentInstanceKey !== null && placement.slotKey !== null)
+                                .map(({ placement, row }) => ({ placement, row }))
+                          : []
                       return {
                           zone,
                           title: zoneLabels[zone],
@@ -373,8 +374,7 @@ export function useLayoutAuthoringZones({
                           items: placementRows
                               .filter(
                                   ({ placement }) =>
-                                      layout.templateKey !== 'dashboard' ||
-                                      (placement.parentInstanceKey === null && placement.slotKey === null)
+                                      !supportsNestedPlacements || (placement.parentInstanceKey === null && placement.slotKey === null)
                               )
                               .map(({ row }) => row),
                           nestedPlacementRows

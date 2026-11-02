@@ -1,4 +1,5 @@
 import {
+    addApplicationCatalogVisibilityAndMembershipRlsMigrationDefinition,
     createApplicationsSchemaMigrationDefinition,
     finalizeApplicationsSchemaSupportMigrationDefinition
 } from '../../platform/migrations'
@@ -16,12 +17,27 @@ describe('applications system-app definition', () => {
             'AddApplicationSettings1800000000100',
             'CreateGlobalShortLinks1800000000290',
             'CreateGuestSessionIdempotency1800000000300',
-            'BindGlobalShortLinksToAccessLinkIdentity1800000000310'
+            'BindGlobalShortLinksToAccessLinkIdentity1800000000310',
+            'CreateApplicationBotBindings1800000000320',
+            'AddApplicationCatalogVisibilityAndMembershipRls1800000000340'
         ])
     })
 
     it('keeps current and target business tables aligned for the effective fresh-bootstrap state', () => {
         expect(applicationsSystemAppDefinition.currentBusinessTables).toEqual(applicationsSystemAppDefinition.targetBusinessTables)
+    })
+
+    it('leaves bot username length enforcement to the named database constraint', () => {
+        const botBindings = applicationsSystemAppDefinition.targetBusinessTables.find(
+            (table) => table.codename === 'application_bot_bindings'
+        )
+
+        expect(botBindings?.fields).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ codename: 'bot_username', physicalDataType: 'TEXT' }),
+                expect.objectContaining({ codename: 'short_id', physicalDataType: 'VARCHAR(22)' })
+            ])
+        )
     })
 
     it('declares field-level metadata for application-like fixed business tables', () => {
@@ -155,6 +171,76 @@ describe('applications system-app definition', () => {
 
         expect(createSql).not.toContain(normalizeSql('CREATE POLICY "Allow users to manage their own applications"'))
         expect(createSql).not.toContain(normalizeSql('CREATE POLICY "Allow users to manage their application memberships"'))
+    })
+
+    it('uses a hardened membership lookup instead of recursively selecting the RLS-protected membership table', () => {
+        const migrationSql = normalizeSql(
+            addApplicationCatalogVisibilityAndMembershipRlsMigrationDefinition.up.map((statement) => statement.sql).join('\n')
+        )
+        const membershipReadPolicyStart = migrationSql.indexOf('ALTER POLICY "Allow users to read application memberships"')
+        const nextPolicyStart = migrationSql.indexOf('ALTER POLICY', membershipReadPolicyStart + 1)
+        const membershipReadPolicy = migrationSql.slice(membershipReadPolicyStart, nextPolicyStart === -1 ? undefined : nextPolicyStart)
+
+        expect(migrationSql).toContain('CREATE OR REPLACE FUNCTION applications.has_active_application_membership')
+        expect(migrationSql).toContain('SECURITY DEFINER SET search_path = pg_catalog SET row_security = off')
+        expect(migrationSql).toContain('REVOKE ALL ON FUNCTION applications.has_active_application_membership(UUID, TEXT[]) FROM PUBLIC')
+        expect(migrationSql).toContain(
+            'GRANT EXECUTE ON FUNCTION applications.has_active_application_membership(UUID, TEXT[]) TO authenticated'
+        )
+        expect(migrationSql).not.toContain('GRANT EXECUTE ON FUNCTION applications.has_active_application_membership(UUID, TEXT[]) TO anon')
+        expect(migrationSql).toContain('ALTER POLICY "Allow users to read application memberships"')
+        expect(migrationSql).toContain(
+            'DROP POLICY IF EXISTS "Allow users to manage their application memberships" ON applications.rel_application_users'
+        )
+        expect(migrationSql).toContain(
+            'DROP POLICY IF EXISTS "Allow users to manage their own applications" ON applications.obj_applications'
+        )
+        expect(migrationSql).toContain(
+            'applications.has_active_application_membership(applications.rel_application_users.application_id, NULL::text[])'
+        )
+        expect(membershipReadPolicy).not.toContain('FROM applications.rel_application_users')
+    })
+
+    it('adds catalog visibility and scoped owner/admin alias reads without breaking alias management flows', () => {
+        const migrationSql = normalizeSql(
+            addApplicationCatalogVisibilityAndMembershipRlsMigrationDefinition.up.map((statement) => statement.sql).join('\n')
+        )
+        const aliasPolicyStart = migrationSql.indexOf('ALTER POLICY "Allow application alias managers to read aliases"')
+        const nextPolicyStart = migrationSql.indexOf('ALTER POLICY', aliasPolicyStart + 1)
+        const aliasReadPolicy = migrationSql.slice(aliasPolicyStart, nextPolicyStart === -1 ? undefined : nextPolicyStart)
+
+        expect(addApplicationCatalogVisibilityAndMembershipRlsMigrationDefinition.version).toBe('1800000000340')
+        expect(migrationSql).toContain('ADD COLUMN IF NOT EXISTS show_in_app_list BOOLEAN NOT NULL DEFAULT true')
+        expect(migrationSql).toContain('GRANT SELECT ON TABLE applications.obj_application_aliases TO authenticated')
+        expect(migrationSql).toContain('ALTER POLICY "Allow application alias managers to read aliases"')
+        expect(migrationSql).toContain("admin.has_permission((SELECT auth.uid()), 'applicationAliases', 'read'")
+        expect(migrationSql).toContain("admin.has_permission((SELECT auth.uid()), 'applicationAliases', 'create'")
+        expect(migrationSql).toContain("admin.has_permission((SELECT auth.uid()), 'applicationAliases', 'update'")
+        expect(migrationSql).toContain("admin.has_permission((SELECT auth.uid()), 'applicationAliases', 'delete'")
+        expect(migrationSql).toContain(
+            "applications.has_active_application_membership(applications.obj_application_aliases.application_id, ARRAY['owner', 'admin']::text[])"
+        )
+        expect(aliasReadPolicy).not.toContain("'create'")
+        expect(aliasReadPolicy).not.toContain("'update'")
+        expect(aliasReadPolicy).not.toContain("'delete'")
+        for (const operation of [
+            'get_application_alias_for_management(UUID, UUID, TEXT)',
+            'mutate_application_alias(UUID, TEXT, TEXT, UUID)',
+            'ensure_application_alias_primary(UUID, UUID)'
+        ]) {
+            expect(migrationSql).toContain(`SECURITY DEFINER SET search_path = pg_catalog SET row_security = off`)
+            expect(migrationSql).toContain(`REVOKE ALL ON FUNCTION applications.${operation} FROM PUBLIC`)
+        }
+        expect(migrationSql).toContain(
+            'GRANT EXECUTE ON FUNCTION applications.get_application_alias_for_management(UUID, UUID, TEXT) TO authenticated'
+        )
+        expect(migrationSql).toContain(
+            'GRANT EXECUTE ON FUNCTION applications.mutate_application_alias(UUID, TEXT, TEXT, UUID) TO authenticated'
+        )
+        expect(migrationSql).toContain(
+            'GRANT EXECUTE ON FUNCTION applications.ensure_application_alias_primary(UUID, UUID) TO authenticated'
+        )
+        expect(addApplicationCatalogVisibilityAndMembershipRlsMigrationDefinition.down).toEqual([])
     })
 
     it('keeps alias create-only access out of arbitrary alias UPDATE and uses an atomic primary transition function', () => {

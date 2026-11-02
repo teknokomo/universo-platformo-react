@@ -6,6 +6,7 @@ import {
     validatePlacementGraph,
     type PlacementGraphNode
 } from '../../persistence/applicationLayoutWidgetPlacement'
+import { applicationLayoutWidgetPredicate } from '../../persistence/applicationLayoutStoreSupport'
 
 const uuid = (suffix: number) => `019f3100-0000-7000-8000-${String(suffix).padStart(12, '0')}`
 
@@ -38,6 +39,15 @@ const nestedDashboardPlacements = (): PlacementGraphNode[] => {
 }
 
 describe('application layout widget placement contract', () => {
+    it('allows widget mutations on active Messenger application layouts', () => {
+        const predicate = applicationLayoutWidgetPredicate('"app_schema"."_app_layouts"', '$1')
+
+        expect(predicate).toContain("layout_guard.template_key IN ('dashboard', 'marketing-page', 'messenger-app')")
+        expect(predicate).toContain('layout_guard.is_active = true')
+        expect(predicate).toContain('layout_guard._upl_deleted = false')
+        expect(predicate).toContain('layout_guard._app_deleted = false')
+    })
+
     it('resolves Dashboard binding policy from the selected widget variant', () => {
         expect(resolvePlacementBindingPolicy('detailsTable', { variant: 'report' })).toEqual({
             sourceMode: 'specialized',

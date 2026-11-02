@@ -22,6 +22,9 @@ export interface EffectiveWidgetRuntimeReadScope {
     readonly role?: ApplicationRole | null
     readonly permissions?: Record<RolePermission, boolean>
     readonly publishedRecordsOnly?: boolean
+    readonly publicRuntimePolicy?: 'messenger-app'
+    readonly maxResolvedRecordsPerSlot?: number
+    readonly maxResolvedRecordsPerLayout?: number
 }
 
 export type EffectiveLayoutRuntimeDataResolver = (

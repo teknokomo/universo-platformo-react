@@ -26,6 +26,88 @@ test('normalizes regenerated UUIDs while preserving their relationships', () => 
     )
 })
 
+test('normalizes snapshot REF Parent values while preserving their target record relationship', () => {
+    const detailEntityId = '019a1000-0000-7000-8000-000000000001'
+    const relationEntityId = '019a1000-0000-7000-8000-000000000002'
+    const makeSnapshot = (ids: { first: string; second: string; relation: string; parent: string }) => ({
+        snapshot: {
+            entities: {
+                [detailEntityId]: { fields: [{ codename: 'Title', dataType: 'STRING' }] },
+                [relationEntityId]: { fields: [{ codename: 'Parent', dataType: 'REF' }] }
+            },
+            elements: {
+                [detailEntityId]: [
+                    { id: ids.first, data: { Title: 'First detail' } },
+                    { id: ids.second, data: { Title: 'Second detail' } }
+                ],
+                [relationEntityId]: [{ id: ids.relation, data: { Parent: ids.parent } }]
+            }
+        }
+    })
+    const tracked = {
+        ...makeSnapshot({
+            first: '019a1111-1111-7111-8111-111111111111',
+            second: '019a2222-2222-7222-8222-222222222222',
+            relation: '019a3333-3333-7333-8333-333333333333',
+            parent: '019a1111-1111-7111-8111-111111111111'
+        }),
+        authored: { Parent: '019a1111-1111-7111-8111-111111111111' }
+    }
+    const regenerated = {
+        ...makeSnapshot({
+            first: '019b1111-1111-7111-8111-111111111111',
+            second: '019b2222-2222-7222-8222-222222222222',
+            relation: '019b3333-3333-7333-8333-333333333333',
+            parent: '019b1111-1111-7111-8111-111111111111'
+        }),
+        authored: { Parent: '019b1111-1111-7111-8111-111111111111' }
+    }
+    const movedRelation = structuredClone(regenerated)
+    movedRelation.snapshot.elements[relationEntityId][0].data.Parent = '019b2222-2222-7222-8222-222222222222'
+
+    const normalizedTracked = normalizeSnapshotFixtureVolatileValues(tracked)
+    const normalizedGenerated = normalizeSnapshotFixtureVolatileValues(regenerated)
+    assert.equal(
+        stableSnapshotFixtureStringify((normalizedTracked as typeof tracked).snapshot),
+        stableSnapshotFixtureStringify((normalizedGenerated as typeof regenerated).snapshot)
+    )
+    assert.equal((normalizedTracked as typeof tracked).authored.Parent, tracked.authored.Parent)
+    assert.equal((normalizedGenerated as typeof regenerated).authored.Parent, regenerated.authored.Parent)
+    assert.notEqual((normalizedTracked as typeof tracked).authored.Parent, (normalizedGenerated as typeof regenerated).authored.Parent)
+    assert.ok(
+        findFirstSnapshotFixtureDifference(
+            (normalizedTracked as typeof tracked).snapshot,
+            (normalizeSnapshotFixtureVolatileValues(movedRelation) as typeof movedRelation).snapshot
+        ),
+        'changing the referenced target record must remain drift-significant'
+    )
+    assert.equal((normalizedTracked as typeof tracked).authored.Parent, tracked.authored.Parent)
+})
+
+test('keeps UUID values drift-significant when snapshot metadata declares the component as STRING', () => {
+    const relationEntityId = '019a1000-0000-7000-8000-000000000002'
+    const makeSnapshot = (parent: string) => ({
+        snapshot: {
+            entities: {
+                [relationEntityId]: { fields: [{ codename: 'Parent', dataType: 'STRING' }] }
+            },
+            elements: {
+                [relationEntityId]: [{ id: '019a3333-3333-7333-8333-333333333333', data: { Parent: parent } }]
+            }
+        }
+    })
+
+    const tracked = makeSnapshot('019a1111-1111-7111-8111-111111111111')
+    const generated = makeSnapshot('019b1111-1111-7111-8111-111111111111')
+    assert.ok(
+        findFirstSnapshotFixtureDifference(
+            normalizeSnapshotFixtureVolatileValues(tracked),
+            normalizeSnapshotFixtureVolatileValues(generated)
+        ),
+        'UUID-looking authored STRING values must remain drift-significant'
+    )
+})
+
 test('canonicalizes UUID-keyed maps independently of regenerated physical keys', () => {
     const tracked = {
         entities: {

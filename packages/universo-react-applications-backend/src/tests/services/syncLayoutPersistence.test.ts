@@ -326,7 +326,6 @@ describe('syncLayoutPersistence', () => {
             }
         }
         snapshotLayouts(snapshot)[0]!.config = neutralConfig
-        snapshot.layoutConfig = neutralConfig
         snapshot.layoutZoneWidgets!.push({
             id: marketingIds.sharedWidget,
             layoutId: marketingIds.layout,

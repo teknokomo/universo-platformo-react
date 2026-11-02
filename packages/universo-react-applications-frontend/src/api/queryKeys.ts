@@ -25,6 +25,13 @@ export const applicationsQueryKeys = {
 
     detail: (id: string) => [...applicationsQueryKeys.all, 'detail', id] as const,
 
+    botBindings: (applicationId: string) => [...applicationsQueryKeys.detail(applicationId), 'bot-bindings'] as const,
+
+    botBindingsList: (applicationId: string) => [...applicationsQueryKeys.botBindings(applicationId), 'list'] as const,
+
+    botBindingDetail: (applicationId: string, bindingId: string) =>
+        [...applicationsQueryKeys.botBindings(applicationId), 'detail', bindingId] as const,
+
     runtimeReference: (applicationRef: string) =>
         [...applicationsQueryKeys.all, 'runtime-reference', applicationRef.trim().toLowerCase()] as const,
 

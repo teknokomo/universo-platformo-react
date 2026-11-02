@@ -1,7 +1,9 @@
 import type { DbExecutor } from '@universo-react/utils'
 import {
+    hasPublicMessengerApplicationLayout,
     lockApplicationForPublicGuestWithdrawal,
-    lockPublicApplicationForGuestAssessment
+    lockPublicApplicationForGuestAssessment,
+    lockPublicGuestRuntimeLayoutState
 } from '../../persistence/publicGuestApplicationStore'
 
 const makeExecutor = (rows: unknown[] = []) =>
@@ -10,6 +12,40 @@ const makeExecutor = (rows: unknown[] = []) =>
     } as unknown as DbExecutor & { query: jest.Mock })
 
 describe('public guest application lifecycle store', () => {
+    it('detects an active published Messenger layout while holding a share lock', async () => {
+        const executor = makeExecutor([{ layouts: true, widgets: true }, { id: 'layout-1' }])
+
+        await expect(hasPublicMessengerApplicationLayout(executor, 'app_018f8a787b8f7c1da111222233334442')).resolves.toBe(true)
+
+        const [tableCheckSql, tableCheckParams] = executor.query.mock.calls[0]
+        expect(tableCheckSql).toContain("table_name = '_app_layouts'")
+        expect(tableCheckParams).toEqual(['app_018f8a787b8f7c1da111222233334442'])
+
+        const [layoutSql, layoutParams] = executor.query.mock.calls[1]
+        expect(layoutSql).toContain('"app_018f8a787b8f7c1da111222233334442"."_app_layouts"')
+        expect(layoutSql).toContain('l.template_key = $1')
+        expect(layoutSql).toContain('FOR SHARE')
+        expect(layoutParams).toEqual(['messenger-app'])
+    })
+
+    it('allows existing guest runtimes when per-application layout tables are absent', async () => {
+        const executor = makeExecutor([{ layouts: false, widgets: false }])
+
+        await expect(hasPublicMessengerApplicationLayout(executor, 'app_018f8a787b8f7c1da111222233334442')).resolves.toBe(false)
+        expect(executor.query).toHaveBeenCalledTimes(1)
+    })
+
+    it('takes a shared lock from the same transaction family as layout mutations', async () => {
+        const schemaName = 'app_018f8a787b8f7c1da111222233334442'
+        const executor = makeExecutor()
+
+        await lockPublicGuestRuntimeLayoutState(executor, schemaName)
+
+        expect(executor.query).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock_shared(hashtextextended($1::text, 0))', [
+            `${schemaName}:application-layout-mutations`
+        ])
+    })
+
     it('shares the application row only while public runtime is active', async () => {
         const applicationId = '018f8a78-7b8f-7c1d-a111-222233334443'
         const executor = makeExecutor([{ id: applicationId }])

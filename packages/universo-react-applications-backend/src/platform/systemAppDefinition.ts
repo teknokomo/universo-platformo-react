@@ -6,7 +6,9 @@ import {
 import { ComponentDefinitionDataType } from '@universo-react/types'
 import {
     addApplicationSettingsMigrationDefinition,
+    addApplicationCatalogVisibilityAndMembershipRlsMigrationDefinition,
     bindGlobalShortLinksToAccessLinkIdentityMigrationDefinition,
+    createApplicationBotBindingsMigrationDefinition,
     createGlobalShortLinksMigrationDefinition,
     createGuestSessionIdempotencyMigrationDefinition,
     finalizeApplicationsSchemaSupportMigrationDefinition,
@@ -51,6 +53,14 @@ const applicationBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
                 dataType: ComponentDefinitionDataType.BOOLEAN,
                 isRequired: true,
                 defaultSqlExpression: 'false'
+            },
+            {
+                codename: 'show_in_app_list',
+                physicalColumnName: 'show_in_app_list',
+                dataType: ComponentDefinitionDataType.BOOLEAN,
+                isRequired: true,
+                defaultSqlExpression: 'true',
+                presentation: p('Show in application list', 'Controls public catalog discovery without changing application access')
             },
             {
                 codename: 'workspaces_enabled',
@@ -227,6 +237,124 @@ const applicationBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
             },
             { codename: 'comment', physicalColumnName: 'comment', dataType: ComponentDefinitionDataType.JSON }
         ]
+    },
+    {
+        kind: 'relation',
+        codename: 'application_bot_bindings',
+        tableName: 'rel_application_bot_bindings',
+        presentation: p('Application Bot Bindings', 'Manual MAX and Telegram bot bindings for public application launch attribution'),
+        fields: [
+            {
+                codename: 'application_id',
+                physicalColumnName: 'application_id',
+                dataType: ComponentDefinitionDataType.REF,
+                isRequired: true,
+                targetTableCodename: 'applications'
+            },
+            {
+                codename: 'platform',
+                physicalColumnName: 'platform',
+                dataType: ComponentDefinitionDataType.STRING,
+                physicalDataType: 'VARCHAR(16)',
+                isRequired: true
+            },
+            {
+                codename: 'bot_username',
+                physicalColumnName: 'bot_username',
+                dataType: ComponentDefinitionDataType.STRING,
+                physicalDataType: 'TEXT',
+                isRequired: true
+            },
+            {
+                codename: 'display_name',
+                physicalColumnName: 'display_name',
+                dataType: ComponentDefinitionDataType.STRING,
+                physicalDataType: 'VARCHAR(120)'
+            },
+            {
+                codename: 'status',
+                physicalColumnName: 'status',
+                dataType: ComponentDefinitionDataType.STRING,
+                physicalDataType: 'VARCHAR(16)',
+                isRequired: true,
+                defaultSqlExpression: `'draft'`
+            },
+            {
+                codename: 'short_id',
+                physicalColumnName: 'short_id',
+                dataType: ComponentDefinitionDataType.STRING,
+                physicalDataType: 'VARCHAR(22)',
+                isRequired: true
+            },
+            {
+                codename: 'released_at',
+                physicalColumnName: 'released_at',
+                dataType: ComponentDefinitionDataType.DATE,
+                physicalDataType: 'TIMESTAMPTZ'
+            },
+            {
+                codename: 'released_by',
+                physicalColumnName: 'released_by',
+                dataType: ComponentDefinitionDataType.REF
+            }
+        ]
+    },
+    {
+        kind: 'relation',
+        codename: 'application_control_audits',
+        tableName: 'rel_application_control_audits',
+        presentation: p('Application Control Audits', 'Immutable visibility and bot-binding mutation audit records'),
+        fields: [
+            {
+                codename: 'application_id',
+                physicalColumnName: 'application_id',
+                dataType: ComponentDefinitionDataType.REF,
+                isRequired: true,
+                targetTableCodename: 'applications'
+            },
+            {
+                codename: 'binding_id',
+                physicalColumnName: 'binding_id',
+                dataType: ComponentDefinitionDataType.REF,
+                targetTableCodename: 'application_bot_bindings'
+            },
+            {
+                codename: 'event_type',
+                physicalColumnName: 'event_type',
+                dataType: ComponentDefinitionDataType.STRING,
+                physicalDataType: 'VARCHAR(48)',
+                isRequired: true
+            },
+            {
+                codename: 'changed_fields',
+                physicalColumnName: 'changed_fields',
+                dataType: ComponentDefinitionDataType.JSON,
+                isRequired: true,
+                defaultSqlExpression: `'[]'::jsonb`
+            },
+            {
+                codename: 'previous_version',
+                physicalColumnName: 'previous_version',
+                dataType: ComponentDefinitionDataType.NUMBER,
+                physicalDataType: 'INTEGER'
+            },
+            {
+                codename: 'new_version',
+                physicalColumnName: 'new_version',
+                dataType: ComponentDefinitionDataType.NUMBER,
+                physicalDataType: 'INTEGER'
+            },
+            {
+                codename: 'previous_show_in_app_list',
+                physicalColumnName: 'previous_show_in_app_list',
+                dataType: ComponentDefinitionDataType.BOOLEAN
+            },
+            {
+                codename: 'new_show_in_app_list',
+                physicalColumnName: 'new_show_in_app_list',
+                dataType: ComponentDefinitionDataType.BOOLEAN
+            }
+        ]
     }
 ]
 
@@ -301,6 +429,16 @@ export const applicationsSystemAppDefinition: SystemAppDefinition = {
         {
             kind: 'sql',
             definition: bindGlobalShortLinksToAccessLinkIdentityMigrationDefinition,
+            bootstrapPhase: 'post_schema_generation'
+        },
+        {
+            kind: 'sql',
+            definition: createApplicationBotBindingsMigrationDefinition,
+            bootstrapPhase: 'post_schema_generation'
+        },
+        {
+            kind: 'sql',
+            definition: addApplicationCatalogVisibilityAndMembershipRlsMigrationDefinition,
             bootstrapPhase: 'post_schema_generation'
         }
     ],

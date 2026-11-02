@@ -6,6 +6,7 @@ vi.mock('@universo-react/template-mui', () => ({
     TemplateMainCard: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
     PAGE_CONTENT_GUTTER_MX: 2,
     PAGE_TAB_BAR_SX: {},
+    HexColorPickerPopover: () => null,
     ViewHeaderMUI: ({ title, description }: { title: string; description?: string }) => (
         <div>
             <h1>{title}</h1>
@@ -567,6 +568,29 @@ describe('ApplicationSettings', () => {
                         dialogSizePreset: expect.any(String)
                     })
                 })
+            )
+        })
+    })
+
+    it('saves catalog visibility separately with the current application version', async () => {
+        mockedUseApplicationDetails.mockReturnValue({
+            data: createRuntimeReadyApplication({ isPublic: true, showInAppList: true, version: 9 }),
+            isLoading: false,
+            isError: false
+        } as never)
+        mockedUpdateApplication.mockResolvedValueOnce({
+            data: createRuntimeReadyApplication({ isPublic: true, showInAppList: false, version: 10 })
+        } as never)
+
+        renderSettings()
+
+        await userEvent.click(screen.getByTestId('application-settings-catalog-visibility-switch'))
+        await userEvent.click(screen.getByTestId('application-settings-general-save'))
+
+        await waitFor(() => {
+            expect(mockedUpdateApplication).toHaveBeenCalledWith(
+                'app-1',
+                expect.objectContaining({ showInAppList: false, expectedVersion: 9 })
             )
         })
     })

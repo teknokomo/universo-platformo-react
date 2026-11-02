@@ -481,6 +481,75 @@ describe('ApplicationList', () => {
                 expect(roleElements.length).toBeGreaterThan(0)
             })
         })
+
+        it('shows the unlisted catalog badge on a public application hidden from discovery', async () => {
+            vi.mocked(applicationsApi.listApplications).mockResolvedValue(
+                makePaginatedResponse(
+                    [
+                        {
+                            ...mockApplications[0],
+                            isPublic: true,
+                            showInAppList: false,
+                            role: 'admin'
+                        }
+                    ],
+                    { total: 1 }
+                )
+            )
+
+            renderWithProviders(<ApplicationList />)
+
+            await waitFor(() => expect(screen.getByText('Unlisted')).toBeInTheDocument())
+        })
+
+        it('shows the unlisted catalog badge in list view', async () => {
+            vi.mocked(applicationsApi.listApplications).mockResolvedValue(
+                makePaginatedResponse(
+                    [
+                        {
+                            ...mockApplications[0],
+                            isPublic: true,
+                            showInAppList: false,
+                            role: 'admin'
+                        }
+                    ],
+                    { total: 1 }
+                )
+            )
+
+            const { user } = renderWithProviders(<ApplicationList />)
+            await user.click(screen.getByRole('button', { name: 'List View' }))
+
+            await waitFor(() => {
+                expect(screen.getByRole('table')).toBeInTheDocument()
+                expect(screen.getByText('Unlisted')).toBeInTheDocument()
+            })
+        })
+
+        it('does not expose the catalog badge to a non-manager member', async () => {
+            mockGlobalAccess.isSuperuser = false
+            mockGlobalAccess.hasAnyGlobalRole = false
+            mockGlobalAccess.globalRoles = []
+            mockAbility.can.mockImplementation(() => false)
+            vi.mocked(applicationsApi.listApplications).mockResolvedValue(
+                makePaginatedResponse(
+                    [
+                        {
+                            ...mockApplications[0],
+                            isPublic: true,
+                            showInAppList: false,
+                            role: 'member'
+                        }
+                    ],
+                    { total: 1 }
+                )
+            )
+
+            renderWithProviders(<ApplicationList />)
+
+            await waitFor(() => expect(screen.getByText('Test Application 1')).toBeInTheDocument())
+            expect(screen.queryByText('Unlisted')).not.toBeInTheDocument()
+        })
     })
 
     describe('Search Functionality', () => {
@@ -639,7 +708,8 @@ describe('ApplicationList', () => {
                     description: { en: 'Created from acceptance' },
                     namePrimaryLocale: 'en',
                     descriptionPrimaryLocale: 'en',
-                    isPublic: false
+                    isPublic: false,
+                    showInAppList: true
                 })
             })
         }, 15_000)
@@ -675,8 +745,46 @@ describe('ApplicationList', () => {
                     description: undefined,
                     namePrimaryLocale: 'en',
                     descriptionPrimaryLocale: undefined,
-                    isPublic: true
+                    isPublic: true,
+                    showInAppList: true
                 })
+            })
+        }, 15_000)
+
+        it('allows a public application to be hidden from the catalog at creation', async () => {
+            const { user } = renderWithProviders(<ApplicationList />)
+
+            await waitFor(() => {
+                expect(screen.getByText(/no applications/i) || screen.getByText(/get started/i)).toBeInTheDocument()
+            })
+
+            const addButton = screen
+                .getAllByRole('button')
+                .find((btn) => btn.querySelector('[data-testid="AddRoundedIcon"]') || btn.textContent?.includes('Add'))
+            expect(addButton).toBeTruthy()
+
+            await user.click(addButton!)
+            await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
+            await user.click(screen.getByRole('button', { name: 'Fill Name' }))
+            await user.click(screen.getByRole('tab', { name: 'Parameters' }))
+
+            const catalogToggle = screen.getByRole('switch', { name: 'Show in the public application catalog' })
+            expect(catalogToggle).toBeDisabled()
+            expect(
+                screen.getByText(
+                    'Closed applications are only visible to their members. Set this application to Public to enable catalog listing.'
+                )
+            ).toBeInTheDocument()
+
+            await user.click(screen.getByRole('radio', { name: 'Public' }))
+            expect(catalogToggle).toBeEnabled()
+            await user.click(catalogToggle)
+            await user.click(screen.getByRole('button', { name: 'Create' }))
+
+            await waitFor(() => {
+                expect(applicationsApi.createApplication).toHaveBeenCalledWith(
+                    expect.objectContaining({ isPublic: true, showInAppList: false })
+                )
             })
         }, 15_000)
     })
@@ -802,8 +910,72 @@ describe('ApplicationList', () => {
                     namePrimaryLocale: 'en',
                     descriptionPrimaryLocale: 'en',
                     isPublic: false,
+                    showInAppList: true,
                     expectedVersion: undefined
                 })
+            })
+        })
+
+        it('uses the conflicting server version when overwriting application changes', async () => {
+            const conflict = {
+                response: {
+                    status: 409,
+                    data: {
+                        code: 'OPTIMISTIC_LOCK_CONFLICT',
+                        conflict: {
+                            entityId: 'editable-application',
+                            entityType: 'application',
+                            expectedVersion: 7,
+                            actualVersion: 9,
+                            updatedAt: '2026-10-31T10:00:00.000Z',
+                            updatedBy: null
+                        }
+                    }
+                }
+            }
+            vi.mocked(applicationsApi.listApplications).mockResolvedValueOnce(
+                makePaginatedResponse(
+                    [
+                        {
+                            id: 'editable-application',
+                            name: {
+                                _schema: '1',
+                                _primary: 'en',
+                                locales: { en: { content: 'Editable Application' } }
+                            },
+                            description: {
+                                _schema: '1',
+                                _primary: 'en',
+                                locales: { en: { content: 'Editable application description' } }
+                            },
+                            role: 'admin',
+                            membersCount: 2,
+                            version: 7,
+                            createdAt: '2024-01-01T00:00:00Z',
+                            updatedAt: '2024-01-15T00:00:00Z'
+                        }
+                    ],
+                    { total: 1 }
+                )
+            )
+            vi.mocked(applicationsApi.updateApplication).mockRejectedValueOnce(conflict)
+            const { user } = renderWithProviders(<ApplicationList />)
+
+            await waitFor(() => expect(screen.getByText('Editable Application')).toBeInTheDocument())
+            await user.click(screen.getByRole('button', { name: 'edit' }))
+            await waitFor(() =>
+                expect(applicationsApi.updateApplication).toHaveBeenCalledWith(
+                    'editable-application',
+                    expect.objectContaining({ expectedVersion: 7 })
+                )
+            )
+            await user.click(await screen.findByRole('button', { name: 'Overwrite Changes' }))
+
+            await waitFor(() => {
+                expect(applicationsApi.updateApplication).toHaveBeenLastCalledWith(
+                    'editable-application',
+                    expect.objectContaining({ showInAppList: true, expectedVersion: 9 })
+                )
             })
         })
     })
@@ -868,6 +1040,7 @@ describe('ApplicationList', () => {
                     namePrimaryLocale: 'en',
                     descriptionPrimaryLocale: 'en',
                     isPublic: false,
+                    showInAppList: true,
                     copyConnector: true,
                     createSchema: false,
                     copyAccess: true

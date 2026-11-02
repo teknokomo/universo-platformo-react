@@ -20,6 +20,7 @@ import type {
     LayoutLogicalPlacement,
     LayoutZoneSettingValue,
     LayoutWidgetDefinition,
+    LayoutWidgetMetadataResponse,
     RuntimeDatasourceFilter,
     RuntimeDatasourceSort
 } from '@universo-react/types'
@@ -29,7 +30,7 @@ import {
     applicationLayoutWidgetSchema,
     applicationLayoutsListResponseSchema,
     effectiveLayoutResultSchema,
-    layoutWidgetDefinitionSchema,
+    layoutWidgetMetadataResponseSchema,
     readLocalizedTextValue
 } from '@universo-react/types'
 import type { RuntimeRecordCommand } from '@universo-react/apps-template-mui'
@@ -53,6 +54,7 @@ import type { SimpleLocalizedInput } from '../types'
 // Input type for updating applications with localized content
 export interface ApplicationInput extends ApplicationLocalizedPayload {
     isPublic?: boolean
+    showInAppList?: boolean
     settings?: ApplicationDialogSettings
     expectedVersion?: number
 }
@@ -64,6 +66,7 @@ export interface ApplicationCreateInput {
     namePrimaryLocale?: string
     descriptionPrimaryLocale?: string
     isPublic?: boolean
+    showInAppList?: boolean
 }
 
 export interface ApplicationCopyInput extends Partial<ApplicationInput>, Partial<ApplicationCopyOptions> {}
@@ -662,18 +665,24 @@ export const listApplicationLayoutWidgets = async (applicationId: string, layout
     return parseApplicationLayoutWidgetItemsResponse(response.data)
 }
 
-export const listApplicationLayoutWidgetObject = async (
+export const listApplicationLayoutWidgetMetadata = async (
     applicationId: string,
     layoutId: string
-): Promise<ApplicationLayoutWidgetDefinition[]> => {
+): Promise<LayoutWidgetMetadataResponse> => {
     const response = await apiClient.get<unknown>(`/applications/${applicationId}/layouts/${layoutId}/zone-widgets/object`)
-    const payload = response.data
-    const items = isRecord(payload) ? payload.items : undefined
-    const parsed = layoutWidgetDefinitionSchema.array().safeParse(items)
+    const parsed = layoutWidgetMetadataResponseSchema.safeParse(response.data)
     if (!parsed.success) {
         throw new Error('APPLICATION_LAYOUT_WIDGET_METADATA_INVALID')
     }
     return parsed.data
+}
+
+export const listApplicationLayoutWidgetObject = async (
+    applicationId: string,
+    layoutId: string
+): Promise<ApplicationLayoutWidgetDefinition[]> => {
+    const metadata = await listApplicationLayoutWidgetMetadata(applicationId, layoutId)
+    return metadata.items
 }
 
 export const upsertApplicationLayoutWidget = async (

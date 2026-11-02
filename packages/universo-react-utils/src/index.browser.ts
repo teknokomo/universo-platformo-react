@@ -116,6 +116,12 @@ export {
     type RuntimeLayoutTargetKind
 } from './validation/identity'
 export {
+    parseMessengerBotUsername,
+    type MessengerBotPlatform,
+    type MessengerBotUsernameFailureReason,
+    type MessengerBotUsernameValidation
+} from './validation/messengerBotUsername'
+export {
     normalizeMarketingAction,
     parseMarketingActionHref,
     normalizeMarketingLocalizedText,

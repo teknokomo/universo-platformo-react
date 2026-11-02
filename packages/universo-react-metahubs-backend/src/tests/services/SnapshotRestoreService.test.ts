@@ -1257,6 +1257,80 @@ describe('SnapshotRestoreService', () => {
         )
     })
 
+    it('restores a Messenger App layout with an inactive unbound center table placeholder', async () => {
+        const tableConfig = encodeWidgetConfigEnvelope(
+            { rendererConfig: { variant: 'records' }, neutral: {} },
+            { templateKey: 'messenger-app', widgetKey: 'detailsTable', zone: 'center', requireBindings: false }
+        )
+        const snapshot = makeMinimalSnapshot({
+            layouts: [
+                {
+                    id: validLayoutIds.global,
+                    templateKey: 'messenger-app',
+                    name: { en: 'Messenger App' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    compositionMode: 'independent',
+                    baseLayoutId: null
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: validLayoutIds.globalWidget,
+                    layoutId: validLayoutIds.global,
+                    instanceKey: 'messenger-header',
+                    parentWidgetId: null,
+                    slotKey: null,
+                    zone: 'top',
+                    widgetKey: 'header',
+                    sortOrder: 0,
+                    config: {},
+                    isActive: true
+                },
+                {
+                    id: validLayoutIds.ownedWidget,
+                    layoutId: validLayoutIds.global,
+                    instanceKey: 'messenger-records',
+                    parentWidgetId: null,
+                    slotKey: null,
+                    zone: 'center',
+                    widgetKey: 'detailsTable',
+                    sortOrder: 1,
+                    config: tableConfig,
+                    isActive: false
+                }
+            ]
+        })
+
+        const { knex, insertedRows } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+
+        await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
+
+        expect(insertedRows['_mhb_layouts']).toHaveLength(1)
+        expect(insertedRows['_mhb_layouts']![0]).toMatchObject({ template_key: 'messenger-app', is_default: true })
+        expect(insertedRows['_mhb_widgets']).toHaveLength(2)
+        expect(insertedRows['_mhb_widgets']).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ zone: 'top', widget_key: 'header', is_active: true }),
+                expect.objectContaining({ zone: 'center', widget_key: 'detailsTable', is_active: false })
+            ])
+        )
+
+        const activeSnapshot = structuredClone(snapshot)
+        const activeTablePlacement = activeSnapshot.layoutZoneWidgets?.find((widget) => widget.widgetKey === 'detailsTable')
+        if (!activeTablePlacement) throw new Error('Expected Messenger table placement in test snapshot')
+        activeTablePlacement.isActive = true
+
+        const activeService = new SnapshotRestoreService(createMockKnex().knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+        await expect(activeService.restoreFromSnapshot('metahub-1', activeSnapshot, 'user-1')).rejects.toThrow(
+            'Metahub snapshot layout metadata is invalid'
+        )
+    })
+
     it('restores an overlay child that references its base-layout parent', async () => {
         const snapshot = makeMinimalSnapshot({
             entities: {
@@ -2007,7 +2081,6 @@ describe('SnapshotRestoreService', () => {
                 }
             ],
             defaultLayoutId: layoutId,
-            layoutConfig: {},
             layoutZoneWidgets: [
                 {
                     id: widgetId,
@@ -2070,7 +2143,6 @@ describe('SnapshotRestoreService', () => {
                 }
             ],
             defaultLayoutId: layoutId,
-            layoutConfig: {},
             layoutZoneWidgets: [
                 {
                     id: widgetId,
@@ -2117,7 +2189,6 @@ describe('SnapshotRestoreService', () => {
                 }
             ],
             defaultLayoutId: layoutId,
-            layoutConfig: {},
             layoutZoneWidgets: []
         } as unknown as Partial<MetahubSnapshot>)
         const { knex, deletedTables, trxFn } = createMockKnex()
@@ -2172,7 +2243,6 @@ describe('SnapshotRestoreService', () => {
                 }
             ],
             defaultLayoutId: layoutId,
-            layoutConfig: {},
             layoutZoneWidgets: [baseWidget],
             layoutWidgetOverrides: [
                 {
@@ -2224,7 +2294,6 @@ describe('SnapshotRestoreService', () => {
                 }
             ],
             defaultLayoutId: layoutId,
-            layoutConfig: {},
             layoutZoneWidgets: [
                 {
                     id: '019e8afa-0000-7000-8000-000000000021',
@@ -2279,7 +2348,6 @@ describe('SnapshotRestoreService', () => {
                 }
             ],
             defaultLayoutId: layoutId,
-            layoutConfig: {},
             layoutZoneWidgets: []
         } as unknown as Partial<MetahubSnapshot>)
         const { knex, deletedTables, trxFn } = createMockKnex()
@@ -2316,7 +2384,6 @@ describe('SnapshotRestoreService', () => {
                 }
             ],
             defaultLayoutId: layoutId,
-            layoutConfig: {},
             layoutZoneWidgets: []
         } as unknown as Partial<MetahubSnapshot>)
         const { knex, deletedTables, trxFn } = createMockKnex()

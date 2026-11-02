@@ -6,6 +6,7 @@ import { switchRuntimeLocale } from '../../support/browser/preferences'
 import {
     expectLocalizedValidation,
     expectLocatorFullyFitsViewport,
+    expectNoClippedTextContent,
     expectNoPageHorizontalOverflow,
     expectNoTechnicalLeakage,
     expectSemanticFieldControls,
@@ -74,7 +75,8 @@ test.describe('Application Runtime View Settings', () => {
         const applicationName = `E2E ${runManifest.runId} Entity-backed Runtime Application`
         const rowTitle = `Dashboard alpha ${runManifest.runId}`
         const editedRowTitle = `Dashboard alpha edited ${runManifest.runId}`
-        const winningRowTitle = `Dashboard alpha latest ${runManifest.runId}`
+        const longUnbrokenReference = `Messenger${'NoBreak'.repeat(8)}${runManifest.runId.replaceAll('-', '')}`
+        const winningRowTitle = `Связанная запись с длинным названием, которое должно переноситься без наложения на меню действий ${longUnbrokenReference}`
         const staleRowTitle = `Dashboard alpha stale ${runManifest.runId}`
         const secondRowTitle = `Dashboard beta ${runManifest.runId}`
         const copiedRowTitle = `Dashboard beta copy ${runManifest.runId}`
@@ -269,6 +271,7 @@ test.describe('Application Runtime View Settings', () => {
                     showViewToggle: true,
                     showSearch: true,
                     defaultViewMode: 'table',
+                    cardColumns: 6,
                     enableRowReordering: true,
                     createTargets: [
                         {
@@ -981,6 +984,85 @@ test.describe('Application Runtime View Settings', () => {
             await expect(cardViewButton).toHaveAttribute('aria-pressed', 'true')
             await expect(entityTable.getByText(winningRowTitle, { exact: true })).toBeVisible({ timeout: 30_000 })
             await expectNoTechnicalLeakage(entityTable, { label: 'Entity-backed Dashboard cards', checkUuidSubstrings: true })
+            const fullRecordCard = entityTable.getByTestId('runtime-item-card').filter({ hasText: winningRowTitle })
+            await expect(fullRecordCard, 'The long entity record must render inside one full-content card').toHaveCount(1)
+            const cardTitle = fullRecordCard.getByText(winningRowTitle, { exact: true })
+            const cardActionsButton = fullRecordCard.getByTestId(/^grid-row-actions-trigger-/u)
+            await expect(cardActionsButton, 'The long record card must retain its accessible row action').toBeVisible()
+            for (const viewport of [
+                { name: 'desktop', width: 1920, height: 1080, expectedSlotFraction: 1 / 6 },
+                { name: 'compact-desktop', width: 1024, height: 900, expectedSlotFraction: 1 / 3 },
+                { name: 'tablet', width: 768, height: 1024, expectedSlotFraction: 1 / 2 },
+                { name: 'mobile', width: 390, height: 844, expectedSlotFraction: 1 }
+            ]) {
+                await page.setViewportSize({ width: viewport.width, height: viewport.height })
+                await expectNoClippedTextContent(fullRecordCard, { label: `Entity-backed ${viewport.name} full-content card` })
+                await expectNoPageHorizontalOverflow(page, `Entity-backed ${viewport.name} full-content card`)
+                const cardSlotBounds = await fullRecordCard.evaluate((card) => {
+                    const cardBounds = card.getBoundingClientRect()
+                    const slot = card.parentElement
+                    const slotBounds = slot?.getBoundingClientRect()
+                    const gridBounds = slot?.parentElement?.getBoundingClientRect()
+                    if (!slot || !slotBounds || !gridBounds) return null
+                    const slotStyle = window.getComputedStyle(slot)
+                    const slotPaddingLeft = Number.parseFloat(slotStyle.paddingLeft) || 0
+                    const slotPaddingRight = Number.parseFloat(slotStyle.paddingRight) || 0
+                    const slotContentLeft = slotBounds.left + slot.clientLeft + slotPaddingLeft
+                    const slotContentWidth = slot.clientWidth - slotPaddingLeft - slotPaddingRight
+                    return {
+                        cardWidth: cardBounds.width,
+                        cardLeft: cardBounds.left,
+                        cardRight: cardBounds.right,
+                        slotWidth: slotBounds.width,
+                        slotContentLeft,
+                        slotContentWidth,
+                        slotContentRight: slotContentLeft + slotContentWidth,
+                        gridWidth: gridBounds.width
+                    }
+                })
+                expect(cardSlotBounds, `The full-content card must have a measurable Grid slot at ${viewport.name}`).not.toBeNull()
+                expect(
+                    cardSlotBounds!.cardWidth,
+                    `The full-content card must fill its responsive Grid slot at ${viewport.name}`
+                ).toBeGreaterThanOrEqual(cardSlotBounds!.slotContentWidth - 1)
+                expect(
+                    cardSlotBounds!.cardWidth,
+                    `The full-content card must not overflow its responsive Grid slot at ${viewport.name}`
+                ).toBeLessThanOrEqual(cardSlotBounds!.slotContentWidth + 1)
+                expect(Math.abs(cardSlotBounds!.cardLeft - cardSlotBounds!.slotContentLeft)).toBeLessThanOrEqual(1)
+                expect(Math.abs(cardSlotBounds!.cardRight - cardSlotBounds!.slotContentRight)).toBeLessThanOrEqual(1)
+                const slotFraction = cardSlotBounds!.slotWidth / cardSlotBounds!.gridWidth
+                expect(
+                    slotFraction,
+                    `The responsive Grid slot must match the authored card-column policy at ${viewport.name}`
+                ).toBeGreaterThan(viewport.expectedSlotFraction * 0.85)
+                expect(slotFraction).toBeLessThan(viewport.expectedSlotFraction * 1.15)
+                const titleLineRects = await cardTitle.evaluate((element) => {
+                    const range = document.createRange()
+                    range.selectNodeContents(element)
+                    return Array.from(range.getClientRects())
+                        .filter((rect) => rect.width > 0 && rect.height > 0)
+                        .map(({ x, y, width, height }) => ({ x, y, width, height }))
+                })
+                const actionBounds = await cardActionsButton.boundingBox()
+                expect(titleLineRects.length, `The long title text must be measurable at ${viewport.name}`).toBeGreaterThan(0)
+                expect(actionBounds, `The row action must be measurable at ${viewport.name}`).not.toBeNull()
+                expect(
+                    titleLineRects.some(
+                        (line) =>
+                            line.x < actionBounds!.x + actionBounds!.width &&
+                            line.x + line.width > actionBounds!.x &&
+                            line.y < actionBounds!.y + actionBounds!.height &&
+                            line.y + line.height > actionBounds!.y
+                    ),
+                    `A rendered title line must not overlap the row action at ${viewport.name}`
+                ).toBe(false)
+                await testInfo.attach(`entity-backed-${viewport.name}-full-card-long-title`, {
+                    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+                    contentType: 'image/png'
+                })
+            }
+            await page.setViewportSize(russianInitialViewport)
             await tableViewButton.click()
             await expect(tableViewButton).toHaveAttribute('aria-pressed', 'true')
 
@@ -1032,6 +1114,14 @@ test.describe('Application Runtime View Settings', () => {
                 .poll(async () => Promise.all([0, 1].map(async (index) => runtimeRows.nth(index).getByRole('cell').nth(1).innerText())))
                 .toEqual([beforeOrder[1], beforeOrder[0]])
 
+            const longReferenceCell = entityTable.getByRole('cell').filter({ hasText: longUnbrokenReference })
+            await expect(longReferenceCell, 'The unbroken reference must remain visible in its actual Entity table cell').toHaveCount(1)
+            await expect(longReferenceCell).toContainText(longUnbrokenReference)
+            const longReferenceRow = entityTable.getByRole('row').filter({ hasText: longUnbrokenReference })
+            const adjacentCell = longReferenceRow.getByRole('cell').filter({ hasText: /^\s*1\s*$/u })
+            await expect(adjacentCell, 'The neighboring Sort order cell must remain visible next to the long title').toHaveCount(1)
+            const runtimeTable = entityTable.getByRole('table')
+
             for (const viewport of [
                 { name: 'desktop', width: 1920, height: 1080 },
                 { name: 'tablet', width: 768, height: 1024 },
@@ -1051,11 +1141,26 @@ test.describe('Application Runtime View Settings', () => {
                     Math.abs(headerBounds!.x + headerBounds!.width - (actionsBounds!.x + actionsBounds!.width)),
                     `Language and theme controls must remain right-aligned at ${viewport.name}`
                 ).toBeLessThanOrEqual(16)
+                const controlGroupLeft = Math.min(languageBounds!.x, colorModeBounds!.x)
                 const controlGroupRight = Math.max(languageBounds!.x + languageBounds!.width, colorModeBounds!.x + colorModeBounds!.width)
                 expect(
-                    Math.abs(headerBounds!.x + headerBounds!.width - controlGroupRight),
-                    `Visible language and theme controls must reach the right edge at ${viewport.name}`
-                ).toBeLessThanOrEqual(4)
+                    controlGroupLeft,
+                    `Visible language and theme controls must stay inside the header action group at ${viewport.name}`
+                ).toBeGreaterThanOrEqual(actionsBounds!.x - 1)
+                expect(
+                    controlGroupRight,
+                    `Visible language and theme controls must stay inside the header action group at ${viewport.name}`
+                ).toBeLessThanOrEqual(actionsBounds!.x + actionsBounds!.width + 1)
+                const headerCreateAction = headerActions.getByRole('button', { name: 'Create', exact: true })
+                if ((await headerCreateAction.count()) > 0) {
+                    const createActionBounds = await headerCreateAction.boundingBox()
+                    expect(createActionBounds, `Header Create action must be measurable at ${viewport.name}`).not.toBeNull()
+                    expect(
+                        controlGroupRight <= createActionBounds!.x + 2 ||
+                            createActionBounds!.x + createActionBounds!.width <= controlGroupLeft + 2,
+                        `Language and theme controls must not overlap the header Create action at ${viewport.name}`
+                    ).toBe(true)
+                }
                 expect(languageBounds!.x).toBeGreaterThanOrEqual(0)
                 expect(colorModeBounds!.x).toBeGreaterThanOrEqual(0)
                 expect(languageBounds!.x + languageBounds!.width).toBeLessThanOrEqual(viewport.width + 2)
@@ -1069,6 +1174,65 @@ test.describe('Application Runtime View Settings', () => {
                 await expect(colorModeButton).toBeVisible()
                 await expect(page.locator('[data-testid="runtime-language-switcher"]')).toHaveCount(1)
                 await expect(colorModeControl).toHaveCount(1)
+                const longReferenceCellLayout = await longReferenceCell.evaluate((element, reference) => {
+                    const style = window.getComputedStyle(element)
+                    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+                    let referenceLineCount = 0
+                    let textNode: Node | null
+                    while ((textNode = walker.nextNode())) {
+                        const content = textNode.textContent ?? ''
+                        const offset = content.indexOf(reference)
+                        if (offset < 0) continue
+                        const range = document.createRange()
+                        range.setStart(textNode, offset)
+                        range.setEnd(textNode, offset + reference.length)
+                        referenceLineCount = Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0).length
+                        break
+                    }
+                    return {
+                        whiteSpace: style.whiteSpace,
+                        overflowWrap: style.overflowWrap,
+                        clientWidth: element.clientWidth,
+                        scrollWidth: element.scrollWidth,
+                        referenceLineCount
+                    }
+                }, longUnbrokenReference)
+                const [cellBounds, adjacentCellBounds, containerBounds, tableBounds, tableMinimumWidth] = await Promise.all([
+                    longReferenceCell.boundingBox(),
+                    adjacentCell.boundingBox(),
+                    runtimeTableContainer.boundingBox(),
+                    runtimeTable.boundingBox(),
+                    runtimeTable.evaluate((table) => Number.parseFloat(window.getComputedStyle(table).minWidth) || 0)
+                ])
+                expect(cellBounds, `Long Entity cell must be measurable at ${viewport.name}`).not.toBeNull()
+                expect(adjacentCellBounds, `Adjacent Entity cell must be measurable at ${viewport.name}`).not.toBeNull()
+                expect(containerBounds, `Entity table container must be measurable at ${viewport.name}`).not.toBeNull()
+                expect(tableBounds, `Entity table must be measurable at ${viewport.name}`).not.toBeNull()
+                const maximumTableWidth = Math.max(containerBounds!.width, tableMinimumWidth)
+                expect(
+                    tableBounds!.width,
+                    `Long Entity text must not expand the table beyond its container or designed minimum at ${viewport.name}`
+                ).toBeLessThanOrEqual(maximumTableWidth + 2)
+                expect(
+                    cellBounds!.width,
+                    `The long Entity value must not take over the table width at ${viewport.name}`
+                ).toBeLessThanOrEqual(tableBounds!.width * 0.6)
+                expect(
+                    cellBounds!.x + cellBounds!.width,
+                    `The long Entity value must not overlap the neighboring cell at ${viewport.name}`
+                ).toBeLessThanOrEqual(adjacentCellBounds!.x + 1)
+                expect(longReferenceCellLayout.whiteSpace, `Long Entity values must wrap at ${viewport.name}`).toBe('normal')
+                expect(longReferenceCellLayout.overflowWrap, `Unbroken Entity values must wrap safely at ${viewport.name}`).toBe('anywhere')
+                expect(
+                    longReferenceCellLayout.scrollWidth,
+                    `The unbroken Entity value must not overflow its cell at ${viewport.name}`
+                ).toBeLessThanOrEqual(longReferenceCellLayout.clientWidth + 1)
+                if (viewport.name === 'mobile') {
+                    expect(
+                        longReferenceCellLayout.referenceLineCount,
+                        'The actual unbroken value must wrap across line boxes at the narrow viewport'
+                    ).toBeGreaterThan(1)
+                }
                 await expectNoPageHorizontalOverflow(page, `Entity-backed Dashboard reorder ${viewport.name}`)
                 await expectTableHorizontalScrollConstrained(runtimeTableContainer, `Entity-backed Dashboard table ${viewport.name}`)
                 await testInfo.attach(`dashboard-entity-table-reorder-${viewport.name}-${viewport.width}x${viewport.height}`, {

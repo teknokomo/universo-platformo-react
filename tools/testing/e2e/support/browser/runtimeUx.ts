@@ -471,6 +471,95 @@ export async function expectNoPageHorizontalOverflow(page: Page, label: string):
     ).toBeLessThanOrEqual(1)
 }
 
+export async function expectNoClippedTextContent(surface: Locator, options: { label: string }): Promise<void> {
+    const clippedText = await surface.evaluate((root) => {
+        const violations: string[] = []
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+        let textNode = walker.nextNode()
+        while (textNode && violations.length < 10) {
+            const text = textNode.textContent?.replace(/\s+/gu, ' ').trim() ?? ''
+            const element = textNode.parentElement
+            if (!text || !element || element.closest('.MuiDataGrid-root') || element.closest('[data-runtime-text-preview="true"]')) {
+                textNode = walker.nextNode()
+                continue
+            }
+
+            const elementStyle = window.getComputedStyle(element)
+            const range = document.createRange()
+            range.selectNodeContents(textNode)
+            const textRects = Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0)
+            if (
+                elementStyle.display !== 'none' &&
+                elementStyle.visibility !== 'hidden' &&
+                Number(elementStyle.opacity) !== 0 &&
+                textRects.length > 0
+            ) {
+                let ancestor: Element | null = element
+                while (ancestor) {
+                    const style = window.getComputedStyle(ancestor)
+                    const clipsX = style.overflowX === 'hidden' || style.overflowX === 'clip'
+                    const clipsY = style.overflowY === 'hidden' || style.overflowY === 'clip'
+                    const bounds = ancestor.getBoundingClientRect()
+                    const left = bounds.left + (ancestor instanceof HTMLElement ? ancestor.clientLeft : 0)
+                    const top = bounds.top + (ancestor instanceof HTMLElement ? ancestor.clientTop : 0)
+                    const right = left + (ancestor instanceof HTMLElement ? ancestor.clientWidth : bounds.width)
+                    const bottom = top + (ancestor instanceof HTMLElement ? ancestor.clientHeight : bounds.height)
+                    const clippedAxis = textRects.some(
+                        (rect) =>
+                            (clipsX && (rect.left < left - 1 || rect.right > right + 1)) ||
+                            (clipsY && (rect.top < top - 1 || rect.bottom > bottom + 1))
+                    )
+                    if (clippedAxis) {
+                        violations.push(
+                            `${text.slice(0, 100)} (clipper=${ancestor.tagName.toLowerCase()}, overflow=${style.overflowX}/${
+                                style.overflowY
+                            })`
+                        )
+                        break
+                    }
+                    ancestor = ancestor.parentElement
+                }
+            }
+            textNode = walker.nextNode()
+        }
+        return violations
+    })
+
+    expect(clippedText, `${options.label} must keep user-facing text inside its visible bounds`).toEqual([])
+}
+
+export async function assertRuntimeMutationActionsUnavailable(
+    page: Page,
+    label: string,
+    options: { allowDisabled?: boolean } = {}
+): Promise<void> {
+    const mutationActionName =
+        /^\s*(?:(?:create|add|new|edit|delete|remove|save|update|reorder|duplicate|clone|move|publish|unpublish)\b|copy\s+(?:record|row|item|element|object|application|workspace)\b|(?:созда|добав|редакт|измен|удал|убра|сохран|обнов|перемещ|дублир|клонир|опубликов|перестав)\p{L}*|копир\p{L}*\s+(?:запис|строк|элемент|объект|приложен|рабоч)[\p{L}-]*)/iu
+    const main = page.getByRole('main')
+
+    for (const role of ['button', 'menuitem', 'link'] as const) {
+        const controls = await main.getByRole(role, { name: mutationActionName }).evaluateAll((elements) =>
+            elements.map((element) => {
+                const control = element as HTMLElement
+                return {
+                    name: control.getAttribute('aria-label')?.trim() || control.innerText.trim() || control.title,
+                    disabled:
+                        control.getAttribute('aria-disabled') === 'true' ||
+                        control.hasAttribute('disabled') ||
+                        control.getAttribute('data-disabled') === 'true'
+                }
+            })
+        )
+        const actionableControls = options.allowDisabled ? controls.filter((control) => !control.disabled) : controls
+        expect(
+            actionableControls,
+            options.allowDisabled
+                ? `${label} must disable mutation controls for this read-only role`
+                : `${label} must not expose mutation controls`
+        ).toEqual([])
+    }
+}
+
 export async function expectNoDataGridTechnicalLeakage(surface: Locator, options: DataGridTechnicalLeakageOptions = {}): Promise<void> {
     const normalizedOptions = normalizeTechnicalLeakageOptions({
         ...options,
@@ -558,7 +647,11 @@ export async function expectDataGridCellTextByColumn(grid: Locator, row: Locator
     await expect(row.locator(`[role="gridcell"][aria-colindex="${columnIndex}"]`)).toHaveText(expectedText)
 }
 
-export async function expectDataGridHorizontalScrollConstrained(page: Page, label: string): Promise<void> {
+export async function expectDataGridHorizontalScrollConstrained(
+    page: Page,
+    label: string,
+    options: { requireVisibleGrid?: boolean } = {}
+): Promise<void> {
     const metrics = await page.locator('.MuiDataGrid-root').evaluateAll((nodes) => {
         const viewportWidth = document.documentElement.clientWidth
         const documentWidth = Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0)
@@ -589,7 +682,9 @@ export async function expectDataGridHorizontalScrollConstrained(page: Page, labe
             })
             .filter((item) => item.visible)
     })
-    expect(metrics.length, `${label} must contain at least one visible DataGrid`).toBeGreaterThan(0)
+    if (options.requireVisibleGrid !== false) {
+        expect(metrics.length, `${label} must contain at least one visible DataGrid`).toBeGreaterThan(0)
+    }
 
     for (const metric of metrics) {
         expect(metric.rootLeft, `${label} DataGrid #${metric.index} must start inside the viewport`).toBeGreaterThanOrEqual(-1)

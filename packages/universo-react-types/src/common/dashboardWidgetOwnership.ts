@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { applicationTemplateKeySchema, type ApplicationTemplateKey } from './marketingPagePrimitives'
 import { applicationTemplateHostCapabilitySchema, type ApplicationTemplateHostCapability } from './applicationTemplates'
 import {
     layoutWidgetAuthoringCapabilitiesSchema,
@@ -177,9 +178,9 @@ export type WidgetBindingSlotFamilyDefinition = z.infer<typeof bindingSlotFamily
 export interface DashboardLayoutWidgetDefinition extends DashboardWidgetOwnershipMetadata {
     readonly key: string
     readonly templateKey: 'dashboard'
-    readonly supportedTemplates: readonly ('dashboard' | 'marketing-page')[]
+    readonly supportedTemplates: readonly ApplicationTemplateKey[]
     readonly allowedZones: readonly DashboardLayoutZone[]
-    readonly allowedZonesByTemplate: Readonly<Partial<Record<'dashboard' | 'marketing-page', readonly string[]>>>
+    readonly allowedZonesByTemplate: Readonly<Partial<Record<ApplicationTemplateKey, readonly string[]>>>
     readonly multiInstance: boolean
     readonly requiredHostCapabilities: readonly ApplicationTemplateHostCapability[]
     readonly shared: boolean
@@ -193,7 +194,7 @@ export const dashboardLayoutWidgetDefinitionSchema = z
     .object({
         key: z.string().trim().min(1).max(128),
         templateKey: z.literal('dashboard'),
-        supportedTemplates: z.array(z.enum(['dashboard', 'marketing-page'])).min(1),
+        supportedTemplates: z.array(applicationTemplateKeySchema).min(1),
         allowedZones: z.array(z.enum(DASHBOARD_LAYOUT_ZONES)).min(1),
         allowedZonesByTemplate: z.record(z.string().trim().min(1), z.array(z.string().trim().min(1)).min(1)),
         multiInstance: z.boolean(),

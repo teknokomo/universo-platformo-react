@@ -59,7 +59,6 @@ export type SnapshotEnvelope = Record<string, unknown> & {
         scopedLayouts?: unknown[]
         layoutZoneWidgets?: unknown[]
         defaultLayoutId?: unknown
-        layoutConfig?: Record<string, unknown>
     } & Record<string, unknown>
     snapshotHash?: string
 }

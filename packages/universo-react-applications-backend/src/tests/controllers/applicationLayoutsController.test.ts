@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express'
+import { layoutWidgetMetadataResponseSchema } from '@universo-react/types'
 
 const mockEnsureApplicationAccess = jest.fn()
 const mockGetRequestDbExecutor = jest.fn()
@@ -127,6 +128,29 @@ describe('applicationLayoutsController', () => {
 
         expect(mockEnsureApplicationAccess).toHaveBeenCalledWith(executor, 'user-1', 'app-1', ['owner', 'admin', 'editor'])
         expect(res.json).toHaveBeenCalledWith({ items: [], total: 0 })
+    })
+
+    it('returns the validated widget and template metadata envelope after the existing access checks', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+        executor.query.mockResolvedValueOnce([{ settings: null }])
+
+        await controller.listWidgetObject(
+            {
+                params: {
+                    applicationId: 'app-1',
+                    layoutId: '018f8a78-7b8f-7c1d-a111-2222333344a1'
+                }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockEnsureApplicationAccess).toHaveBeenCalledWith(executor, 'user-1', 'app-1', ['owner', 'admin'])
+        expect(res.json).toHaveBeenCalledTimes(1)
+        const metadata = res.json.mock.calls[0]?.[0]
+        expect(layoutWidgetMetadataResponseSchema.safeParse(metadata).success).toBe(true)
+        expect(metadata.templates.map(({ key }: { key: string }) => key)).toEqual(['dashboard', 'marketing-page', 'messenger-app'])
+        expect(mockListApplicationLayoutWidgetObject).not.toHaveBeenCalled()
     })
 
     it('uses the supplied request-scoped executor for layout reads', async () => {

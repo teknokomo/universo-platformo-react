@@ -7,7 +7,6 @@ import {
     getLayoutWidgetAllowedZones,
     getLayoutWidgetDefinition,
     layoutInstanceKeySchema,
-    marketingPageConfigSchema,
     marketingWidgetKeySchema,
     parseApplicationLayoutConfig,
     parseApplicationLayoutWidgetConfig,
@@ -77,7 +76,6 @@ export type MarketingSnapshotLike = {
     layoutZoneWidgets?: MarketingSnapshotWidgetLike[]
     layoutWidgetOverrides?: MarketingSnapshotOverrideLike[]
     defaultLayoutId?: unknown
-    layoutConfig?: unknown
     versionEnvelope?: { snapshotFormatVersion?: unknown }
 }
 
@@ -557,6 +555,9 @@ export const validateMarketingSnapshotLayouts = (snapshot: unknown): void => {
     }
 
     const snapshotRecord = snapshot as unknown as Record<string, unknown>
+    if (Object.prototype.hasOwnProperty.call(snapshotRecord, 'layoutConfig')) {
+        fail('Marketing snapshot layoutConfig is retired; use the selected layout config', {})
+    }
     const entities = snapshotRecord.entities === undefined ? {} : snapshotRecord.entities
     if (!isRecord(entities)) {
         fail('Marketing snapshot entities are invalid', {})
@@ -674,14 +675,6 @@ export const validateMarketingSnapshotLayouts = (snapshot: unknown): void => {
     ) {
         fail('Marketing snapshot default layout must be active and marked as default', { defaultLayoutId: explicitDefaultLayoutId })
     }
-    if (snapshotRecord.layoutConfig !== undefined && explicitDefaultLayout?.templateKey === MARKETING_PAGE_TEMPLATE_KEY) {
-        try {
-            marketingPageConfigSchema.parse(snapshotRecord.layoutConfig)
-        } catch {
-            fail('Marketing snapshot default layout configuration is invalid', {})
-        }
-    }
-
     const activeMarketingWidgets = widgets.filter((widget) => {
         const layout = allLayouts.find((candidate) => candidate.id === widget.layoutId)
         if (layout?.templateKey !== MARKETING_PAGE_TEMPLATE_KEY || typeof widget.widgetKey !== 'string' || widget.isActive !== true) {
@@ -878,8 +871,6 @@ export const validateMarketingSnapshotLayouts = (snapshot: unknown): void => {
 const buildMarketingRendererValidationSnapshot = (snapshot: Record<string, unknown>): Record<string, unknown> => {
     const layouts = readSnapshotRecordArray(snapshot.layouts, 'layouts', failSnapshotLayout)
     const scopedLayouts = readSnapshotRecordArray(snapshot.scopedLayouts, 'scoped layouts', failSnapshotLayout)
-    const allLayouts = [...layouts, ...scopedLayouts]
-    const layoutsById = new Map(allLayouts.filter((layout) => typeof layout.id === 'string').map((layout) => [layout.id as string, layout]))
 
     const normalizeLayout = (layout: Record<string, unknown>): Record<string, unknown> => {
         const templateKey = readSnapshotTemplateKey(layout.templateKey, `layout:${String(layout.id)}`, failSnapshotLayout)
@@ -893,20 +884,6 @@ const buildMarketingRendererValidationSnapshot = (snapshot: Record<string, unkno
         ...snapshot,
         layouts: snapshot.layouts === undefined ? undefined : layouts.map(normalizeLayout),
         scopedLayouts: snapshot.scopedLayouts === undefined ? undefined : scopedLayouts.map(normalizeLayout),
-        layoutConfig:
-            snapshot.layoutConfig === undefined
-                ? snapshot.layoutConfig
-                : (() => {
-                      const defaultLayout =
-                          typeof snapshot.defaultLayoutId === 'string' ? layoutsById.get(snapshot.defaultLayoutId) : undefined
-                      if (!defaultLayout) return snapshot.layoutConfig
-                      const templateKey = readSnapshotTemplateKey(
-                          defaultLayout.templateKey,
-                          `layout:${String(defaultLayout.id)}`,
-                          failSnapshotLayout
-                      )
-                      return decodeSnapshotLayoutRendererConfig(snapshot.layoutConfig, templateKey)
-                  })(),
         // Keep widget envelopes intact so the renderer-level validator can
         // validate Entity bindings before parsing the renderer-only config.
         layoutZoneWidgets: snapshot.layoutZoneWidgets,

@@ -12,11 +12,11 @@ import stableStringify from 'json-stable-stringify'
 import { createKnexExecutor } from '@universo-react/database'
 import type { DDLServices } from '@universo-react/schema-ddl'
 import {
-    DASHBOARD_LAYOUT_ZONES,
-    MARKETING_LAYOUT_ZONES,
+    applicationLayoutZoneSchema,
     decodeLayoutConfigEnvelope,
     encodeLayoutConfigEnvelope,
     encodeLayoutWidgetConfigEnvelope,
+    getLayoutZonesForTemplate,
     parseApplicationLayoutWidgetConfig,
     type ApplicationLayoutChange,
     type ApplicationTemplateKey,
@@ -54,9 +54,9 @@ import type { PersistedAppLayout, PersistedAppLayoutZoneWidget } from './syncTyp
 import { materializeTrustedSnapshotLayoutsAndWidgets } from './trustedLayoutResolver'
 
 const normalizeLayoutZone = (value: unknown, templateKey: ApplicationTemplateKey): PersistedAppLayoutZoneWidget['zone'] => {
-    const zones = templateKey === 'dashboard' ? DASHBOARD_LAYOUT_ZONES : MARKETING_LAYOUT_ZONES
-    if (typeof value === 'string' && (zones as readonly string[]).includes(value)) {
-        return value as PersistedAppLayoutZoneWidget['zone']
+    const parsedZone = applicationLayoutZoneSchema.safeParse(value)
+    if (parsedZone.success && getLayoutZonesForTemplate(templateKey).includes(parsedZone.data)) {
+        return parsedZone.data
     }
     throw new Error(`[SchemaSync] Invalid ${templateKey} persisted widget zone`)
 }

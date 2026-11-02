@@ -118,6 +118,8 @@ export type LayoutAuthoringDetailsProps = {
     onDragEnd: (event: DragEndEvent) => void | Promise<void>
     onAddWidgetRequest: (zone: LayoutAuthoringZoneKey, widgetKey: LayoutAuthoringWidgetKey) => void
     beforeZonesContent?: ReactNode
+    /** Use an ancestor DndContext when the authoring surface contains nested placements. */
+    externalDndContext?: boolean
 }
 
 type AddWidgetMenuState = {
@@ -492,7 +494,8 @@ export function LayoutAuthoringDetails({
     zones,
     onDragEnd,
     onAddWidgetRequest,
-    beforeZonesContent
+    beforeZonesContent,
+    externalDndContext = false
 }: LayoutAuthoringDetailsProps) {
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -548,6 +551,64 @@ export function LayoutAuthoringDetails({
 
     const closeAddWidgetMenu = () => setAddWidgetMenu({ anchorEl: null, zone: null })
 
+    const zonesContent = (
+        <Stack spacing={1.5}>
+            {zones.map((zone) => (
+                <LayoutZoneColumn key={zone.zone} zone={zone.zone} title={zone.title} settingsAction={zone.settingsAction}>
+                    <Stack spacing={1.25}>
+                        <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
+                            <Button
+                                size='small'
+                                startIcon={<AddRoundedIcon />}
+                                onClick={(event) => openAddWidgetMenu(event, zone.zone)}
+                                disabled={Boolean(zone.addDisabled) || zone.availableWidgets.length === 0}
+                            >
+                                {addWidgetLabel}
+                            </Button>
+                            {zone.availableWidgets.length === 0 ? (
+                                <Typography variant='caption' sx={{ color: 'text.secondary' }}>
+                                    {availableWidgetsLabel}: 0
+                                </Typography>
+                            ) : null}
+                        </Stack>
+
+                        {zone.groups?.length ? (
+                            zone.groups.map((group) => (
+                                <LayoutZoneGroup
+                                    key={group.key}
+                                    zone={zone.zone}
+                                    group={group}
+                                    emptyZoneLabel={emptyZoneLabel}
+                                    dragHint={dragHint}
+                                    dragHandleLabel={dragHandleLabel}
+                                    moveWidgetLabel={moveWidgetLabel}
+                                />
+                            ))
+                        ) : (
+                            <SortableContext items={zone.items.map((item) => item.id)} strategy={verticalListSortingStrategy}>
+                                <Stack spacing={1}>
+                                    {zone.items.map((item) => (
+                                        <SortableLayoutWidgetChip
+                                            key={item.id}
+                                            {...item}
+                                            dragHandleLabel={getDragHandleLabel(item.id)}
+                                            moveWidgetLabel={moveWidgetLabel}
+                                        />
+                                    ))}
+                                    {zone.items.length === 0 ? (
+                                        <Typography variant='caption' sx={{ color: 'text.secondary' }}>
+                                            {emptyZoneLabel}
+                                        </Typography>
+                                    ) : null}
+                                </Stack>
+                            </SortableContext>
+                        )}
+                    </Stack>
+                </LayoutZoneColumn>
+            ))}
+        </Stack>
+    )
+
     return (
         <Stack spacing={2}>
             {beforeZonesContent}
@@ -561,68 +622,13 @@ export function LayoutAuthoringDetails({
                 {dragHint}
             </Typography>
 
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd} accessibility={{ announcements }}>
-                <Stack spacing={1.5}>
-                    {zones.map((zone) => (
-                        <LayoutZoneColumn key={zone.zone} zone={zone.zone} title={zone.title} settingsAction={zone.settingsAction}>
-                            <Stack spacing={1.25}>
-                                <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
-                                    <Button
-                                        size='small'
-                                        startIcon={<AddRoundedIcon />}
-                                        onClick={(event) => openAddWidgetMenu(event, zone.zone)}
-                                        disabled={Boolean(zone.addDisabled) || zone.availableWidgets.length === 0}
-                                    >
-                                        {addWidgetLabel}
-                                    </Button>
-                                    {zone.availableWidgets.length === 0 ? (
-                                        <Typography
-                                            variant='caption'
-                                            sx={{
-                                                color: 'text.secondary'
-                                            }}
-                                        >
-                                            {availableWidgetsLabel}: 0
-                                        </Typography>
-                                    ) : null}
-                                </Stack>
-
-                                {zone.groups?.length ? (
-                                    zone.groups.map((group) => (
-                                        <LayoutZoneGroup
-                                            key={group.key}
-                                            zone={zone.zone}
-                                            group={group}
-                                            emptyZoneLabel={emptyZoneLabel}
-                                            dragHint={dragHint}
-                                            dragHandleLabel={dragHandleLabel}
-                                            moveWidgetLabel={moveWidgetLabel}
-                                        />
-                                    ))
-                                ) : (
-                                    <SortableContext items={zone.items.map((item) => item.id)} strategy={verticalListSortingStrategy}>
-                                        <Stack spacing={1}>
-                                            {zone.items.map((item) => (
-                                                <SortableLayoutWidgetChip
-                                                    key={item.id}
-                                                    {...item}
-                                                    dragHandleLabel={getDragHandleLabel(item.id)}
-                                                    moveWidgetLabel={moveWidgetLabel}
-                                                />
-                                            ))}
-                                            {zone.items.length === 0 ? (
-                                                <Typography variant='caption' sx={{ color: 'text.secondary' }}>
-                                                    {emptyZoneLabel}
-                                                </Typography>
-                                            ) : null}
-                                        </Stack>
-                                    </SortableContext>
-                                )}
-                            </Stack>
-                        </LayoutZoneColumn>
-                    ))}
-                </Stack>
-            </DndContext>
+            {externalDndContext ? (
+                zonesContent
+            ) : (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd} accessibility={{ announcements }}>
+                    {zonesContent}
+                </DndContext>
+            )}
 
             <Menu
                 open={Boolean(addWidgetMenu.anchorEl)}

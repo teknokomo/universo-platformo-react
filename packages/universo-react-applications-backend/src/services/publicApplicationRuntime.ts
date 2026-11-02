@@ -3,6 +3,7 @@ import {
     applicationPublicRouteResolutionSchema,
     normalizeApplicationAlias,
     publicApplicationRouteResolutionSchema,
+    readLocalizedTextValue,
     type ApplicationAliasRoutingMode,
     type ApplicationPublicRouteResolution,
     type PublicApplicationRouteResolution
@@ -44,6 +45,7 @@ type PublicApplicationRef = { kind: 'uuid'; value: string } | { kind: 'alias'; v
 
 export interface PublicRuntimeApplicationRow {
     id: string
+    name: unknown
     schemaName: string | null
     schemaStatus: string | null
     isPublic: boolean
@@ -75,6 +77,28 @@ export const toPublicApplicationRouteResolution = (route: ApplicationPublicRoute
         primaryAlias: route.primaryAlias,
         canonicalAlias: route.canonicalAlias
     })
+
+/** Resolve only a bounded, localized public display name for renderer titles. */
+export const resolvePublicApplicationDisplayName = (name: unknown, locale: 'en' | 'ru'): string => {
+    const fallback = locale === 'ru' ? 'Приложение' : 'Application'
+    const value = readLocalizedTextValue(name, locale)?.slice(0, 160)
+    const hasControlCharacter = value
+        ? [...value].some((character) => {
+              const codePoint = character.codePointAt(0)
+              return codePoint !== undefined && (codePoint < 0x20 || (codePoint >= 0x7f && codePoint <= 0x9f))
+          })
+        : false
+    if (!value || hasControlCharacter) return fallback
+    if (
+        /[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/iu.test(value) ||
+        /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/iu.test(value) ||
+        /(?:^|\D)\+?\d[\d ().-]{8,}\d(?:$|\D)/u.test(value) ||
+        /(?:\bbearer\s+[A-Z0-9._~+/-]{12,}\b|\beyJ[A-Z0-9_-]{8,}\.[A-Z0-9_-]{8,}(?:\.[A-Z0-9_-]+)?)/iu.test(value)
+    ) {
+        return fallback
+    }
+    return value
+}
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
@@ -143,6 +167,7 @@ export const classifyPublicApplicationReadiness = (
 
 const APPLICATION_RUNTIME_SELECT = `
     a.id,
+    a.name AS name,
     a.schema_name AS "schemaName",
     a.schema_status::text AS "schemaStatus",
     a.is_public AS "isPublic",

@@ -9,6 +9,7 @@ const publicationVersionId = '0190a9b5-3cde-7abc-8def-0123456789ad'
 
 const readyApplication = (overrides: Partial<PublicRuntimeApplicationRow> = {}): PublicRuntimeApplicationRow => ({
     id: applicationId,
+    name: { _primary: 'en', locales: { en: { content: 'Public application' }, ru: { content: 'Публичное приложение' } } },
     schemaName: 'app_0190a9b53cde7abc8def0123456789ab',
     schemaStatus: 'synced',
     isPublic: true,

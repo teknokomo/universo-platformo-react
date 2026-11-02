@@ -402,7 +402,7 @@
         },
         "details": {
             "title": "Layout",
-            "description": "Configure dashboard zones and widgets.",
+            "description": "Configure layout zones and widgets.",
             "dragHint": "Drag widgets between zones to change runtime composition.",
             "dragHandleLabel": "Reorder widget",
             "moveToStart": "Move to Start",
@@ -3184,6 +3184,8 @@
             "multilineEditorHelper": "Renders this text field as a multiline control in published runtime forms.",
             "multilineRows": "Multiline rows",
             "multilineRowsHelper": "Choose between 2 and 12 rows.",
+            "publicMessengerSafe": "Allow anonymous Messenger display",
+            "publicMessengerSafeHelper": "Enable only when every value in this field is safe to show to anyone in a public Messenger app.",
             "enumMode": "Enumeration view mode",
             "enumModeHelper": "Applies to references that point to an enumeration in runtime forms.",
             "enumModeOptions": {

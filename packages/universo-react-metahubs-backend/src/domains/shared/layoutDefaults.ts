@@ -1,4 +1,9 @@
-import type { DashboardLayoutZone, DashboardLayoutWidgetKey } from '@universo-react/types'
+import {
+    DEFAULT_MESSENGER_APP_ZONE_WIDGETS as SHARED_DEFAULT_MESSENGER_APP_ZONE_WIDGETS,
+    type DashboardLayoutZone,
+    type DashboardLayoutWidgetKey,
+    type MessengerAppDefaultPlacement
+} from '@universo-react/types'
 
 /**
  * Describes a default widget placed into a dashboard layout zone.
@@ -57,3 +62,8 @@ export const DEFAULT_DASHBOARD_ZONE_WIDGETS: DefaultZoneWidget[] = [
     { zone: 'right', widgetKey: 'resourcePreview', sortOrder: 1, isActive: false },
     { zone: 'bottom', widgetKey: 'footer', sortOrder: 1, isActive: false }
 ]
+
+export type DefaultApplicationZoneWidget = MessengerAppDefaultPlacement
+
+/** Minimal safe shell placement seeded for newly created Messenger App layouts. */
+export const DEFAULT_MESSENGER_APP_ZONE_WIDGETS: readonly DefaultApplicationZoneWidget[] = SHARED_DEFAULT_MESSENGER_APP_ZONE_WIDGETS

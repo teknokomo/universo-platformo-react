@@ -347,6 +347,48 @@ describe('LibraryDetailsTableWidget', () => {
         await waitFor(() => expect(fetchAppData).toHaveBeenLastCalledWith(expect.objectContaining({ limit: 100, offset: 100 })))
     })
 
+    it('keeps the move dialog open until refreshed runtime data is available', async () => {
+        const user = userEvent.setup()
+        let finishRuntimeRefresh: (() => void) | undefined
+        const onRuntimeDataChanged = vi.fn(
+            () =>
+                new Promise<void>((resolve) => {
+                    finishRuntimeRefresh = resolve
+                })
+        )
+        const config: DashboardLibraryTableWidgetConfig = {
+            ...baseConfig,
+            rowActions: [
+                {
+                    id: 'move',
+                    kind: 'field.updateWithTarget',
+                    fieldCodename: 'ParentId',
+                    targetObjectCollectionCodename: 'Folders',
+                    label: { en: 'Move', ru: 'Переместить' }
+                }
+            ]
+        }
+        renderLibrary(makeWidget(config), {
+            ...baseDetails,
+            permissions: { ...permissions, editContent: true },
+            onRuntimeDataChanged
+        })
+
+        await openRowActions(user)
+        await user.click(screen.getByRole('menuitem', { name: 'Move' }))
+        const moveDialog = await screen.findByRole('dialog', { name: 'Choose target' })
+        await selectOnlyComboboxOption(user, 'Target', 'Folder 1')
+        await user.click(screen.getByRole('button', { name: 'Move' }))
+
+        await waitFor(() => expect(updateAppRow).toHaveBeenCalledTimes(1))
+        await waitFor(() => expect(onRuntimeDataChanged).toHaveBeenCalledTimes(1))
+        expect(moveDialog).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Move' })).toBeDisabled()
+
+        finishRuntimeRefresh?.()
+        await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Choose target' })).not.toBeInTheDocument())
+    })
+
     it('paginates restore targets past the first 100 records', async () => {
         const user = userEvent.setup()
         renderLibrary(

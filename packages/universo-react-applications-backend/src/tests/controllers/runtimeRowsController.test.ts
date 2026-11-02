@@ -1424,7 +1424,8 @@ describe('runtimeRowsController single-system Structure protection', () => {
         expect(mockResolveInterpretationNetworkRuntimeSurface).toHaveBeenCalledWith(executor, {
             applicationId: testApplicationId,
             schemaName: 'runtime_schema',
-            workspaceId: '019f2000-0000-7000-8000-000000000777'
+            workspaceId: '019f2000-0000-7000-8000-000000000777',
+            scopeEntityId: mutableObjectCollectionId
         })
         expect(res.status).toHaveBeenCalledWith(201)
         expect(executor.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO runtime_schema."structure"'))).toBe(true)
@@ -1487,7 +1488,8 @@ describe('runtimeRowsController single-system Structure protection', () => {
         expect(mockResolveInterpretationNetworkRuntimeSurface).toHaveBeenCalledWith(executor, {
             applicationId: testApplicationId,
             schemaName: 'runtime_schema',
-            workspaceId: '019f2000-0000-7000-8000-000000000777'
+            workspaceId: '019f2000-0000-7000-8000-000000000777',
+            scopeEntityId: mutableObjectCollectionId
         })
         expect(res.status).toHaveBeenCalledWith(201)
         expect(executor.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO runtime_schema."structure"'))).toBe(true)

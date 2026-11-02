@@ -29,6 +29,7 @@ export interface ConflictInfo {
         | 'action'
         | 'event_binding'
         | 'application'
+        | 'application_bot_binding'
         | 'connector'
         | 'playcanvasProject'
     /** Version the client expected */

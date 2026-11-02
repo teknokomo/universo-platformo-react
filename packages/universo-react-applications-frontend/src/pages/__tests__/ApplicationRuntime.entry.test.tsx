@@ -178,6 +178,19 @@ describe('ApplicationRuntimeEntry', () => {
         expect(screen.queryByTestId('authenticated-runtime')).not.toBeInTheDocument()
     })
 
+    it('preserves the public alias when an authenticated member enters the protected runtime during a public probe failure', async () => {
+        entryMocks.isAuthenticated = true
+        entryMocks.user = { id: 'member-1' }
+        entryMocks.getPublicApplicationRuntime.mockRejectedValue(new PublicApplicationRuntimeError(503, 'UPSTREAM_UNAVAILABLE'))
+        entryMocks.resolveApplicationRuntimeReference.mockResolvedValue({ applicationId: APP_ID })
+
+        renderEntry('/a/network-primary?locale=ru#overview')
+
+        expect(await screen.findByTestId('authenticated-runtime')).toHaveTextContent(APP_ID)
+        await waitFor(() => expect(screen.getByTestId('runtime-location')).toHaveTextContent('/a/network-primary?locale=ru#overview'))
+        expect(entryMocks.resolveApplicationRuntimeReference).toHaveBeenCalledWith('network-primary')
+    })
+
     it('resolves a canonical alias before rendering and preserves its suffix, query and hash', async () => {
         entryMocks.getPublicApplicationRuntime.mockResolvedValue({
             ...readyPublicPayload('network-primary'),

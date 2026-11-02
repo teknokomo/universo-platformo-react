@@ -1,9 +1,13 @@
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useDroppable } from '@dnd-kit/core'
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
+import DragIndicatorRoundedIcon from '@mui/icons-material/DragIndicatorRounded'
 import DriveFileMoveOutlinedIcon from '@mui/icons-material/DriveFileMoveOutlined'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import SettingsBackupRestoreIcon from '@mui/icons-material/SettingsBackupRestore'
@@ -137,7 +141,7 @@ const ownsCompositionInCurrentLayout = (placement: MetahubLayoutZoneWidget, defi
 
 const isCompatibleChild = (
     layout: MetahubLayout,
-    zone: DashboardLayoutZone,
+    zone: ApplicationLayoutZone,
     slot: NestedSlot,
     widget: DashboardLayoutWidgetItem,
     placements: readonly MetahubLayoutZoneWidget[]
@@ -161,6 +165,115 @@ const collectDescendantInstanceKeys = (placement: MetahubLayoutZoneWidget, place
         }
     }
     return result
+}
+
+export const canMovePlacementToNestedSlot = (
+    layout: MetahubLayout,
+    placement: MetahubLayoutZoneWidget,
+    parent: MetahubLayoutZoneWidget,
+    slotKey: string,
+    placements: readonly MetahubLayoutZoneWidget[],
+    locale: string,
+    tc: TFunction
+): boolean => {
+    if (placement.isInherited || placement.zone !== parent.zone) return false
+    if (collectDescendantInstanceKeys(placement, placements).has(parent.instanceKey)) return false
+
+    const parentConfiguration = getConfiguredSlots(layout, parent, locale, tc)
+    if (!parentConfiguration || !ownsCompositionInCurrentLayout(parent, parentConfiguration.definition)) return false
+    const slot = parentConfiguration.slots.find((candidate) => candidate.key === slotKey)
+    if (!slot) return false
+
+    const childDefinition = getLayoutWidgetDefinition(placement.widgetKey, getRendererConfig(layout, placement))
+    return Boolean(
+        childDefinition?.supportedTemplates.includes(layout.templateKey) &&
+            childDefinition.allowedZonesByTemplate[layout.templateKey]?.includes(parent.zone) &&
+            childDefinition.placementPolicy.parent === 'root-or-compatible-container-slot' &&
+            childDefinition.capabilities.some((capability) => slot.policy.allowedChildCapabilities.includes(capability))
+    )
+}
+
+function NestedPlacementSortable({
+    placement,
+    label,
+    dragHandleLabel,
+    disabled,
+    children
+}: {
+    placement: MetahubLayoutZoneWidget
+    label: string
+    dragHandleLabel: string
+    disabled: boolean
+    children: (dragHandle: ReactNode) => ReactNode
+}) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+        id: placement.id,
+        disabled
+    })
+    const dragHandle = placement.parentInstanceKey ? (
+        <Tooltip title={dragHandleLabel}>
+            <span>
+                <IconButton
+                    size='small'
+                    disabled={disabled}
+                    aria-label={`${dragHandleLabel}: ${label}`}
+                    sx={{ cursor: disabled ? 'default' : 'grab' }}
+                    {...attributes}
+                    {...listeners}
+                >
+                    <DragIndicatorRoundedIcon fontSize='small' />
+                </IconButton>
+            </span>
+        </Tooltip>
+    ) : null
+
+    return (
+        <Box
+            ref={setNodeRef}
+            data-testid={`nested-placement-${placement.id}`}
+            style={{
+                transform: CSS.Transform.toString(transform),
+                transition,
+                opacity: isDragging ? 0.5 : 1
+            }}
+        >
+            {children(dragHandle)}
+        </Box>
+    )
+}
+
+function NestedSlotDropTarget({
+    parentInstanceKey,
+    slotKey,
+    label,
+    children
+}: {
+    parentInstanceKey: string
+    slotKey: string
+    label: string
+    children: ReactNode
+}) {
+    const { setNodeRef, isOver } = useDroppable({
+        id: `nested-slot:${parentInstanceKey}:${slotKey}`,
+        data: { type: 'nested-slot', parentInstanceKey, slotKey }
+    })
+
+    return (
+        <Paper
+            ref={setNodeRef}
+            role='group'
+            aria-label={label}
+            variant='outlined'
+            sx={{
+                p: 1,
+                borderColor: isOver ? 'primary.main' : 'divider',
+                bgcolor: isOver ? 'action.hover' : 'background.paper',
+                transition: 'background-color 120ms ease, border-color 120ms ease'
+            }}
+        >
+            {children}
+        </Paper>
+    )
 }
 
 export const countNestedPlacementDescendants = (placementId: string, placements: readonly MetahubLayoutZoneWidget[]): number => {
@@ -211,9 +324,7 @@ export default function DashboardNestedPlacements({
     }, [placements])
 
     const getAddCandidates = (parent: MetahubLayoutZoneWidget, slot: NestedSlot) =>
-        getAvailableWidgetsForZone(parent.zone).filter((widget) =>
-            isCompatibleChild(layout, parent.zone as DashboardLayoutZone, slot, widget, placements)
-        )
+        getAvailableWidgetsForZone(parent.zone).filter((widget) => isCompatibleChild(layout, parent.zone, slot, widget, placements))
 
     const getMoveDestinations = (placement: MetahubLayoutZoneWidget) => {
         if (placement.isInherited) return []
@@ -248,203 +359,216 @@ export default function DashboardNestedPlacements({
         const moveWithinSlot = (index: number) => onMove(placement, { targetIndex: index })
 
         return (
-            <Box key={placement.id}>
-                <Paper variant='outlined' sx={{ p: 1.25 }}>
-                    <Stack spacing={1}>
-                        <Stack
-                            direction={{ xs: 'column', sm: 'row' }}
-                            spacing={1}
-                            sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}
-                        >
-                            <Box sx={{ minWidth: 0 }}>
-                                <Typography variant='body2' sx={{ fontWeight: 600, overflowWrap: 'anywhere' }}>
-                                    {rowLabel}
-                                </Typography>
-                                {placement.isInherited ? (
-                                    <Typography variant='caption' sx={{ color: 'text.secondary' }}>
-                                        {tc('nesting.sourceManaged')}
-                                    </Typography>
-                                ) : null}
-                            </Box>
+            <NestedPlacementSortable
+                key={placement.id}
+                placement={placement}
+                label={rowLabel}
+                dragHandleLabel={tc('nesting.dragHandle')}
+                disabled={!canManageLayouts || placement.isInherited === true}
+            >
+                {(dragHandle) => (
+                    <Paper variant='outlined' sx={{ p: 1.25 }}>
+                        <Stack spacing={1}>
                             <Stack
-                                direction='row'
-                                spacing={0.25}
-                                sx={{ flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end' }}
+                                direction={{ xs: 'column', sm: 'row' }}
+                                spacing={1}
+                                sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}
                             >
-                                {placement.parentInstanceKey && canManageLayouts && canReorder && siblingIndex > 0 ? (
-                                    <Tooltip title={tc('nesting.moveUp')}>
-                                        <IconButton
-                                            size='small'
-                                            aria-label={tc('nesting.moveUp')}
-                                            onClick={() => moveWithinSlot(siblingIndex - 1)}
-                                        >
-                                            <ArrowUpwardIcon fontSize='small' />
-                                        </IconButton>
-                                    </Tooltip>
-                                ) : null}
-                                {placement.parentInstanceKey &&
-                                canManageLayouts &&
-                                canReorder &&
-                                siblingIndex >= 0 &&
-                                siblingIndex < siblings.length - 1 ? (
-                                    <Tooltip title={tc('nesting.moveDown')}>
-                                        <IconButton
-                                            size='small'
-                                            aria-label={tc('nesting.moveDown')}
-                                            onClick={() => moveWithinSlot(siblingIndex + 1)}
-                                        >
-                                            <ArrowDownwardIcon fontSize='small' />
-                                        </IconButton>
-                                    </Tooltip>
-                                ) : null}
-                                {canManageLayouts && destinations.length > 0 && !placement.isInherited ? (
-                                    <Tooltip title={tc('nesting.children')}>
-                                        <IconButton
-                                            size='small'
-                                            aria-label={`${tc('nesting.moveToSlot', { slot: tc('nesting.children') })}: ${rowLabel}`}
-                                            onClick={(event) => setMoveMenu({ anchor: event.currentTarget, placement, destinations })}
-                                        >
-                                            <DriveFileMoveOutlinedIcon fontSize='small' />
-                                        </IconButton>
-                                    </Tooltip>
-                                ) : null}
-                                {row.onEdit ? (
-                                    <Tooltip title={row.editTooltip ?? tc('actions.edit')}>
-                                        <IconButton
-                                            size='small'
-                                            aria-label={row.editAriaLabel ?? row.editTooltip ?? tc('actions.edit')}
-                                            onClick={row.onEdit}
-                                        >
-                                            <EditOutlinedIcon fontSize='small' />
-                                        </IconButton>
-                                    </Tooltip>
-                                ) : null}
-                                {row.onEditContent ? (
-                                    <Tooltip title={row.editContentTooltip ?? tc('actions.edit')}>
-                                        <IconButton
-                                            size='small'
-                                            aria-label={row.editContentAriaLabel ?? row.editContentTooltip ?? tc('actions.edit')}
-                                            onClick={row.onEditContent}
-                                        >
-                                            <EditOutlinedIcon fontSize='small' />
-                                        </IconButton>
-                                    </Tooltip>
-                                ) : null}
-                                {row.onDuplicate ? (
-                                    <Tooltip title={tc('nesting.duplicateSubtree')}>
-                                        <IconButton
-                                            size='small'
-                                            aria-label={row.duplicateAriaLabel ?? tc('nesting.duplicateSubtree')}
-                                            onClick={row.onDuplicate}
-                                        >
-                                            <ContentCopyIcon fontSize='small' />
-                                        </IconButton>
-                                    </Tooltip>
-                                ) : null}
-                                {row.onReset ? (
-                                    <Tooltip title={row.resetTooltip ?? tc('actions.reset')}>
-                                        <IconButton
-                                            size='small'
-                                            aria-label={row.resetAriaLabel ?? row.resetTooltip ?? tc('actions.reset')}
-                                            onClick={row.onReset}
-                                        >
-                                            <SettingsBackupRestoreIcon fontSize='small' />
-                                        </IconButton>
-                                    </Tooltip>
-                                ) : null}
-                                {row.onToggleActive ? (
-                                    <Tooltip title={row.toggleActiveTooltip ?? tc('actions.edit')}>
-                                        <Switch
-                                            size='small'
-                                            checked={row.isActive}
-                                            onChange={(_event, checked) => row.onToggleActive?.(checked)}
-                                            slotProps={{
-                                                input: { 'aria-label': `${row.toggleActiveTooltip ?? tc('actions.edit')}: ${rowLabel}` }
-                                            }}
-                                        />
-                                    </Tooltip>
-                                ) : null}
-                                {row.onRemove ? (
-                                    <Tooltip title={row.removeTooltip ?? tc('actions.delete')}>
-                                        <IconButton
-                                            size='small'
-                                            aria-label={row.removeAriaLabel ?? row.removeTooltip ?? tc('actions.delete')}
-                                            onClick={row.onRemove}
-                                        >
-                                            <DeleteOutlineRoundedIcon fontSize='small' />
-                                        </IconButton>
-                                    </Tooltip>
-                                ) : null}
+                                <Box sx={{ minWidth: 0 }}>
+                                    <Typography variant='body2' sx={{ fontWeight: 600, overflowWrap: 'anywhere' }}>
+                                        {rowLabel}
+                                    </Typography>
+                                    {placement.isInherited ? (
+                                        <Typography variant='caption' sx={{ color: 'text.secondary' }}>
+                                            {tc('nesting.sourceManaged')}
+                                        </Typography>
+                                    ) : null}
+                                </Box>
+                                <Stack
+                                    direction='row'
+                                    spacing={0.25}
+                                    sx={{ flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end' }}
+                                >
+                                    {dragHandle}
+                                    {placement.parentInstanceKey && canManageLayouts && canReorder && siblingIndex > 0 ? (
+                                        <Tooltip title={tc('nesting.moveUp')}>
+                                            <IconButton
+                                                size='small'
+                                                aria-label={tc('nesting.moveUp')}
+                                                onClick={() => moveWithinSlot(siblingIndex - 1)}
+                                            >
+                                                <ArrowUpwardIcon fontSize='small' />
+                                            </IconButton>
+                                        </Tooltip>
+                                    ) : null}
+                                    {placement.parentInstanceKey &&
+                                    canManageLayouts &&
+                                    canReorder &&
+                                    siblingIndex >= 0 &&
+                                    siblingIndex < siblings.length - 1 ? (
+                                        <Tooltip title={tc('nesting.moveDown')}>
+                                            <IconButton
+                                                size='small'
+                                                aria-label={tc('nesting.moveDown')}
+                                                onClick={() => moveWithinSlot(siblingIndex + 1)}
+                                            >
+                                                <ArrowDownwardIcon fontSize='small' />
+                                            </IconButton>
+                                        </Tooltip>
+                                    ) : null}
+                                    {canManageLayouts && destinations.length > 0 && !placement.isInherited ? (
+                                        <Tooltip title={tc('nesting.children')}>
+                                            <IconButton
+                                                size='small'
+                                                aria-label={`${tc('nesting.moveToSlot', { slot: tc('nesting.children') })}: ${rowLabel}`}
+                                                onClick={(event) => setMoveMenu({ anchor: event.currentTarget, placement, destinations })}
+                                            >
+                                                <DriveFileMoveOutlinedIcon fontSize='small' />
+                                            </IconButton>
+                                        </Tooltip>
+                                    ) : null}
+                                    {row.onEdit ? (
+                                        <Tooltip title={row.editTooltip ?? tc('actions.edit')}>
+                                            <IconButton
+                                                size='small'
+                                                aria-label={row.editAriaLabel ?? row.editTooltip ?? tc('actions.edit')}
+                                                onClick={row.onEdit}
+                                            >
+                                                <EditOutlinedIcon fontSize='small' />
+                                            </IconButton>
+                                        </Tooltip>
+                                    ) : null}
+                                    {row.onEditContent ? (
+                                        <Tooltip title={row.editContentTooltip ?? tc('actions.edit')}>
+                                            <IconButton
+                                                size='small'
+                                                aria-label={row.editContentAriaLabel ?? row.editContentTooltip ?? tc('actions.edit')}
+                                                onClick={row.onEditContent}
+                                            >
+                                                <EditOutlinedIcon fontSize='small' />
+                                            </IconButton>
+                                        </Tooltip>
+                                    ) : null}
+                                    {row.onDuplicate ? (
+                                        <Tooltip title={tc('nesting.duplicateSubtree')}>
+                                            <IconButton
+                                                size='small'
+                                                aria-label={row.duplicateAriaLabel ?? tc('nesting.duplicateSubtree')}
+                                                onClick={row.onDuplicate}
+                                            >
+                                                <ContentCopyIcon fontSize='small' />
+                                            </IconButton>
+                                        </Tooltip>
+                                    ) : null}
+                                    {row.onReset ? (
+                                        <Tooltip title={row.resetTooltip ?? tc('actions.reset')}>
+                                            <IconButton
+                                                size='small'
+                                                aria-label={row.resetAriaLabel ?? row.resetTooltip ?? tc('actions.reset')}
+                                                onClick={row.onReset}
+                                            >
+                                                <SettingsBackupRestoreIcon fontSize='small' />
+                                            </IconButton>
+                                        </Tooltip>
+                                    ) : null}
+                                    {row.onToggleActive ? (
+                                        <Tooltip title={row.toggleActiveTooltip ?? tc('actions.edit')}>
+                                            <Switch
+                                                size='small'
+                                                checked={row.isActive}
+                                                onChange={(_event, checked) => row.onToggleActive?.(checked)}
+                                                slotProps={{
+                                                    input: { 'aria-label': `${row.toggleActiveTooltip ?? tc('actions.edit')}: ${rowLabel}` }
+                                                }}
+                                            />
+                                        </Tooltip>
+                                    ) : null}
+                                    {row.onRemove ? (
+                                        <Tooltip title={row.removeTooltip ?? tc('actions.delete')}>
+                                            <IconButton
+                                                size='small'
+                                                aria-label={row.removeAriaLabel ?? row.removeTooltip ?? tc('actions.delete')}
+                                                onClick={row.onRemove}
+                                            >
+                                                <DeleteOutlineRoundedIcon fontSize='small' />
+                                            </IconButton>
+                                        </Tooltip>
+                                    ) : null}
+                                </Stack>
                             </Stack>
-                        </Stack>
-                        {configured?.slots.length ? (
-                            <Stack spacing={1} sx={{ pl: { xs: 1, sm: 2 }, borderLeft: 2, borderColor: 'divider' }}>
-                                {configured.slots.map((slot) => {
-                                    const children = (childrenByParent.get(placement.instanceKey) ?? []).filter(
-                                        (child) => child.slotKey === slot.key
-                                    )
-                                    const candidates = getAddCandidates(placement, slot)
-                                    const mayAdd =
-                                        canManageLayouts &&
-                                        ownsCompositionInCurrentLayout(placement, configured.definition) &&
-                                        candidates.length > 0
-                                    return (
-                                        <Paper
-                                            key={`${placement.instanceKey}-${slot.key}`}
-                                            role='group'
-                                            aria-label={`${getWidgetChipLabel(placement)} · ${slot.label}`}
-                                            variant='outlined'
-                                            sx={{ p: 1 }}
-                                        >
-                                            <Stack spacing={1}>
-                                                <Stack
-                                                    direction={{ xs: 'column', sm: 'row' }}
-                                                    spacing={1}
-                                                    sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}
-                                                >
-                                                    <Typography variant='subtitle2'>{slot.label}</Typography>
-                                                    {mayAdd ? (
-                                                        <Button
-                                                            size='small'
-                                                            aria-label={`${tc('nesting.addChild')}: ${getWidgetChipLabel(placement)} · ${
-                                                                slot.label
-                                                            }`}
-                                                            onClick={(event) =>
-                                                                setAddMenu({
-                                                                    anchor: event.currentTarget,
-                                                                    parent: placement,
-                                                                    slot,
-                                                                    candidates
-                                                                })
-                                                            }
-                                                        >
-                                                            {tc('nesting.addChild')}
-                                                        </Button>
-                                                    ) : placement.isInherited &&
-                                                      !ownsCompositionInCurrentLayout(placement, configured.definition) ? (
-                                                        <Typography variant='caption' sx={{ color: 'text.secondary' }}>
-                                                            {tc('nesting.sourceManaged')}
-                                                        </Typography>
-                                                    ) : null}
-                                                </Stack>
-                                                {children.length ? (
-                                                    <Stack spacing={0.75}>
-                                                        {children.map((child) => renderPlacement(child, nextPath))}
+                            {configured?.slots.length ? (
+                                <Stack spacing={1} sx={{ pl: { xs: 1, sm: 2 }, borderLeft: 2, borderColor: 'divider' }}>
+                                    {configured.slots.map((slot) => {
+                                        const children = (childrenByParent.get(placement.instanceKey) ?? []).filter(
+                                            (child) => child.slotKey === slot.key
+                                        )
+                                        const candidates = getAddCandidates(placement, slot)
+                                        const mayAdd =
+                                            canManageLayouts &&
+                                            ownsCompositionInCurrentLayout(placement, configured.definition) &&
+                                            candidates.length > 0
+                                        return (
+                                            <NestedSlotDropTarget
+                                                key={`${placement.instanceKey}-${slot.key}`}
+                                                parentInstanceKey={placement.instanceKey}
+                                                slotKey={slot.key}
+                                                label={`${getWidgetChipLabel(placement)} · ${slot.label}`}
+                                            >
+                                                <Stack spacing={1}>
+                                                    <Stack
+                                                        direction={{ xs: 'column', sm: 'row' }}
+                                                        spacing={1}
+                                                        sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}
+                                                    >
+                                                        <Typography variant='subtitle2'>{slot.label}</Typography>
+                                                        {mayAdd ? (
+                                                            <Button
+                                                                size='small'
+                                                                aria-label={`${tc('nesting.addChild')}: ${getWidgetChipLabel(
+                                                                    placement
+                                                                )} · ${slot.label}`}
+                                                                onClick={(event) =>
+                                                                    setAddMenu({
+                                                                        anchor: event.currentTarget,
+                                                                        parent: placement,
+                                                                        slot,
+                                                                        candidates
+                                                                    })
+                                                                }
+                                                            >
+                                                                {tc('nesting.addChild')}
+                                                            </Button>
+                                                        ) : placement.isInherited &&
+                                                          !ownsCompositionInCurrentLayout(placement, configured.definition) ? (
+                                                            <Typography variant='caption' sx={{ color: 'text.secondary' }}>
+                                                                {tc('nesting.sourceManaged')}
+                                                            </Typography>
+                                                        ) : null}
                                                     </Stack>
-                                                ) : (
-                                                    <Typography variant='body2' sx={{ color: 'text.secondary' }}>
-                                                        {tc('nesting.emptySlot')}
-                                                    </Typography>
-                                                )}
-                                            </Stack>
-                                        </Paper>
-                                    )
-                                })}
-                            </Stack>
-                        ) : null}
-                    </Stack>
-                </Paper>
-            </Box>
+                                                    {children.length ? (
+                                                        <SortableContext
+                                                            items={children.map((child) => child.id)}
+                                                            strategy={verticalListSortingStrategy}
+                                                        >
+                                                            <Stack spacing={0.75}>
+                                                                {children.map((child) => renderPlacement(child, nextPath))}
+                                                            </Stack>
+                                                        </SortableContext>
+                                                    ) : (
+                                                        <Typography variant='body2' sx={{ color: 'text.secondary' }}>
+                                                            {tc('nesting.emptySlot')}
+                                                        </Typography>
+                                                    )}
+                                                </Stack>
+                                            </NestedSlotDropTarget>
+                                        )
+                                    })}
+                                </Stack>
+                            ) : null}
+                        </Stack>
+                    </Paper>
+                )}
+            </NestedPlacementSortable>
         )
     }
 
@@ -474,12 +598,11 @@ export default function DashboardNestedPlacements({
                                 const canEditComposition = ownsCompositionInCurrentLayout(placement, configured.definition)
                                 const mayAdd = canManageLayouts && canEditComposition && candidates.length > 0
                                 return (
-                                    <Paper
+                                    <NestedSlotDropTarget
                                         key={`${placement.instanceKey}-${slot.key}`}
-                                        role='group'
-                                        aria-label={`${getWidgetChipLabel(placement)} · ${slot.label}`}
-                                        variant='outlined'
-                                        sx={{ p: 1.25 }}
+                                        parentInstanceKey={placement.instanceKey}
+                                        slotKey={slot.key}
+                                        label={`${getWidgetChipLabel(placement)} · ${slot.label}`}
                                     >
                                         <Stack spacing={1}>
                                             <Stack
@@ -507,16 +630,21 @@ export default function DashboardNestedPlacements({
                                                 ) : null}
                                             </Stack>
                                             {children.length ? (
-                                                <Stack spacing={1} sx={{ pl: { xs: 1, sm: 2 }, borderLeft: 2, borderColor: 'divider' }}>
-                                                    {children.map((child) => renderPlacement(child, new Set([placement.instanceKey])))}
-                                                </Stack>
+                                                <SortableContext
+                                                    items={children.map((child) => child.id)}
+                                                    strategy={verticalListSortingStrategy}
+                                                >
+                                                    <Stack spacing={1} sx={{ pl: { xs: 1, sm: 2 }, borderLeft: 2, borderColor: 'divider' }}>
+                                                        {children.map((child) => renderPlacement(child, new Set([placement.instanceKey])))}
+                                                    </Stack>
+                                                </SortableContext>
                                             ) : (
                                                 <Typography variant='body2' sx={{ color: 'text.secondary' }}>
                                                     {tc('nesting.emptySlot')}
                                                 </Typography>
                                             )}
                                         </Stack>
-                                    </Paper>
+                                    </NestedSlotDropTarget>
                                 )
                             })}
                         </Stack>

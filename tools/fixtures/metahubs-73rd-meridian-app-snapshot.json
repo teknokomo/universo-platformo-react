@@ -490,9 +490,7 @@
                         "nestedCollections": false,
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": [
-                                "manyToOne"
-                            ]
+                            "allowedRelationTypes": ["manyToOne"]
                         },
                         "actions": {
                             "enabled": true
@@ -703,17 +701,13 @@
                         "managed": true,
                         "presetCodename": "object"
                     },
-                    "hubs": [
-                        "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                    ],
+                    "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"],
                     "sortOrder": 2,
                     "recordPolicy": {
                         "version": 1,
                         "semanticKey": {
                             "creationPrefix": "site",
-                            "protectedValues": [
-                                "site-settings"
-                            ],
+                            "protectedValues": ["site-settings"],
                             "componentCodename": "SiteKey"
                         },
                         "runtimeMutation": "deny",
@@ -740,9 +734,7 @@
                         "nestedCollections": false,
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": [
-                                "manyToOne"
-                            ]
+                            "allowedRelationTypes": ["manyToOne"]
                         },
                         "actions": {
                             "enabled": true
@@ -1635,9 +1627,7 @@
                         "sortOrder": 16
                     }
                 ],
-                "hubs": [
-                    "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                ]
+                "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"]
             },
             "01a16f7f-b720-7111-8a91-a55361c580bc": {
                 "id": "01a16f7f-b720-7111-8a91-a55361c580bc",
@@ -1705,31 +1695,18 @@
                         "managed": true,
                         "presetCodename": "object"
                     },
-                    "hubs": [
-                        "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                    ],
+                    "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"],
                     "sortOrder": 3,
                     "recordPolicy": {
                         "version": 1,
                         "semanticKey": {
                             "creationPrefix": "hero",
-                            "protectedValues": [
-                                "default"
-                            ],
+                            "protectedValues": ["default"],
                             "componentCodename": "HeroKey"
                         },
-                        "requiredLocales": [
-                            "en",
-                            "ru"
-                        ],
+                        "requiredLocales": ["en", "ru"],
                         "runtimeMutation": "deny",
-                        "coRequiredGroups": [
-                            [
-                                "TermsText",
-                                "TermsLinkLabel",
-                                "TermsAction"
-                            ]
-                        ],
+                        "coRequiredGroups": [["TermsText", "TermsLinkLabel", "TermsAction"]],
                         "denyDeleteWhenBound": true,
                         "immutableSemanticKeyWhenBound": true
                     },
@@ -1753,9 +1730,7 @@
                         "nestedCollections": false,
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": [
-                                "manyToOne"
-                            ]
+                            "allowedRelationTypes": ["manyToOne"]
                         },
                         "actions": {
                             "enabled": true
@@ -2360,9 +2335,7 @@
                         "sortOrder": 10
                     }
                 ],
-                "hubs": [
-                    "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                ]
+                "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"]
             },
             "01a16f7f-b72d-7631-ac04-2c2607074a1a": {
                 "id": "01a16f7f-b72d-7631-ac04-2c2607074a1a",
@@ -2430,23 +2403,16 @@
                         "managed": true,
                         "presetCodename": "object"
                     },
-                    "hubs": [
-                        "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                    ],
+                    "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"],
                     "sortOrder": 4,
                     "recordPolicy": {
                         "version": 1,
                         "semanticKey": {
                             "creationPrefix": "image",
-                            "protectedValues": [
-                                "default"
-                            ],
+                            "protectedValues": ["default"],
                             "componentCodename": "ImageKey"
                         },
-                        "requiredLocales": [
-                            "en",
-                            "ru"
-                        ],
+                        "requiredLocales": ["en", "ru"],
                         "runtimeMutation": "deny",
                         "conditionalRequired": [
                             {
@@ -2480,9 +2446,7 @@
                         "nestedCollections": false,
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": [
-                                "manyToOne"
-                            ]
+                            "allowedRelationTypes": ["manyToOne"]
                         },
                         "actions": {
                             "enabled": true
@@ -2827,9 +2791,7 @@
                         "sortOrder": 5
                     }
                 ],
-                "hubs": [
-                    "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                ]
+                "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"]
             },
             "01a16f7f-b73b-7192-95a9-f991e1440a22": {
                 "id": "01a16f7f-b73b-7192-95a9-f991e1440a22",
@@ -2897,22 +2859,13 @@
                         "managed": true,
                         "presetCodename": "object"
                     },
-                    "hubs": [
-                        "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                    ],
+                    "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"],
                     "sortOrder": 5,
                     "recordPolicy": {
                         "version": 1,
                         "semanticKey": {
                             "creationPrefix": "section",
-                            "protectedValues": [
-                                "logos",
-                                "features",
-                                "testimonials",
-                                "highlights",
-                                "pricing",
-                                "faq"
-                            ],
+                            "protectedValues": ["logos", "features", "testimonials", "highlights", "pricing", "faq"],
                             "componentCodename": "SectionKey"
                         },
                         "runtimeMutation": "deny",
@@ -2939,9 +2892,7 @@
                         "nestedCollections": false,
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": [
-                                "manyToOne"
-                            ]
+                            "allowedRelationTypes": ["manyToOne"]
                         },
                         "actions": {
                             "enabled": true
@@ -3141,9 +3092,7 @@
                         "sortOrder": 2
                     }
                 ],
-                "hubs": [
-                    "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                ]
+                "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"]
             },
             "01a16f7f-b748-7a20-ba21-f1047637b81a": {
                 "id": "01a16f7f-b748-7a20-ba21-f1047637b81a",
@@ -3211,9 +3160,7 @@
                         "managed": true,
                         "presetCodename": "object"
                     },
-                    "hubs": [
-                        "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                    ],
+                    "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"],
                     "sortOrder": 6,
                     "marketingRole": "logo",
                     "capabilities": {
@@ -3235,9 +3182,7 @@
                         "nestedCollections": false,
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": [
-                                "manyToOne"
-                            ]
+                            "allowedRelationTypes": ["manyToOne"]
                         },
                         "actions": {
                             "enabled": true
@@ -3584,9 +3529,7 @@
                         "sortOrder": 5
                     }
                 ],
-                "hubs": [
-                    "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                ]
+                "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"]
             },
             "01a16f7f-b756-7a28-a18c-89b0a0bce70a": {
                 "id": "01a16f7f-b756-7a28-a18c-89b0a0bce70a",
@@ -3654,9 +3597,7 @@
                         "managed": true,
                         "presetCodename": "object"
                     },
-                    "hubs": [
-                        "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                    ],
+                    "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"],
                     "sortOrder": 7,
                     "marketingRole": "feature",
                     "capabilities": {
@@ -3678,9 +3619,7 @@
                         "nestedCollections": false,
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": [
-                                "manyToOne"
-                            ]
+                            "allowedRelationTypes": ["manyToOne"]
                         },
                         "actions": {
                             "enabled": true
@@ -4127,9 +4066,7 @@
                         "sortOrder": 7
                     }
                 ],
-                "hubs": [
-                    "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                ]
+                "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"]
             },
             "01a16f7f-b764-748d-a1b3-105e57251d68": {
                 "id": "01a16f7f-b764-748d-a1b3-105e57251d68",
@@ -4197,9 +4134,7 @@
                         "managed": true,
                         "presetCodename": "object"
                     },
-                    "hubs": [
-                        "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                    ],
+                    "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"],
                     "sortOrder": 8,
                     "marketingRole": "testimonial",
                     "capabilities": {
@@ -4221,9 +4156,7 @@
                         "nestedCollections": false,
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": [
-                                "manyToOne"
-                            ]
+                            "allowedRelationTypes": ["manyToOne"]
                         },
                         "actions": {
                             "enabled": true
@@ -4721,9 +4654,7 @@
                         "sortOrder": 8
                     }
                 ],
-                "hubs": [
-                    "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                ]
+                "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"]
             },
             "01a16f7f-b772-7a26-9cec-0062fbe7cf82": {
                 "id": "01a16f7f-b772-7a26-9cec-0062fbe7cf82",
@@ -4791,9 +4722,7 @@
                         "managed": true,
                         "presetCodename": "object"
                     },
-                    "hubs": [
-                        "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                    ],
+                    "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"],
                     "sortOrder": 9,
                     "marketingRole": "highlight",
                     "capabilities": {
@@ -4815,9 +4744,7 @@
                         "nestedCollections": false,
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": [
-                                "manyToOne"
-                            ]
+                            "allowedRelationTypes": ["manyToOne"]
                         },
                         "actions": {
                             "enabled": true
@@ -5160,9 +5087,7 @@
                         "sortOrder": 5
                     }
                 ],
-                "hubs": [
-                    "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                ]
+                "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"]
             },
             "01a16f7f-b784-769b-a284-faea9d208ece": {
                 "id": "01a16f7f-b784-769b-a284-faea9d208ece",
@@ -5230,9 +5155,7 @@
                         "managed": true,
                         "presetCodename": "object"
                     },
-                    "hubs": [
-                        "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                    ],
+                    "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"],
                     "sortOrder": 10,
                     "marketingRole": "pricing",
                     "capabilities": {
@@ -5254,9 +5177,7 @@
                         "nestedCollections": false,
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": [
-                                "manyToOne"
-                            ]
+                            "allowedRelationTypes": ["manyToOne"]
                         },
                         "actions": {
                             "enabled": true
@@ -5798,9 +5719,7 @@
                         "sortOrder": 9
                     }
                 ],
-                "hubs": [
-                    "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                ]
+                "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"]
             },
             "01a16f7f-b790-7296-94c4-de23b55d215c": {
                 "id": "01a16f7f-b790-7296-94c4-de23b55d215c",
@@ -5868,9 +5787,7 @@
                         "managed": true,
                         "presetCodename": "object"
                     },
-                    "hubs": [
-                        "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                    ],
+                    "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"],
                     "sortOrder": 11,
                     "marketingRole": "pricingBenefit",
                     "capabilities": {
@@ -5892,9 +5809,7 @@
                         "nestedCollections": false,
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": [
-                                "manyToOne"
-                            ]
+                            "allowedRelationTypes": ["manyToOne"]
                         },
                         "actions": {
                             "enabled": true
@@ -6187,9 +6102,7 @@
                         "sortOrder": 4
                     }
                 ],
-                "hubs": [
-                    "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                ]
+                "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"]
             },
             "01a16f7f-b7a0-7208-a429-1e44b3625954": {
                 "id": "01a16f7f-b7a0-7208-a429-1e44b3625954",
@@ -6257,9 +6170,7 @@
                         "managed": true,
                         "presetCodename": "object"
                     },
-                    "hubs": [
-                        "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                    ],
+                    "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"],
                     "sortOrder": 12,
                     "marketingRole": "faq",
                     "capabilities": {
@@ -6281,9 +6192,7 @@
                         "nestedCollections": false,
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": [
-                                "manyToOne"
-                            ]
+                            "allowedRelationTypes": ["manyToOne"]
                         },
                         "actions": {
                             "enabled": true
@@ -6578,9 +6487,7 @@
                         "sortOrder": 4
                     }
                 ],
-                "hubs": [
-                    "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                ]
+                "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"]
             },
             "01a16f7f-b7ae-7d6a-86c4-14bae463adf3": {
                 "id": "01a16f7f-b7ae-7d6a-86c4-14bae463adf3",
@@ -6648,9 +6555,7 @@
                         "managed": true,
                         "presetCodename": "object"
                     },
-                    "hubs": [
-                        "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                    ],
+                    "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"],
                     "sortOrder": 13,
                     "marketingRole": "navigation",
                     "capabilities": {
@@ -6672,9 +6577,7 @@
                         "nestedCollections": false,
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": [
-                                "manyToOne"
-                            ]
+                            "allowedRelationTypes": ["manyToOne"]
                         },
                         "actions": {
                             "enabled": true
@@ -7017,9 +6920,7 @@
                         "sortOrder": 5
                     }
                 ],
-                "hubs": [
-                    "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                ]
+                "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"]
             },
             "01a16f7f-b7bd-7abb-851e-10c66c53e9c7": {
                 "id": "01a16f7f-b7bd-7abb-851e-10c66c53e9c7",
@@ -7087,9 +6988,7 @@
                         "managed": true,
                         "presetCodename": "object"
                     },
-                    "hubs": [
-                        "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                    ],
+                    "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"],
                     "sortOrder": 14,
                     "marketingRole": "footerLink",
                     "capabilities": {
@@ -7111,9 +7010,7 @@
                         "nestedCollections": false,
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": [
-                                "manyToOne"
-                            ]
+                            "allowedRelationTypes": ["manyToOne"]
                         },
                         "actions": {
                             "enabled": true
@@ -7604,9 +7501,7 @@
                         "sortOrder": 8
                     }
                 ],
-                "hubs": [
-                    "01a16f7f-b70c-7e70-b55e-b186161dbb25"
-                ]
+                "hubs": ["01a16f7f-b70c-7e70-b55e-b186161dbb25"]
             },
             "01a16f7f-b6f1-75dd-9311-8bfce35b966a": {
                 "id": "01a16f7f-b6f1-75dd-9311-8bfce35b966a",
@@ -7773,19 +7668,8 @@
                             "enabled": true,
                             "storage": "objectConfig",
                             "defaultFormat": "editorjs",
-                            "supportedFormats": [
-                                "editorjs"
-                            ],
-                            "allowedBlockTypes": [
-                                "paragraph",
-                                "header",
-                                "list",
-                                "quote",
-                                "table",
-                                "image",
-                                "embed",
-                                "delimiter"
-                            ],
+                            "supportedFormats": ["editorjs"],
+                            "allowedBlockTypes": ["paragraph", "header", "list", "quote", "table", "image", "embed", "delimiter"],
                             "maxBlocks": 500
                         },
                         "layoutConfig": {
@@ -8098,11 +7982,7 @@
                 },
                 "ui": {
                     "iconName": "IconFiles",
-                    "tabs": [
-                        "general",
-                        "hubs",
-                        "modules"
-                    ],
+                    "tabs": ["general", "hubs", "modules"],
                     "sidebarSection": "objects",
                     "sidebarOrder": 50,
                     "nameKey": "metahubs:enumerations.title",
@@ -8603,9 +8483,7 @@
                 },
                 "ui": {
                     "iconName": "IconHierarchy",
-                    "tabs": [
-                        "general"
-                    ],
+                    "tabs": ["general"],
                     "sidebarSection": "objects",
                     "sidebarOrder": 10,
                     "nameKey": "metahubs:hubs.title"
@@ -8785,9 +8663,7 @@
                     "nestedCollections": false,
                     "relations": {
                         "enabled": true,
-                        "allowedRelationTypes": [
-                            "manyToOne"
-                        ]
+                        "allowedRelationTypes": ["manyToOne"]
                     },
                     "actions": {
                         "enabled": true
@@ -8832,14 +8708,7 @@
                 },
                 "ui": {
                     "iconName": "IconDatabase",
-                    "tabs": [
-                        "behavior",
-                        "general",
-                        "hubs",
-                        "layout",
-                        "ledgerSchema",
-                        "modules"
-                    ],
+                    "tabs": ["behavior", "general", "hubs", "layout", "ledgerSchema", "modules"],
                     "sidebarSection": "objects",
                     "sidebarOrder": 30,
                     "nameKey": "metahubs:objects.title",
@@ -9359,19 +9228,8 @@
                         "enabled": true,
                         "storage": "objectConfig",
                         "defaultFormat": "editorjs",
-                        "supportedFormats": [
-                            "editorjs"
-                        ],
-                        "allowedBlockTypes": [
-                            "paragraph",
-                            "header",
-                            "list",
-                            "quote",
-                            "table",
-                            "image",
-                            "embed",
-                            "delimiter"
-                        ],
+                        "supportedFormats": ["editorjs"],
+                        "allowedBlockTypes": ["paragraph", "header", "list", "quote", "table", "image", "embed", "delimiter"],
                         "maxBlocks": 500
                     },
                     "layoutConfig": {
@@ -9388,13 +9246,7 @@
                 },
                 "ui": {
                     "iconName": "IconFileText",
-                    "tabs": [
-                        "content",
-                        "general",
-                        "hubs",
-                        "layout",
-                        "modules"
-                    ],
+                    "tabs": ["content", "general", "hubs", "layout", "modules"],
                     "sidebarSection": "objects",
                     "sidebarOrder": 20,
                     "nameKey": "metahubs:pages.title",
@@ -9874,11 +9726,7 @@
                 },
                 "ui": {
                     "iconName": "IconStack2",
-                    "tabs": [
-                        "general",
-                        "hubs",
-                        "modules"
-                    ],
+                    "tabs": ["general", "hubs", "modules"],
                     "sidebarSection": "objects",
                     "sidebarOrder": 40,
                     "nameKey": "metahubs:sets.title",
@@ -15599,16 +15447,6 @@
         ],
         "layoutWidgetOverrides": [],
         "defaultLayoutId": "01a16f7f-b6d8-74cb-9a43-86992d1817ec",
-        "layoutConfig": {
-            "themeMode": "system",
-            "__layout": {
-                "zoneSettings": {
-                    "marketing-header": {
-                        "position": "fixed"
-                    }
-                }
-            }
-        },
         "settings": [
             {
                 "key": "application.templateKey",
@@ -15697,5 +15535,5 @@
         ],
         "generatedAt": "2026-10-24T20:00:08.849Z"
     },
-    "snapshotHash": "a8ee7c30db17ba8057bf841ba0a4f1427301ccf67f5ef91fd978110b987f40fa"
+    "snapshotHash": "9fa8c3bf7a9fe9b40f397750b235ea9c741c40d6d5d0b7b4cc9c677b74d254d0"
 }

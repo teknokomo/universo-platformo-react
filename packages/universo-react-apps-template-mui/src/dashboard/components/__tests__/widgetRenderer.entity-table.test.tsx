@@ -65,6 +65,21 @@ describe('Dashboard runtime widget ownership renderers', () => {
         expect(screen.getByText('Published')).toBeInTheDocument()
     })
 
+    it('keeps public record-detail columns usable on narrow screens', () => {
+        renderRuntimeWidget(
+            placement('detailsTable', {
+                status: 'ready',
+                data: {
+                    kind: 'record',
+                    title: 'Focused record detail',
+                    fields: [{ label: 'Description', value: 'A long safe record description that must remain readable on mobile.' }]
+                }
+            })
+        )
+
+        expect(screen.getByTestId('runtime-table')).toHaveAttribute('data-min-widths', '100,120')
+    })
+
     it.each(['table', 'card'] as const)(
         'does not expose serialized resource content or internal identifiers in the normal %s view',
         async (defaultViewMode) => {
@@ -566,21 +581,24 @@ describe('Dashboard runtime widget ownership renderers', () => {
                     kind: 'table',
                     columns: [
                         { key: 'title', label: 'Название' },
-                        { key: 'status', label: 'Статус' }
+                        { key: 'status', label: 'Статус' },
+                        { key: 'description', label: 'Описание' }
                     ],
                     rows: [
                         {
                             key: 'algebra',
                             cells: [
                                 { key: 'title', value: 'Алгебра' },
-                                { key: 'status', value: 'Опубликовано' }
+                                { key: 'status', value: 'Опубликовано' },
+                                { key: 'description', value: 'A second related record confirms the panel renders multiple rows.' }
                             ]
                         },
                         {
                             key: 'geometry',
                             cells: [
                                 { key: 'title', value: 'Геометрия' },
-                                { key: 'status', value: 'Черновик' }
+                                { key: 'status', value: 'Черновик' },
+                                { key: 'description', value: 'A complete description remains readable in the card view.' }
                             ]
                         }
                     ]
@@ -600,7 +618,10 @@ describe('Dashboard runtime widget ownership renderers', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Карточками' }))
         expect(screen.queryByTestId('runtime-table')).not.toBeInTheDocument()
         expect(screen.getByText('Алгебра')).toBeInTheDocument()
-        expect(screen.getByText('Статус: Опубликовано')).toBeInTheDocument()
+        expect(screen.getByText(/Статус: Опубликовано/u)).toBeInTheDocument()
+        const fullCardDescription = screen.getByText(/A second related record confirms the panel renders multiple rows\./u)
+        expect(fullCardDescription).not.toHaveAttribute('data-runtime-text-preview')
+        expect(fullCardDescription.closest('.MuiCard-root')).toHaveStyle({ height: 'auto', minHeight: '180px' })
         expect(screen.getByRole('button', { name: 'Табличный вид' })).toBeInTheDocument()
         fireEvent.click(screen.getByRole('button', { name: 'Табличный вид' }))
         expect(screen.getByTestId('runtime-table')).toHaveAttribute('data-rows', '1')

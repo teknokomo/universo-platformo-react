@@ -8,10 +8,16 @@ export const MockCustomizedDataGrid = ({
     columns: Array<{
         field: string
         headerName?: string
+        minWidth?: number
         renderCell?: (params: { id: string | number }) => ReactNode
     }>
 }) => (
-    <div data-testid='runtime-table' data-rows={rows.length} data-columns={columns.map(({ field }) => field).join(',')}>
+    <div
+        data-testid='runtime-table'
+        data-rows={rows.length}
+        data-columns={columns.map(({ field }) => field).join(',')}
+        data-min-widths={columns.map(({ minWidth }) => minWidth ?? '').join(',')}
+    >
         {rows.map((row) =>
             columns.map(({ field, renderCell }) => (
                 <span key={`${String(row.id)}-${field}`}>

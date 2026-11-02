@@ -2,18 +2,16 @@
 
 > Current-focus memory only. Completed implementation history lives in [progress.md](progress.md); actionable checklists live in [tasks.md](tasks.md).
 
-## Current Focus: Interpretation Network public runtime and advanced workspace closeout (2026-10-24)
+## Current Focus: Messenger App implementation and QA closeout (2026-11-01)
 
--   Implementation phases IN-00–IN-14 and QA remediation items IN-QA2-01–IN-QA2-09 are complete; the current checklist and final evidence are recorded at the top of `tasks.md` and in the latest dated entry in `progress.md`.
--   Public applications render through the canonical shared Dashboard and Interpretation Network runtime in explicit read-only mode, including empty-workspace states. The runtime does not substitute a separate anonymous shell or expose authoring mutations.
--   Saved structures can be inserted beneath a selected cell. The aggregate copy path remaps UUID v7 identities, parent links, coordinates, and material references while preserving source immutability and enforcing authorization/version checks.
--   Generic parent/child deletion cannot orphan template materials; workspace copying preserves the complete template/material aggregate or fails closed. PostgreSQL integration tests cover these integrity and concurrency contracts.
--   The HEX color picker uses the existing MUI control primitives with aligned field geometry. Desktop and mobile screenshots were inspected, and browser assertions cover responsive geometry.
--   Final minimal-Supabase gate passed at `tools/testing/e2e/.artifacts/interpretation-network-verification/2026-10-24T15-24-45-650Z/manifest.json`: build 36/36, backend Jest 27 suites / 470 tests, browser suites 2 + 2 + 21 + 3 EN + 3 RU + 2 GitBook, PostgreSQL integration 36/36 with zero skipped, and fixture/docs/isolation/drift checks passed.
--   `CURRENT_SCHEMA_SNAPSHOT_VERSION` remains `2`; the Interpretation Network seed remains `2.29.0`; the metahub template version remains `0.1.0`. No legacy adapter or version increase was introduced.
--   Screenshot drift was verified with a temporary isolated Git index, preserving the user's real staged set. No staging or commit was performed; the checkout still contains extensive unrelated dirty work.
--   Scoped OntoIndex verification passed for its explicit five-file/six-test inventory; commit-based graph data and its 200-file scan cap do not provide full impact coverage for this dirty tree. Thermos Autoreview ended `UNAVAILABLE/ENGINE_TRANSPORT_ERROR` after three attempts, so no automated clean-review verdict is claimed.
--   The new response-close guard and its focused core-backend tests address a possible post-disconnect RLS lease query. The final full gate had no recurrence, but the original log did not prove a user-visible failure.
+-   The implementation and repository-local plan phases for the third `messenger-app` layout/runtime, catalog visibility, and MAX/Telegram binding lifecycle are complete. The up-to-date remediation checklist is at the top of `tasks.md`; implementation and QA evidence are in the latest Messenger entries in `progress.md` and the linked plan.
+-   The authenticated-member runtime now resolves required source-bound widget data through the protected effective-layout path. The browser acceptance covers authenticated and anonymous runtime paths, catalog visibility, Retry behavior, localized content, and read-only access boundaries.
+-   Bot-binding writes cross the server-owned atomic database boundary. Authenticated direct table/audit writes are denied, UUID v7 identity and irreversible release invariants are enforced, and PostgreSQL coverage exercises authorization, copy/delete, concurrency, and lifecycle behavior.
+-   Runtime template selection is exhaustive across Dashboard, Marketing Page, and Messenger. Messenger nested authoring uses the existing placement model; public runtime rendering reuses the shared Dashboard renderer and existing MUI card/grid primitives.
+-   The final `pnpm test:e2e:messenger-app:verify:local-supabase` gate passed: workspace build 36/36 tasks, focused package suites, fixture generator 2/2, fixture contract 15/15, management/public Messenger browser flows 2/2 each, runtime UX oracle 9/9, and PostgreSQL integration 11 suites / 53 tests. Desktop English and mobile Russian Playwright baselines were visually inspected; the dedicated E2E Supabase profile was stopped.
+-   Focused Applications Backend and apps-template lint passed; Prettier and `git diff --check` passed. Applications Backend lint reports 17 warnings in unrelated existing test files. The root package version is `0.88.0-alpha` in the worktree versus `0.86.0-alpha` at `HEAD`; this pre-existing diff was preserved. No schema, structure, or metahub-template version was increased.
+-   Scoped Thermos/security review reported PASS with no actionable findings. Autoreview returned `UNAVAILABLE/BUNDLE_TOO_LARGE`; OntoIndex is commit-based and has no working-tree overlay for this dirty source, so neither broad automated review nor complete graph-backed impact is claimed. Actual Telegram/MAX client acceptance remains INCOMPLETE; no production system was tested.
+-   No files were staged or committed. Preserve unrelated dirty worktree changes.
 
 ## Preserved platform/runtime baseline
 
@@ -35,8 +33,8 @@
 
 ## Immediate Next Step / Blocker
 
--   No implementation blocker remains for the current Interpretation Network task. Wait for the next user instruction; preserve the existing staged and unrelated dirty worktree state.
--   Do not claim a successful automated Thermos verdict or complete graph-backed impact analysis: both limitations are recorded above and in `progress.md`.
+-   No repository-local Messenger implementation blocker remains. The only outstanding acceptance is actual opening of generated links in eligible Telegram and MAX clients; keep this explicitly INCOMPLETE until those external clients are exercised.
+-   Do not claim Autoreview PASS or complete graph-backed impact analysis: the broad Autoreview bundle was unavailable and OntoIndex does not index the current dirty source overlay.
 
 ## Runtime / Layout Contracts To Preserve
 

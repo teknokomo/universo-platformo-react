@@ -236,9 +236,11 @@ router.use(async (err: Error & { statusCode?: number }, req: Request, res: Respo
 
     if (isOptimisticLockError(err)) {
         const conflict = err.conflict
-        let updatedByEmail = conflict?.updatedByEmail ?? null
+        const { updatedByEmail: _existingUpdatedByEmail, ...publicConflict } = conflict ?? {}
+        const hasUpdatedBy = typeof conflict?.updatedBy === 'string' && conflict.updatedBy.length > 0
+        let updatedByEmail = hasUpdatedBy ? conflict?.updatedByEmail ?? null : undefined
 
-        if (!updatedByEmail && conflict?.updatedBy) {
+        if (hasUpdatedBy && !updatedByEmail && conflict?.updatedBy) {
             updatedByEmail = await lookupUserEmail(getPoolExecutor(), conflict.updatedBy)
         }
 
@@ -246,7 +248,7 @@ router.use(async (err: Error & { statusCode?: number }, req: Request, res: Respo
         return res.status(409).json({
             error: 'Conflict: entity was modified by another user',
             code: err.code,
-            conflict: { ...conflict, updatedByEmail }
+            conflict: { ...publicConflict, ...(hasUpdatedBy ? { updatedByEmail } : {}) }
         })
     }
 

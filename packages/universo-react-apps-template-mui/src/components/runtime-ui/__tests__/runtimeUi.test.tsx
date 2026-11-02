@@ -87,6 +87,34 @@ describe('runtime UI primitives', () => {
         expect(screen.getByRole('combobox')).toBeVisible()
     })
 
+    it('renders full table-row cards without clamping record names or multiline descriptions', () => {
+        const longTitle = 'A complete related record title that must wrap beside its action without being clipped'
+        const longDescription =
+            'Related records: Focused record detail\nDescription: A second related record confirms the panel renders multiple rows.'
+
+        render(
+            <>
+                <ItemCard data={{ name: 'Compact preview', description: longDescription }} />
+                <ItemCard
+                    contentDisplayMode='full'
+                    headerAction={<button aria-label='Open related record actions'>More</button>}
+                    data={{ name: longTitle, description: longDescription }}
+                />
+            </>
+        )
+
+        const [previewDescription, fullDescription] = screen.getAllByText(/A second related record confirms/u)
+        if (!previewDescription || !fullDescription) throw new Error('Both preview and full related record descriptions should render')
+        expect(screen.getByText(longTitle, { exact: true })).toHaveStyle({ display: 'block', overflow: 'visible' })
+        expect(previewDescription).toHaveAttribute('data-runtime-text-preview', 'true')
+        expect(fullDescription).not.toHaveAttribute('data-runtime-text-preview')
+        expect(screen.getByRole('button', { name: 'Open related record actions' })).toBeVisible()
+        expect(fullDescription).toHaveTextContent('the panel renders multiple rows.')
+        expect(fullDescription).toHaveStyle({ display: 'block', overflow: 'visible', whiteSpace: 'pre-line' })
+        const fullCard = screen.getByText(longTitle, { exact: true }).closest('[data-testid="runtime-item-card"]')
+        expect(fullCard).toHaveStyle({ height: 'auto', minHeight: '180px' })
+    })
+
     it('does not expose row IDs or raw JSON in generic card and default table fallbacks', () => {
         const rawId = '017f22e2-79b0-7cc3-98c4-dc0c0c073984'
 

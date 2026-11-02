@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import { ensurePlatformMigrations, loadLocalSupabaseDatabaseUrl } from './localSupabaseEnv.mjs'
 
 /**
- * Runs the application-alias and global-short-link real-PostgreSQL suites against the
+ * Runs the application-alias, catalog-visibility, bot-binding and global-short-link real-PostgreSQL suites against the
  * local E2E Supabase database. These suites are skipped without
  * DATABASE_TEST_URL, so CI would stay green while never exercising alias
  * uniqueness, reservation, slug reuse, lock races, and SECURITY DEFINER authorization; this runner
@@ -32,14 +32,23 @@ const child = spawn(
         '--runInBand',
         'src/tests/persistence/applicationAliasesIntegration.test.ts',
         'src/tests/persistence/applicationAliasesAuthorization.integration.test.ts',
-        'src/tests/persistence/globalShortLinksAuthorization.integration.test.ts'
+        'src/tests/persistence/globalShortLinksAuthorization.integration.test.ts',
+        'src/tests/persistence/publicGuestLayoutLock.integration.test.ts',
+        'src/tests/persistence/applicationBotBindings.integration.test.ts',
+        'src/tests/persistence/applicationBotBindings.access.integration.test.ts',
+        'src/tests/persistence/applicationBotBindings.lifecycle.integration.test.ts',
+        'src/tests/persistence/applicationBotBindings.concurrency.integration.test.ts',
+        'src/tests/persistence/applicationBotBindings.constraints.integration.test.ts',
+        'src/tests/persistence/applicationCopyConsistency.integration.test.ts',
+        'src/tests/persistence/applicationsShowInAppList.integration.test.ts'
     ],
     {
         stdio: 'inherit',
         shell: process.platform === 'win32',
         env: {
             ...process.env,
-            DATABASE_TEST_URL: databaseUrl
+            DATABASE_TEST_URL: databaseUrl,
+            REQUIRE_DATABASE_TESTS: '1'
         }
     }
 )

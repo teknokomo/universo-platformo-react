@@ -25,7 +25,6 @@ export interface PublicationSnapshotHashInput {
     layoutZoneWidgets?: unknown
     layoutWidgetOverrides?: unknown
     defaultLayoutId?: unknown
-    layoutConfig?: unknown
     settings?: unknown
     playcanvasProjects?: unknown
     playcanvasRuntimeManifests?: unknown
@@ -737,7 +736,6 @@ export const normalizePublicationSnapshotForHash = (
         layoutZoneWidgets,
         layoutWidgetOverrides,
         defaultLayoutId: snapshot.defaultLayoutId ?? null,
-        layoutConfig: snapshot.layoutConfig ?? {},
         settings
     }
 }

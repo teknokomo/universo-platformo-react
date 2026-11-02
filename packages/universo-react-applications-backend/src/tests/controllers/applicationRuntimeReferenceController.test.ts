@@ -91,7 +91,16 @@ describe('application runtime reference controller', () => {
     it('returns a generic not-found response for malformed or unknown references', async () => {
         const { app, executor } = buildApp()
 
-        const malformed = await request(app).get('/runtime-reference/bad%252Falias')
+        const missing = await request(app).get('/runtime-reference/')
+        expect(missing.status).toBe(404)
+        expect(executor.query).not.toHaveBeenCalled()
+
+        const repeated = await request(app).get('/runtime-reference/meridian-73,private-app')
+        expect(repeated.status).toBe(404)
+        expect(repeated.body).toEqual({ error: 'Application not found' })
+        expect(executor.query).not.toHaveBeenCalled()
+
+        const malformed = await request(app).get('/runtime-reference/bad%2Falias')
         expect(malformed.status).toBe(404)
         expect(malformed.body).toEqual({ error: 'Application not found' })
         expect(executor.query).not.toHaveBeenCalled()

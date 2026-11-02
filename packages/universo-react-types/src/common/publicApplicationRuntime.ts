@@ -10,6 +10,16 @@ import { dashboardSideMenuConfigSchema } from './dashboardLayout'
 import { interpretationNetworkCellStylePolicySchema, interpretationNetworkWorkspaceWidgetConfigSchema } from './interpretationNetworkLayout'
 import { publicMarketingPageDataSchema } from './marketingPage'
 import { runtimePageBlockSchema } from './pageBlocks'
+import { publicMessengerApplicationRuntimeSchema } from './publicMessengerRuntime'
+
+export {
+    isPublicMessengerCredentialUrlParameter,
+    isPublicMessengerTextSafe,
+    isPublicPersonalIdentityFieldName,
+    publicMessengerAppRuntimeSchema,
+    publicMessengerPlacementSchema
+} from './publicMessengerRuntime'
+export type { PublicMessengerAppRuntime, PublicMessengerPlacement } from './publicMessengerRuntime'
 
 /** Bound the anonymous runtime bootstrap response before buffering it in a browser. */
 export const MAX_PUBLIC_APPLICATION_RUNTIME_RESPONSE_BYTES = 4 * 1024 * 1024
@@ -550,10 +560,11 @@ const publicDashboardApplicationRuntimeSchema = z
     })
     .strict()
 
-/** Strict public application contract. Marketing retains its existing bounded projection. */
+/** Strict public application contract with bounded renderer-specific anonymous projections. */
 export const publicApplicationRuntimeSchema = z.discriminatedUnion('templateKey', [
     publicMarketingApplicationRuntimeSchema,
-    publicDashboardApplicationRuntimeSchema
+    publicDashboardApplicationRuntimeSchema,
+    publicMessengerApplicationRuntimeSchema
 ])
 export type PublicApplicationRuntime = z.infer<typeof publicApplicationRuntimeSchema>
 

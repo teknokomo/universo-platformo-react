@@ -22,6 +22,17 @@ describe('public UI route matching', () => {
 })
 
 describe('public API route matching', () => {
+    it('allows only a valid public Messenger attribution reference and short id', () => {
+        const applicationId = '019e8381-8c57-7d73-9f15-a9c27237c703'
+        const shortId = 'A'.repeat(22)
+
+        expect(isWhitelistedApiPath(`/api/v1/public/applications/${applicationId}/attribution/${shortId}`)).toBe(true)
+        expect(isWhitelistedApiPath(`/api/v1/public/applications/meridian-73/attribution/${shortId}`)).toBe(true)
+        expect(isWhitelistedApiPath(`/api/v1/public/applications/UPPERCASE/attribution/${shortId}`)).toBe(false)
+        expect(isWhitelistedApiPath(`/api/v1/public/applications/meridian-73/attribution/${'A'.repeat(21)}`)).toBe(false)
+        expect(isWhitelistedApiPath(`/api/v1/public/applications/meridian-73/attribution/${shortId}/extra`)).toBe(false)
+    })
+
     it('allows only the exact public application runtime endpoint', () => {
         expect(isWhitelistedApiPath('/api/v1/public/applications/consortium/runtime')).toBe(true)
         expect(

@@ -1826,7 +1826,11 @@ paths:
       parameters: []
       responses:
         "200":
-          $ref: "#/components/responses/GenericSuccess"
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationListResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -1856,7 +1860,11 @@ paths:
         "200":
           $ref: "#/components/responses/GenericSuccess"
         "201":
-          $ref: "#/components/responses/CreatedSuccess"
+          description: Successful create or action response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationControlSummary"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -1872,11 +1880,11 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/GenericObject"
+              $ref: "#/components/schemas/ApplicationCreateRequest"
       security: *a1
   /applications/{applicationId}:
     get:
@@ -1897,7 +1905,11 @@ paths:
           description: applicationId path parameter.
       responses:
         "200":
-          $ref: "#/components/responses/GenericSuccess"
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationControlSummary"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -1931,7 +1943,11 @@ paths:
           description: applicationId path parameter.
       responses:
         "200":
-          $ref: "#/components/responses/GenericSuccess"
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationControlSummary"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -1947,11 +1963,11 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/GenericObject"
+              $ref: "#/components/schemas/ApplicationUpdateRequest"
       security: *a1
     delete:
       tags:
@@ -2099,6 +2115,185 @@ paths:
             schema:
               $ref: "#/components/schemas/GenericObject"
       security: *a1
+  /applications/{applicationId}/bot-bindings:
+    get:
+      tags:
+        - Applications
+      summary: GET /applications/{applicationId}/bot-bindings
+      description: Lists bot bindings for the requested Application after owner/admin
+        authorization.
+      operationId: Applications_get_applications_applicationId_bot_bindings
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+      responses:
+        "200":
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationBotBindingListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+    post:
+      tags:
+        - Applications
+      summary: POST /applications/{applicationId}/bot-bindings
+      description: Creates a manual MAX or Telegram bot binding. Bot tokens, init
+        data, messenger user identifiers, and contact details are not accepted
+        or stored.
+      operationId: Applications_post_applications_applicationId_bot_bindings
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "201":
+          description: Successful create or action response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationBotBinding"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationBotBindingCreateRequest"
+      security: *a1
+  /applications/{applicationId}/bot-bindings/{bindingId}:
+    patch:
+      tags:
+        - Applications
+      summary: PATCH /applications/{applicationId}/bot-bindings/{bindingId}
+      description: Updates a binding with optimistic version checking. The short_id is
+        immutable.
+      operationId: Applications_patch_applications_applicationId_bot_bindings_bindingId
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: bindingId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: bindingId path parameter.
+      responses:
+        "200":
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationBotBinding"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationBotBindingUpdateRequest"
+      security: *a1
+    delete:
+      tags:
+        - Applications
+      summary: Release an Application bot binding
+      description: Irreversibly releases a bot binding using expectedVersion. The
+        historical bot identity and short_id remain reserved.
+      operationId: Applications_delete_applications_applicationId_bot_bindings_bindingId
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: bindingId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: bindingId path parameter.
+      responses:
+        "200":
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationBotBinding"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationBotBindingReleaseRequest"
   /applications/{applicationId}/connectors:
     get:
       tags:
@@ -2465,7 +2660,11 @@ paths:
         "200":
           $ref: "#/components/responses/GenericSuccess"
         "201":
-          $ref: "#/components/responses/CreatedSuccess"
+          description: Successful create or action response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationControlSummary"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -2485,7 +2684,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/GenericObject"
+              $ref: "#/components/schemas/ApplicationCopyRequest"
       security: *a1
   /applications/{applicationId}/join:
     post:
@@ -7213,11 +7412,11 @@ paths:
     get:
       tags:
         - Applications
-      summary: GET /applications/runtime-reference/{applicationRef}
-      description: Auto-generated from
-        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+      summary: Resolve an authenticated application runtime reference
+      description: Resolves an Application UUID or active alias for the authenticated
+        user, then applies the normal Application access guard. Returns the
+        application ID required by the runtime and uses a generic not-found
+        response for inaccessible references.
       operationId: Applications_get_applications_runtime_reference_applicationRef
       parameters:
         - name: applicationRef
@@ -7228,7 +7427,11 @@ paths:
           description: applicationRef path parameter.
       responses:
         "200":
-          $ref: "#/components/responses/GenericSuccess"
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -16798,6 +17001,47 @@ paths:
             schema:
               $ref: "#/components/schemas/GenericObject"
       security: *a1
+  /public/applications/{applicationRef}/attribution/{shortId}:
+    get:
+      tags:
+        - Applications
+      summary: Resolve public messenger attribution for an Application
+      description: Resolves applicationRef as a public alias or UUID before looking up
+        shortId within that Application. Returns platform=null for an invalid or
+        unavailable public reference, unknown, cross-Application, disabled,
+        released, deleted, or non-public binding and never returns the
+        binding-to-Application mapping.
+      operationId: Applications_get_public_applications_applicationRef_attribution_shortId
+      parameters:
+        - name: applicationRef
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationRef path parameter.
+        - name: shortId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: shortId path parameter.
+      responses:
+        "200":
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicApplicationAttributionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /public/applications/{applicationRef}/runtime:
     get:
       tags:
@@ -17281,6 +17525,317 @@ components:
       additionalProperties: true
       description: Generic JSON object used where the route inventory is current but
         payload-specific schemas remain handler-defined.
+    ApplicationLocalizedInput:
+      oneOf:
+        - type: string
+        - type: object
+          additionalProperties:
+            type: string
+    ApplicationNameInput:
+      oneOf:
+        - type: string
+          minLength: 1
+          maxLength: 255
+        - type: object
+          additionalProperties:
+            type: string
+    ApplicationCreateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          $ref: "#/components/schemas/ApplicationNameInput"
+        description:
+          $ref: "#/components/schemas/ApplicationLocalizedInput"
+        namePrimaryLocale:
+          type: string
+        descriptionPrimaryLocale:
+          type: string
+        isPublic:
+          type: boolean
+          default: false
+        showInAppList:
+          type: boolean
+          default: true
+          description: Controls public catalog discovery independently of Application
+            access.
+      required:
+        - name
+    ApplicationCopyRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          $ref: "#/components/schemas/ApplicationNameInput"
+        description:
+          $ref: "#/components/schemas/ApplicationLocalizedInput"
+        settings:
+          $ref: "#/components/schemas/GenericObject"
+        namePrimaryLocale:
+          type: string
+        descriptionPrimaryLocale:
+          type: string
+        isPublic:
+          type: boolean
+        showInAppList:
+          type: boolean
+          description: Overrides the source Application catalog visibility when supplied.
+        copyConnector:
+          type: boolean
+        copyAccess:
+          type: boolean
+          default: false
+    ApplicationUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          $ref: "#/components/schemas/ApplicationNameInput"
+        description:
+          $ref: "#/components/schemas/ApplicationLocalizedInput"
+        settings:
+          $ref: "#/components/schemas/GenericObject"
+        namePrimaryLocale:
+          type: string
+        descriptionPrimaryLocale:
+          type: string
+        isPublic:
+          type: boolean
+        workspacesEnabled:
+          type: boolean
+          description: Immutable after Application creation.
+        showInAppList:
+          type: boolean
+        expectedVersion:
+          type: integer
+          minimum: 1
+      anyOf:
+        - not:
+            required:
+              - showInAppList
+        - required:
+            - showInAppList
+            - expectedVersion
+    ApplicationControlSummary:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          $ref: "#/components/schemas/GenericObject"
+        description:
+          oneOf:
+            - $ref: "#/components/schemas/GenericObject"
+            - type: "null"
+        settings:
+          $ref: "#/components/schemas/GenericObject"
+        isPublic:
+          type: boolean
+        showInAppList:
+          type: boolean
+        workspacesEnabled:
+          type: boolean
+        version:
+          type: integer
+          minimum: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - isPublic
+        - showInAppList
+        - workspacesEnabled
+        - version
+    ApplicationListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApplicationControlSummary"
+        total:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+          minimum: 0
+        offset:
+          type: integer
+          minimum: 0
+      required:
+        - items
+        - total
+        - limit
+        - offset
+    ApplicationBotPlatform:
+      type: string
+      enum:
+        - max
+        - telegram
+    ApplicationBotBindingStatus:
+      type: string
+      enum:
+        - draft
+        - active
+        - disabled
+    ApplicationBotBinding:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        applicationId:
+          type: string
+          format: uuid
+        platform:
+          $ref: "#/components/schemas/ApplicationBotPlatform"
+        botUsername:
+          type: string
+          minLength: 5
+          maxLength: 60
+          description: Canonical provider bot username; platform-specific validation
+            applies.
+        displayName:
+          type:
+            - string
+            - "null"
+          maxLength: 120
+        status:
+          $ref: "#/components/schemas/ApplicationBotBindingStatus"
+        shortId:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{22}$
+          minLength: 22
+          maxLength: 22
+        releasedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        version:
+          type: integer
+          minimum: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - applicationId
+        - platform
+        - botUsername
+        - displayName
+        - status
+        - shortId
+        - releasedAt
+        - version
+        - createdAt
+        - updatedAt
+    ApplicationBotBindingListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApplicationBotBinding"
+      required:
+        - items
+    ApplicationBotBindingCreateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        platform:
+          $ref: "#/components/schemas/ApplicationBotPlatform"
+        botUsername:
+          type: string
+          minLength: 1
+          maxLength: 64
+        displayName:
+          type:
+            - string
+            - "null"
+          minLength: 1
+          maxLength: 120
+      required:
+        - platform
+        - botUsername
+      allOf:
+        - if:
+            properties:
+              platform:
+                const: max
+            required:
+              - platform
+          then:
+            properties:
+              botUsername:
+                type: string
+                minLength: 11
+                maxLength: 60
+                pattern: ^[a-z][a-z0-9_]{7,56}bot$
+      description: Contains no token, init data, messenger-user identity, phone, or
+        email fields. MAX usernames must be lowercase, 11-60 characters, and end
+        with bot or _bot.
+    ApplicationBotBindingUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        botUsername:
+          type: string
+          minLength: 1
+          maxLength: 64
+        displayName:
+          type:
+            - string
+            - "null"
+          minLength: 1
+          maxLength: 120
+        status:
+          $ref: "#/components/schemas/ApplicationBotBindingStatus"
+        expectedVersion:
+          type: integer
+          minimum: 1
+      required:
+        - expectedVersion
+      anyOf:
+        - required:
+            - botUsername
+        - required:
+            - displayName
+        - required:
+            - status
+      description: Username validation uses the stored platform. MAX usernames must be
+        lowercase, 11-60 characters, and end with bot or _bot.
+    ApplicationBotBindingReleaseRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+      required:
+        - expectedVersion
+    PublicApplicationAttributionResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        platform:
+          oneOf:
+            - $ref: "#/components/schemas/ApplicationBotPlatform"
+            - type: "null"
+      required:
+        - platform
+      description: The response never includes a binding id or Application id.
     MetahubWidgetBindingSelectorInput:
       oneOf:
         - type: object

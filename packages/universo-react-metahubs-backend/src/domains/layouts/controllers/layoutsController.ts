@@ -1,12 +1,9 @@
 import { z } from 'zod'
 import {
-    APPLICATION_TEMPLATE_REGISTRY,
+    buildLayoutWidgetMetadataResponse,
     applicationTemplateKeySchema,
     getLayoutWidgetDefinition,
-    LAYOUT_WIDGET_DEFINITIONS,
-    LAYOUT_ZONE_DEFINITIONS,
-    decodeLayoutConfigEnvelope,
-    type ApplicationTemplateKey
+    decodeLayoutConfigEnvelope
 } from '@universo-react/types'
 import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
 import {
@@ -379,18 +376,7 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
 
     const widgetsObject = createHandler(async ({ req, res }) => {
         if (!parseUuidV7Param(req.params.layoutId)) return res.status(400).json({ error: 'Invalid layout ID' })
-
-        const items = LAYOUT_WIDGET_DEFINITIONS.map((widget) => ({ ...widget }))
-        const templates = (Object.keys(APPLICATION_TEMPLATE_REGISTRY) as ApplicationTemplateKey[]).map((templateKey) => ({
-            ...APPLICATION_TEMPLATE_REGISTRY[templateKey],
-            zones: LAYOUT_ZONE_DEFINITIONS.filter((zone) => zone.templateKey === templateKey),
-            widgets: items.filter((widget) => widget.supportedTemplates.includes(templateKey))
-        }))
-
-        return res.json({
-            items,
-            templates
-        })
+        return res.json(buildLayoutWidgetMetadataResponse())
     })
 
     const listZoneWidgets = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {

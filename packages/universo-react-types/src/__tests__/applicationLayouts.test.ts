@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
     applicationLayoutCompositionSchema,
+    applicationLayoutZoneSchema,
     applicationLayoutConfigResetMutationSchema,
     applicationLayoutContractSchema,
     applicationLayoutMutationSchema,
@@ -25,7 +26,11 @@ import {
     parseApplicationLayoutWidgetConfig,
     runtimeTargetSchema
 } from '../common/applicationLayouts'
+import type { ApplicationLayoutZone } from '../common/applicationLayoutPrimitives'
 import {
+    buildLayoutWidgetMetadataResponse,
+    getLayoutWidgetTemplateMetadataList,
+    getLayoutZonesForTemplate,
     LAYOUT_SEMANTIC_ZONE_MAPPINGS,
     LAYOUT_WIDGET_DEFINITIONS,
     LAYOUT_ZONE_DEFINITIONS,
@@ -35,6 +40,15 @@ import { APPLICATION_TEMPLATE_REGISTRY } from '../common/applicationTemplates'
 import { marketingLayoutWidgetReferenceSchema } from '../common/marketingPage'
 
 describe('application layout widget config contracts', () => {
+    it('keeps Messenger physical zones in the shared application layout type and schema', () => {
+        const messengerZones = ['top', 'center', 'bottom'] as const satisfies readonly ApplicationLayoutZone[]
+
+        expect(messengerZones).toEqual(['top', 'center', 'bottom'])
+        for (const zone of messengerZones) {
+            expect(applicationLayoutZoneSchema.parse(zone)).toBe(zone)
+        }
+    })
+
     it('normalizes strict cell-style policies while allowing an empty preset list', () => {
         expect(interpretationNetworkCellStylePolicySchema.parse(undefined)).toEqual({
             allowedColors: [...INTERPRETATION_NETWORK_DEFAULT_CELL_STYLE_COLORS],
@@ -152,6 +166,22 @@ describe('application layout widget config contracts', () => {
         ).toBe(false)
     })
 
+    it('builds the complete metadata envelope from the canonical template, widget, and zone registries', () => {
+        const response = buildLayoutWidgetMetadataResponse()
+
+        expect(layoutWidgetMetadataResponseSchema.parse(response)).toEqual(response)
+        expect(response.templates.map(({ key }) => key)).toEqual(Object.keys(APPLICATION_TEMPLATE_REGISTRY))
+        expect(getLayoutWidgetTemplateMetadataList()).toEqual(response.templates)
+
+        for (const template of response.templates) {
+            expect(template.zones).toEqual(LAYOUT_ZONE_DEFINITIONS.filter((zone) => zone.templateKey === template.key))
+            expect(template.widgets).toEqual(response.items.filter((widget) => widget.supportedTemplates.includes(template.key)))
+            expect(getLayoutZonesForTemplate(template.key)).toEqual(template.zones.map(({ key }) => key))
+            expect(getLayoutZonesForTemplate(template.key)).toBe(getLayoutZonesForTemplate(template.key))
+            expect(template).toMatchObject(APPLICATION_TEMPLATE_REGISTRY[template.key])
+        }
+    })
+
     it('keeps canonical localized metadata for every layout zone', () => {
         expect(LAYOUT_ZONE_DEFINITIONS).toEqual([
             {
@@ -234,11 +264,36 @@ describe('application layout widget config contracts', () => {
                 labelKey: 'layouts.zones.marketingFooter',
                 defaultLabel: 'Marketing footer',
                 settings: []
+            },
+            {
+                key: 'top',
+                templateKey: 'messenger-app',
+                semanticRegion: 'header',
+                labelKey: 'layouts.zones.top',
+                defaultLabel: 'Top',
+                settings: []
+            },
+            {
+                key: 'center',
+                templateKey: 'messenger-app',
+                semanticRegion: 'main',
+                labelKey: 'layouts.zones.center',
+                defaultLabel: 'Center',
+                settings: []
+            },
+            {
+                key: 'bottom',
+                templateKey: 'messenger-app',
+                semanticRegion: 'footer',
+                labelKey: 'layouts.zones.bottom',
+                defaultLabel: 'Bottom',
+                settings: []
             }
         ])
         expect(LAYOUT_SEMANTIC_ZONE_MAPPINGS.filter((mapping) => mapping.semanticRegion === 'main')).toEqual([
             { semanticRegion: 'main', templateKey: 'dashboard', physicalZone: 'center' },
-            { semanticRegion: 'main', templateKey: 'marketing-page', physicalZone: 'marketing-main' }
+            { semanticRegion: 'main', templateKey: 'marketing-page', physicalZone: 'marketing-main' },
+            { semanticRegion: 'main', templateKey: 'messenger-app', physicalZone: 'center' }
         ])
     })
 

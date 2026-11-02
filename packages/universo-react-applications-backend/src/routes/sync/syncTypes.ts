@@ -298,7 +298,7 @@ export type PersistedAppLayoutZoneWidget = {
     /** Stable logical key for sync-generated runtime widgets without a source row id. */
     sourceLineageKey?: string
     zone: ApplicationLayoutWidget['zone']
-    widgetKey: string
+    widgetKey: ApplicationLayoutWidget['widgetKey']
     sortOrder: number
     config: Record<string, unknown>
     isActive: boolean

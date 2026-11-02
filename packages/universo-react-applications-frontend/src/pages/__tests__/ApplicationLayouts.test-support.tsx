@@ -118,7 +118,8 @@ vi.mock('react-i18next', () => ({
                     localeMocks.language === 'ru'
                         ? 'Этот раздел используется в действии первого экрана. Измените действие или оставьте раздел включённым.'
                         : 'This section is used by a Hero action. Change that action or keep the section active.',
-                'layouts.marketing.resetSuccess': 'Marketing appearance restored to template defaults.'
+                'layouts.marketing.resetSuccess': 'Marketing appearance restored to template defaults.',
+                'templates.messengerApp.name': localeMocks.language === 'ru' ? 'Приложение для мессенджера' : 'Messenger app'
             }
             if (localeMocks.language === 'ru') {
                 dictionary['layouts.widgetCustomization.application'] = 'Настроено в приложении'
@@ -182,8 +183,13 @@ vi.mock('@universo-react/template-mui', async () => {
                     : null}
             </div>
         ),
-        LayoutAuthoringList: ({ items, viewMode, listContentTestId }: any) => (
+        LayoutAuthoringList: ({ items, viewMode, listContentTestId, primaryAction }: any) => (
             <div data-testid={listContentTestId}>
+                {primaryAction ? (
+                    <button type='button' onClick={primaryAction.onClick}>
+                        {primaryAction.label}
+                    </button>
+                ) : null}
                 <div>{viewMode}</div>
                 {(items ?? []).map((item: any) => (
                     <div key={item.id}>

@@ -4,14 +4,11 @@ import type {
     ApplicationLayoutZone,
     ApplicationTemplateKey,
     DashboardWidgetConfig,
-    DashboardLayoutZone,
     InterpretationNetworkWorkspaceWidgetConfig
 } from '@universo-react/types'
 import {
-    DASHBOARD_LAYOUT_ZONES,
     dashboardWidgetConfigSchemaByKey,
     decodeWidgetConfigEnvelope,
-    getDashboardWidgetDefinition,
     getLayoutWidgetAllowedZones,
     getLayoutWidgetDefinition,
     getMarketingActionSectionTargets,
@@ -126,7 +123,7 @@ const initialDashboardBindingEditor: MarketingWidgetBindingEditorState = {
 }
 
 const getDefaultWidgetAuthoringConfig = (widgetKey: ApplicationLayoutWidgetKey): Record<string, unknown> => {
-    const definition = getDashboardWidgetDefinition(widgetKey)
+    const definition = getLayoutWidgetDefinition(widgetKey)
     const config = Object.fromEntries((definition?.presentationFields ?? []).map(({ key, defaultValue }) => [key, defaultValue]))
     if (definition?.initialBindingVariantKey) config.variant = definition.initialBindingVariantKey
     return config
@@ -193,15 +190,18 @@ export function useLayoutWidgetAuthoring({
     } = marketingAuthoring
 
     const templateKey = layout?.templateKey ?? 'dashboard'
-    const getDashboardRendererConfig = useCallback((item: MetahubLayoutZoneWidget): Record<string, unknown> => {
-        const config = item.config && typeof item.config === 'object' && !Array.isArray(item.config) ? item.config : {}
-        return decodeWidgetConfigEnvelope(config, {
-            templateKey: 'dashboard',
-            widgetKey: item.widgetKey,
-            zone: item.zone,
-            rendererConfig: config
-        }).rendererConfig
-    }, [])
+    const getDashboardRendererConfig = useCallback(
+        (item: MetahubLayoutZoneWidget): Record<string, unknown> => {
+            const config = item.config && typeof item.config === 'object' && !Array.isArray(item.config) ? item.config : {}
+            return decodeWidgetConfigEnvelope(config, {
+                templateKey,
+                widgetKey: item.widgetKey,
+                zone: item.zone,
+                rendererConfig: config
+            }).rendererConfig
+        },
+        [templateKey]
+    )
 
     const closeDashboardBinding = useCallback(() => setDashboardBindingEditor(initialDashboardBindingEditor), [])
 
@@ -219,11 +219,10 @@ export function useLayoutWidgetAuthoring({
     const openWidgetEditor = useCallback(
         (zone: ApplicationLayoutZone, item: MetahubLayoutZoneWidget, options?: { openSelectedRecord?: boolean }) => {
             if (openMarketingWidgetEditor(zone, item, options)) return
-            if (item.isInherited || !DASHBOARD_LAYOUT_ZONES.includes(zone as DashboardLayoutZone)) return
-            const dashboardZone = zone as DashboardLayoutZone
+            if (item.isInherited || !getLayoutWidgetAllowedZones(item.widgetKey, templateKey)?.includes(zone)) return
             const config = item.config && typeof item.config === 'object' && !Array.isArray(item.config) ? item.config : {}
             const decodedConfig = decodeWidgetConfigEnvelope(config, {
-                templateKey: 'dashboard',
+                templateKey,
                 widgetKey: item.widgetKey,
                 zone: item.zone,
                 rendererConfig: config
@@ -243,7 +242,7 @@ export function useLayoutWidgetAuthoring({
                 const parsedConfig = dashboardWidgetConfigSchemaByKey.menuWidget.safeParse(rendererConfig)
                 setMenuEditor({
                     open: true,
-                    zone: dashboardZone,
+                    zone,
                     widgetId: item.id,
                     config: parsedConfig.success ? parsedConfig.data : null
                 })
@@ -253,7 +252,7 @@ export function useLayoutWidgetAuthoring({
                 if (!openSelectedRecord && !canManageLayouts) return
                 setDashboardBindingEditor({
                     open: true,
-                    zone: dashboardZone,
+                    zone,
                     widgetId: item.id,
                     sourceWidgetId: item.id,
                     duplicateMode: false,
@@ -268,7 +267,7 @@ export function useLayoutWidgetAuthoring({
                 const parsedConfig = dashboardWidgetConfigSchemaByKey.columnsContainer.safeParse(rendererConfig)
                 setColumnsEditor({
                     open: true,
-                    zone: dashboardZone,
+                    zone,
                     widgetId: item.id,
                     config: parsedConfig.success ? parsedConfig.data : null
                 })
@@ -276,14 +275,14 @@ export function useLayoutWidgetAuthoring({
                 const parsedConfig = dashboardWidgetConfigSchemaByKey.quizWidget.safeParse(rendererConfig)
                 setQuizEditor({
                     open: true,
-                    zone: dashboardZone,
+                    zone,
                     widgetId: item.id,
                     config: parsedConfig.success ? parsedConfig.data : null
                 })
             } else if (item.widgetKey === 'playcanvasCanvas') {
                 setPlayCanvasEditor({
                     open: true,
-                    zone: dashboardZone,
+                    zone,
                     widgetId: item.id,
                     config: rendererConfig
                 })
@@ -308,7 +307,7 @@ export function useLayoutWidgetAuthoring({
                 })
             }
         },
-        [canEditContent, canManageLayouts, getDashboardRendererConfig, isGlobalLayout, openMarketingWidgetEditor, tc, widgetLabelByKey]
+        [canEditContent, canManageLayouts, isGlobalLayout, openMarketingWidgetEditor, tc, templateKey, widgetLabelByKey]
     )
 
     const getWidgetChipLabel = useCallback(
@@ -354,7 +353,7 @@ export function useLayoutWidgetAuthoring({
     const saveDashboardWidget = useCallback(
         async (
             widgetKey: ApplicationLayoutWidgetKey,
-            zone: DashboardLayoutZone | null,
+            zone: ApplicationLayoutZone | null,
             widgetId: string | null,
             config: Record<string, unknown>,
             close: () => void
@@ -488,7 +487,6 @@ export function useLayoutWidgetAuthoring({
             dashboardBindingEditor,
             getExpectedLayoutVersion,
             layoutId,
-            templateKey,
             metahubId,
             nestedPlacementTarget,
             notifyError,
@@ -502,7 +500,7 @@ export function useLayoutWidgetAuthoring({
             const { zone, widgetId, widgetKey } = dashboardBindingEditor
             if (!zone || !widgetId || !widgetKey) return
             const rendererConfig = decodeWidgetConfigEnvelope(config, {
-                templateKey: 'dashboard',
+                templateKey,
                 widgetKey,
                 zone
             }).rendererConfig
@@ -516,7 +514,7 @@ export function useLayoutWidgetAuthoring({
                 config: rendererConfig
             })
         },
-        [closeDashboardBinding, dashboardBindingEditor, tc, widgetLabelByKey]
+        [closeDashboardBinding, dashboardBindingEditor, tc, templateKey, widgetLabelByKey]
     )
 
     const saveInterpretationNetwork = useCallback(
@@ -561,7 +559,7 @@ export function useLayoutWidgetAuthoring({
                 const persistedConfig =
                     currentWidget && widgetKey
                         ? replaceWidgetRendererConfig(dashboardBehaviorBaseConfig ?? currentWidget.config ?? {}, config, {
-                              templateKey: 'dashboard',
+                              templateKey,
                               widgetKey,
                               zone: currentWidget.zone
                           })
@@ -591,6 +589,7 @@ export function useLayoutWidgetAuthoring({
             upsertZoneWidgetInCache,
             widgetBehaviorEditor.widgetId,
             widgetBehaviorEditor.widgetKey,
+            templateKey,
             zoneWidgets
         ]
     )
@@ -609,13 +608,11 @@ export function useLayoutWidgetAuthoring({
                 setNestedPlacementTarget(null)
                 return
             }
-            if (!DASHBOARD_LAYOUT_ZONES.includes(zone as DashboardLayoutZone)) return
-            const dashboardZone = zone as DashboardLayoutZone
-            if (widgetKey === 'menuWidget') setMenuEditor({ open: true, zone: dashboardZone, widgetId: null, config: null })
+            if (widgetKey === 'menuWidget') setMenuEditor({ open: true, zone, widgetId: null, config: null })
             else if (definition.bindingSlots?.length && definition.authoring.metahub.add !== 'none') {
                 setDashboardBindingEditor({
                     open: true,
-                    zone: dashboardZone,
+                    zone,
                     widgetId: null,
                     sourceWidgetId: null,
                     duplicateMode: false,
@@ -624,12 +621,11 @@ export function useLayoutWidgetAuthoring({
                     widgetKey,
                     config: getDefaultWidgetAuthoringConfig(widgetKey)
                 })
-            } else if (widgetKey === 'columnsContainer') setColumnsEditor({ open: true, zone: dashboardZone, widgetId: null, config: null })
-            else if (widgetKey === 'quizWidget') setQuizEditor({ open: true, zone: dashboardZone, widgetId: null, config: null })
-            else if (widgetKey === 'playcanvasCanvas')
-                setPlayCanvasEditor({ open: true, zone: dashboardZone, widgetId: null, config: null })
+            } else if (widgetKey === 'columnsContainer') setColumnsEditor({ open: true, zone, widgetId: null, config: null })
+            else if (widgetKey === 'quizWidget') setQuizEditor({ open: true, zone, widgetId: null, config: null })
+            else if (widgetKey === 'playcanvasCanvas') setPlayCanvasEditor({ open: true, zone, widgetId: null, config: null })
             else {
-                onAddWidget(dashboardZone, widgetKey, target)
+                onAddWidget(zone, widgetKey, target)
                 setNestedPlacementTarget(null)
             }
         },

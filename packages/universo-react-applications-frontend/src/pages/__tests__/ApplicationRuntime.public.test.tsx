@@ -8,7 +8,8 @@ const publicRuntimeMocks = vi.hoisted(() => ({
     getPublicApplicationRuntime: vi.fn(),
     getApplicationEffectiveLayout: vi.fn(),
     marketingProps: null as Record<string, unknown> | null,
-    dashboardProps: null as Record<string, unknown> | null
+    dashboardProps: null as Record<string, unknown> | null,
+    messengerProps: null as Record<string, unknown> | null
 }))
 
 vi.mock('../../api/publicApplicationRuntime', async () => {
@@ -51,6 +52,10 @@ vi.mock('@universo-react/apps-template-mui', () => ({
     PublicDashboardRuntime: (props: Record<string, unknown>) => {
         publicRuntimeMocks.dashboardProps = props
         return <div data-testid='public-dashboard-runtime' />
+    },
+    PublicMessengerRuntime: (props: Record<string, unknown>) => {
+        publicRuntimeMocks.messengerProps = props
+        return <div data-testid='public-messenger-runtime' />
     }
 }))
 
@@ -140,6 +145,7 @@ describe('PublicApplicationRuntime', () => {
         vi.clearAllMocks()
         publicRuntimeMocks.marketingProps = null
         publicRuntimeMocks.dashboardProps = null
+        publicRuntimeMocks.messengerProps = null
     })
 
     it('dispatches the Dashboard union to the dedicated public host without authenticated runtime or marketing', async () => {
@@ -161,6 +167,43 @@ describe('PublicApplicationRuntime', () => {
             target: { targetKind: 'page', entityTypeCodename: 'Overview' }
         })
         expect(publicRuntimeMocks.dashboardProps).not.toHaveProperty('applicationId')
+    })
+
+    it('dispatches messenger-app to the public Messenger renderer before the marketing fallback', async () => {
+        const messengerApp = { locale: 'ru', title: 'Публичное приложение', placements: [] }
+        publicRuntimeMocks.getPublicApplicationRuntime.mockResolvedValue({
+            route: publicPayload('messenger').route,
+            templateKey: 'messenger-app',
+            messengerApp
+        })
+
+        renderPublicRuntime('/a/messenger?locale=ru')
+
+        expect(await screen.findByTestId('public-messenger-runtime')).toBeInTheDocument()
+        expect(screen.queryByTestId('public-dashboard-runtime')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('public-marketing-runtime')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('dashboard-runtime')).not.toBeInTheDocument()
+        expect(publicRuntimeMocks.messengerProps).toEqual({
+            applicationRef: 'messenger',
+            messengerApp,
+            onNavigate: expect.any(Function)
+        })
+        expect(publicRuntimeMocks.getApplicationEffectiveLayout).not.toHaveBeenCalled()
+    })
+
+    it('fails closed for an unsupported public template', async () => {
+        publicRuntimeMocks.getPublicApplicationRuntime.mockResolvedValue({
+            route: publicPayload('future-template').route,
+            templateKey: 'future-template'
+        })
+
+        renderPublicRuntime('/a/future-template')
+
+        expect(await screen.findByText('This application template is not supported.')).toBeInTheDocument()
+        expect(screen.queryByTestId('public-dashboard-runtime')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('public-messenger-runtime')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('public-marketing-runtime')).not.toBeInTheDocument()
+        expect(publicRuntimeMocks.getApplicationEffectiveLayout).not.toHaveBeenCalled()
     })
 
     it('renders a direct alias through the injected public payload without authenticated layout transport', async () => {
@@ -276,7 +319,9 @@ describe('PublicApplicationRuntime', () => {
         renderPublicRuntime('/a/private-app?locale=en')
 
         expect(await screen.findByRole('alert')).toHaveTextContent('Application is currently unavailable.')
-        expect(screen.getByRole('button', { name: 'Go home' })).toBeInTheDocument()
+        expect(screen.getByRole('main')).toContainElement(screen.getByRole('alert'))
+        expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Go home' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Sign in' })).not.toBeInTheDocument()
         expect(screen.getByTestId('location-probe')).toHaveTextContent('/a/private-app?locale=en')
         expect(screen.getByTestId('location-probe')).not.toHaveTextContent('/auth')

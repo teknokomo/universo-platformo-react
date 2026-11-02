@@ -1,5 +1,5 @@
 import { qSchemaTable } from '@universo-react/database'
-import { applicationTemplateKeySchema, type ApplicationTemplateKey } from '@universo-react/types'
+import { applicationLayoutWidgetKeySchema, applicationTemplateKeySchema, type ApplicationTemplateKey } from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
 import { orderApplicationWidgetGraph } from './applicationWidgetGraphOrder'
 import {
@@ -175,10 +175,10 @@ export async function syncApplicationWidgets(
             templateByLayoutId.set(layout.id, templateKey.data)
         }
         const validateWidgetGroups = (
-            rows: readonly { layoutId: string; widgetKey: string }[],
+            rows: readonly Pick<SyncWidgetInput, 'layoutId' | 'widgetKey'>[],
             resolveLayoutId: (row: { layoutId: string }) => string | null
         ): void => {
-            const grouped = new Map<string, { widgetKey: string }[]>()
+            const grouped = new Map<string, { widgetKey: SyncWidgetInput['widgetKey'] }[]>()
             for (const row of rows) {
                 const physicalLayoutId = resolveLayoutId(row)
                 if (!physicalLayoutId) continue
@@ -226,18 +226,26 @@ export async function syncApplicationWidgets(
             return !applicationDeletedLineage.has(lineage)
         })
         const canonicalCurrentConfigById = new Map<string, JsonRecord>()
+        const existingWidgetKeysById = new Map<string, SyncWidgetInput['widgetKey']>()
         for (const row of existingRows) {
             if (row._app_deleted) continue
             const templateKey = templateByLayoutId.get(row.layout_id)
             if (!templateKey) throw new Error(`[SchemaSync] Persisted widget ${row.id} references an invalid layout`)
             if (!isRecord(row.config)) throw new Error(`[SchemaSync] Persisted widget ${row.id} config is invalid`)
-            readWidgetConfigEnvelope(templateKey, row.widget_key, row.zone, row.config)
+            const parsedWidgetKey = applicationLayoutWidgetKeySchema.safeParse(row.widget_key)
+            if (!parsedWidgetKey.success) throw new Error(`[SchemaSync] Persisted widget ${row.id} key is invalid`)
+            existingWidgetKeysById.set(row.id, parsedWidgetKey.data)
+            readWidgetConfigEnvelope(templateKey, parsedWidgetKey.data, row.zone, row.config)
             canonicalCurrentConfigById.set(row.id, row.config)
         }
         validateWidgetGroups(
             existingRows
                 .filter((row) => !row._upl_deleted && !row._app_deleted)
-                .map((row) => ({ layoutId: row.layout_id, widgetKey: row.widget_key })),
+                .map((row) => {
+                    const widgetKey = existingWidgetKeysById.get(row.id)
+                    if (!widgetKey) throw new Error(`[SchemaSync] Persisted widget ${row.id} key was not validated`)
+                    return { layoutId: row.layout_id, widgetKey }
+                }),
             (row) => row.layoutId
         )
         const existingById = new Map(existingRows.filter((row) => !row._app_deleted).map((row) => [row.id, row]))

@@ -28,7 +28,7 @@
         "createMemberRequired": "Создавать содержимое могут участники приложения.",
         "createPermissionRequired": "У вас нет разрешения на создание содержимого.",
         "createWorkflowUnavailable": "В этом приложении не настроен сценарий создания содержимого.",
-        "relationLayoutUnavailable": "Связанные данные недоступны. Перезагрузите приложение и попробуйте снова.",
+        "relationLayoutUnavailable": "В этом режиме нельзя создавать связанные записи.",
         "createTargetDisabled": "Действие отключено настройками содержимого.",
         "createTargetSourceCreationDisabled": "Создание записей этого типа отключено в настройках приложения.",
         "createTargetResourceTypeDisabled": "{{type}} отключен в настройках приложения.",
@@ -681,7 +681,9 @@
         }
     },
     "detailsTabs": {
-        "untitledTab": "Детали"
+        "untitledTab": "Детали",
+        "tablistLabel": "Разделы сведений",
+        "emptySection": "В этом разделе пока нет содержимого."
     },
     "playcanvasCanvas": {
         "title": "3D-сцена",
@@ -891,6 +893,13 @@
             "quizContinue": "Не удалось перейти к следующему вопросу теста.",
             "quizFinalize": "Не удалось завершить тест."
         }
+    },
+    "messenger": {
+        "navigation": "Навигация приложения",
+        "back": "Назад",
+        "close": "Закрыть",
+        "empty": "Содержимое приложения пока не настроено.",
+        "error": "Приложение Messenger недоступно."
     },
     "colorMode": {
         "label": "Цветовая схема"

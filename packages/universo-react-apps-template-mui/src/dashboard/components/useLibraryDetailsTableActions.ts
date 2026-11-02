@@ -104,9 +104,9 @@ export function useLibraryDetailsTableActions({ config, details, t }: UseLibrary
             })
         },
         onSuccess: async () => {
+            await invalidateRuntime()
             setTargetActionDialog(null)
             setSelectedTargetId('')
-            await invalidateRuntime()
         }
     })
 

@@ -30,12 +30,16 @@
         },
         "visibility": {
             "closed": "Closed",
-            "public": "Public"
+            "public": "Public",
+            "hiddenFromCatalog": "Unlisted"
         },
         "parameters": {
             "tab": "Parameters",
             "visibilityHint": "Application visibility can be changed after creation.",
             "visibilityMutableHint": "Application visibility can be changed after creation. Workspace mode remains fixed.",
+            "showInAppList": "Show in the public application catalog",
+            "showInAppListHint": "This only controls catalog discovery. It does not change whether a public application can be opened directly.",
+            "showInAppListDisabledHint": "Closed applications are only visible to their members. Set this application to Public to enable catalog listing.",
             "workspacesEnabled": "Add workspaces",
             "workspacesHint": "Workspace mode cannot be turned off after the application is created.",
             "workspacesLocked": "Workspace mode is fixed after creation and cannot be changed.",
@@ -266,6 +270,7 @@
                 "matrix": "Matrix",
                 "learningContent": "Learning Content",
                 "connectors": "Connectors",
+                "messenger": "Bots and connections",
                 "access": "Access",
                 "limits": "Limits"
             },
@@ -293,6 +298,12 @@
             "visibilityPublicDescription": "Public applications can be discovered and joined directly by authenticated users.",
             "visibilitySaved": "Visibility saved",
             "visibilitySaveError": "Failed to save visibility",
+            "catalogVisibilityTitle": "Public catalog visibility",
+            "catalogVisibilityDescription": "Choose whether this public application appears in the application catalog. Hiding it does not restrict direct access.",
+            "catalogVisibilityDisabledHint": "Set the application to Public to enable catalog listing.",
+            "catalogVisibilityShown": "Listed",
+            "catalogVisibilityHidden": "Unlisted",
+            "generalSaveConflict": "These settings changed elsewhere. Reload the latest values and try again.",
             "workspaceModeLabel": "Workspace mode",
             "workspaceModeEnabled": "Enabled",
             "workspaceModeDisabled": "Disabled",
@@ -590,6 +601,74 @@
             "emptyMeansUnlimited": "Leave empty for unlimited",
             "save": "Save"
         },
+        "messenger": {
+            "title": "Bots and connections",
+            "description": "Connect a Telegram or MAX bot to this public application.",
+            "loading": "Loading bot connections",
+            "publicRequired": "Set this application to Public before sharing its web or messenger links.",
+            "aliasLookupLoading": "Checking for a primary public address...",
+            "primaryAddressRequired": "No primary public address is set. Ask a platform administrator to open this application’s Settings from the Applications list, choose Public addresses, and set a primary address. Then return here and retry.",
+            "publicUrlTitle": "Public application URL",
+            "publicUrlLabel": "Web application address",
+            "copyUrl": "Copy URL",
+            "telegramSetup": "Telegram: use this public URL in the bot Main Mini App, menu button, or a web_app link. Universo does not configure or verify external bot settings.",
+            "maxSetup": "MAX: use this same public URL in the Mini App settings. Universo does not configure or verify external bot settings.",
+            "aliasLookupError": "The primary public address could not be loaded. Retry before copying a Web App URL.",
+            "retry": "Retry",
+            "addBinding": "Add bot connection",
+            "empty": "No bot connections yet.",
+            "platformLabel": "Platform",
+            "platform": {
+                "telegram": "Telegram",
+                "max": "MAX"
+            },
+            "usernameLabel": "Bot username",
+            "usernameHelp": {
+                "telegram": "Telegram usernames may start with @; it is removed before saving.",
+                "max": "Enter the MAX username without @."
+            },
+            "displayNameLabel": "Display name (optional)",
+            "displayNameHelp": "Use a short label only. Do not include contact details or credentials.",
+            "statusLabel": "Connection status",
+            "createdAt": "Created",
+            "updatedAt": "Updated",
+            "status": {
+                "draft": "Setup needed",
+                "active": "Enabled",
+                "disabled": "Disabled",
+                "released": "Released"
+            },
+            "activationHint": "Enabling a connection allows its launch link to resolve; it does not configure or verify the external bot.",
+            "createTitle": "Add bot connection",
+            "editTitle": "Edit bot connection",
+            "editBinding": "Edit {{username}} connection",
+            "copyLaunchLink": "Copy {{platform}} launch link for {{username}}",
+            "releaseBinding": "Release {{username}} connection",
+            "copySuccess": "Copied to clipboard",
+            "copyError": "Could not copy. Select and copy the address manually.",
+            "save": "Save connection",
+            "cancel": "Cancel",
+            "saveSuccess": "Bot connection saved",
+            "releaseTitle": "Release this bot connection?",
+            "releaseDescription": "Release is permanent. Existing launch links will no longer resolve to this bot connection, and its short link identifier will not be reused.",
+            "releaseConfirm": "Release",
+            "releasing": "Releasing…",
+            "releaseSuccess": "Bot connection released",
+            "validation": {
+                "telegramUsername": "Use 5–32 Latin letters, numbers, or underscores.",
+                "maxUsername": "Use 11–60 Latin letters, numbers, or underscores; start with a letter and end with bot or _bot.",
+                "maxUsernameAt": "MAX bot usernames must not contain @.",
+                "displayName": "Use a short label only. Do not include contact details or credentials.",
+                "telegramSuffixWarning": "Telegram usernames often end in “bot”, but some valid usernames do not."
+            },
+            "errors": {
+                "load": "Bot connections could not be loaded.",
+                "conflict": "This connection changed elsewhere. Reload it and try again.",
+                "duplicate": "This bot is already connected to the application.",
+                "username": "Enter a valid bot username for the selected platform.",
+                "save": "The connection could not be saved. Try again."
+            }
+        },
         "actions": {
             "edit": "Edit",
             "delete": "Delete",
@@ -678,6 +757,7 @@
             "templateImmutable": "A layout template cannot be changed after creation.",
             "globalScope": "Global",
             "templateGlobalHint": "Global layouts use the application default template.",
+            "templateFirstGlobalHint": "Choose this application's first global layout template.",
             "templateScopedHint": "This template is fixed after the layout is created.",
             "composition": {
                 "global": "Global default",
@@ -696,6 +776,7 @@
                 "dashboard": "Dashboard",
                 "marketingPage": "Marketing page"
             },
+            "messengerDetailDescription": "Configure the Messenger app composition.",
             "marketing": {
                 "appearanceTitle": "Marketing page appearance",
                 "appearanceDescription": "Configure the published marketing page without editing its content records.",
@@ -1119,12 +1200,14 @@
             "description": "Description",
             "role": "Role",
             "connectors": "Connectors",
+            "catalogVisibility": "Catalog",
             "created": "Created"
         },
         "app": {
             "errors": {
                 "missingApplicationId": "Application ID is missing in URL",
                 "loadFailed": "Failed to load runtime data",
+                "unsupportedTemplate": "This application template is not supported.",
                 "applicationUnavailable": "This application is currently unavailable.",
                 "invalidRuntimeTarget": "The runtime target in this URL is invalid",
                 "layout": {

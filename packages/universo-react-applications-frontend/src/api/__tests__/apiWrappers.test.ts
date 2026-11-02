@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { buildLayoutWidgetMetadataResponse } from '@universo-react/types'
 
 beforeEach(() => {
     vi.clearAllMocks()
@@ -6,6 +7,16 @@ beforeEach(() => {
 })
 
 describe('applications-frontend api wrappers', () => {
+    it('resolves application runtime references through the canonical path parameter', async () => {
+        const applicationId = '018f8a78-7b8f-7c1d-a111-222233334444'
+        const get = vi.fn().mockResolvedValue({ data: { applicationId } })
+        vi.doMock('../apiClient', () => ({ default: { get } }))
+
+        const api = await import('../applications')
+        await expect(api.resolveApplicationRuntimeReference('  meridian-73  ')).resolves.toEqual({ applicationId })
+        expect(get).toHaveBeenCalledWith('/applications/runtime-reference/meridian-73')
+    })
+
     it('propagates explicit workspace scope to runtime list and row mutations', async () => {
         const get = vi
             .fn()
@@ -555,79 +566,24 @@ describe('applications-frontend api wrappers', () => {
         expect(del).toHaveBeenCalledWith('/applications/app-1/connectors/s1')
     })
 
-    it('validates the complete shared widget metadata contract', async () => {
-        const get = vi.fn().mockResolvedValue({
-            data: {
-                items: [
-                    {
-                        key: 'languageSwitcher',
-                        templateKey: 'dashboard',
-                        supportedTemplates: ['dashboard', 'marketing-page'],
-                        allowedZones: ['left'],
-                        allowedZonesByTemplate: {
-                            dashboard: ['left'],
-                            'marketing-page': ['marketing-header']
-                        },
-                        multiInstance: false,
-                        requiredHostCapabilities: [],
-                        shared: true,
-                        labelKey: 'layouts.widgets.languageSwitcher',
-                        defaultLabel: 'Language Switcher',
-                        defaultPlacement: 'end',
-                        mobileProjection: 'compact-header',
-                        sourceClass: 'host',
-                        sourcePolicy: {
-                            authority: 'metahub-source',
-                            sourceMode: 'none',
-                            inheritBindings: false,
-                            inheritComposition: false
-                        },
-                        identity: { instanceKey: 'required' },
-                        presentationFields: [],
-                        configFields: [],
-                        authoring: {
-                            metahub: {
-                                add: 'select-source',
-                                duplicate: 'none',
-                                contentEditing: 'none',
-                                canRebind: false
-                            },
-                            application: {
-                                presentationOnly: true,
-                                canAdd: false,
-                                canDuplicate: false,
-                                canEditContent: false,
-                                canRebind: false,
-                                resetToSource: true
-                            }
-                        },
-                        copyPolicy: { placement: 'none', binding: 'none' },
-                        applicationPlacementOverrides: {
-                            active: false,
-                            order: 'none',
-                            zone: false,
-                            parentSlot: false
-                        },
-                        placementPolicy: { parent: 'root-or-compatible-container-slot' },
-                        capabilities: ['dashboard.host'],
-                        seedPolicies: ['shell']
-                    }
-                ]
-            }
-        })
+    it('validates and exposes the complete shared widget metadata contract', async () => {
+        const metadata = buildLayoutWidgetMetadataResponse()
+        const get = vi.fn().mockResolvedValue({ data: metadata })
         vi.doMock('../apiClient', () => ({ default: { get } }))
 
         const api = await import('../applications')
-        await expect(api.listApplicationLayoutWidgetObject('app-1', 'layout-1')).resolves.toEqual([
-            expect.objectContaining({ key: 'languageSwitcher', shared: true })
-        ])
+        await expect(api.listApplicationLayoutWidgetMetadata('app-1', 'layout-1')).resolves.toEqual(metadata)
+        await expect(api.listApplicationLayoutWidgetObject('app-1', 'layout-1')).resolves.toEqual(metadata.items)
+        expect(metadata.items).toEqual(expect.arrayContaining([expect.objectContaining({ key: 'languageSwitcher', shared: true })]))
+        expect(metadata.templates.map(({ key }) => key)).toContain('messenger-app')
+        expect(get).toHaveBeenNthCalledWith(1, '/applications/app-1/layouts/layout-1/zone-widgets/object')
 
-        get.mockResolvedValueOnce({ data: { items: [{ key: 'languageSwitcher' }] } })
-        await expect(api.listApplicationLayoutWidgetObject('app-1', 'layout-1')).rejects.toThrow(
+        get.mockResolvedValueOnce({ data: { ...metadata, templates: [] } })
+        await expect(api.listApplicationLayoutWidgetMetadata('app-1', 'layout-1')).rejects.toThrow(
             'APPLICATION_LAYOUT_WIDGET_METADATA_INVALID'
         )
 
-        get.mockResolvedValueOnce({ data: {} })
+        get.mockResolvedValueOnce({ data: { ...metadata, items: [{ key: 'languageSwitcher' }] } })
         await expect(api.listApplicationLayoutWidgetObject('app-1', 'layout-1')).rejects.toThrow(
             'APPLICATION_LAYOUT_WIDGET_METADATA_INVALID'
         )

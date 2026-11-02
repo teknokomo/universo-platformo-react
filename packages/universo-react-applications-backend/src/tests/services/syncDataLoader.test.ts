@@ -141,7 +141,7 @@ describe('loadApplicationRuntimeLayouts', () => {
                 isDeletedOverride: false
             })
         ])
-        expect(result.layoutConfig).toEqual({})
+        expect(Object.hasOwn(result, 'layoutConfig')).toBe(false)
     })
 
     it('fails closed when the widget query cannot be completed', async () => {

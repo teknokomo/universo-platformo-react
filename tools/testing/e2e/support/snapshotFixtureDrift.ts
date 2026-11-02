@@ -1,12 +1,8 @@
 export type FixtureNormalizerMaps = {
     uuid: Map<string, string>
     hash64: Map<string, string>
+    snapshotReferenceFields?: ReadonlyMap<string, ReadonlySet<string>>
 }
-
-const createNormalizerMaps = (): FixtureNormalizerMaps => ({
-    uuid: new Map(),
-    hash64: new Map()
-})
 
 const volatileTimestampFields = new Set(['createdAt', 'updatedAt', 'publishedAt', 'generatedAt', 'exportedAt'])
 const volatileUuidFields = new Set([
@@ -77,6 +73,58 @@ const uuidSubstringPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 const physicalTableNamePattern = /^(obj|enum|set)_([0-9a-f]{32})$/iu
 const generatedEditorAssetIdPattern = /^editor-[0-9a-f]{32}$/iu
 const generatedSceneAssetIdPattern = /^scene:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/iu
+
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
+
+const readSnapshotFieldCodename = (value: unknown): string | null => {
+    if (typeof value === 'string') return value
+    if (!isRecord(value) || !isRecord(value.locales)) return null
+    const primaryLocale = typeof value._primary === 'string' ? value._primary : null
+    const primary = primaryLocale ? value.locales[primaryLocale] : undefined
+    if (isRecord(primary) && typeof primary.content === 'string') return primary.content
+    for (const localized of Object.values(value.locales)) {
+        if (isRecord(localized) && typeof localized.content === 'string') return localized.content
+    }
+    return null
+}
+
+const collectSnapshotReferenceFields = (value: unknown): ReadonlyMap<string, ReadonlySet<string>> => {
+    if (!isRecord(value) || !isRecord(value.snapshot) || !isRecord(value.snapshot.entities)) return new Map()
+    const fieldsByEntity = new Map<string, Set<string>>()
+    for (const [entityId, entity] of Object.entries(value.snapshot.entities)) {
+        if (!uuidTextPattern.test(entityId) || !isRecord(entity) || !Array.isArray(entity.fields)) continue
+        for (const field of entity.fields) {
+            if (!isRecord(field) || field.dataType !== 'REF') continue
+            const codename = readSnapshotFieldCodename(field.codename)
+            if (!codename) continue
+            const fieldNames = fieldsByEntity.get(entityId) ?? new Set<string>()
+            fieldNames.add(codename)
+            fieldsByEntity.set(entityId, fieldNames)
+        }
+    }
+    return fieldsByEntity
+}
+
+const createNormalizerMaps = (fixture: unknown): FixtureNormalizerMaps => ({
+    uuid: new Map(),
+    hash64: new Map(),
+    snapshotReferenceFields: collectSnapshotReferenceFields(fixture)
+})
+
+const isSnapshotReferenceFieldPath = (fieldName: string | undefined, pathSegments: string[], maps: FixtureNormalizerMaps): boolean => {
+    if (
+        pathSegments.length !== 6 ||
+        pathSegments[0] !== 'snapshot' ||
+        pathSegments[1] !== 'elements' ||
+        !uuidTextPattern.test(pathSegments[2]) ||
+        !/^\d+$/u.test(pathSegments[3]) ||
+        pathSegments[4] !== 'data' ||
+        fieldName !== pathSegments[5]
+    ) {
+        return false
+    }
+    return maps.snapshotReferenceFields?.get(pathSegments[2])?.has(fieldName) ?? false
+}
 
 const expandCompactUuid = (value: string): string =>
     `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`
@@ -203,6 +251,9 @@ const normalizeString = (value: string, maps: FixtureNormalizerMaps, pathSegment
     }
     if (fieldName === 'stableAssetId' && pathSegments.includes('playcanvasProjects') && pathSegments.includes('assets')) {
         if (generatedEditorAssetIdPattern.test(value)) return '<editor-asset-id>'
+    }
+    if (isSnapshotReferenceFieldPath(fieldName, pathSegments, maps) && uuidTextPattern.test(value)) {
+        return tokenFor(maps.uuid, value.toLowerCase(), 'uuid')
     }
     if (fieldName && volatileTimestampFields.has(fieldName) && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/u.test(value)) {
         return '<timestamp>'
@@ -386,7 +437,7 @@ const uuidMapEntrySortKey = (value: unknown): string => JSON.stringify(normalize
 /** Normalize only known transport-volatile identifiers and timestamps. */
 export const normalizeSnapshotFixtureVolatileValues = (
     value: unknown,
-    maps = createNormalizerMaps(),
+    maps = createNormalizerMaps(value),
     pathSegments: string[] = []
 ): unknown => {
     const fieldName = [...pathSegments].reverse().find((segment) => !/^\d+$/u.test(segment))

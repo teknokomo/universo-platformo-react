@@ -25,7 +25,7 @@ import {
     type LayoutWidgetDefinition
 } from '@universo-react/types'
 import { generateUuidV7, isUuidV7, type DbExecutor } from '@universo-react/utils'
-import { acquireAdvisoryXactLock } from '@universo-react/utils/database'
+import { acquireAdvisoryXactLock, acquireAdvisoryXactSharedLock } from '@universo-react/utils/database'
 import {
     isApplicationLayoutWidgetCustomized,
     parseApplicationLayoutWidgetSourceState
@@ -519,8 +519,8 @@ export const widgetSelect = (widgetsTable: string): string => `
 /**
  * Layout widgets are valid only on active application layouts. The selected
  * template adapter performs the key/zone compatibility check before writes;
- * keeping this predicate broad lets both dashboard and marketing adapters use
- * the same SQL-first mutation paths.
+ * keeping this predicate broad lets Dashboard, Marketing Page, and Messenger
+ * adapters use the same SQL-first mutation paths.
  */
 export type DashboardLayoutIdExpression = 'layout_id' | 'w.layout_id' | '$1'
 
@@ -529,7 +529,7 @@ export const applicationLayoutWidgetPredicate = (layoutsTable: string, layoutIdE
         SELECT 1
         FROM ${layoutsTable} AS layout_guard
         WHERE layout_guard.id = ${layoutIdExpression}
-          AND layout_guard.template_key IN ('dashboard', 'marketing-page')
+          AND layout_guard.template_key IN ('dashboard', 'marketing-page', 'messenger-app')
           AND layout_guard.is_active = true
           AND layout_guard._upl_deleted = false
           AND layout_guard._app_deleted = false
@@ -656,6 +656,11 @@ export const runApplicationLayoutTransaction = async <T>(
  */
 export const lockApplicationLayoutMutationFamily = async (executor: DbExecutor, schemaName: string): Promise<void> => {
     await acquireAdvisoryXactLock(executor, applicationLayoutMutationLockKey(schemaName))
+}
+
+/** Hold the layout mutation family stable while public runtime reads its layout policy. */
+export const lockApplicationLayoutMutationFamilyShared = async (executor: DbExecutor, schemaName: string): Promise<void> => {
+    await acquireAdvisoryXactSharedLock(executor, applicationLayoutMutationLockKey(schemaName))
 }
 
 export const lockApplicationLayoutScope = async (executor: DbExecutor, schemaName: string, scopeEntityId: string | null): Promise<void> => {

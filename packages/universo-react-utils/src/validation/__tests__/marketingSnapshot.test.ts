@@ -786,6 +786,13 @@ describe('validateMarketingSnapshotLayouts', () => {
         expect(() => validateSnapshotLayoutIdentities(snapshot)).not.toThrow()
     })
 
+    it('rejects the retired top-level snapshot layoutConfig projection', () => {
+        const snapshot = { ...createSnapshot(), layoutConfig: {} }
+
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).toThrow('Marketing snapshot layoutConfig is retired')
+        expect(() => validateSnapshotLayoutNeutralMetadata(snapshot)).toThrow('Snapshot layoutConfig is retired')
+    })
+
     it('rejects retired Dashboard renderer configuration at snapshot layout and default-config boundaries', () => {
         const snapshot = {
             layouts: [
@@ -799,7 +806,6 @@ describe('validateMarketingSnapshotLayouts', () => {
             ],
             scopedLayouts: [],
             defaultLayoutId: ids.layout,
-            layoutConfig: {},
             layoutZoneWidgets: [],
             layoutWidgetOverrides: []
         }
@@ -808,11 +814,10 @@ describe('validateMarketingSnapshotLayouts', () => {
 
         const invalidDefaultConfigSnapshot = {
             ...snapshot,
-            layouts: [{ ...snapshot.layouts[0]!, config: {} }],
-            layoutConfig: { objectBehavior: { enableRowReordering: true } }
+            layouts: [{ ...snapshot.layouts[0]!, config: { objectBehavior: { enableRowReordering: true } } }]
         }
         expect(() => validateSnapshotLayoutNeutralMetadata(invalidDefaultConfigSnapshot)).toThrow(
-            'Snapshot default layout renderer configuration is invalid'
+            'Snapshot layout renderer configuration is invalid'
         )
     })
 
@@ -829,7 +834,6 @@ describe('validateMarketingSnapshotLayouts', () => {
             ],
             scopedLayouts: [],
             defaultLayoutId: ids.layout,
-            layoutConfig: {},
             layoutZoneWidgets: [
                 {
                     id: ids.widget,
@@ -861,7 +865,6 @@ describe('validateMarketingSnapshotLayouts', () => {
             ],
             scopedLayouts: [],
             defaultLayoutId: ids.layout,
-            layoutConfig: {},
             layoutZoneWidgets: [
                 {
                     id: ids.widget,
@@ -878,6 +881,46 @@ describe('validateMarketingSnapshotLayouts', () => {
         }
 
         expect(() => validateSnapshotLayoutNeutralMetadata(snapshot)).toThrow('Snapshot widget binding is invalid')
+    })
+
+    it('accepts inactive Messenger data widgets without bindings but rejects them when activated', () => {
+        const layoutId = ids.layout
+        const widget = {
+            id: ids.widget,
+            layoutId,
+            instanceKey: 'messenger-records',
+            zone: 'center',
+            widgetKey: 'detailsTable',
+            sortOrder: 0,
+            config: encodeWidgetConfigEnvelope(
+                { rendererConfig: { variant: 'records' }, neutral: {} },
+                { templateKey: 'messenger-app', widgetKey: 'detailsTable', zone: 'center', requireBindings: false }
+            ),
+            isActive: false
+        }
+        const snapshot = {
+            layouts: [
+                {
+                    id: layoutId,
+                    templateKey: 'messenger-app',
+                    config: {},
+                    baseLayoutId: null,
+                    compositionMode: 'independent'
+                }
+            ],
+            scopedLayouts: [],
+            defaultLayoutId: layoutId,
+            layoutZoneWidgets: [widget],
+            layoutWidgetOverrides: []
+        }
+
+        expect(() => validateSnapshotLayoutNeutralMetadata(snapshot)).not.toThrow()
+        expect(() =>
+            validateSnapshotLayoutNeutralMetadata({
+                ...snapshot,
+                layoutZoneWidgets: [{ ...widget, isActive: true }]
+            })
+        ).toThrow('Snapshot widget binding is invalid')
     })
 
     it('accepts shared template widgets inside a marketing layout', () => {
@@ -1055,7 +1098,6 @@ describe('validateMarketingSnapshotTransportLayouts', () => {
             }
         }
         snapshot.layouts![0]!.config = neutralLayoutConfig
-        snapshot.layoutConfig = neutralLayoutConfig
         snapshot.layoutZoneWidgets!.push({
             id: ids.secondWidget,
             layoutId: ids.layout,

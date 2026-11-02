@@ -425,6 +425,39 @@ describe('platformMigrations', () => {
         expect(templateSeedIndex).toBeGreaterThan(metahubsSchemaIndex)
     })
 
+    it('registers the Applications bot binding constraints after the binding tables are generated', () => {
+        const migration = platformMigrations.find((entry) => entry.id === 'CreateApplicationBotBindings1800000000320')
+        const previousApplicationsMigrationIndex = platformMigrations.findIndex(
+            (entry) => entry.id === 'BindGlobalShortLinksToAccessLinkIdentity1800000000310'
+        )
+        const botBindingsMigrationIndex = platformMigrations.findIndex((entry) => entry.id === 'CreateApplicationBotBindings1800000000320')
+
+        expect(migration).toBeDefined()
+        expect(migration?.scope).toEqual({ kind: 'platform_schema', key: 'applications' })
+        expect(migration?.checksumSource).toContain('ON DELETE RESTRICT')
+        expect(migration?.checksumSource).toContain('uq_application_bot_bindings_identity')
+        expect(migration?.checksumSource).toContain('uq_application_bot_bindings_short_id')
+        expect(migration?.checksumSource).toContain("bot_username ~ '^[a-z][a-z0-9_]{7,56}bot$'")
+        expect(migration?.checksumSource).toContain("bot_username ~ '^[a-z][a-z0-9_]{6,55}_bot$'")
+        expect(migration?.checksumSource).toContain('char_length(bot_username) BETWEEN 11 AND 60')
+        expect(botBindingsMigrationIndex).toBeGreaterThan(previousApplicationsMigrationIndex)
+    })
+
+    it('registers catalog visibility and membership RLS changes as a forward migration after bot bindings', () => {
+        const botBindingsIndex = platformMigrations.findIndex((entry) => entry.id === 'CreateApplicationBotBindings1800000000320')
+        const catalogVisibilityMigration = platformMigrations.find(
+            (entry) => entry.id === 'AddApplicationCatalogVisibilityAndMembershipRls1800000000340'
+        )
+        const catalogVisibilityIndex = platformMigrations.findIndex(
+            (entry) => entry.id === 'AddApplicationCatalogVisibilityAndMembershipRls1800000000340'
+        )
+
+        expect(catalogVisibilityMigration).toBeDefined()
+        expect(catalogVisibilityMigration?.scope).toEqual({ kind: 'platform_schema', key: 'applications' })
+        expect(catalogVisibilityMigration?.checksumSource).toContain('show_in_app_list')
+        expect(catalogVisibilityIndex).toBeGreaterThan(botBindingsIndex)
+    })
+
     it('sorts flattened system app migrations deterministically by version and id', () => {
         expect(platformMigrations.map((migration) => migration.id)).toEqual([
             'InitializeUuidV7Function1500000000000',
@@ -449,7 +482,9 @@ describe('platformMigrations', () => {
             'CreatePlayCanvasEditorDocumentBackups1800000000280',
             'CreateGlobalShortLinks1800000000290',
             'CreateGuestSessionIdempotency1800000000300',
-            'BindGlobalShortLinksToAccessLinkIdentity1800000000310'
+            'BindGlobalShortLinksToAccessLinkIdentity1800000000310',
+            'CreateApplicationBotBindings1800000000320',
+            'AddApplicationCatalogVisibilityAndMembershipRls1800000000340'
         ])
     })
 

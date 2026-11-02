@@ -11,6 +11,8 @@ import {
     readLocalizedTextValue
 } from '@universo-react/types'
 import { runtimePlacementGraphSchema, runtimePlacementSchema, runtimeWidgetDataSchema } from '../dashboard/runtime/widgetPlacementGraph'
+import type { RuntimePlacement } from '../dashboard/runtime/widgetPlacementGraph'
+import { isValidMessengerShortId } from '../messenger/launchHints'
 import type { AuthenticatedRuntimePlacementScopes } from './runtimePlacementScopes'
 import {
     buildRuntimeApiUrl,
@@ -350,10 +352,93 @@ export const toDashboardZoneWidgets = (result: RuntimeEffectiveLayoutSuccess): z
     return runtimeZoneWidgetsSchema.parse(grouped)
 }
 
+export type MessengerZoneWidgets = {
+    top: RuntimePlacement[]
+    center: RuntimePlacement[]
+    bottom: RuntimePlacement[]
+}
+
+const publicMessengerAttributionResponseSchema = z
+    .object({
+        platform: z.enum(['telegram', 'max']).nullable()
+    })
+    .strict()
+
+export type PublicMessengerAttributionPlatform = NonNullable<z.infer<typeof publicMessengerAttributionResponseSchema>['platform']>
+
+/** Resolve a launch hint through the same-origin anonymous public Application endpoint. */
+export const resolvePublicMessengerAttribution = async (
+    applicationRef: string,
+    shortId: string,
+    signal?: AbortSignal
+): Promise<PublicMessengerAttributionPlatform | null> => {
+    const normalizedRef = applicationRef.trim()
+    if (!normalizedRef || !isValidMessengerShortId(shortId)) return null
+
+    const response = await fetch(
+        `/api/v1/public/applications/${encodeURIComponent(normalizedRef)}/attribution/${encodeURIComponent(shortId)}`,
+        {
+            method: 'GET',
+            credentials: 'omit',
+            cache: 'no-store',
+            headers: { Accept: 'application/json' },
+            ...(signal ? { signal } : {})
+        }
+    )
+
+    if (!response.ok) throw new Error('Public Messenger attribution request failed')
+
+    let payload: unknown
+    try {
+        payload = await response.json()
+    } catch {
+        throw new Error('Public Messenger attribution response validation failed')
+    }
+
+    const parsed = publicMessengerAttributionResponseSchema.safeParse(payload)
+    if (!parsed.success) throw new Error('Public Messenger attribution response validation failed')
+    return parsed.data.platform
+}
+
+/** Adapt the canonical Messenger effective layout to its physical shell zones. */
+export const toMessengerZoneWidgets = (result: RuntimeEffectiveLayoutSuccess): MessengerZoneWidgets => {
+    if (result.layout.templateKey !== 'messenger-app') {
+        throw new Error('Effective layout is not a Messenger App layout')
+    }
+
+    const grouped: MessengerZoneWidgets = { top: [], center: [], bottom: [] }
+    for (const widget of result.widgets) {
+        if (widget.zone !== 'top' && widget.zone !== 'center' && widget.zone !== 'bottom') {
+            throw new Error(`Effective layout contains an unsupported Messenger App zone: ${widget.zone}`)
+        }
+
+        grouped[widget.zone].push(
+            runtimePlacementSchema.parse({
+                widgetKey: widget.widgetKey,
+                sortOrder: widget.sortOrder,
+                config: widget.config,
+                isActive: widget.isActive,
+                instanceKey: widget.instanceKey,
+                zone: widget.zone,
+                parentInstanceKey: widget.parentInstanceKey,
+                slotKey: widget.slotKey,
+                ...(widget.runtimeData === undefined ? {} : { runtimeData: widget.runtimeData })
+            })
+        )
+    }
+
+    const placements = [...grouped.top, ...grouped.center, ...grouped.bottom]
+    runtimePlacementGraphSchema.parse(placements)
+    for (const zone of ['top', 'center', 'bottom'] as const) {
+        grouped[zone].sort((left, right) => left.sortOrder - right.sortOrder || left.instanceKey.localeCompare(right.instanceKey))
+    }
+    return grouped
+}
+
 export const toAuthenticatedRuntimePlacementScopes = (
     result: RuntimeEffectiveLayoutSuccess | undefined
 ): AuthenticatedRuntimePlacementScopes | undefined => {
-    if (!result || result.layout.templateKey !== 'dashboard') return undefined
+    if (!result || (result.layout.templateKey !== 'dashboard' && result.layout.templateKey !== 'messenger-app')) return undefined
     return Object.fromEntries(
         result.widgets.map((widget) => [widget.instanceKey, { widgetId: widget.id, layoutId: widget.layoutId ?? result.layout.id }])
     )

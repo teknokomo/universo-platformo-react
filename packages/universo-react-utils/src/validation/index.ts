@@ -87,6 +87,12 @@ export {
 } from './marketingSnapshot'
 export { SAFE_MENU_HREF_RE, isSafeMenuHref, sanitizeMenuHref } from './menuHref'
 export {
+    parseMessengerBotUsername,
+    type MessengerBotPlatform,
+    type MessengerBotUsernameFailureReason,
+    type MessengerBotUsernameValidation
+} from './messengerBotUsername'
+export {
     validateNumber,
     validateNumberOrThrow,
     getMaxValueForPrecision,

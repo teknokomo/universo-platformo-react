@@ -57,6 +57,8 @@ Frontend package for entity-first metahub authoring, shared resources, and dynam
 -   **Route Ownership**: Detail tabs stay under `/metahub/:id/entities/:kindKey/...`, and metahub resources stay under `/metahub/:id/resources/...`; removed top-level `/hubs`, `/objects`, `/sets`, and `/enumerations` authoring routes are no longer part of the shipped frontend contract.
 -   **Runtime Boundary**: Runtime sections materialize from published entity metadata after publication sync instead of V2-specific compatibility aliases.
 
+Top-level Component presentation settings include the opt-in `publicMessengerSafe` flag for fields intentionally exposed by anonymous Messenger layouts. It is stored in the existing `uiConfig` metadata and is off by default; review the values saved in an approved field because the flag does not scan text for personal information.
+
 ### Merged Modules Resource Surface
 
 `SharedResourcesPage` exposes a single **Modules** tab. `MetahubModulesSurface`

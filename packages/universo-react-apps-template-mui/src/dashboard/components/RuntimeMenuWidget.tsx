@@ -289,25 +289,35 @@ export default function RuntimeMenuWidget({ widget, variant }: { widget: ZoneWid
     const payload = readRuntimeMenuPayload(runtimeData.data as unknown)
     if (!payload) return <RuntimeWidgetStatus invalid />
 
+    const isMessengerRuntime = details?.runtimeTemplateKey === 'messenger-app'
     const applicationRoot = resolveRuntimeApplicationRoot(details?.applicationId)
-    const workspaceItems = projectWorkspaceNavigation(applicationRoot, details, (key, fallback) =>
-        t(key, { lng: details?.locale, defaultValue: fallback })
-    )
+    const workspaceItems = isMessengerRuntime
+        ? []
+        : projectWorkspaceNavigation(applicationRoot, details, (key, fallback) => t(key, { lng: details?.locale, defaultValue: fallback }))
     const runtimeItems = payload.items
-        .filter((item) => item.kind !== 'workspaces' && !isSameApplicationWorkspaceListHref(item.href, applicationRoot))
+        .filter((item) =>
+            isMessengerRuntime
+                ? (item.kind === 'section' && (item.target?.kind === 'page' || item.target?.kind === 'object')) ||
+                  (item.kind === 'group' && item.target?.kind === 'hub')
+                : item.kind !== 'workspaces' && !isSameApplicationWorkspaceListHref(item.href, applicationRoot)
+        )
         .map((item, index) => projectRuntimeMenuItem(item, `runtime-menu-item-${index}`, applicationRoot, details))
         .filter((item): item is RuntimeMenuViewItem => item !== undefined)
     const runtimeOverflowItems = payload.overflowItems
-        .filter((item) => item.kind !== 'workspaces' && !isSameApplicationWorkspaceListHref(item.href, applicationRoot))
+        .filter(
+            (item) => !isMessengerRuntime && item.kind !== 'workspaces' && !isSameApplicationWorkspaceListHref(item.href, applicationRoot)
+        )
         .map((item, index) => projectRuntimeMenuItem(item, `runtime-menu-overflow-item-${index}`, applicationRoot, details))
         .filter((item): item is RuntimeMenuViewItem => item !== undefined)
     const isPublicRuntime = details?.runtimeAccessMode === 'public'
+    const messengerItems = [...runtimeItems, ...runtimeOverflowItems]
+    if (isMessengerRuntime && messengerItems.length === 0) return <RuntimeWidgetStatus state={{ status: 'empty' }} />
     const viewModel: RuntimeMenuViewModel = {
         title: payload.title,
         showTitle: payload.showTitle,
         overflowLabel: payload.overflowLabel,
-        items: isPublicRuntime ? [...runtimeItems, ...runtimeOverflowItems].slice(0, 1) : [...runtimeItems, ...workspaceItems],
-        overflowItems: isPublicRuntime ? [] : runtimeOverflowItems
+        items: isMessengerRuntime ? messengerItems : isPublicRuntime ? messengerItems.slice(0, 1) : [...runtimeItems, ...workspaceItems],
+        overflowItems: isMessengerRuntime || isPublicRuntime ? [] : runtimeOverflowItems
     }
 
     return <MenuContent key={widget.instanceKey} viewModel={viewModel} variant={variant} onNavigate={details?.navigate} />

@@ -1,5 +1,6 @@
 import { qSchemaTable } from '@universo-react/database'
 import {
+    MESSENGER_APP_LAYOUT_ZONES,
     MARKETING_LAYOUT_ZONES,
     applicationTemplateKeySchema,
     canAddApplicationLayoutWidget,
@@ -37,7 +38,17 @@ import {
     type WidgetRow
 } from './applicationLayoutStoreSupport'
 
-const ORDERED_LAYOUT_ZONES: Array<ApplicationLayoutWidget['zone']> = ['left', 'top', 'right', 'bottom', 'center', ...MARKETING_LAYOUT_ZONES]
+const ORDERED_LAYOUT_ZONES: Array<ApplicationLayoutWidget['zone']> = [
+    ...new Set<ApplicationLayoutWidget['zone']>([
+        'left',
+        'top',
+        'right',
+        'bottom',
+        'center',
+        ...MARKETING_LAYOUT_ZONES,
+        ...MESSENGER_APP_LAYOUT_ZONES
+    ])
+]
 
 export async function upsertApplicationLayoutWidget(
     executor: DbExecutor,
@@ -92,7 +103,13 @@ export async function upsertApplicationLayoutWidget(
             candidateWidgets.filter((widget) => widget.isActive),
             { effectiveGraph: true }
         )
-        if (!canAddApplicationLayoutWidget(getLayoutWidgetDefinition(data.widgetKey, data.config ?? {}), current.item.sourceKind)) {
+        if (
+            !canAddApplicationLayoutWidget(
+                getLayoutWidgetDefinition(data.widgetKey, data.config ?? {}),
+                current.item.sourceKind,
+                current.item.templateKey
+            )
+        ) {
             throw new Error('APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT')
         }
         await assertInterpretationNetworkSingleSystemTransitionAllowed(

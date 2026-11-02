@@ -122,6 +122,8 @@ export const GeneralSettingsPanel = ({
     t,
     effectiveVisibility,
     currentVisibility,
+    effectiveCatalogVisibility,
+    currentCatalogVisibility,
     workspacesEnabled,
     publicEntryWorkspaceSupported,
     publicEntryWorkspaceId,
@@ -135,6 +137,7 @@ export const GeneralSettingsPanel = ({
     hasChanges,
     isSaving,
     onVisibilityChange,
+    onCatalogVisibilityChange,
     onPublicEntryWorkspaceChange,
     onPublicEntryWorkspaceLoadMore,
     onPublicEntryWorkspaceRetry,
@@ -144,6 +147,8 @@ export const GeneralSettingsPanel = ({
     t: Translate
     effectiveVisibility: boolean
     currentVisibility: boolean | undefined
+    effectiveCatalogVisibility: boolean
+    currentCatalogVisibility: boolean | undefined
     workspacesEnabled: boolean | undefined
     publicEntryWorkspaceSupported: boolean
     publicEntryWorkspaceId: string | null | undefined
@@ -157,6 +162,7 @@ export const GeneralSettingsPanel = ({
     hasChanges: boolean
     isSaving: boolean
     onVisibilityChange: (value: boolean | undefined) => void
+    onCatalogVisibilityChange: (value: boolean | undefined) => void
     onPublicEntryWorkspaceChange: (value: string | null) => void
     onPublicEntryWorkspaceLoadMore: () => void
     onPublicEntryWorkspaceRetry: () => void | Promise<void>
@@ -307,6 +313,47 @@ export const GeneralSettingsPanel = ({
                         />
                     }
                     label={effectiveVisibility ? t('settings.visibilityPublic', 'Public') : t('settings.visibilityClosed', 'Closed')}
+                />
+            </Box>
+
+            <Box
+                data-testid='application-setting-catalog-visibility'
+                sx={{
+                    py: 2,
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) auto' },
+                    gap: 3,
+                    alignItems: 'center'
+                }}
+            >
+                <Box sx={{ minWidth: 0 }}>
+                    <Typography variant='subtitle2'>{t('settings.catalogVisibilityTitle', 'Public catalog visibility')}</Typography>
+                    <Typography variant='body2' sx={{ color: 'text.secondary' }}>
+                        {t(
+                            'settings.catalogVisibilityDescription',
+                            'Choose whether this public application appears in the application catalog. Hiding it does not restrict direct access.'
+                        )}
+                    </Typography>
+                    {!effectiveVisibility ? (
+                        <Typography variant='body2' sx={{ color: 'text.secondary', mt: 1 }}>
+                            {t('settings.catalogVisibilityDisabledHint', 'Set the application to Public to enable catalog listing.')}
+                        </Typography>
+                    ) : null}
+                </Box>
+                <FormControlLabel
+                    control={
+                        <Switch
+                            checked={effectiveCatalogVisibility}
+                            disabled={!effectiveVisibility}
+                            onChange={(_, checked) => onCatalogVisibilityChange(checked === currentCatalogVisibility ? undefined : checked)}
+                            slotProps={{ input: testIdInputProps('application-settings-catalog-visibility-switch') }}
+                        />
+                    }
+                    label={
+                        effectiveCatalogVisibility
+                            ? t('settings.catalogVisibilityShown', 'Listed')
+                            : t('settings.catalogVisibilityHidden', 'Unlisted')
+                    }
                 />
             </Box>
 

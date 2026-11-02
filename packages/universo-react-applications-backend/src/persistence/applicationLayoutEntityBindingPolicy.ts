@@ -77,7 +77,7 @@ export const containsApplicationOwnedWidgetCopyConflict = (
     widgets.some((widget) => {
         const rendererConfig = decodeWidgetCopyRendererConfig(templateKey, widget)
         const definition = getLayoutWidgetDefinition(widget.widgetKey, rendererConfig)
-        return !canAddApplicationLayoutWidget(definition, 'application')
+        return !canAddApplicationLayoutWidget(definition, 'application', templateKey)
     })
 
 /** Classify persisted, active widgets that retain required Entity bindings when their source layout is removed. */

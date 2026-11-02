@@ -1,8 +1,6 @@
 import { z } from 'zod'
 import {
-    DASHBOARD_LAYOUT_ZONES,
     LAYOUT_WIDGET_DEFINITIONS,
-    MARKETING_LAYOUT_ZONES,
     getLayoutWidgetDefinition,
     decodeLayoutConfigEnvelope,
     decodeWidgetConfigEnvelope,
@@ -174,11 +172,6 @@ export const layoutTemplateKeySchema = applicationTemplateKeySchema
 export const layoutZoneSchema = applicationLayoutZoneSchema
 export const layoutWidgetKeySchema = applicationLayoutWidgetKeySchema
 
-export const LAYOUT_ZONES_BY_TEMPLATE: Readonly<Record<LayoutTemplateKey, readonly ApplicationLayoutZone[]>> = {
-    dashboard: DASHBOARD_LAYOUT_ZONES,
-    'marketing-page': MARKETING_LAYOUT_ZONES
-}
-
 export const getWidgetDefinition = (widgetKey: ApplicationLayoutWidgetKey): LayoutWidgetDefinition | undefined =>
     LAYOUT_WIDGET_DEFINITIONS.find((widget) => widget.key === widgetKey)
 
@@ -230,8 +223,9 @@ export const decodeWidgetForStorage = (
     templateKey: LayoutTemplateKey,
     widgetKey: ApplicationLayoutWidgetKey,
     zone: ApplicationLayoutZone,
-    config: unknown
-) => decodeWidgetConfigEnvelope(config ?? {}, { templateKey, widgetKey, zone, requireBindings: true })
+    config: unknown,
+    requireBindings = true
+) => decodeWidgetConfigEnvelope(config ?? {}, { templateKey, widgetKey, zone, requireBindings })
 
 export const withIndependentLayoutComposition = (
     templateKey: LayoutTemplateKey,
@@ -365,10 +359,7 @@ export const assignLayoutZoneWidgetSchema = z
             })
         }
         if (value.config === undefined) return
-        const templateKey = (['dashboard', 'marketing-page'] as const).find((key) =>
-            definition?.allowedZonesByTemplate[key]?.includes(value.zone)
-        )
-        if (!definition || !templateKey) {
+        if (!definition) {
             context.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['config'],
@@ -376,14 +367,31 @@ export const assignLayoutZoneWidgetSchema = z
             })
             return
         }
-        try {
-            decodeWidgetConfigEnvelope(value.config, {
-                templateKey,
-                widgetKey: value.widgetKey,
-                zone: value.zone,
-                requireBindings: definition.sourcePolicy.sourceMode === 'required'
+        const templateKeys = definition.supportedTemplates.filter((templateKey) =>
+            definition.allowedZonesByTemplate[templateKey]?.includes(value.zone)
+        )
+        if (templateKeys.length === 0) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['config'],
+                message: 'Widget configuration context is invalid.'
             })
-        } catch {
+            return
+        }
+        const configIsValidForSupportedTemplate = templateKeys.some((templateKey) => {
+            try {
+                decodeWidgetConfigEnvelope(value.config, {
+                    templateKey,
+                    widgetKey: value.widgetKey,
+                    zone: value.zone,
+                    requireBindings: definition.sourcePolicy.sourceMode === 'required'
+                })
+                return true
+            } catch {
+                return false
+            }
+        })
+        if (!configIsValidForSupportedTemplate) {
             context.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['config'],

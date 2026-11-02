@@ -155,8 +155,15 @@ describe('normalizePublicationSnapshotForHash', () => {
                 }
             ],
             layouts: [
-                { id: 'layout-2', templateKey: 'dashboard', isDefault: false, isActive: true, sortOrder: 2 },
-                { id: 'layout-1', templateKey: 'dashboard', isDefault: true, isActive: true, sortOrder: 1 }
+                {
+                    id: 'layout-2',
+                    templateKey: 'dashboard',
+                    config: { sections: ['details'] },
+                    isDefault: false,
+                    isActive: true,
+                    sortOrder: 2
+                },
+                { id: 'layout-1', templateKey: 'dashboard', config: { sections: ['hero'] }, isDefault: true, isActive: true, sortOrder: 1 }
             ],
             scopedLayouts: [
                 {
@@ -208,15 +215,13 @@ describe('normalizePublicationSnapshotForHash', () => {
                     isDeletedOverride: true
                 }
             ],
-            defaultLayoutId: 'layout-1',
-            layoutConfig: { sections: ['hero'] }
+            defaultLayoutId: 'layout-1'
         })
 
         expect(normalized).toMatchObject({
             version: 1,
             metahubId: 'metahub-1',
-            defaultLayoutId: 'layout-1',
-            layoutConfig: { sections: ['hero'] }
+            defaultLayoutId: 'layout-1'
         })
 
         expect(normalized.entities).toEqual([
@@ -233,6 +238,9 @@ describe('normalizePublicationSnapshotForHash', () => {
                 hubs: ['hub-1', 'hub-2']
             })
         ])
+        expect(normalized.layouts).toEqual(
+            expect.arrayContaining([expect.objectContaining({ id: 'layout-1', config: { sections: ['hero'] } })])
+        )
         const normalizedEntityFields = (
             normalized.entities as Array<{
                 fields: Array<{
@@ -382,7 +390,7 @@ describe('normalizePublicationSnapshotForHash', () => {
         const normalized = normalizePublicationSnapshotForHash(
             {
                 entities: {},
-                layoutConfig: null
+                layouts: []
             },
             {
                 defaultVersionEnvelope: {
@@ -398,7 +406,7 @@ describe('normalizePublicationSnapshotForHash', () => {
             templateVersion: null,
             snapshotFormatVersion: 1
         })
-        expect(normalized.layoutConfig).toEqual({})
+        expect(normalized.layouts).toEqual([])
         expect(normalized.entities).toEqual([])
     })
 

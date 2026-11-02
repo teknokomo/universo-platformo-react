@@ -68,7 +68,12 @@ describe('applications mutation hooks', () => {
             createApplication: vi.fn().mockResolvedValue({ data: { id: 'm1' } }),
             updateApplication: vi.fn().mockResolvedValue({ data: { id: 'm1' } }),
             deleteApplication: vi.fn().mockResolvedValue({ data: {} }),
-            copyApplication: vi.fn().mockResolvedValue({ data: { id: 'm2' } }),
+            copyApplication: vi.fn().mockResolvedValue({
+                data: {
+                    id: 'm2',
+                    name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Name copy' } } }
+                }
+            }),
             joinApplication: vi.fn().mockResolvedValue({ data: { status: 'joined' } }),
             leaveApplication: vi.fn().mockResolvedValue({ data: { status: 'left' } }),
             inviteApplicationMember: vi.fn().mockResolvedValue({ data: { id: 'u2' } }),
@@ -210,7 +215,12 @@ describe('applications mutation hooks', () => {
             ['applications', 'list'],
             'opt-1',
             'm2',
-            expect.objectContaining({ serverEntity: expect.objectContaining({ id: 'm2' }) })
+            expect.objectContaining({
+                serverEntity: expect.objectContaining({
+                    id: 'm2',
+                    name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Name copy' } } }
+                })
+            })
         )
         expect(invalidateSpy).toHaveBeenCalled()
         expect(enqueueSnackbar).toHaveBeenCalled()

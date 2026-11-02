@@ -125,9 +125,8 @@ export const assertDashboardSnapshotInvariants = (snapshotValue: unknown): void 
         dashboardLayouts.set(layout.id, layout)
     }
 
-    const snapshotLayoutConfig = asRecord(snapshot.layoutConfig)
-    if (snapshotLayoutConfig && Object.keys(snapshotLayoutConfig).some((key) => /^show[A-Z]/u.test(key))) {
-        throw new Error('Dashboard snapshot still contains retired show* layout authority.')
+    if (Object.prototype.hasOwnProperty.call(snapshot, 'layoutConfig')) {
+        throw new Error('Dashboard snapshot still contains the retired top-level layoutConfig projection.')
     }
 
     if (!Array.isArray(snapshot.layoutZoneWidgets)) throw new Error('Snapshot is missing its layout widget collection.')

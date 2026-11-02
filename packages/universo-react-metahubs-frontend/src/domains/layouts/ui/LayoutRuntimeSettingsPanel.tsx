@@ -211,6 +211,8 @@ export function LayoutRuntimeSettingsPanel({
         )
     }
 
+    if (templateKey !== 'dashboard') return null
+
     return (
         <>
             <Paper variant='outlined' sx={{ p: 2 }} data-testid='layout-runtime-settings-panel'>

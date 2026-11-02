@@ -10,6 +10,7 @@
         "create": "Create",
         "search": "Search",
         "filter": "Filter",
+        "openItem": "Open item",
         "login": "Login",
         "addNew": "Add",
         "cardView": "Card View",
@@ -21,6 +22,20 @@
                 "reorderRow": "Reorder row",
                 "reorderRows": "Reorder rows",
                 "tableView": "Table view"
+            }
+        },
+        "templates": {
+            "dashboard": {
+                "name": "Dashboard",
+                "description": "A dashboard layout for workspace applications."
+            },
+            "marketingPage": {
+                "name": "Marketing page",
+                "description": "A public-facing marketing page layout."
+            },
+            "messengerApp": {
+                "name": "Messenger app",
+                "description": "A bot-backed application layout for messaging platforms."
             }
         },
         "add": "Add",
@@ -60,6 +75,7 @@
             "tab": "Tab {{number}}",
             "moveUp": "Move up",
             "moveDown": "Move down",
+            "dragHandle": "Move nested content",
             "children": "Nested content",
             "moveToSlot": "Move to {{slot}}",
             "duplicateSubtree": "Duplicate section and its content",

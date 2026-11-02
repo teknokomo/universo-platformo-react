@@ -94,13 +94,19 @@ describe('marketing page contracts', () => {
     })
 
     it('keeps application template keys separate from metahub codenames', () => {
-        expect(APPLICATION_TEMPLATE_KEYS).toEqual(['dashboard', MARKETING_PAGE_TEMPLATE_KEY])
+        expect(APPLICATION_TEMPLATE_KEYS).toEqual(['dashboard', MARKETING_PAGE_TEMPLATE_KEY, 'messenger-app'])
         expect(APPLICATION_TEMPLATE_REGISTRY['marketing-page']).toMatchObject({
             key: 'marketing-page',
             supportsDashboardWidgets: false,
             seedPolicyKey: 'initial-only'
         })
         expect(APPLICATION_TEMPLATE_REGISTRY.dashboard.supportsDashboardWidgets).toBe(true)
+        expect(APPLICATION_TEMPLATE_REGISTRY['messenger-app']).toMatchObject({
+            key: 'messenger-app',
+            supportsDashboardWidgets: true,
+            seedPolicyKey: 'messenger-app',
+            semanticRegions: ['header', 'main', 'footer']
+        })
         expect(MARKETING_WIDGET_REGISTRY['marketing.image'].seamlessAfter).toEqual(['marketing.hero'])
     })
 
