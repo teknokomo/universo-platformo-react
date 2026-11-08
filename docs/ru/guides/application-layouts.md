@@ -179,3 +179,5 @@ baseline представления, активности, порядка, зо�
 -   [Макеты, привязанные к сущностям](entity-scoped-layouts.md)
 -   [Приложения](../platform/applications.md)
 -   [Обновление схем системных приложений](updating-system-app-schemas.md)
+
+`config.appearance` каждого макета несёт цветовой режим, ссылку на пресет, разреженные переопределения и server-resolved снимок токенов (см. `docs/ru/platform/theme-presets.md`). Изменения оформления помечают макет как локально изменённый; resolved-снимок не участвует в хэшах синхронизации. Применение, сброс и apply-latest идут через отдельные appearance-эндпоинты с optimistic concurrency.

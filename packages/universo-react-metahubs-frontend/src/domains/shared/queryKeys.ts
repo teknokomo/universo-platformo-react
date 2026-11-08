@@ -219,6 +219,8 @@ export const metahubsQueryKeys = {
         return [...metahubsQueryKeys.layoutsListBase(metahubId, normalized.scopeEntityId), normalized] as const
     },
 
+    themePresets: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'themePresets'] as const,
+
     layoutDetail: (metahubId: string, layoutId: string) => [...metahubsQueryKeys.layouts(metahubId), 'detail', layoutId] as const,
     layoutZoneWidgets: (metahubId: string, layoutId: string) =>
         [...metahubsQueryKeys.layoutDetail(metahubId, layoutId), 'zoneWidgets'] as const,

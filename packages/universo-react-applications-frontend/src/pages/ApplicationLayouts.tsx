@@ -1,4 +1,18 @@
-import { Alert, Box, Button, CircularProgress, FormControl, IconButton, InputLabel, MenuItem, Stack, Typography } from '@mui/material'
+import { useState } from 'react'
+import {
+    Alert,
+    Box,
+    Button,
+    CircularProgress,
+    FormControl,
+    IconButton,
+    InputLabel,
+    MenuItem,
+    Stack,
+    Tab,
+    Tabs,
+    Typography
+} from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import type { DragEndEvent } from '@dnd-kit/core'
 import {
@@ -35,7 +49,7 @@ import { LayoutRuntimeSettingsPanels } from './application-layouts/LayoutRuntime
 import { ApplicationLayoutListDialogs } from './application-layouts/ApplicationLayoutListDialogs'
 import { ApplicationLayoutWidgetEditors } from './application-layouts/ApplicationLayoutWidgetEditors'
 import { ApplicationLayoutListMenu } from './application-layouts/ApplicationLayoutListMenu'
-import { ApplicationMarketingAppearancePanel } from './application-layouts/ApplicationMarketingAppearancePanel'
+import { AppearanceSection } from './application-layouts/AppearanceSection'
 import {
     mergeInterpretationNetworkMatrixSettings,
     parseInterpretationNetworkMatrixSettings
@@ -124,10 +138,8 @@ const ApplicationLayouts = () => {
         getWidgetPlacementOverridePolicy,
         createMutation,
         updateMutation,
-        resetMarketingAppearanceMutation,
         updateZoneSettingMutation,
         resetZoneSettingMutation,
-        requestMarketingAppearanceReset,
         requestDeleteLayout,
         copyMutation,
         toggleWidgetMutation,
@@ -153,6 +165,8 @@ const ApplicationLayouts = () => {
         openMenu,
         closeMenu
     } = useApplicationLayoutsController()
+
+    const [detailsTab, setDetailsTab] = useState<'main' | 'appearance'>('main')
 
     if (isLoading) {
         return (
@@ -624,82 +638,99 @@ const ApplicationLayouts = () => {
                 {widgetMutationError?.scope === layoutScopeKey ? <Alert severity='warning'>{widgetMutationError.message}</Alert> : null}
 
                 <Box data-testid='application-layout-details-content' sx={{ pb: 2, width: '100%' }}>
-                    <LayoutAuthoringDetails
-                        dragHint={t('layouts.dragHint', 'Drag widgets between zones to change runtime composition.')}
-                        emptyZoneLabel={t('layouts.emptyZone', 'No widgets in this zone yet.')}
-                        addWidgetLabel={t('layouts.addWidgetAction', 'Add widget')}
-                        availableWidgetsLabel={t('layouts.availableWidgets', 'Available widgets')}
-                        dragHandleLabel={t('layouts.dragHandleLabel', 'Reorder widget')}
-                        moveWidgetLabel={t('layouts.moveWidget', 'Move widget')}
-                        onDragEnd={handleDragEnd}
-                        onAddWidgetRequest={handleAddWidgetRequest}
-                        beforeZonesContent={
-                            layout.templateKey === 'marketing-page' ? (
-                                <ApplicationMarketingAppearancePanel
-                                    t={t}
-                                    layout={layout}
-                                    isSaving={updateMutation.isPending}
-                                    isResetting={resetMarketingAppearanceMutation.isPending}
-                                    canManage={canManageLayouts}
-                                    onChange={(key, value) => void handleViewSettingChange(key, value)}
-                                    onReset={() => void requestMarketingAppearanceReset(layout)}
-                                />
-                            ) : layout.templateKey === 'dashboard' ? (
-                                <LayoutRuntimeSettingsPanels
-                                    t={t}
-                                    layout={layout}
-                                    objectBehaviorConfig={objectBehaviorConfig}
-                                    sideMenuConfig={sideMenuConfig}
-                                    onObjectBehaviorChange={(patch) => void handleObjectBehaviorChange(patch)}
-                                    onSideMenuConfigChange={(patch) => void handleSideMenuConfigChange(patch)}
-                                />
-                            ) : null
-                        }
-                        zones={layoutZones.map((zone) => ({
-                            zone,
-                            title: zoneLabels[zone],
-                            availableWidgets: getAvailableWidgetsForZone(zone).map((item) => ({
-                                key: item.key,
-                                label: widgetLabelByKey[item.key] ?? item.defaultLabel ?? tc('layouts.widgets.unknown', 'Widget')
-                            })),
-                            items: widgetRowsByZone[zone],
-                            groups:
-                                zone === 'marketing-header'
-                                    ? [
-                                          {
-                                              key: 'start',
-                                              title: tc('layouts.startGroup', { defaultValue: 'Start' }),
-                                              items: widgetRowsByZone[zone].filter((item) => {
-                                                  const widget = widgetsByZone[zone].find((candidate) => candidate.id === item.id)
-                                                  return widget ? readWidgetPlacement(widget) !== 'end' : true
-                                              })
-                                          },
-                                          {
-                                              key: 'end',
-                                              title: tc('layouts.endGroup', { defaultValue: 'End' }),
-                                              items: widgetRowsByZone[zone].filter((item) => {
-                                                  const widget = widgetsByZone[zone].find((candidate) => candidate.id === item.id)
-                                                  return widget ? readWidgetPlacement(widget) === 'end' : false
-                                              })
+                    {/* Shared-resources tab idiom: main authoring vs. appearance authoring. */}
+                    <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+                        <Tabs
+                            value={detailsTab}
+                            onChange={(_, next: 'main' | 'appearance') => setDetailsTab(next)}
+                            variant='scrollable'
+                            scrollButtons='auto'
+                        >
+                            <Tab
+                                value='main'
+                                label={t('layouts.details.tabs.main', 'Main')}
+                                data-testid='application-layout-details-tab-main'
+                            />
+                            <Tab
+                                value='appearance'
+                                label={t('layouts.details.tabs.appearance', 'Theme')}
+                                data-testid='application-layout-details-tab-appearance'
+                            />
+                        </Tabs>
+                    </Box>
+                    {detailsTab === 'appearance' ? (
+                        /* Cross-template appearance section (mode, preset, overrides). */
+                        <AppearanceSection applicationId={String(applicationId)} layout={layout} canManage={canManageLayouts} />
+                    ) : (
+                        <LayoutAuthoringDetails
+                            dragHint={t('layouts.dragHint', 'Drag widgets between zones to change runtime composition.')}
+                            emptyZoneLabel={t('layouts.emptyZone', 'No widgets in this zone yet.')}
+                            addWidgetLabel={t('layouts.addWidgetAction', 'Add widget')}
+                            availableWidgetsLabel={t('layouts.availableWidgets', 'Available widgets')}
+                            dragHandleLabel={t('layouts.dragHandleLabel', 'Reorder widget')}
+                            moveWidgetLabel={t('layouts.moveWidget', 'Move widget')}
+                            onDragEnd={handleDragEnd}
+                            onAddWidgetRequest={handleAddWidgetRequest}
+                            beforeZonesContent={
+                                <Stack spacing={2}>
+                                    {layout.templateKey === 'dashboard' ? (
+                                        <LayoutRuntimeSettingsPanels
+                                            t={t}
+                                            layout={layout}
+                                            objectBehaviorConfig={objectBehaviorConfig}
+                                            sideMenuConfig={sideMenuConfig}
+                                            onObjectBehaviorChange={(patch) => void handleObjectBehaviorChange(patch)}
+                                            onSideMenuConfigChange={(patch) => void handleSideMenuConfigChange(patch)}
+                                        />
+                                    ) : null}
+                                </Stack>
+                            }
+                            zones={layoutZones.map((zone) => ({
+                                zone,
+                                title: zoneLabels[zone],
+                                availableWidgets: getAvailableWidgetsForZone(zone).map((item) => ({
+                                    key: item.key,
+                                    label: widgetLabelByKey[item.key] ?? item.defaultLabel ?? tc('layouts.widgets.unknown', 'Widget')
+                                })),
+                                items: widgetRowsByZone[zone],
+                                groups:
+                                    zone === 'marketing-header'
+                                        ? [
+                                              {
+                                                  key: 'start',
+                                                  title: tc('layouts.startGroup', { defaultValue: 'Start' }),
+                                                  items: widgetRowsByZone[zone].filter((item) => {
+                                                      const widget = widgetsByZone[zone].find((candidate) => candidate.id === item.id)
+                                                      return widget ? readWidgetPlacement(widget) !== 'end' : true
+                                                  })
+                                              },
+                                              {
+                                                  key: 'end',
+                                                  title: tc('layouts.endGroup', { defaultValue: 'End' }),
+                                                  items: widgetRowsByZone[zone].filter((item) => {
+                                                      const widget = widgetsByZone[zone].find((candidate) => candidate.id === item.id)
+                                                      return widget ? readWidgetPlacement(widget) === 'end' : false
+                                                  })
+                                              }
+                                          ]
+                                        : undefined,
+                                settingsAction:
+                                    zone === 'marketing-header' && marketingHeaderSetting.available
+                                        ? {
+                                              label: `${tc('layouts.zoneSettings.settings', { defaultValue: 'Settings' })}: ${
+                                                  zoneLabels[zone]
+                                              }`,
+                                              summary: marketingHeaderSetting.customized
+                                                  ? tc('layouts.zoneSettings.customized', { defaultValue: 'Customized for this layout' })
+                                                  : tc('layouts.zoneSettings.inherited', {
+                                                        defaultValue: 'Inherited from the current layout source'
+                                                    }),
+                                              onClick: openMarketingHeaderSettings
                                           }
-                                      ]
-                                    : undefined,
-                            settingsAction:
-                                zone === 'marketing-header' && marketingHeaderSetting.available
-                                    ? {
-                                          label: `${tc('layouts.zoneSettings.settings', { defaultValue: 'Settings' })}: ${
-                                              zoneLabels[zone]
-                                          }`,
-                                          summary: marketingHeaderSetting.customized
-                                              ? tc('layouts.zoneSettings.customized', { defaultValue: 'Customized for this layout' })
-                                              : tc('layouts.zoneSettings.inherited', {
-                                                    defaultValue: 'Inherited from the current layout source'
-                                                }),
-                                          onClick: openMarketingHeaderSettings
-                                      }
-                                    : undefined
-                        }))}
-                    />
+                                        : undefined
+                            }))}
+                        />
+                    )}
                 </Box>
 
                 {layout.templateKey === 'marketing-page' && marketingHeaderSetting.available ? (

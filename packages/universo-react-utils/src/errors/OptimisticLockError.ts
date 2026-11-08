@@ -32,6 +32,7 @@ export interface ConflictInfo {
         | 'application_bot_binding'
         | 'connector'
         | 'playcanvasProject'
+        | 'theme_preset'
     /** Version the client expected */
     expectedVersion: number
     /** Actual current version in the database */

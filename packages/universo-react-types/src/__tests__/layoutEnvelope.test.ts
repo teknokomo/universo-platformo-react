@@ -87,8 +87,8 @@ describe('neutral layout and widget envelopes', () => {
 
     it('round-trips neutral layout metadata and strips it before renderer parsing', () => {
         const rawConfig = {
-            themeMode: 'dark',
             allowEmailActions: false,
+            allowTelephoneActions: false,
             [RESERVED_LAYOUT_METADATA_KEY]: {
                 composition: {
                     mode: 'overlay',
@@ -105,7 +105,7 @@ describe('neutral layout and widget envelopes', () => {
 
         const decoded = decodeLayoutConfigEnvelope(rawConfig, marketingContext)
 
-        expect(decoded.rendererConfig).toEqual({ themeMode: 'dark', allowEmailActions: false })
+        expect(decoded.rendererConfig).toEqual({ allowEmailActions: false, allowTelephoneActions: false })
         expect(decoded.rendererConfig).not.toHaveProperty(RESERVED_LAYOUT_METADATA_KEY)
         expect(marketingPageConfigSchema.safeParse(decoded.rendererConfig).success).toBe(true)
         expect(encodeLayoutConfigEnvelope({ rendererConfig: decoded.rendererConfig, neutral: decoded.neutral }, marketingContext)).toEqual(
@@ -115,15 +115,15 @@ describe('neutral layout and widget envelopes', () => {
 
     it('preserves neutral metadata when replacing renderer config and rejects renderer injection', () => {
         const rawConfig = {
-            themeMode: 'system',
+            allowEmailActions: true,
             [RESERVED_LAYOUT_METADATA_KEY]: {
                 zoneSettings: { 'marketing-header': { position: 'flow' } },
                 sourceZoneSettings: { 'marketing-header': { position: 'fixed' } }
             }
         }
 
-        expect(replaceLayoutRendererConfig(rawConfig, { themeMode: 'light' }, marketingContext)).toEqual({
-            themeMode: 'light',
+        expect(replaceLayoutRendererConfig(rawConfig, { allowEmailActions: false }, marketingContext)).toEqual({
+            allowEmailActions: false,
             [RESERVED_LAYOUT_METADATA_KEY]: rawConfig[RESERVED_LAYOUT_METADATA_KEY]
         })
         expect(() => encodeLayoutConfigEnvelope({ rendererConfig: { [RESERVED_LAYOUT_METADATA_KEY]: {} } })).toThrow(
@@ -407,7 +407,7 @@ describe('neutral layout and widget envelopes', () => {
         expect(
             encodeSnapshotLayoutConfigEnvelope(
                 {
-                    rendererConfig: { themeMode: 'dark' },
+                    rendererConfig: { allowEmailActions: false },
                     neutral: {
                         composition: { mode: 'independent', baseLayoutId: null },
                         zoneSettings: { 'marketing-header': { position: 'flow' } },
@@ -417,7 +417,7 @@ describe('neutral layout and widget envelopes', () => {
                 marketingContext
             )
         ).toEqual({
-            themeMode: 'dark',
+            allowEmailActions: false,
             [RESERVED_LAYOUT_METADATA_KEY]: {
                 zoneSettings: { 'marketing-header': { position: 'flow' } }
             }

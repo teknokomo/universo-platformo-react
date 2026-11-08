@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { MESSENGER_APP_LAYOUT_ZONES, type ApplicationLayoutWidgetKey, type MessengerAppLayoutZone } from './applicationLayoutPrimitives'
 import type { LayoutSemanticRegion } from './applicationTemplates'
+import { themeAppearanceSchema } from './themePreset'
 
 export { MESSENGER_APP_LAYOUT_ZONES }
 export type { MessengerAppLayoutZone }
@@ -15,8 +16,12 @@ export const MESSENGER_APP_LAYOUT_ZONE_SEMANTICS = {
     bottom: 'footer'
 } as const satisfies Readonly<Record<MessengerAppLayoutZone, LayoutSemanticRegion>>
 
-/** Messenger App has no independent renderer options yet. */
-export const messengerAppConfigSchema = z.object({}).strict()
+/** Messenger App shares the cross-template appearance contract (TZ FR-032). */
+export const messengerAppConfigSchema = z
+    .object({
+        appearance: themeAppearanceSchema.optional()
+    })
+    .strict()
 export type MessengerAppConfig = z.infer<typeof messengerAppConfigSchema>
 
 export interface MessengerAppDefaultPlacement {

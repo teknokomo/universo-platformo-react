@@ -71,6 +71,8 @@ export const applicationsQueryKeys = {
 
     layouts: (applicationId: string) => [...applicationsQueryKeys.detail(applicationId), 'layouts'] as const,
 
+    themePresets: (applicationId: string) => [...applicationsQueryKeys.detail(applicationId), 'themePresets'] as const,
+
     layoutsList: (applicationId: string, params?: PaginationParams & { scopeEntityId?: string | null }) => {
         const normalized = {
             limit: params?.limit ?? 50,

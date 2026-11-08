@@ -146,7 +146,7 @@ describe('sync layout snapshot normalization and marketing overlays', () => {
                     baseLayoutId: null,
                     name: { en: 'Marketing' },
                     description: null,
-                    config: { themeMode: 'light' },
+                    config: {},
                     isActive: true,
                     isDefault: true,
                     sortOrder: 0
@@ -185,7 +185,7 @@ describe('sync layout snapshot normalization and marketing overlays', () => {
                     baseLayoutId: null,
                     name: { en: 'Marketing' },
                     description: null,
-                    config: { themeMode: 'light' },
+                    config: {},
                     isActive: true,
                     isDefault: true,
                     sortOrder: 0
@@ -218,7 +218,6 @@ describe('sync layout snapshot normalization and marketing overlays', () => {
         const widgets = normalizeSnapshotLayoutZoneWidgets(snapshot)
 
         expect(layouts[0]?.config).toMatchObject({
-            themeMode: 'light',
             allowEmailActions: true,
             allowTelephoneActions: true,
             externalLinkTarget: 'new-tab'
@@ -408,7 +407,7 @@ describe('sync layout snapshot normalization and marketing overlays', () => {
                     baseLayoutId: null,
                     name: { en: 'Marketing' },
                     description: null,
-                    config: { themeMode: 'light' },
+                    config: {},
                     isActive: true,
                     isDefault: true,
                     sortOrder: 0

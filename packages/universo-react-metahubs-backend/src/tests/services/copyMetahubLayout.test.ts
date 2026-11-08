@@ -122,7 +122,7 @@ describe('copyMetahubLayout', () => {
         const { executor, queries, copiedWidgetIds, committedWidgetRows } = createCopyMetahubLayoutFixture({
             sourceLayout: {
                 template_key: 'marketing-page',
-                config: { themeMode: 'system' }
+                config: {}
             },
             sourceWidgets: [sourceWidget]
         })
@@ -160,7 +160,7 @@ describe('copyMetahubLayout', () => {
         const seededHero = marketingLayoutZoneWidgets['marketing-main'].find(({ widgetKey }) => widgetKey === 'marketing.hero')
         if (!seededHero) throw new Error('The Marketing Page template must seed a Hero placement')
         const { executor, queries } = createCopyMetahubLayoutFixture({
-            sourceLayout: { template_key: 'marketing-page', config: { themeMode: 'system' } },
+            sourceLayout: { template_key: 'marketing-page', config: {} },
             sourceWidgets: [
                 {
                     id: '0190a9b5-3cde-7abc-8def-0123456789aa',

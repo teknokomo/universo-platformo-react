@@ -325,7 +325,7 @@ for (const target of TARGETS) {
         }
     }
 
-    const fallbackNamespaces = ['common', 'header', 'spaces']
+    const fallbackNamespaces = ['common', 'header', 'spaces', 'appearance']
     const packageNamespaces = [target.namespace, ...Object.keys(target.additionalNamespaces ?? {})]
     const resolveInNamespace = (language, namespace, key, hasCount) => {
         const keys = namespaceKeys.get(`${language}:${namespace}`)

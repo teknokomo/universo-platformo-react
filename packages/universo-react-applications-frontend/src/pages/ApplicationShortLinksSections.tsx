@@ -2,20 +2,8 @@ import { useMemo, useState } from 'react'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import LinkOffRoundedIcon from '@mui/icons-material/LinkOffRounded'
-import {
-    Box,
-    Button,
-    Chip,
-    FormControl,
-    FormHelperText,
-    InputLabel,
-    MenuItem,
-    Select,
-    Stack,
-    TextField,
-    Tooltip,
-    Typography
-} from '@mui/material'
+import { Box, Button, Chip, FormControl, FormHelperText, InputLabel, MenuItem, Stack, TextField, Tooltip, Typography } from '@mui/material'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {

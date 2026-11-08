@@ -35,6 +35,22 @@
                 }
             })()
         </script>
+    <!-- MUI color-scheme init (TZ §14.1): applies the persisted/system mode
+         before first paint to avoid a dark-mode flash. Attribute must match
+         colorSchemeSelector in AppTheme ('data-mui-color-scheme'). -->
+    <script>
+      ;(function () {
+        try {
+          var mode = localStorage.getItem('mui-mode')
+          if (!mode || mode === 'system') {
+            mode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+          }
+          document.documentElement.setAttribute('data-mui-color-scheme', mode)
+        } catch (e) {
+          /* storage or matchMedia unavailable — provider will set it on mount */
+        }
+      })()
+    </script>
         <!-- Open Graph / Facebook -->
         <meta property="og:locale" content="en_US" />
         <meta property="og:locale:alternate" content="ru_RU" />

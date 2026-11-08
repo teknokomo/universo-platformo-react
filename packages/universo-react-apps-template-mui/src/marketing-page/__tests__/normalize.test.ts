@@ -240,7 +240,7 @@ describe('normalizeMarketingPageRuntime', () => {
 
         expect(hero).toMatchObject({ content: { title: 'Наши новые', accent: 'Для команд', description: 'Типизированная страница.' } })
         expect(pricing).toMatchObject({ content: { tiers: [{ title: 'Профессиональный', benefits: ['Приоритетная поддержка'] }] } })
-        expect(normalized.config).toMatchObject({ themeMode: 'system', allowEmailActions: true, allowTelephoneActions: true })
+        expect(normalized.config).toMatchObject({ allowEmailActions: true, allowTelephoneActions: true })
     })
 
     it('normalizes repeated Hero placements from their own typed Entity projections', () => {

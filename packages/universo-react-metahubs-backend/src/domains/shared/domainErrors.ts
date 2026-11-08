@@ -35,6 +35,11 @@ export type MetahubErrorCode =
     | 'DEFAULT_BRANCH_UNDELETABLE'
     | 'BRANCH_CREATION_FAILED'
     | 'BRANCH_CLEANUP_FAILED'
+    | 'THEME_PRESET_VERSION_CONFLICT'
+    | 'THEME_PRESET_SOURCE_UNAVAILABLE'
+    | 'THEME_PRESET_IN_USE'
+    | 'THEME_PRESET_INVALID'
+    | 'THEME_APPEARANCE_RESOLVE_FAILED'
 
 export interface MetahubDomainErrorPayload {
     message: string

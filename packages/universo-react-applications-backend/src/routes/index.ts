@@ -4,6 +4,8 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { createRateLimiter, createRateLimiters } from '@universo-react/utils/rate-limiting'
 import { createApplicationsRoutes } from './applicationsRoutes'
 import { createApplicationAliasesRoutes } from './applicationAliasesRoutes'
+import { createThemePresetsRoutes } from './themePresetsRoutes'
+import { isThemePresetsEnabled } from '@universo-react/utils/env'
 import { createApplicationSyncRoutes } from './applicationSyncRoutes'
 import { createConnectorsRoutes } from './connectorsRoutes'
 import { createPublicApplicationsRoutes } from './publicApplicationsRoutes'
@@ -102,6 +104,9 @@ export function createApplicationsServiceRoutes(
     // Deployment-global application aliases. Authorization is capability-based
     // inside the controller; request-scoped RLS is preserved for every query.
     router.use('/', createApplicationAliasesRoutes(ensureAuth, getDbExecutor, read, write, getRequestScopedDbExecutor))
+    if (isThemePresetsEnabled()) {
+        router.use('/', createThemePresetsRoutes(ensureAuth, getDbExecutor, read, write, getRequestScopedDbExecutor))
+    }
 
     // Application runtime schema sync and diff
     router.use('/', createApplicationSyncRoutes(syncEnsureAuth, getDbExecutor, loadPublishedApplicationSyncContext, read, write))

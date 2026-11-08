@@ -1,4 +1,5 @@
 import { hashApplicationLayoutContent, normalizeApplicationLayoutForHash } from '../../utils/applicationLayoutHash'
+import { themeOverridesSchema } from '@universo-react/types'
 
 const uuid = (suffix: number) => `019f3100-0000-7000-8000-${String(suffix).padStart(12, '0')}`
 const baseHash = 'a'.repeat(64)
@@ -167,5 +168,50 @@ describe('application layout content hash', () => {
         expect(remapped).toBe(first)
         expect(changedScope).not.toBe(first)
         expect(changedBase).not.toBe(first)
+    })
+
+    describe('layout appearance hash discipline (QA-H2, TZ §10.2)', () => {
+        const makeAppearanceLayout = (overrides: unknown, resolvedHash: string) => ({
+            templateKey: 'dashboard' as const,
+            name: { en: 'Themed' },
+            description: null,
+            config: {
+                __layout: { composition: { mode: 'independent', baseLayoutId: null } },
+                appearance: {
+                    mode: 'dark',
+                    preset: { source: 'file', id: 'universo-default', version: 1 },
+                    overrides,
+                    resolved: { hash: resolvedHash, tokens: { marker: 'server-owned-materialization' } }
+                }
+            },
+            sourceComposition: { mode: 'independent' as const, baseLayoutId: null }
+        })
+
+        it('strips server-owned appearance.resolved from the decoded layout while keeping mode, preset and overrides', () => {
+            const normalized = normalizeApplicationLayoutForHash({ layout: makeAppearanceLayout({}, `sha256:${'a'.repeat(64)}`) })
+            const config = normalized.layout.config as { appearance?: Record<string, unknown> }
+
+            expect(config.appearance).toBeDefined()
+            expect(config.appearance).not.toHaveProperty('resolved')
+            expect(JSON.stringify(normalized.layout.config)).not.toContain('server-owned-materialization')
+            expect(config.appearance).toEqual({
+                mode: 'dark',
+                preset: { source: 'file', id: 'universo-default', version: 1 },
+                overrides: {}
+            })
+        })
+
+        it('hashes layouts whose appearance differs only by resolved identically, and an overrides edit differently', () => {
+            // "Preset re-resolution doesn't flip local_content_hash; an overrides edit does."
+            const baseHash = hashApplicationLayoutContent({ layout: makeAppearanceLayout({}, `sha256:${'a'.repeat(64)}`) })
+            const reResolvedHash = hashApplicationLayoutContent({ layout: makeAppearanceLayout({}, `sha256:${'b'.repeat(64)}`) })
+            expect(reResolvedHash).toBe(baseHash)
+
+            const overridden = themeOverridesSchema.parse({ modes: { light: { divider: '#101010' } } })
+            const overridesEditedHash = hashApplicationLayoutContent({
+                layout: makeAppearanceLayout(overridden, `sha256:${'a'.repeat(64)}`)
+            })
+            expect(overridesEditedHash).not.toBe(baseHash)
+        })
     })
 })

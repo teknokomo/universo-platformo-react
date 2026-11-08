@@ -6,6 +6,7 @@ import { getBrowserOrigin, getProcessEnv, getPublicRuntimeEnv, resolveRuntimeEnv
 // Re-export admin config utilities
 export * from './adminConfig'
 export * from './globalMigrationCatalogConfig'
+export * from './themePresetsConfig'
 export * from './numberParsing'
 
 const getRuntimeEnvValue = (key: string): string | undefined => {

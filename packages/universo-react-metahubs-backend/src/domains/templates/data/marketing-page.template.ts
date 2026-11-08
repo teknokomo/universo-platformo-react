@@ -921,9 +921,7 @@ export const marketingPageTemplate: MetahubTemplateManifest = {
                 isDefault: true,
                 isActive: true,
                 sortOrder: 0,
-                config: enrichConfigWithVlcTimestamps({
-                    themeMode: 'system'
-                })
+                config: enrichConfigWithVlcTimestamps({})
             }
         ],
         layoutZoneWidgets: marketingLayoutZoneWidgets,

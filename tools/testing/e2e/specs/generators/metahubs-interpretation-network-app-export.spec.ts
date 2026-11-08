@@ -60,6 +60,22 @@ const configureInterpretationNetworkProductFixture = async (api: ApiContext, met
     const workspaceWidget = widgets.find((candidate) => candidate?.widgetKey === 'interpretationNetworkWorkspace')
     expect(workspaceWidget?.id).toBeTruthy()
 
+    // The Structures workspace provides its own creation affordances, so the
+    // dashboard-level "Create" host action has no meaning in this product and
+    // is disabled through the canonical layout behavior setting (the same
+    // switch the layout behavior panel exposes).
+    const layoutResponse = await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahubId}/layout/${layout.id}`, {
+        config: {
+            ...(layout.config && typeof layout.config === 'object' ? layout.config : {}),
+            objectBehavior: {
+                ...(layout.config && typeof layout.config === 'object' ? (layout.config as Record<string, unknown>).objectBehavior : {}),
+                showCreateButton: false
+            }
+        },
+        expectedVersion: layout.version
+    })
+    expect(layoutResponse.ok).toBe(true)
+
     const response = await sendWithCsrf(
         api,
         'PATCH',

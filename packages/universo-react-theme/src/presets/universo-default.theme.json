@@ -1,0 +1,79 @@
+{
+    "$schema": "./theme-preset-file.schema-v1.json",
+    "schemaVersion": 1,
+    "id": "universo-default",
+    "version": 1,
+    "name": {
+        "en": "Universo Default",
+        "ru": "Universo по умолчанию"
+    },
+    "description": {
+        "en": "Default platform appearance",
+        "ru": "Оформление платформы по умолчанию"
+    },
+    "tokens": {
+        "shared": {
+            "typography": {
+                "fontFamily": "inter",
+                "baseSize": 16,
+                "scale": 1.2,
+                "weights": {
+                    "regular": 400,
+                    "medium": 500,
+                    "bold": 700
+                }
+            },
+            "spacing": {
+                "base": 8,
+                "density": "comfortable"
+            },
+            "shape": {
+                "borderRadius": 8,
+                "borderWidth": 1
+            },
+            "shadows": {
+                "scale": "default"
+            }
+        },
+        "modes": {
+            "light": {
+                "primary": {
+                    "main": "#027af2",
+                    "contrastText": "#e5f2ff"
+                },
+                "secondary": {
+                    "main": "#9c27b0",
+                    "contrastText": "#ffffff"
+                },
+                "background": {
+                    "default": "#fcfcfc",
+                    "paper": "#f5f6fa"
+                },
+                "text": {
+                    "primary": "#0b0e14",
+                    "secondary": "#47536b"
+                },
+                "divider": "#e5e8ec"
+            },
+            "dark": {
+                "primary": {
+                    "main": "#027af2",
+                    "contrastText": "#e5f2ff"
+                },
+                "secondary": {
+                    "main": "#9c27b0",
+                    "contrastText": "#ffffff"
+                },
+                "background": {
+                    "default": "#05070a",
+                    "paper": "#0c1017"
+                },
+                "text": {
+                    "primary": "#ffffff",
+                    "secondary": "#94a0b8"
+                },
+                "divider": "#202632"
+            }
+        }
+    }
+}

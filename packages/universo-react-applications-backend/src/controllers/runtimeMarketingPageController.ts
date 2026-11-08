@@ -14,7 +14,7 @@ import {
     resourceSourceSchema,
     validateWidgetBindings,
     type MarketingAction,
-    type MarketingPageConfig,
+    type MarketingRuntimePageConfig,
     type ResourceSource,
     type WidgetBindingSlotDefinition,
     type WidgetEntityBindingEnvelope
@@ -45,6 +45,7 @@ import {
     type RuntimeWidgetBindingObjectMetadata
 } from '../persistence/widgetBindingRuntimeStore'
 import { asMarketingString } from '../services/marketingRuntimeSerialization'
+import { toPublicMarketingConfig } from '../services/publicMarketingRuntime'
 
 const MARKETING_RUNTIME_ENTITY_CODENAME_PATTERN = /^[A-Za-z][A-Za-z0-9._-]*$/u
 
@@ -115,10 +116,8 @@ export const safeMedia = (
     }
 }
 
-export const toConfig = (value: unknown): MarketingPageConfig => {
-    const parsed = marketingPageConfigSchema.safeParse(value ?? {})
-    if (!parsed.success) throw new Error('Marketing runtime configuration is invalid')
-    return parsed.data
+export const toConfig = (value: unknown, themeVariant?: 'light' | 'dark' | 'system'): MarketingRuntimePageConfig => {
+    return toPublicMarketingConfig(value, themeVariant)
 }
 
 type MarketingRuntimeTarget = {
@@ -284,9 +283,9 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
             return res.status(409).json({ code: 'MARKETING_LAYOUT_INVALID', error: 'Marketing layout identifier is invalid.' })
         const templateKey = effectiveLayout.layout.templateKey
         if (templateKey !== 'marketing-page') return res.status(409).json({ error: 'Application does not use marketing-page template' })
-        let runtimeConfig: MarketingPageConfig
+        let runtimeConfig: MarketingRuntimePageConfig
         try {
-            runtimeConfig = toConfig(effectiveLayout.layout.config)
+            runtimeConfig = toConfig(effectiveLayout.layout.config, themeVariant.value as 'light' | 'dark' | 'system' | undefined)
         } catch {
             return res.status(409).json({ code: 'MARKETING_CONFIG_INVALID', error: 'Marketing page configuration is invalid.' })
         }

@@ -3,14 +3,13 @@ import { useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useSnackbar } from 'notistack'
-import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material'
+import { Alert, Box, Button, CircularProgress, Stack, Tab, Tabs, Typography } from '@mui/material'
 import { useCommonTranslations } from '@universo-react/i18n'
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import type {
     ObjectCollectionRuntimeViewConfig,
     ApplicationLayoutZone,
     ApplicationLayoutWidgetKey,
-    ResolvedDashboardLayoutConfig,
     DashboardSideMenuConfig,
     LayoutPosition,
     LayoutLogicalPlacement
@@ -42,6 +41,7 @@ import * as layoutsApi from '../api'
 import type { Metahub, MetahubLayout, MetahubLayoutZoneWidget } from '../../../types'
 import { getVLCString } from '../../../types'
 import DashboardNestedPlacements, { canMovePlacementToNestedSlot, countNestedPlacementDescendants } from './DashboardNestedPlacements'
+import LayoutAppearanceSection from './LayoutAppearanceSection'
 import LayoutRuntimeSettingsPanel from './LayoutRuntimeSettingsPanel'
 import LayoutWidgetEditorDialogs from './LayoutWidgetEditorDialogs'
 import {
@@ -82,6 +82,7 @@ export default function LayoutDetails() {
     const [zoneSettingsOpen, setZoneSettingsOpen] = useState(false)
     const [zoneSettingsError, setZoneSettingsError] = useState<string | null>(null)
     const [zoneSettingsSaving, setZoneSettingsSaving] = useState(false)
+    const [detailsTab, setDetailsTab] = useState<'main' | 'appearance'>('main')
 
     const layoutQuery = useQuery({
         queryKey: metahubId && layoutId ? metahubsQueryKeys.layoutDetail(metahubId, layoutId) : ['layout-empty'],
@@ -150,7 +151,6 @@ export default function LayoutDetails() {
               ? t('layouts.templates.marketingPage', 'Marketing page')
               : t('layouts.templates.dashboard', 'Dashboard'))
         : ''
-    const layoutConfig = (layout?.config ?? {}) as Partial<ResolvedDashboardLayoutConfig>
     const sideMenuConfig = useMemo(() => normalizeEditableSideMenuConfig(layout?.config?.sideMenu), [layout?.config?.sideMenu])
     const objectBehaviorConfig = useMemo(
         () => normalizeObjectCollectionRuntimeViewConfig(extractObjectCollectionLayoutBehaviorConfig(layout?.config)),
@@ -713,53 +713,83 @@ export default function LayoutDetails() {
                         </Alert>
                     ) : (
                         <Stack spacing={2}>
-                            <DndContext sensors={layoutDndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                                <LayoutAuthoringDetails
-                                    dragHint={t('layouts.details.dragHint', 'Drag widgets between zones to change runtime composition.')}
-                                    dragHandleLabel={t('layouts.details.dragHandleLabel', 'Reorder widget')}
-                                    emptyZoneLabel={t('layouts.empty', 'No widgets in this zone yet.')}
-                                    addWidgetLabel={t('layouts.details.addWidget', 'Add widget')}
-                                    availableWidgetsLabel={t('layouts.details.widgetObjectsTitle', 'Available widgets')}
-                                    moveWidgetLabel={t('layouts.moveWidget', 'Move widget')}
-                                    zones={authoringZonesWithSettings}
-                                    onDragEnd={handleDragEnd}
-                                    onAddWidgetRequest={widgetAuthoring.handleAddWidgetRequest}
-                                    externalDndContext
-                                    beforeZonesContent={
-                                        <Stack spacing={2}>
-                                            <LayoutRuntimeSettingsPanel
-                                                t={t}
-                                                templateKey={layout?.templateKey}
-                                                isScopedLayout={Boolean(layout?.scopeEntityId)}
-                                                layoutConfig={layoutConfig}
-                                                objectBehaviorConfig={objectBehaviorConfig}
-                                                sideMenuConfig={sideMenuConfig}
-                                                viewSettingsSaving={viewSettingsSaving}
-                                                canManageLayouts={canManageLayouts}
-                                                onObjectBehaviorChange={(patch) => void handleObjectBehaviorChange(patch)}
-                                                onViewSettingChange={(key, value) => void handleViewSettingChange(key, value)}
-                                                onSideMenuConfigChange={(patch) => void handleSideMenuConfigChange(patch)}
-                                            />
-                                            {supportsNestedPlacementAuthoring(layout?.templateKey) ? (
-                                                <DashboardNestedPlacements
-                                                    layout={layout}
-                                                    placements={zoneWidgets}
-                                                    nestedPlacements={nestedPlacements}
-                                                    zoneLabels={zoneLabels}
-                                                    canManageLayouts={canManageLayouts}
-                                                    locale={uiLocale}
-                                                    tc={tc}
-                                                    widgetLabelByKey={widgetAuthoring.widgetLabelByKey}
-                                                    getWidgetChipLabel={widgetAuthoring.getWidgetChipLabel}
-                                                    getAvailableWidgetsForZone={widgetAuthoring.getAvailableWidgetsForZone}
-                                                    onAddWidget={widgetAuthoring.handleAddWidgetRequest}
-                                                    onMove={(placement, target) => void handleNestedPlacementMove(placement, target)}
-                                                />
-                                            ) : null}
-                                        </Stack>
-                                    }
+                            {/* Shared-resources tab idiom: main authoring vs. appearance authoring. */}
+                            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                                <Tabs
+                                    value={detailsTab}
+                                    onChange={(_, next: 'main' | 'appearance') => setDetailsTab(next)}
+                                    variant='scrollable'
+                                    scrollButtons='auto'
+                                >
+                                    <Tab
+                                        value='main'
+                                        label={t('layouts.details.tabs.main', 'Main')}
+                                        data-testid='metahub-layout-details-tab-main'
+                                    />
+                                    <Tab
+                                        value='appearance'
+                                        label={t('layouts.details.tabs.appearance', 'Theme')}
+                                        data-testid='metahub-layout-details-tab-appearance'
+                                    />
+                                </Tabs>
+                            </Box>
+                            {detailsTab === 'appearance' ? (
+                                <LayoutAppearanceSection
+                                    metahubId={metahubId}
+                                    layoutId={layoutId}
+                                    layout={layout}
+                                    canManageLayouts={canManageLayouts}
                                 />
-                            </DndContext>
+                            ) : (
+                                <DndContext sensors={layoutDndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                                    <LayoutAuthoringDetails
+                                        dragHint={t(
+                                            'layouts.details.dragHint',
+                                            'Drag widgets between zones to change runtime composition.'
+                                        )}
+                                        dragHandleLabel={t('layouts.details.dragHandleLabel', 'Reorder widget')}
+                                        emptyZoneLabel={t('layouts.empty', 'No widgets in this zone yet.')}
+                                        addWidgetLabel={t('layouts.details.addWidget', 'Add widget')}
+                                        availableWidgetsLabel={t('layouts.details.widgetObjectsTitle', 'Available widgets')}
+                                        moveWidgetLabel={t('layouts.moveWidget', 'Move widget')}
+                                        zones={authoringZonesWithSettings}
+                                        onDragEnd={handleDragEnd}
+                                        onAddWidgetRequest={widgetAuthoring.handleAddWidgetRequest}
+                                        externalDndContext
+                                        beforeZonesContent={
+                                            <Stack spacing={2}>
+                                                <LayoutRuntimeSettingsPanel
+                                                    t={t}
+                                                    templateKey={layout?.templateKey}
+                                                    isScopedLayout={Boolean(layout?.scopeEntityId)}
+                                                    objectBehaviorConfig={objectBehaviorConfig}
+                                                    sideMenuConfig={sideMenuConfig}
+                                                    viewSettingsSaving={viewSettingsSaving}
+                                                    canManageLayouts={canManageLayouts}
+                                                    onObjectBehaviorChange={(patch) => void handleObjectBehaviorChange(patch)}
+                                                    onSideMenuConfigChange={(patch) => void handleSideMenuConfigChange(patch)}
+                                                />
+                                                {supportsNestedPlacementAuthoring(layout?.templateKey) ? (
+                                                    <DashboardNestedPlacements
+                                                        layout={layout}
+                                                        placements={zoneWidgets}
+                                                        nestedPlacements={nestedPlacements}
+                                                        zoneLabels={zoneLabels}
+                                                        canManageLayouts={canManageLayouts}
+                                                        locale={uiLocale}
+                                                        tc={tc}
+                                                        widgetLabelByKey={widgetAuthoring.widgetLabelByKey}
+                                                        getWidgetChipLabel={widgetAuthoring.getWidgetChipLabel}
+                                                        getAvailableWidgetsForZone={widgetAuthoring.getAvailableWidgetsForZone}
+                                                        onAddWidget={widgetAuthoring.handleAddWidgetRequest}
+                                                        onMove={(placement, target) => void handleNestedPlacementMove(placement, target)}
+                                                    />
+                                                ) : null}
+                                            </Stack>
+                                        }
+                                    />
+                                </DndContext>
+                            )}
                         </Stack>
                     )}
                 </Box>

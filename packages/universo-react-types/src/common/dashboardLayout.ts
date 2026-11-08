@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { objectCollectionLayoutBehaviorConfigSchema } from './objectCollectionRuntimeConfig'
+import { themeAppearanceSchema } from './themePreset'
 
 export { DASHBOARD_VIEW_MODES, type DashboardViewMode } from './dashboardLayoutPrimitives'
 
@@ -50,7 +51,9 @@ const dashboardLayoutConfigObjectSchema = z
         /** Host-level side-menu presentation shared by the Dashboard shell. */
         sideMenu: dashboardSideMenuConfigSchema.optional(),
         /** Object record creation and form behavior; widget presentation remains placement-owned. */
-        objectBehavior: objectCollectionLayoutBehaviorConfigSchema
+        objectBehavior: objectCollectionLayoutBehaviorConfigSchema,
+        /** Cross-template appearance (mode, preset reference, overrides, server-resolved tokens). */
+        appearance: themeAppearanceSchema.optional()
     })
     .strict()
 

@@ -144,3 +144,6 @@ packages/universo-react-metahubs-backend/storage
 # PlayCanvas ESM engine build staged for the runtime import map (copied by
 # packages/universo-react-core-frontend/scripts/ensure-playcanvas-esm.mjs)
 packages/universo-react-core-frontend/public/vendor/playcanvas/
+
+# ZCode session-local workspace
+.zcode/

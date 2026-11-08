@@ -186,8 +186,6 @@ describe('applicationLayoutsStore layout and scope persistence', () => {
             name: { en: 'Marketing' },
             description: null,
             config: {
-                themeMode: 'dark',
-                primaryColor: '#1976d2',
                 __layout: {
                     composition: { mode: 'independent', baseLayoutId: null },
                     sourceZoneSettings: { 'marketing-header': { position: 'flow' } },
@@ -243,7 +241,6 @@ describe('applicationLayoutsStore layout and scope persistence', () => {
                 templateKey: 'marketing-page',
                 version: 5,
                 config: expect.objectContaining({
-                    themeMode: 'system',
                     allowEmailActions: true,
                     allowTelephoneActions: true,
                     externalLinkTarget: 'new-tab'
@@ -348,7 +345,6 @@ describe('applicationLayoutsStore layout and scope persistence', () => {
         const { executor, txExecutor } = createMockDbExecutor()
         const layoutId = '018f8a78-7b8f-7c1d-a111-2222333344a1'
         const currentConfig = {
-            themeMode: 'light',
             __layout: {
                 composition: { mode: 'independent', baseLayoutId: null },
                 sourceZoneSettings: { 'marketing-header': { position: 'flow' } },
@@ -385,7 +381,6 @@ describe('applicationLayoutsStore layout and scope persistence', () => {
             includeStructureLock: false
         })
         const updatedConfig = {
-            themeMode: 'light',
             __layout: {
                 composition: { mode: 'independent', baseLayoutId: null },
                 sourceZoneSettings: { 'marketing-header': { position: 'flow' } },
@@ -404,7 +399,9 @@ describe('applicationLayoutsStore layout and scope persistence', () => {
             'user-1'
         )
 
-        expect(updated?.config).toEqual(expect.objectContaining({ themeMode: 'light' }))
+        expect(updated?.config).toEqual(
+            expect.objectContaining({ allowEmailActions: true, allowTelephoneActions: true, externalLinkTarget: 'new-tab' })
+        )
         const persistedUpdatedConfig = JSON.parse(String(txExecutor.query.mock.calls.at(-1)?.[1]?.[1])) as Record<string, unknown>
         expect(persistedUpdatedConfig.__layout).toEqual(
             expect.objectContaining({
@@ -421,7 +418,6 @@ describe('applicationLayoutsStore layout and scope persistence', () => {
             includeStructureLock: false
         })
         const resetConfig = {
-            themeMode: 'light',
             __layout: {
                 composition: { mode: 'independent', baseLayoutId: null },
                 sourceZoneSettings: { 'marketing-header': { position: 'flow' } }
@@ -439,7 +435,9 @@ describe('applicationLayoutsStore layout and scope persistence', () => {
             'user-1'
         )
 
-        expect(reset?.config).toEqual(expect.objectContaining({ themeMode: 'light' }))
+        expect(reset?.config).toEqual(
+            expect.objectContaining({ allowEmailActions: true, allowTelephoneActions: true, externalLinkTarget: 'new-tab' })
+        )
         const persistedResetConfig = JSON.parse(String(txExecutor.query.mock.calls.at(-1)?.[1]?.[1])) as Record<string, unknown>
         expect(persistedResetConfig.__layout).toEqual(
             expect.objectContaining({ sourceZoneSettings: { 'marketing-header': { position: 'flow' } } })

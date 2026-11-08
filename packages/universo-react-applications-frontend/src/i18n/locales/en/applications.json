@@ -679,6 +679,20 @@
             "controlPanel": "Control panel"
         },
         "layouts": {
+            "appearance": {
+                "saveSuccess": "Theme applied",
+                "resetSuccess": "Theme removed from the layout",
+                "applyLatestSuccess": "Latest theme version applied",
+                "createSuccess": "Theme created",
+                "deleteSuccess": "Theme removed",
+                "copySuccess": "Metahub theme copied into the application",
+                "copyError": "Failed to copy the theme into the application.",
+                "actionError": "The theme action failed. Try again.",
+                "newPresetName": "Custom theme",
+                "copyPresetName": "Layout theme copy",
+                "exportSuccess": "Theme exported",
+                "exportError": "Failed to export the theme."
+            },
             "invalidRequest": "The layout data is invalid. Review the fields and try again.",
             "saveError": "Failed to save layout settings.",
             "createError": "Failed to create layout.",
@@ -778,8 +792,6 @@
             },
             "messengerDetailDescription": "Configure the Messenger app composition.",
             "marketing": {
-                "appearanceTitle": "Marketing page appearance",
-                "appearanceDescription": "Configure the published marketing page without editing its content records.",
                 "heroActionIntegrityConflict": "This section is used by a Hero action. Change that action or keep the section active.",
                 "invalidConfig": "The saved marketing appearance configuration is invalid.",
                 "resetHint": "Restore the theme, colors, and action policy to the marketing template defaults.",
@@ -793,15 +805,11 @@
                 "resetUnsupported": "Only marketing page layouts can restore marketing appearance defaults.",
                 "resetError": "Failed to restore marketing appearance defaults.",
                 "saveError": "Failed to save marketing appearance settings",
-                "themeMode": "Theme mode",
                 "theme": {
                     "system": "System",
                     "light": "Light",
                     "dark": "Dark"
                 },
-                "primaryColor": "Primary color",
-                "accentColor": "Accent color",
-                "colorHelper": "Use a hex color such as #1976d2.",
                 "invalidColor": "Enter a valid contrast-safe hex color.",
                 "actionPolicy": "Action policy",
                 "allowEmailActions": "Allow email actions",
@@ -1148,6 +1156,12 @@
                 "title": "Workspace switcher",
                 "readOnly": "The workspace switcher uses the published application workspace state and has no widget-specific settings yet.",
                 "hint": "Use application settings to control which workspace settings can be changed inside workspaces."
+            },
+            "details": {
+                "tabs": {
+                    "main": "Main",
+                    "appearance": "Theme"
+                }
             }
         },
         "board": {
@@ -1723,11 +1737,5 @@
         "description": "The application is currently being updated. Please try again in a few minutes.",
         "backToApp": "Back to application",
         "backToList": "Back to applications"
-    },
-    "layouts": {
-        "datasource": {}
-    },
-    "app": {
-        "runtime": {}
     }
 }

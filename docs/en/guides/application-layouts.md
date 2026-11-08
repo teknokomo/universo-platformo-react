@@ -179,3 +179,5 @@ Menu widget targets are selected from runtime sections by human-readable labels.
 -   [Entity-Scoped Layouts](entity-scoped-layouts.md)
 -   [Applications](../platform/applications.md)
 -   [Updating System App Schemas](updating-system-app-schemas.md)
+
+Each layout's `config.appearance` carries the color mode, preset reference, sparse overrides, and the server-resolved token snapshot (see `docs/en/platform/theme-presets.md`). Appearance edits mark the layout as locally modified; the resolved snapshot never participates in sync hashes. Apply, reset, and apply-latest go through the dedicated appearance endpoints with optimistic concurrency.

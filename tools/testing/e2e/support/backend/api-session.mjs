@@ -2193,6 +2193,116 @@ export async function listRuntimeLedgerFacts(api, applicationId, ledgerId, param
     return response.json()
 }
 
+/**
+ * Theme preset scope: `{ kind: 'metahub', id }` or `{ kind: 'application', id }`.
+ * Metahub appearance routes use the singular `/layout/` segment while
+ * application routes use the plural `/layouts/` segment (backend contract).
+ */
+const THEME_PRESET_SCOPE_KINDS = new Set(['metahub', 'application'])
+
+const buildThemePresetScopeBasePath = (scope, suffix = '') => {
+    if (!scope || !THEME_PRESET_SCOPE_KINDS.has(scope.kind)) {
+        throw new Error(`Theme preset scope kind must be one of ${[...THEME_PRESET_SCOPE_KINDS].join(', ')}`)
+    }
+    if (!scope.id) {
+        throw new Error(`Theme preset scope requires an id for kind ${scope.kind}`)
+    }
+
+    const base = scope.kind === 'metahub' ? `/api/v1/metahub/${scope.id}/theme-presets` : `/api/v1/applications/${scope.id}/theme-presets`
+    return `${base}${suffix}`
+}
+
+const buildLayoutAppearanceBasePath = (scope, layoutId, suffix = '') => {
+    if (!scope || !THEME_PRESET_SCOPE_KINDS.has(scope.kind)) {
+        throw new Error(`Layout appearance scope kind must be one of ${[...THEME_PRESET_SCOPE_KINDS].join(', ')}`)
+    }
+    if (!scope.id) {
+        throw new Error(`Layout appearance scope requires an id for kind ${scope.kind}`)
+    }
+
+    const base =
+        scope.kind === 'metahub'
+            ? `/api/v1/metahub/${scope.id}/layout/${layoutId}/appearance`
+            : `/api/v1/applications/${scope.id}/layouts/${layoutId}/appearance`
+    return `${base}${suffix}`
+}
+
+/**
+ * Create a DB theme preset. Returns the raw Response so callers can assert
+ * both happy-path payloads and negative codes (FR-048 codename guards).
+ */
+export async function createThemePreset(api, scope, payload) {
+    return sendWithCsrf(api, 'POST', buildThemePresetScopeBasePath(scope), payload)
+}
+
+export async function listThemePresets(api, scope, params = {}) {
+    const query = new URLSearchParams()
+
+    for (const [key, value] of Object.entries(params)) {
+        if (value === undefined || value === null || value === '') {
+            continue
+        }
+
+        query.set(key, String(value))
+    }
+
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await fetchFromApi(api, `${buildThemePresetScopeBasePath(scope)}${suffix}`, { method: 'GET' })
+    if (!response.ok) {
+        throw await buildError(response, `Listing theme presets for ${scope.kind} ${scope.id}`)
+    }
+
+    return response.json()
+}
+
+export async function getThemePreset(api, scope, presetId) {
+    const response = await fetchFromApi(api, buildThemePresetScopeBasePath(scope, `/${presetId}`), { method: 'GET' })
+    if (!response.ok) {
+        throw await buildError(response, `Fetching theme preset ${presetId} for ${scope.kind} ${scope.id}`)
+    }
+
+    return response.json()
+}
+
+/** Copy a DB or file preset. Body: `{ presetId }` or `{ filePresetId }` plus optional `{ codename }`. */
+export async function copyThemePreset(api, scope, body) {
+    return sendWithCsrf(api, 'POST', buildThemePresetScopeBasePath(scope, '/copy'), body)
+}
+
+/**
+ * Export a preset as a theme file attachment. Returns the raw Response so
+ * callers can assert Content-Disposition and the JSON envelope. Optional
+ * `codenameOverride` maps to the `?codename=` query (FR-048 export guard).
+ */
+export async function exportThemePreset(api, scope, presetId, codenameOverride) {
+    const suffix = codenameOverride ? `?codename=${encodeURIComponent(codenameOverride)}` : ''
+    return requestApi(api, buildThemePresetScopeBasePath(scope, `/${presetId}/export`) + suffix)
+}
+
+/**
+ * DELETE a preset. The route archives non-archived presets and hard-deletes
+ * archived ones, so callers assert the Response themselves (delete-in-use 409
+ * happens on the second call while layouts still reference the preset).
+ */
+export async function deleteThemePreset(api, scope, presetId, body = {}) {
+    return sendWithCsrf(api, 'DELETE', buildThemePresetScopeBasePath(scope, `/${presetId}`), body)
+}
+
+/** PATCH a layout's appearance. Body: `{ appearance, expectedVersion }`. Returns the raw Response. */
+export async function updateLayoutAppearance(api, scope, layoutId, body) {
+    return sendWithCsrf(api, 'PATCH', buildLayoutAppearanceBasePath(scope, layoutId), body)
+}
+
+/** POST a layout appearance reset. Body: `{ expectedVersion }`. Returns the raw Response. */
+export async function resetLayoutAppearance(api, scope, layoutId, body) {
+    return sendWithCsrf(api, 'POST', buildLayoutAppearanceBasePath(scope, layoutId, '/reset'), body)
+}
+
+/** POST apply-latest (re-resolve the referenced preset onto the layout). Body: `{ expectedVersion }`. */
+export async function applyLatestLayoutAppearance(api, scope, layoutId, body) {
+    return sendWithCsrf(api, 'POST', buildLayoutAppearanceBasePath(scope, layoutId, '/apply-latest'), body)
+}
+
 export async function deleteSupabaseAuthUser(userId) {
     loadE2eEnvironment()
 

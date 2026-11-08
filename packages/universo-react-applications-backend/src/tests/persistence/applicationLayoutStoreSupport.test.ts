@@ -179,7 +179,6 @@ describe('applicationLayoutStoreSupport', () => {
             ...baseLayoutRow,
             template_key: 'marketing-page',
             config: {
-                themeMode: 'system',
                 __layout: { composition: { mode: 'independent', baseLayoutId: null } }
             }
         }
@@ -207,7 +206,6 @@ describe('applicationLayoutStoreSupport', () => {
             ...baseLayoutRow,
             template_key: 'marketing-page',
             config: {
-                themeMode: 'system',
                 __layout: { composition: { mode: 'independent', baseLayoutId: null } }
             }
         }

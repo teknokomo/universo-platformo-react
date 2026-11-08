@@ -287,3 +287,11 @@ export { default as StatCard, buildRealisticTrendData } from './components/dashb
 export type { StatCardProps } from './components/dashboard/StatCard'
 export { default as HighlightedCard } from './components/dashboard/HighlightedCard'
 export type { HighlightedCardProps } from './components/dashboard/HighlightedCard'
+
+// Theme appearance authoring (TZ FR-023..FR-028)
+export { ThemeAppearancePanel } from './components/theme/ThemeAppearancePanel'
+export type { ThemeAppearancePanelProps, AppearancePresetOption } from './components/theme/ThemeAppearancePanel'
+export { ThemePresetManagerDialog } from './components/theme/ThemePresetManagerDialog'
+export type { ThemePresetManagerDialogProps, ThemePresetManagerItem } from './components/theme/ThemePresetManagerDialog'
+export { generatePresetCodename, toPresetOption, toManagerItem } from './components/theme/appearanceSectionSupport'
+export type { ThemePresetSummaryInput } from './components/theme/appearanceSectionSupport'

@@ -121,7 +121,6 @@ const publicMarketingPayload = {
         templateKey: 'marketing-page',
         locale: 'en',
         config: {
-            themeMode: 'system',
             allowEmailActions: true,
             allowTelephoneActions: true,
             externalLinkTarget: 'new-tab'

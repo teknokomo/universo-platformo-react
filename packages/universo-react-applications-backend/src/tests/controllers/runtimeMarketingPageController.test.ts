@@ -272,8 +272,13 @@ describe('runtime marketing page controller', () => {
     })
 
     it('normalizes configuration defaults and rejects malformed marketing settings', () => {
-        expect(toConfig({})).toMatchObject({ themeMode: 'system', allowEmailActions: true, externalLinkTarget: 'new-tab' })
-        expect(() => toConfig({ themeMode: 'sepia' })).toThrow('configuration is invalid')
+        expect(toConfig({})).toMatchObject({
+            allowEmailActions: true,
+            allowTelephoneActions: true,
+            externalLinkTarget: 'new-tab',
+            appearance: { mode: 'system' }
+        })
+        expect(() => toConfig({ externalLinkTarget: 'bogus' })).toThrow('marketing layout config is invalid')
     })
 
     it('resolves a published compatible Entity through projected, bounded SQL and omits every record identifier', async () => {

@@ -707,4 +707,73 @@ describe('normalizePublicationSnapshotForHash', () => {
         expect(JSON.stringify(first.playcanvasRuntimeManifests)).toContain('"speed":10')
         expect(JSON.stringify(changedEntity.playcanvasRuntimeManifests)).toContain('ship-wingman')
     })
+
+    it('omits server-owned appearance.resolved from layout and scopedLayout hash normalization (QA-H2)', () => {
+        const layoutConfig = {
+            appearance: {
+                mode: 'dark',
+                preset: { source: 'file', id: 'universo-default', version: 1 },
+                overrides: { modes: { light: { divider: '#101010' } } },
+                resolved: { hash: `sha256:${'a'.repeat(64)}`, tokens: { marker: 'server-owned-materialization' } }
+            }
+        }
+
+        const normalized = normalizePublicationSnapshotForHash({
+            layouts: [
+                { id: 'layout-appearance-1', templateKey: 'dashboard', config: layoutConfig, isDefault: true, isActive: true, sortOrder: 1 }
+            ],
+            scopedLayouts: [
+                {
+                    id: 'scoped-appearance-1',
+                    scopeEntityId: 'object-a',
+                    baseLayoutId: 'layout-appearance-1',
+                    templateKey: 'dashboard',
+                    config: layoutConfig,
+                    isDefault: false,
+                    isActive: true,
+                    sortOrder: 1
+                }
+            ]
+        })
+
+        for (const section of ['layouts', 'scopedLayouts'] as const) {
+            const entries = normalized[section] as Array<{ config: { appearance?: Record<string, unknown> } }>
+            expect(entries).toHaveLength(1)
+            const appearance = entries[0].config.appearance
+            expect(appearance).toBeDefined()
+            expect(appearance).not.toHaveProperty('resolved')
+            expect(JSON.stringify(entries[0].config)).not.toContain('server-owned-materialization')
+            expect(appearance).toMatchObject({
+                mode: 'dark',
+                preset: { source: 'file', id: 'universo-default', version: 1 },
+                overrides: { modes: { light: { divider: '#101010' } } }
+            })
+        }
+    })
+
+    it('keeps re-resolution of the same appearance out of the hash payload while an overrides edit flips it (QA-H2)', () => {
+        const makeConfig = (resolvedHash: string, divider: string) => ({
+            appearance: {
+                mode: 'dark',
+                preset: { source: 'file', id: 'universo-default', version: 1 },
+                overrides: { modes: { light: { divider } } },
+                resolved: { hash: resolvedHash, tokens: { marker: 'server-owned-materialization' } }
+            }
+        })
+        const makeSnapshotLayout = (config: Record<string, unknown>) => ({
+            layouts: [{ id: 'layout-appearance-1', templateKey: 'dashboard', config, isDefault: true, isActive: true, sortOrder: 1 }]
+        })
+
+        const base = normalizePublicationSnapshotForHash(makeSnapshotLayout(makeConfig(`sha256:${'a'.repeat(64)}`, '#101010')))
+        // Same mode/preset/overrides but a different server-side resolution (preset tokens changed upstream).
+        const reResolved = normalizePublicationSnapshotForHash(makeSnapshotLayout(makeConfig(`sha256:${'b'.repeat(64)}`, '#101010')))
+        // An explicit overrides edit by the user.
+        const overridesEdited = normalizePublicationSnapshotForHash(makeSnapshotLayout(makeConfig(`sha256:${'a'.repeat(64)}`, '#202020')))
+
+        const serializedBase = JSON.stringify(base.layouts)
+        // Preset re-resolution must not flip the snapshot hash...
+        expect(JSON.stringify(reResolved.layouts)).toBe(serializedBase)
+        // ...while a local overrides edit must.
+        expect(JSON.stringify(overridesEdited.layouts)).not.toBe(serializedBase)
+    })
 })

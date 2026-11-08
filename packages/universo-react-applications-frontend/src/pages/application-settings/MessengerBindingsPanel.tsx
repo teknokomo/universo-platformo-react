@@ -164,7 +164,10 @@ export function MessengerBindingsPanel({ applicationId, isPublic }: MessengerBin
                 <Box
                     sx={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
+                        // auto-fill (not auto-fit): binding cards keep their
+                        // natural width and pack to the left instead of
+                        // stretching across half the panel.
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))',
                         gap: gridSpacing,
                         minWidth: 0
                     }}

@@ -3,8 +3,26 @@ import { render } from '@testing-library/react'
 import type { ComponentType } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
+import { findFileThemePreset } from '@universo-react/theme'
+import { themeTokensSchema } from '@universo-react/types'
 import enApplicationsLocale from '../../i18n/locales/en/applications.json'
 import ruApplicationsLocale from '../../i18n/locales/ru/applications.json'
+
+/**
+ * A persisted universo-default appearance, for tests that exercise flows
+ * which require an applied theme (e.g. the reset endpoint).
+ */
+export const createAppliedAppearanceConfig = (): Record<string, unknown> => ({
+    appearance: {
+        mode: 'system',
+        preset: { source: 'file', id: 'universo-default', version: 1 },
+        overrides: {},
+        resolved: {
+            hash: `sha256:${'0'.repeat(64)}`,
+            tokens: themeTokensSchema.parse(findFileThemePreset('universo-default')!.tokens)
+        }
+    }
+})
 
 const layoutLocales = {
     en: enApplicationsLocale.applications.layouts,
@@ -59,7 +77,15 @@ const hoistedMocks = vi.hoisted(() => ({
         createApplicationLayout: vi.fn(),
         updateApplicationLayout: vi.fn(),
         deleteApplicationLayout: vi.fn(),
-        copyApplicationLayout: vi.fn()
+        copyApplicationLayout: vi.fn(),
+        listApplicationThemePresets: vi.fn(),
+        createApplicationThemePreset: vi.fn(),
+        copyApplicationThemePreset: vi.fn(),
+        deleteApplicationThemePreset: vi.fn(),
+        exportApplicationThemePreset: vi.fn(),
+        applyLayoutAppearance: vi.fn(),
+        resetLayoutAppearance: vi.fn(),
+        applyLatestLayoutAppearance: vi.fn()
     },
     snackbarMocks: {
         enqueueSnackbar: vi.fn()
@@ -119,6 +145,10 @@ vi.mock('react-i18next', () => ({
                         ? 'Этот раздел используется в действии первого экрана. Измените действие или оставьте раздел включённым.'
                         : 'This section is used by a Hero action. Change that action or keep the section active.',
                 'layouts.marketing.resetSuccess': 'Marketing appearance restored to template defaults.',
+                'errors.versionConflict':
+                    localeMocks.language === 'ru'
+                        ? 'Тема изменена другим пользователем. Обновите страницу и повторите.'
+                        : 'The theme was modified by someone else. Refresh and try again.',
                 'templates.messengerApp.name': localeMocks.language === 'ru' ? 'Приложение для мессенджера' : 'Messenger app'
             }
             if (localeMocks.language === 'ru') {
@@ -395,7 +425,15 @@ vi.mock('../../api/applications', () => ({
     createApplicationLayout: apiMocks.createApplicationLayout,
     updateApplicationLayout: apiMocks.updateApplicationLayout,
     deleteApplicationLayout: apiMocks.deleteApplicationLayout,
-    copyApplicationLayout: apiMocks.copyApplicationLayout
+    copyApplicationLayout: apiMocks.copyApplicationLayout,
+    listApplicationThemePresets: apiMocks.listApplicationThemePresets,
+    createApplicationThemePreset: apiMocks.createApplicationThemePreset,
+    copyApplicationThemePreset: apiMocks.copyApplicationThemePreset,
+    deleteApplicationThemePreset: apiMocks.deleteApplicationThemePreset,
+    exportApplicationThemePreset: apiMocks.exportApplicationThemePreset,
+    applyLayoutAppearance: apiMocks.applyLayoutAppearance,
+    resetLayoutAppearance: apiMocks.resetLayoutAppearance,
+    applyLatestLayoutAppearance: apiMocks.applyLatestLayoutAppearance
 }))
 
 import { applicationsQueryKeys } from '../../api/queryKeys'
@@ -445,9 +483,6 @@ export const createMarketingLayout = (config: Record<string, unknown> = {}) => (
     name: { en: 'Marketing' },
     description: null,
     config: {
-        themeMode: 'dark',
-        primaryColor: '#1976d2',
-        accentColor: '#9c27b0',
         allowEmailActions: true,
         allowTelephoneActions: true,
         externalLinkTarget: 'new-tab',
@@ -783,4 +818,12 @@ export const resetApplicationLayoutsMocks = () => {
     apiMocks.updateApplicationLayout.mockResolvedValue({})
     apiMocks.deleteApplicationLayout.mockResolvedValue(undefined)
     apiMocks.copyApplicationLayout.mockResolvedValue({})
+    apiMocks.listApplicationThemePresets.mockResolvedValue({ file: [], presets: [] })
+    apiMocks.createApplicationThemePreset.mockResolvedValue({})
+    apiMocks.copyApplicationThemePreset.mockResolvedValue({})
+    apiMocks.deleteApplicationThemePreset.mockResolvedValue({})
+    apiMocks.exportApplicationThemePreset.mockResolvedValue(undefined)
+    apiMocks.applyLayoutAppearance.mockResolvedValue({ layoutId: 'layout-1', version: 8, appearance: null })
+    apiMocks.resetLayoutAppearance.mockResolvedValue({ layoutId: 'layout-1', version: 8, appearance: null })
+    apiMocks.applyLatestLayoutAppearance.mockResolvedValue({ layoutId: 'layout-1', version: 8, appearance: null })
 }

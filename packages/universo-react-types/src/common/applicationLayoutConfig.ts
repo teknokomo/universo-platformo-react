@@ -50,15 +50,11 @@ export const applicationLayoutConfigSchema = z
 const isApplicationLayoutRecord = (value: unknown): value is Record<string, unknown> =>
     Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
-const MARKETING_ONLY_LAYOUT_CONFIG_KEYS = new Set([
-    'themeMode',
-    'primaryColor',
-    'accentColor',
-    'brandLogo',
-    'allowEmailActions',
-    'allowTelephoneActions',
-    'externalLinkTarget'
-])
+// `appearance` is a cross-template key (all three schemas accept it); only the
+// marketing-specific policy fields remain marketing-only. The removed legacy
+// appearance fields (`themeMode`, `primaryColor`, `accentColor`) are rejected
+// everywhere by the strict per-template schemas.
+const MARKETING_ONLY_LAYOUT_CONFIG_KEYS = new Set(['brandLogo', 'allowEmailActions', 'allowTelephoneActions', 'externalLinkTarget'])
 const RESERVED_LAYOUT_CONFIG_KEYS = new Set(['__layout', 'compositionMode', 'baseLayoutId'])
 
 export const parseApplicationLayoutConfig = (templateKey: ApplicationTemplateKey | string, config: unknown): ApplicationLayoutConfig => {

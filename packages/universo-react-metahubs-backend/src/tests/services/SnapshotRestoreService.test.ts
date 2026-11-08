@@ -2283,9 +2283,7 @@ describe('SnapshotRestoreService', () => {
                     templateKey: 'marketing-page',
                     name: { en: 'Marketing page' },
                     description: null,
-                    config: {
-                        themeMode: 'light'
-                    },
+                    config: {},
                     isDefault: true,
                     isActive: true,
                     sortOrder: 0,
@@ -2313,7 +2311,9 @@ describe('SnapshotRestoreService', () => {
 
         const restoredConfig = (insertedRows['_mhb_layouts']?.[0] as { config?: Record<string, unknown> } | undefined)?.config
         expect(restoredConfig).toMatchObject({
-            themeMode: 'light',
+            allowEmailActions: true,
+            allowTelephoneActions: true,
+            externalLinkTarget: 'new-tab',
             __layout: {
                 composition: { mode: 'independent', baseLayoutId: null },
                 zoneSettings: { 'marketing-header': { position: 'fixed' } }

@@ -22,6 +22,7 @@ import type {
     DashboardRowTargetAction
 } from '../dashboard/Dashboard'
 import AppMainLayout from '../layouts/AppMainLayout'
+import RuntimeAppearanceInjector from '../layouts/RuntimeAppearanceInjector'
 import { createStandaloneAdapter } from '../api/adapters'
 import {
     buildRuntimeLayoutQueryKey,
@@ -664,9 +665,13 @@ function DashboardRuntimeContent({ effectiveLayout, onRuntimeDataChanged, onNavi
         )
     }
 
+    const messengerAppearance = effectiveMessengerLayout?.layout.config?.appearance ?? null
+    const dashboardAppearance = effectiveDashboardLayout?.layout.config?.appearance ?? null
+
     if (effectiveMessengerLayout && messengerZoneWidgets) {
         return (
             <AppMainLayout>
+                <RuntimeAppearanceInjector appearance={messengerAppearance} />
                 <MessengerRuntimeShell zones={messengerZoneWidgets} details={details} placementScopes={messengerPlacementScopes} />
             </AppMainLayout>
         )
@@ -674,6 +679,7 @@ function DashboardRuntimeContent({ effectiveLayout, onRuntimeDataChanged, onNavi
 
     return (
         <AppMainLayout>
+            <RuntimeAppearanceInjector appearance={dashboardAppearance} />
             <Dashboard
                 layoutConfig={runtimeLayoutConfig}
                 zoneWidgets={dashboardZoneWidgets}

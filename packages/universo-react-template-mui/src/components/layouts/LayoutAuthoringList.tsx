@@ -182,10 +182,14 @@ export function LayoutAuthoringList({
                     sx={{
                         display: 'grid',
                         gap: gridSpacing,
+                        // auto-fill (not auto-fit): empty tracks are preserved so
+                        // cards keep their natural width and pack to the left —
+                        // with auto-fit two cards would each stretch across half
+                        // the container. Matches the SkeletonGrid loading state.
                         gridTemplateColumns: {
                             xs: '1fr',
-                            sm: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
-                            lg: 'repeat(auto-fit, minmax(260px, 1fr))'
+                            sm: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))',
+                            lg: 'repeat(auto-fill, minmax(260px, 1fr))'
                         }
                     }}
                 >

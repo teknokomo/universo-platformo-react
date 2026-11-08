@@ -3,15 +3,16 @@ import {
     getMarketingSectionAnchorEntries,
     MARKETING_HEADER_WIDGET_KEYS,
     MARKETING_WIDGET_REGISTRY,
-    marketingPageConfigSchema,
+    marketingRuntimePageConfigSchema,
     marketingHeaderPositionSchema,
     marketingSemanticKeySchema,
     publicMarketingApplicationRuntimeSchema,
     publicMarketingPageRuntimeViewModelSchema,
     resolveLayoutZoneSettingValue,
     type MarketingHeaderWidgetKey,
-    type MarketingPageConfig,
-    type PublicMarketingApplicationRuntime
+    type MarketingRuntimePageConfig,
+    type PublicMarketingApplicationRuntime,
+    type ThemeAppearance
 } from '@universo-react/types'
 import { asMarketingRecord } from './marketingRuntimeSerialization'
 import type { EffectiveLayoutSuccess } from './effectiveLayoutContract'
@@ -20,26 +21,63 @@ import { projectMarketingWidgetBindingData } from './marketingWidgetEntityBindin
 import { PublicMarketingMaterializationError, type PublicMarketingBindingRecordLoader } from '../persistence/publicApplicationRuntimeStore'
 import type { ApplicationPublicRouteResolution } from '@universo-react/types'
 import { toPublicApplicationRouteResolution } from './publicApplicationRuntime'
+import { findFileThemePreset } from '@universo-react/theme'
+import { resolveThemeAppearance } from '@universo-react/theme/resolve'
 
 type PublicRecord = Record<string, unknown>
 
 const asRecord = asMarketingRecord
 const isRecord = (value: unknown): value is PublicRecord => Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
-const toPublicConfig = (value: unknown): MarketingPageConfig => {
+/** Runtime `themeVariant` query override (TZ §7.3: viewer intent beats layout mode). */
+export type MarketingThemeVariant = 'light' | 'dark' | 'system'
+
+let universoDefaultResolved: { hash: string; tokens: ThemeAppearance['resolved']['tokens'] } | null = null
+
+/** TZ §11.4/§15.2: layouts without `appearance` render the universo-default snapshot. */
+const getUniversoDefaultAppearance = (): ThemeAppearance => {
+    const preset = findFileThemePreset('universo-default')
+    if (!preset) throw new PublicMarketingMaterializationError('Default theme preset is missing')
+    if (!universoDefaultResolved) {
+        universoDefaultResolved = resolveThemeAppearance({
+            preset: { source: 'file', id: preset.id, version: preset.version },
+            presetTokens: preset.tokens,
+            overrides: {}
+        })
+    }
+    return {
+        mode: 'system',
+        preset: { source: 'file', id: preset.id, version: preset.version },
+        overrides: {},
+        resolved: universoDefaultResolved
+    }
+}
+
+const toPublicConfig = (value: unknown, themeVariant?: MarketingThemeVariant): MarketingRuntimePageConfig => {
     const raw = asRecord(value)
+    const sourceAppearance = isRecord(raw.appearance) ? raw.appearance : getUniversoDefaultAppearance()
+    // TZ §11.4: the runtime boundary carries { mode, resolved } only — the
+    // preset reference and overrides are authoring state and never leave.
+    const { preset: _preset, overrides: _overrides, mode: appearanceMode, resolved } = sourceAppearance as {
+        preset?: unknown
+        overrides?: unknown
+        mode?: 'system' | 'light' | 'dark'
+        resolved?: unknown
+    }
     const candidate = {
-        themeMode: raw.themeMode,
-        ...(typeof raw.primaryColor === 'string' ? { primaryColor: raw.primaryColor } : {}),
-        ...(typeof raw.accentColor === 'string' ? { accentColor: raw.accentColor } : {}),
         allowEmailActions: raw.allowEmailActions,
         allowTelephoneActions: raw.allowTelephoneActions,
-        externalLinkTarget: raw.externalLinkTarget
+        externalLinkTarget: raw.externalLinkTarget,
+        appearance: { mode: appearanceMode ?? 'system', resolved }
     }
-    const parsed = marketingPageConfigSchema.safeParse(candidate)
+    const parsed = marketingRuntimePageConfigSchema.safeParse(candidate)
     if (!parsed.success) throw new PublicMarketingMaterializationError('Public marketing layout config is invalid')
-    return parsed.data
+    if (!themeVariant || !parsed.data.appearance) return parsed.data
+    return { ...parsed.data, appearance: { ...parsed.data.appearance, mode: themeVariant } }
 }
+
+/** Shared projection for both anonymous and authenticated marketing runtimes. */
+export const toPublicMarketingConfig = toPublicConfig
 
 const publicWidgetInstanceKey = (widgetKey: string, index: number): string =>
     `marketing-${widgetKey.replace(/^marketing\./u, '').toLowerCase()}-${index}`
@@ -150,6 +188,8 @@ export interface SerializePublicMarketingRuntimeInput {
     locale: 'en' | 'ru'
     effectiveLayout: EffectiveLayoutSuccess
     loadRecords: PublicMarketingBindingRecordLoader
+    /** Viewer theme override from the `?themeVariant=` query (TZ §7.3). */
+    themeVariant?: MarketingThemeVariant
 }
 
 /** Serialize registry-bound content into the anonymous renderer contract. */
@@ -157,13 +197,14 @@ export const serializePublicMarketingRuntime = async ({
     route,
     locale,
     effectiveLayout,
-    loadRecords
+    loadRecords,
+    themeVariant
 }: SerializePublicMarketingRuntimeInput): Promise<PublicMarketingApplicationRuntime> => {
     if (effectiveLayout.layout.templateKey !== 'marketing-page') {
         throw new PublicMarketingMaterializationError('Public application template is not marketing-page')
     }
 
-    const runtimeConfig = toPublicConfig(effectiveLayout.layout.config)
+    const runtimeConfig: MarketingRuntimePageConfig = toPublicConfig(effectiveLayout.layout.config, themeVariant)
     const headerPosition = marketingHeaderPositionSchema.safeParse(
         resolveLayoutZoneSettingValue('marketing-page', 'marketing-header', 'position', effectiveLayout.layout.zoneSettings)
     )
