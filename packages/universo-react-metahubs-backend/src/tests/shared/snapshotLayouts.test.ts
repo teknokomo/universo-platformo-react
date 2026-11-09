@@ -20,8 +20,11 @@ import {
     encodeLayoutConfigEnvelope,
     encodeWidgetConfigEnvelope,
     getLayoutWidgetDefinition,
+    themeTokensSchema,
     validateWidgetBindings
 } from '@universo-react/types'
+import { findFileThemePreset } from '@universo-react/theme'
+import { resolveThemeAppearance } from '@universo-react/theme/resolve'
 import type { MetahubSnapshot } from '../../domains/publications/services/SnapshotSerializer'
 
 type MockPoolExecutor = {
@@ -695,7 +698,6 @@ describe('attachLayoutsToSnapshot', () => {
                         name: { en: 'Marketing page' },
                         description: null,
                         config: {
-                            themeMode: 'system',
                             __layout: {
                                 composition: { mode: 'independent', baseLayoutId: null },
                                 zoneSettings: { 'marketing-header': { position: 'flow' } }
@@ -740,12 +742,10 @@ describe('attachLayoutsToSnapshot', () => {
         })
 
         expect(snapshot.layouts?.[0]?.config).toEqual({
-            themeMode: 'system',
             __layout: { zoneSettings: { 'marketing-header': { position: 'flow' } } }
         })
         expect(snapshot).not.toHaveProperty('layoutConfig')
         expect(snapshot.layouts?.[0]?.config).toEqual({
-            themeMode: 'system',
             __layout: { zoneSettings: { 'marketing-header': { position: 'flow' } } }
         })
         expect(snapshot.layoutZoneWidgets?.[0]?.config).toEqual(createMarketingBrandConfig())
@@ -1290,5 +1290,190 @@ describe('alignPlayCanvasRuntimeManifestBindings', () => {
             sceneId: null,
             checksum: 'ambiguous-null-scene-checksum'
         })
+    })
+})
+
+describe('attachLayoutsToSnapshot appearance integrity (TH-17)', () => {
+    const filePreset = findFileThemePreset('universo-default')!
+    const validTokens = themeTokensSchema.parse(filePreset.tokens)
+    const fileResolved = resolveThemeAppearance({
+        preset: { source: 'file', id: filePreset.id, version: filePreset.version },
+        presetTokens: validTokens,
+        overrides: {}
+    })
+    const dbPresetId = '0190a9b5-0000-7000-8000-0000000000c1'
+
+    const appearanceConfig = (appearance: unknown): unknown => ({
+        __layout: { composition: { mode: 'independent', baseLayoutId: null } },
+        appearance
+    })
+
+    type AppearanceExecutor = {
+        executor: MockPoolExecutor
+        presetQueries: unknown[][]
+        run: (layoutConfigs: unknown[], presetRows?: Array<Record<string, unknown>>) => void
+    }
+
+    const createAppearanceExecutor = (): AppearanceExecutor => {
+        const presetQueries: unknown[][] = []
+        const executor = {
+            query: jest.fn(async (sql: string, params: unknown[]) => {
+                if (sql.includes('pg_advisory_xact_lock')) return []
+                if (sql.includes('obj_theme_presets')) {
+                    presetQueries.push(params ?? [])
+                    return (executor as unknown as { presetRows: Array<Record<string, unknown>> }).presetRows
+                }
+                if (sql.includes('_mhb_layouts')) {
+                    return (executor as unknown as { layoutConfigs: unknown[] }).layoutConfigs.map((config, index) => ({
+                        id: `0190a9b5-0000-7000-8000-0000000001${String(index).padStart(2, '0')}`,
+                        scope_entity_id: null,
+                        base_layout_id: null,
+                        template_key: 'dashboard',
+                        name: { en: `Layout ${index}` },
+                        description: null,
+                        config,
+                        is_active: true,
+                        is_default: index === 0,
+                        sort_order: index
+                    }))
+                }
+                if (sql.includes('information_schema.tables')) return [{ exists: false }]
+                throw new Error(`Unexpected query: ${sql}`)
+            })
+        } as unknown as MockPoolExecutor
+        const harness = executor as unknown as { layoutConfigs: unknown[]; presetRows: Array<Record<string, unknown>> }
+        executor.transaction = jest.fn(async (callback: (tx: MockPoolExecutor) => Promise<unknown>) => callback(executor))
+        executor.isReleased = () => false
+        return {
+            executor,
+            presetQueries,
+            run: (layoutConfigs, presetRows = []) => {
+                harness.layoutConfigs = layoutConfigs
+                harness.presetRows = presetRows
+                mockGetPoolExecutor.mockReturnValue(executor)
+            }
+        }
+    }
+
+    const attach = (snapshot: MetahubSnapshot): Promise<unknown> =>
+        attachLayoutsToSnapshot({
+            schemaService: { ensureSchema: jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1') } as any,
+            snapshot,
+            metahubId: 'metahub-1',
+            userId: 'user-1'
+        })
+
+    it('passes a valid file-preset appearance through unchanged', async () => {
+        const appearance = {
+            mode: 'system',
+            preset: { source: 'file', id: filePreset.id, version: filePreset.version },
+            overrides: {},
+            resolved: fileResolved
+        }
+        const harness = createAppearanceExecutor()
+        harness.run([appearanceConfig(appearance)])
+        const snapshot = {} as MetahubSnapshot
+
+        await expect(attach(snapshot)).resolves.toBeUndefined()
+        expect(snapshot.layouts).toHaveLength(1)
+        expect(snapshot.layouts?.[0]?.config.appearance).toEqual(appearance)
+    })
+
+    it('fails the publication with THEME_APPEARANCE_RESOLVE_FAILED on a tampered resolved hash', async () => {
+        const appearance = {
+            mode: 'system',
+            preset: { source: 'file', id: filePreset.id, version: filePreset.version },
+            overrides: {},
+            resolved: { ...fileResolved, hash: `sha256:${'0'.repeat(64)}` }
+        }
+        const harness = createAppearanceExecutor()
+        harness.run([appearanceConfig(appearance)])
+        const snapshot = {} as MetahubSnapshot
+
+        await expect(attach(snapshot)).rejects.toMatchObject({ code: 'THEME_APPEARANCE_RESOLVE_FAILED', statusCode: 422 })
+    })
+
+    it('fails the publication when a valid hash is paired with swapped tokens', async () => {
+        // A caller who kept the authored `resolved.hash` but swapped
+        // `resolved.tokens` must not pass the hash-only re-validation: the
+        // recomputed tokens are deep-compared against the stored ones.
+        const swappedTokens = {
+            ...validTokens,
+            modes: {
+                ...validTokens.modes,
+                light: {
+                    ...validTokens.modes.light,
+                    text: { ...validTokens.modes.light.text, primary: '#123456' }
+                }
+            }
+        }
+        const appearance = {
+            mode: 'system',
+            preset: { source: 'file', id: filePreset.id, version: filePreset.version },
+            overrides: {},
+            resolved: { hash: fileResolved.hash, tokens: swappedTokens }
+        }
+        const harness = createAppearanceExecutor()
+        harness.run([appearanceConfig(appearance)])
+        const snapshot = {} as MetahubSnapshot
+
+        await expect(attach(snapshot)).rejects.toMatchObject({
+            code: 'THEME_APPEARANCE_RESOLVE_FAILED',
+            statusCode: 422,
+            details: { reason: 'resolved-tokens-mismatch' }
+        })
+    })
+
+    it('carries an application-scoped preset appearance as data without a re-check (Pinned 14)', async () => {
+        const appearance = {
+            mode: 'system',
+            preset: { source: 'application', id: '0190a9b5-0000-7000-8000-0000000000a1', version: 1 },
+            overrides: {},
+            resolved: { hash: `sha256:${'1'.repeat(64)}`, tokens: validTokens }
+        }
+        const harness = createAppearanceExecutor()
+        harness.run([appearanceConfig(appearance)])
+        const snapshot = {} as MetahubSnapshot
+
+        await expect(attach(snapshot)).resolves.toBeUndefined()
+        expect(harness.presetQueries).toHaveLength(0)
+        expect(snapshot.layouts?.[0]?.config.appearance).toEqual(appearance)
+    })
+
+    it('resolves metahub-scoped presets through one batched DB lookup per publication', async () => {
+        const dbResolved = resolveThemeAppearance({
+            preset: { source: 'metahub', id: dbPresetId, version: 1 },
+            presetTokens: validTokens,
+            overrides: {}
+        })
+        const appearance = {
+            mode: 'light',
+            preset: { source: 'metahub', id: dbPresetId, version: 1 },
+            overrides: {},
+            resolved: dbResolved
+        }
+        const harness = createAppearanceExecutor()
+        harness.run([appearanceConfig(appearance)], [{ id: dbPresetId, tokens: validTokens }])
+        const snapshot = {} as MetahubSnapshot
+
+        await expect(attach(snapshot)).resolves.toBeUndefined()
+        expect(harness.presetQueries).toHaveLength(1)
+        expect(harness.presetQueries[0]?.[0]).toBe('metahub-1')
+        expect(harness.presetQueries[0]?.[1]).toEqual([dbPresetId])
+        expect(snapshot.layouts?.[0]?.config.appearance).toEqual(appearance)
+    })
+
+    it('fails the publication when a referenced metahub preset row is missing', async () => {
+        const appearance = {
+            mode: 'system',
+            preset: { source: 'metahub', id: dbPresetId, version: 1 },
+            overrides: {},
+            resolved: { hash: `sha256:${'2'.repeat(64)}`, tokens: validTokens }
+        }
+        const harness = createAppearanceExecutor()
+        harness.run([appearanceConfig(appearance)], [])
+        const snapshot = {} as MetahubSnapshot
+
+        await expect(attach(snapshot)).rejects.toMatchObject({ code: 'THEME_APPEARANCE_RESOLVE_FAILED', statusCode: 422 })
     })
 })

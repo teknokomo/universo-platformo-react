@@ -11,6 +11,7 @@ import {
     createApplicationBotBindingsMigrationDefinition,
     createGlobalShortLinksMigrationDefinition,
     createGuestSessionIdempotencyMigrationDefinition,
+    createThemePresetsMigrationDefinition,
     finalizeApplicationsSchemaSupportMigrationDefinition,
     prepareApplicationsSchemaSupportMigrationDefinition
 } from './migrations'
@@ -355,6 +356,109 @@ const applicationBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
                 dataType: ComponentDefinitionDataType.BOOLEAN
             }
         ]
+    },
+    {
+        kind: 'object',
+        codename: 'theme_presets',
+        tableName: 'obj_theme_presets',
+        presentation: p('Theme Presets', 'Named appearance presets scoped to an application'),
+        fields: [
+            {
+                codename: 'application_id',
+                physicalColumnName: 'application_id',
+                dataType: ComponentDefinitionDataType.REF,
+                isRequired: true,
+                targetTableCodename: 'applications'
+            },
+            {
+                codename: 'codename',
+                physicalColumnName: 'codename',
+                dataType: ComponentDefinitionDataType.STRING,
+                physicalDataType: 'VARCHAR(64)',
+                isRequired: true
+            },
+            {
+                codename: 'name',
+                physicalColumnName: 'name',
+                dataType: ComponentDefinitionDataType.JSON,
+                defaultSqlExpression: `'{}'::jsonb`,
+                isRequired: true,
+                isDisplayComponent: true
+            },
+            {
+                codename: 'description',
+                physicalColumnName: 'description',
+                dataType: ComponentDefinitionDataType.JSON,
+                defaultSqlExpression: `'{}'::jsonb`
+            },
+            { codename: 'tokens', physicalColumnName: 'tokens', dataType: ComponentDefinitionDataType.JSON, isRequired: true },
+            {
+                codename: 'base_preset_id',
+                physicalColumnName: 'base_preset_id',
+                dataType: ComponentDefinitionDataType.REF,
+                targetTableCodename: 'theme_presets'
+            },
+            {
+                codename: 'base_preset_codename',
+                physicalColumnName: 'base_preset_codename',
+                dataType: ComponentDefinitionDataType.STRING,
+                physicalDataType: 'VARCHAR(64)'
+            },
+            {
+                codename: 'schema_version',
+                physicalColumnName: 'schema_version',
+                dataType: ComponentDefinitionDataType.NUMBER,
+                physicalDataType: 'INTEGER',
+                defaultSqlExpression: `1`
+            }
+        ]
+    },
+    {
+        kind: 'relation',
+        codename: 'theme_preset_audits',
+        tableName: 'rel_theme_preset_audits',
+        presentation: p('Theme Preset Audits', 'Append-only audit trail for theme preset lifecycle events'),
+        fields: [
+            {
+                codename: 'application_id',
+                physicalColumnName: 'application_id',
+                dataType: ComponentDefinitionDataType.REF,
+                isRequired: true,
+                targetTableCodename: 'applications'
+            },
+            {
+                codename: 'preset_id',
+                physicalColumnName: 'preset_id',
+                dataType: ComponentDefinitionDataType.REF,
+                targetTableCodename: 'theme_presets'
+            },
+            {
+                codename: 'event_type',
+                physicalColumnName: 'event_type',
+                dataType: ComponentDefinitionDataType.STRING,
+                physicalDataType: 'VARCHAR(48)',
+                isRequired: true
+            },
+            {
+                codename: 'changed_fields',
+                physicalColumnName: 'changed_fields',
+                dataType: ComponentDefinitionDataType.JSON,
+                defaultSqlExpression: `'[]'::jsonb`
+            },
+            {
+                codename: 'previous_version',
+                physicalColumnName: 'previous_version',
+                dataType: ComponentDefinitionDataType.NUMBER,
+                physicalDataType: 'INTEGER'
+            },
+            {
+                codename: 'new_version',
+                physicalColumnName: 'new_version',
+                dataType: ComponentDefinitionDataType.NUMBER,
+                physicalDataType: 'INTEGER'
+            },
+            { codename: 'actor', physicalColumnName: 'actor', dataType: ComponentDefinitionDataType.REF }
+        ]
     }
 ]
 
@@ -439,6 +543,11 @@ export const applicationsSystemAppDefinition: SystemAppDefinition = {
         {
             kind: 'sql',
             definition: addApplicationCatalogVisibilityAndMembershipRlsMigrationDefinition,
+            bootstrapPhase: 'post_schema_generation'
+        },
+        {
+            kind: 'sql',
+            definition: createThemePresetsMigrationDefinition,
             bootstrapPhase: 'post_schema_generation'
         }
     ],

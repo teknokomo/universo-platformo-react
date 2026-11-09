@@ -35,13 +35,13 @@ import {
     publicMarketingPageDataSchema,
     marketingPersistedIdSchema,
     marketingProvenanceSchema,
-    marketingThemeColorSchema,
     MARKETING_WIDGET_REGISTRY,
     normalizeMarketingNumericText,
     publicMarketingHeaderWidgetSchema,
     marketingBrandWidgetConfigSchema
 } from '../common/marketingPage'
 import { applicationLayoutConfigSchema, parseApplicationLayoutConfig } from '../common/applicationLayouts'
+import { themeContrastRatio, themeHexColorSchema } from '../common/themePreset'
 import { getLayoutWidgetDefinition } from '../common/layoutWidgetDefinitions'
 
 const uuidV7 = '0190a9b5-3cde-7abc-8def-0123456789ab'
@@ -82,7 +82,6 @@ describe('marketing page contracts', () => {
 
     it('preserves template-owned layout config and validates it by template key', () => {
         const config = {
-            themeMode: 'dark' as const,
             allowEmailActions: false,
             allowTelephoneActions: true,
             externalLinkTarget: 'same-tab' as const
@@ -156,7 +155,6 @@ describe('marketing page contracts', () => {
 
     it('normalizes appearance configuration defaults and rejects composition fields', () => {
         expect(marketingPageConfigSchema.parse({})).toMatchObject({
-            themeMode: 'system',
             allowEmailActions: true,
             allowTelephoneActions: true,
             externalLinkTarget: 'new-tab'
@@ -314,12 +312,14 @@ describe('marketing page contracts', () => {
         expect(marketingImageWidgetConfigSchema.safeParse({ media }).success).toBe(false)
     })
 
-    it('accepts only opaque theme colors with an accessible foreground choice', () => {
-        expect(marketingThemeColorSchema.safeParse('#1976d2').success).toBe(true)
-        expect(marketingThemeColorSchema.safeParse('#9c27b0').success).toBe(true)
-        expect(marketingThemeColorSchema.safeParse('#1976d280').success).toBe(false)
-        expect(marketingThemeColorSchema.safeParse('#808080').success).toBe(true)
-        expect(marketingThemeColorSchema.safeParse('hsl(0 0% 50%)').success).toBe(false)
+    it('accepts only opaque #RRGGBB theme colors with a WCAG-checkable form', () => {
+        expect(themeHexColorSchema.safeParse('#1976d2').success).toBe(true)
+        expect(themeHexColorSchema.safeParse('#9c27b0').success).toBe(true)
+        expect(themeHexColorSchema.safeParse('#1976d280').success).toBe(false)
+        expect(themeHexColorSchema.safeParse('#80').success).toBe(false)
+        expect(themeHexColorSchema.safeParse('hsl(0 0% 50%)').success).toBe(false)
+        expect(themeContrastRatio('#ffffff', '#000000')).toBeCloseTo(21, 5)
+        expect(themeContrastRatio('#000000', '#000000')).toBeCloseTo(1, 5)
     })
 
     it('validates widget-owned record payloads and rejects duplicate widget instances', () => {

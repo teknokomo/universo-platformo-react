@@ -13,6 +13,7 @@ import type {
     VersionedLocalizedContent,
     AdminConfig
 } from '@universo-react/types'
+import { getThemePresetsConfig } from '@universo-react/utils/env'
 import { defineAbilitiesFor, ADMIN_PERMISSION_SUBJECTS } from '@universo-react/types'
 import { getAdminConfig, isAdminPanelEnabled, isGlobalRolesEnabled, isSuperuserEnabled, type DbSession } from '@universo-react/utils'
 import type { DbExecutor } from '@universo-react/utils/database'
@@ -49,6 +50,8 @@ export interface FullPermissionsResponse {
     rolesMetadata: Record<string, RoleMetadata>
     /** Admin feature flags configuration */
     config: AdminConfig
+    /** Theme presets feature flag + config (TZ §15.4) */
+    themePresets: { themePresetsEnabled: boolean }
 }
 
 /**
@@ -201,7 +204,8 @@ export function createPermissionService(options: PermissionServiceOptions): IPer
             hasAdminAccess,
             hasAnyGlobalRole,
             rolesMetadata,
-            config: getAdminConfig()
+            config: getAdminConfig(),
+            themePresets: getThemePresetsConfig()
         }
     }
 

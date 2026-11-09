@@ -99,7 +99,7 @@ vi.mock('../application-layouts/LayoutRuntimeSettingsPanels', () => ({ LayoutRun
 vi.mock('../application-layouts/ApplicationLayoutListDialogs', () => ({ ApplicationLayoutListDialogs: () => null }))
 vi.mock('../application-layouts/ApplicationLayoutWidgetEditors', () => ({ ApplicationLayoutWidgetEditors: () => null }))
 vi.mock('../application-layouts/ApplicationLayoutListMenu', () => ({ ApplicationLayoutListMenu: () => null }))
-vi.mock('../application-layouts/ApplicationMarketingAppearancePanel', () => ({ ApplicationMarketingAppearancePanel: () => null }))
+vi.mock('../application-layouts/AppearanceSection', () => ({ AppearanceSection: () => null }))
 
 vi.mock('../../api/applications', () => ({
     ...apiMocks

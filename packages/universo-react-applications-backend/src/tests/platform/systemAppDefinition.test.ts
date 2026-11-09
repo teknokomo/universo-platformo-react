@@ -1,6 +1,7 @@
 import {
     addApplicationCatalogVisibilityAndMembershipRlsMigrationDefinition,
     createApplicationsSchemaMigrationDefinition,
+    createThemePresetsMigrationDefinition,
     finalizeApplicationsSchemaSupportMigrationDefinition
 } from '../../platform/migrations'
 import { applicationsSystemAppDefinition } from '../../platform/systemAppDefinition'
@@ -19,12 +20,24 @@ describe('applications system-app definition', () => {
             'CreateGuestSessionIdempotency1800000000300',
             'BindGlobalShortLinksToAccessLinkIdentity1800000000310',
             'CreateApplicationBotBindings1800000000320',
-            'AddApplicationCatalogVisibilityAndMembershipRls1800000000340'
+            'AddApplicationCatalogVisibilityAndMembershipRls1800000000340',
+            'CreateThemePresets1800000000350'
         ])
     })
 
     it('keeps current and target business tables aligned for the effective fresh-bootstrap state', () => {
         expect(applicationsSystemAppDefinition.currentBusinessTables).toEqual(applicationsSystemAppDefinition.targetBusinessTables)
+    })
+
+    it('declares theme preset tables with token size and codename guards left to the migration', () => {
+        expect(createThemePresetsMigrationDefinition.version).toBe('1800000000350')
+        expect(createThemePresetsMigrationDefinition.summary).toContain('theme presets')
+        expect(applicationsSystemAppDefinition.targetBusinessTables).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ kind: 'object', codename: 'theme_presets', tableName: 'obj_theme_presets' }),
+                expect.objectContaining({ kind: 'relation', codename: 'theme_preset_audits', tableName: 'rel_theme_preset_audits' })
+            ])
+        )
     })
 
     it('leaves bot username length enforcement to the named database constraint', () => {

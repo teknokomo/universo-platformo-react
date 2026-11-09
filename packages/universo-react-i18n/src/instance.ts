@@ -19,7 +19,9 @@ import accessEn from './locales/en/core/access.json'
 import accessRu from './locales/ru/core/access.json'
 
 import settingsEn from './locales/en/core/settings.json'
+import appearanceEn from './locales/en/core/appearance.json'
 import settingsRu from './locales/ru/core/settings.json'
+import appearanceRu from './locales/ru/core/appearance.json'
 import metaEn from './locales/en/core/meta.json'
 import metaRu from './locales/ru/core/meta.json'
 import supportedLanguages from './supported-languages.json'
@@ -146,6 +148,7 @@ export function getInstance(): typeof i18n {
                         roles: rolesEn.roles,
                         access: accessEn.access,
                         settings: settingsEn.settings,
+                        appearance: appearanceEn.appearance,
                         meta: metaEn.meta,
                         // Views
                         admin: adminEn.admin,
@@ -191,6 +194,7 @@ export function getInstance(): typeof i18n {
                         roles: rolesRu.roles,
                         access: accessRu.access,
                         settings: settingsRu.settings,
+                        appearance: appearanceRu.appearance,
                         meta: metaRu.meta,
                         // Views
                         admin: adminRu.admin,
@@ -232,7 +236,7 @@ export function getInstance(): typeof i18n {
                 fallbackLng: 'en',
                 supportedLngs: supportedLanguages,
                 defaultNS: 'common',
-                fallbackNS: ['common', 'header', 'spaces'],
+                fallbackNS: ['common', 'header', 'spaces', 'appearance'],
                 load: 'languageOnly', // Use only 'ru' instead of 'ru-RU'
                 debug: isI18nDebugEnabled(),
                 interpolation: {

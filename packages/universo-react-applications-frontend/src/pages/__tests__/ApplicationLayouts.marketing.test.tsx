@@ -6,7 +6,7 @@ import enApplicationsLocale from '../../i18n/locales/en/applications.json'
 import ruApplicationsLocale from '../../i18n/locales/ru/applications.json'
 import {
     apiMocks,
-    confirmMocks,
+    createAppliedAppearanceConfig,
     createMarketingLayout,
     initializeApplicationLayouts,
     localeMocks,
@@ -320,62 +320,54 @@ describe('ApplicationLayouts marketing', () => {
         expect(within(dialog).getByText('This layout changed in another session. Reload it and try again.')).toBeInTheDocument()
     })
 
-    it('confirms and resets marketing appearance to template defaults with the layout version', async () => {
+    it('resets the layout appearance through the dedicated endpoint with the layout version', async () => {
         const user = userEvent.setup()
-        const marketingLayout = createMarketingLayout()
+        const marketingLayout = createMarketingLayout(createAppliedAppearanceConfig())
         apiMocks.listApplicationLayouts.mockResolvedValue({
             items: [marketingLayout],
             pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
         })
         apiMocks.getApplicationLayout.mockResolvedValue({ item: marketingLayout, widgets: [] })
-        apiMocks.updateApplicationLayout.mockResolvedValue(marketingLayout)
-        apiMocks.resetApplicationLayoutConfig.mockResolvedValueOnce({
-            ...marketingLayout,
-            config: {
-                themeMode: 'system',
-                allowEmailActions: true,
-                allowTelephoneActions: true,
-                externalLinkTarget: 'new-tab'
-            },
-            version: 8
-        })
+        apiMocks.resetLayoutAppearance.mockResolvedValueOnce({ layoutId: 'layout-1', version: 8, appearance: null })
 
         renderPage()
 
-        await waitFor(() => expect(screen.getByTestId('application-marketing-appearance-panel')).toBeInTheDocument())
-        const resetButton = screen.getByRole('button', { name: 'Restore template defaults' })
+        await waitFor(() => expect(screen.getByTestId('application-layout-details-tab-appearance')).toBeInTheDocument())
+        await user.click(screen.getByTestId('application-layout-details-tab-appearance'))
+        await waitFor(() => expect(screen.getByTestId('application-appearance-section')).toBeInTheDocument())
+        const resetButton = screen.getByTestId('application-appearance-reset')
         expect(resetButton).toBeEnabled()
         await user.click(resetButton)
 
         await waitFor(() => {
-            expect(confirmMocks.confirm).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    title: 'Restore marketing page defaults?',
-                    confirmButtonName: 'Restore defaults'
-                })
-            )
-            expect(apiMocks.resetApplicationLayoutConfig).toHaveBeenCalledWith('app-1', 'layout-1', { expectedVersion: 7 })
+            expect(apiMocks.resetLayoutAppearance).toHaveBeenCalledWith('app-1', 'layout-1', 7)
         })
     })
 
-    it('does not reset marketing appearance when the confirmation is cancelled', async () => {
+    it('reports a localized version conflict when the appearance reset loses the race', async () => {
         const user = userEvent.setup()
-        const marketingLayout = createMarketingLayout({
-            themeMode: 'system'
-        })
-        confirmMocks.confirm.mockResolvedValueOnce(false)
+        const marketingLayout = createMarketingLayout(createAppliedAppearanceConfig())
         apiMocks.listApplicationLayouts.mockResolvedValueOnce({
             items: [marketingLayout],
             pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
         })
         apiMocks.getApplicationLayout.mockResolvedValueOnce({ item: marketingLayout, widgets: [] })
+        apiMocks.resetLayoutAppearance.mockRejectedValueOnce({
+            isAxiosError: true,
+            response: { status: 409, data: { code: 'THEME_PRESET_VERSION_CONFLICT' } }
+        })
 
         renderPage()
-        await waitFor(() => expect(screen.getByTestId('application-marketing-appearance-panel')).toBeInTheDocument())
-        await user.click(screen.getByRole('button', { name: 'Restore template defaults' }))
+        await waitFor(() => expect(screen.getByTestId('application-layout-details-tab-appearance')).toBeInTheDocument())
+        await user.click(screen.getByTestId('application-layout-details-tab-appearance'))
+        await waitFor(() => expect(screen.getByTestId('application-appearance-section')).toBeInTheDocument())
+        await user.click(screen.getByTestId('application-appearance-reset'))
 
-        await waitFor(() => expect(confirmMocks.confirm).toHaveBeenCalled())
-        expect(apiMocks.resetApplicationLayoutConfig).not.toHaveBeenCalled()
+        await waitFor(() => {
+            expect(snackbarMocks.enqueueSnackbar).toHaveBeenCalledWith('The theme was modified by someone else. Refresh and try again.', {
+                variant: 'error'
+            })
+        })
     })
 
     it('uses registry capabilities to hide Add and Duplicate for source-managed Marketing widgets', async () => {
@@ -459,11 +451,12 @@ describe('ApplicationLayouts marketing', () => {
 
         renderPage()
 
-        await waitFor(() => expect(screen.getByTestId('application-marketing-appearance-panel')).toBeInTheDocument())
+        await waitFor(() => expect(screen.getByTestId('application-layout-details-tab-appearance')).toBeInTheDocument())
         expect(screen.getByText('Marketing header')).toBeInTheDocument()
         expect(screen.getByText('Marketing content')).toBeInTheDocument()
         expect(screen.getByText('Marketing footer')).toBeInTheDocument()
         expect(screen.getByText('Hero')).toBeInTheDocument()
+        expect(screen.queryByTestId('application-appearance-section')).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'add-Hero', exact: true })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'add-Collection', exact: true })).not.toBeInTheDocument()
         expect(screen.queryByTestId('layout-widget-duplicate-widget-marketing-hero')).not.toBeInTheDocument()

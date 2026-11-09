@@ -1,0 +1,115 @@
+{
+    "appearance": {
+        "title": "Theme",
+        "subtitle": "Colors, typography, spacing, and shape for this layout",
+        "preset": {
+            "label": "Theme",
+            "select": "Select theme",
+            "file": "Built-in",
+            "metahub": "Metahub",
+            "application": "Application",
+            "archived": "Archived",
+            "version": "v{{version}}",
+            "usage": "{{count}} layout(s)",
+            "inheritedFrom": "Inherited from {{source}}",
+            "defaultHint": "No theme applied yet — this layout renders with the built-in Universo Default theme."
+        },
+        "mode": {
+            "label": "Color mode",
+            "system": "System",
+            "light": "Light",
+            "dark": "Dark",
+            "helper": "A visitor's own light/dark toggle overrides this default"
+        },
+        "overrides": {
+            "title": "Overrides",
+            "colors": "Colors",
+            "typography": "Typography",
+            "spacing": "Spacing",
+            "shape": "Shape",
+            "shadows": "Shadows"
+        },
+        "color": {
+            "primary": "Primary",
+            "secondary": "Secondary",
+            "primaryContrastText": "Primary text on color",
+            "secondaryContrastText": "Secondary text on color",
+            "backgroundDefault": "Background",
+            "backgroundPaper": "Surface",
+            "textPrimary": "Text primary",
+            "textSecondary": "Text secondary",
+            "divider": "Divider"
+        },
+        "typography": {
+            "fontFamily": "Font",
+            "baseSize": "Base size",
+            "scale": "Heading scale"
+        },
+        "font": {
+            "inter": "Inter",
+            "system": "System",
+            "serif": "Serif",
+            "mono": "Monospace"
+        },
+        "spacing": {
+            "base": "Base unit",
+            "density": "Density",
+            "compact": "Compact",
+            "comfortable": "Comfortable"
+        },
+        "shape": {
+            "borderRadius": "Corner radius",
+            "borderWidth": "Border width"
+        },
+        "shadows": {
+            "scale": "Shadows",
+            "none": "None",
+            "soft": "Soft",
+            "default": "Default",
+            "strong": "Strong"
+        },
+        "contrast": {
+            "errors": "Contrast problems that must be fixed before saving",
+            "warnings": "Contrast suggestions",
+            "ratio": "{{ratio}}:1"
+        },
+        "actions": {
+            "save": "Save",
+            "reset": "Reset theme",
+            "applyLatest": "Apply latest version",
+            "managePresets": "Manage themes",
+            "create": "Create theme",
+            "copy": "Copy",
+            "copyToApplication": "Copy to application",
+            "archive": "Archive",
+            "delete": "Delete",
+            "export": "Export",
+            "close": "Close"
+        },
+        "manager": {
+            "title": "Themes",
+            "empty": "No custom themes yet.",
+            "loadError": "Themes could not be loaded.",
+            "retry": "Retry",
+            "codename": "Codename",
+            "name": "Name",
+            "createTitle": "New theme",
+            "copyTitle": "Copy theme",
+            "codenameHelper": "Lowercase letters, digits and dashes",
+            "deleteConfirmTitle": "Delete theme?",
+            "deleteConfirmMessage": "The theme \"{{name}}\" will be removed. This action cannot be undone."
+        },
+        "readonly": {
+            "hint": "You can view the theme but not change it"
+        },
+        "sourceUnavailable": {
+            "warning": "The theme this layout inherited from is no longer available. Copy it into this application or select another theme."
+        },
+        "errors": {
+            "versionConflict": "The theme was modified by someone else. Refresh and try again.",
+            "inUse": "This theme is used by layouts and cannot be deleted.",
+            "limitReached": "The theme limit for this scope has been reached.",
+            "saveFailed": "The theme could not be saved."
+        }
+    }
+}

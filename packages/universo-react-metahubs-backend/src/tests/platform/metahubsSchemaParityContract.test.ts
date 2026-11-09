@@ -1,4 +1,8 @@
-import { createMetahubsSchemaMigrationDefinition, finalizeMetahubsSchemaSupportMigrationDefinition } from '../../platform/migrations'
+import {
+    createMetahubsSchemaMigrationDefinition,
+    createThemePresetsMigrationDefinition,
+    finalizeMetahubsSchemaSupportMigrationDefinition
+} from '../../platform/migrations'
 import { metahubsSystemAppDefinition } from '../../platform/systemAppDefinition'
 
 const normalizeSql = (value: string): string => value.replace(/\s+/g, ' ').trim()
@@ -36,9 +40,11 @@ describe('metahubs fixed-schema parity contract', () => {
             'SeedBuiltinMetahubTemplates1800000000250',
             'SeedBuiltinMetahubPackages1800000000260',
             'AddMetahubPackageAuthoringSettings1800000000270',
-            'CreatePlayCanvasEditorDocumentBackups1800000000280'
+            'CreatePlayCanvasEditorDocumentBackups1800000000280',
+            'CreateThemePresets1800000000360'
         ])
         expect(metahubsSystemAppDefinition.currentBusinessTables).toEqual(metahubsSystemAppDefinition.targetBusinessTables)
+        expect(createThemePresetsMigrationDefinition.version).toBe('1800000000360')
     })
 
     it('declares field-level metadata for metahubs business tables used by fixed-schema runtime', () => {

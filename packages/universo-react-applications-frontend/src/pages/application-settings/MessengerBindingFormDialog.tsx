@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Alert, Button, FormControl, InputLabel, MenuItem, Select, Stack, TextField, Typography } from '@mui/material'
+import { Alert, Button, FormControl, InputLabel, MenuItem, Stack, TextField, Typography } from '@mui/material'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 import { StandardDialog } from '@universo-react/template-mui/components/dialogs'
 import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'

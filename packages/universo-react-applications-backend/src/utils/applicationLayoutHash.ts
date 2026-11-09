@@ -92,7 +92,19 @@ const decodeLayoutForHash = (
     rawConfig: unknown
 ): { rendererConfig: Record<string, unknown>; neutral: PersistedLayoutNeutralMetadata } => {
     const decoded = decodeLayoutConfigEnvelope(rawConfig, { templateKey })
-    return { rendererConfig: decoded.rendererConfig, neutral: decoded.neutral }
+    // `appearance.resolved` is server-owned materialization (TZ §10.2): preset
+    // re-resolution must not flip sync state, so only mode/preset/overrides
+    // participate in the semantic content hash.
+    const config = decoded.rendererConfig
+    const appearance = config.appearance
+    if (appearance && typeof appearance === 'object' && !Array.isArray(appearance) && 'resolved' in appearance) {
+        const { resolved: _resolved, ...appearanceWithoutResolved } = appearance as Record<string, unknown>
+        return {
+            rendererConfig: { ...config, appearance: appearanceWithoutResolved },
+            neutral: decoded.neutral
+        }
+    }
+    return { rendererConfig: config, neutral: decoded.neutral }
 }
 
 const decodeWidgetForHash = (

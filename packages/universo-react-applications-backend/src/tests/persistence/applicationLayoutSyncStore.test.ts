@@ -360,7 +360,6 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
                             name: { en: 'Marketing' },
                             description: null,
                             config: {
-                                themeMode: 'light',
                                 __layout: {
                                     composition: { mode: 'independent', baseLayoutId: null },
                                     zoneSettings: { 'marketing-header': { position: 'flow' } },
@@ -387,7 +386,9 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
         )
         expect(result.layouts[0]?.config).toEqual(
             expect.objectContaining({
-                themeMode: 'light',
+                allowEmailActions: true,
+                allowTelephoneActions: true,
+                externalLinkTarget: 'new-tab',
                 __layout: { zoneSettings: { 'marketing-header': { position: 'flow' } } }
             })
         )

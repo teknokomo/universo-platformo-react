@@ -125,7 +125,7 @@ Issues found are graded as CRITICAL (blocker), HIGH (fix before merge), MEDIUM (
 -   **Mutation Rule**: UPDATE and DELETE flows should use `RETURNING` when row confirmation matters and must fail closed on zero-row results instead of silently succeeding.
 -   **Testing Rule**: Critical SQL-first stores and service-level mutation contracts need direct tests, not only route-level mocks.
 -   **Creating a New Service**: When creating a new backend service in `packages/` that requires database access, you must:
-    1.  **Define SQL Migrations**: Create platform migration definitions in your package's `src/migrations/` directory using `createSchemaMigrationDefinition()` from `@universo-react/schema-ddl`.
+    1.  **Define SQL Migrations**: Create platform migration definition files in your package's `src/platform/migrations/` directory (`{unixMs}-{Name}.sql.ts` exporting a `SqlMigrationDefinition { id, version, summary, up, down }`), and register them in the package's `platform/systemAppDefinition.ts` migrations array with `bootstrapPhase: 'post_schema_generation'` (fresh-bootstrap tables must also be listed in `targetBusinessTables`; keep both parity tests in lockstep).
     2.  **Register Migrations**: Import your migration definition into `packages/universo-react-migrations-platform/src/platformMigrations.ts` and add it to the `platformMigrations` array.
     3.  **Create Store Modules**: Write store files (e.g., `myStore.ts`) that accept a `DbExecutor` and run SQL queries via `executor.query(sql, params)`. Use `$1`, `$2`, etc. for PostgreSQL bind parameters.
     4.  **Use Request Executor**: In route handlers, obtain the request-scoped executor via `getRequestDbExecutor(req, getDbExecutor())` from `@universo-react/utils`. This ensures RLS context is applied.
@@ -133,7 +133,7 @@ Issues found are graded as CRITICAL (blocker), HIGH (fix before merge), MEDIUM (
 <!-- ontoindex:start -->
 # OntoIndex — Code Intelligence
 
-This project is indexed by OntoIndex as **universo-platformo-react** (90226 symbols, 158041 relationships, 300 execution flows). Use the OntoIndex MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by OntoIndex as **universo-platformo-react** (90242 symbols, 158095 relationships, 300 execution flows). Use the OntoIndex MCP tools to understand code, assess impact, and navigate safely.
 
 > Always query OntoIndex first. Repo queries refresh stale indexes in the background; dirty edits use the automatic overlay. Use stale/refreshing results with freshness labels; verify edited or new code from source. Never fall back to grep-only because the index is stale. Manual `ontoindex analyze` is only for immediate refresh with no active job. Sub-agents never start reindex jobs; refresh-on-query covers them.
 

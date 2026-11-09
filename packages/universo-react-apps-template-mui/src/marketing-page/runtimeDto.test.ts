@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { themeTokensSchema } from '@universo-react/types'
+import { findFileThemePreset } from '@universo-react/theme'
 import { authenticatedMarketingPageRuntimePayloadSchema, publicMarketingPageRuntimePayloadSchema } from './runtimeDto'
 
 const emptyScopedPage = {
@@ -264,5 +266,43 @@ describe('Marketing Page runtime DTOs', () => {
                 marketingPage: { ...emptyPublicScopedPage, widgets: [navigationWidget] }
             }).success
         ).toBe(false)
+    })
+})
+
+describe('marketing config appearance contract', () => {
+    const preset = findFileThemePreset('universo-default')!
+    // The runtime config projection carries only { mode, resolved } —
+    // preset/overrides are authoring state and must NOT cross the runtime
+    // boundary (TZ §11.4; the strict runtime schema rejects them).
+    const appearance = {
+        mode: 'dark' as const,
+        resolved: { hash: `sha256:${'a'.repeat(64)}`, tokens: themeTokensSchema.parse(preset.tokens) }
+    }
+
+    it('carries the resolved appearance through the public payload config', () => {
+        const parsed = publicMarketingPageRuntimePayloadSchema.safeParse({
+            templateKey: 'marketing-page',
+            marketingPage: {
+                ...emptyPublicScopedPage,
+                config: { appearance },
+                headerPosition: 'fixed' as const,
+                headerWidgets: []
+            }
+        })
+        expect(parsed.success).toBe(true)
+        if (parsed.success) {
+            const cfg = parsed.data.marketingPage.config as { appearance?: typeof appearance }
+            expect(cfg.appearance?.resolved.hash).toBe(appearance.resolved.hash)
+            expect(cfg.appearance?.mode).toBe('dark')
+        }
+    })
+
+    it('accepts config without appearance (universo-default backfill happens server-side)', () => {
+        expect(
+            publicMarketingPageRuntimePayloadSchema.safeParse({
+                templateKey: 'marketing-page',
+                marketingPage: { ...emptyPublicScopedPage }
+            }).success
+        ).toBe(true)
     })
 })

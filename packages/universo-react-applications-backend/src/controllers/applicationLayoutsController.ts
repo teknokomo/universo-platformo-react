@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { applicationLayoutZoneSchema, buildLayoutWidgetMetadataResponse } from '@universo-react/types'
 import { uuidV7Schema, type DbExecutor } from '@universo-react/utils'
 import { ensureApplicationAccess, type ApplicationRole } from '../routes/guards'
+import { APPLICATION_ADMIN_ROLES, resolveApplicationLayoutReadRoles } from './applicationReadPolicy'
 import { getRequestDbExecutor } from '../utils'
 import { normalizeLocale, resolveUserId } from '../shared/runtimeHelpers'
 import {
@@ -41,20 +42,6 @@ import {
     updateApplicationLayoutZoneSetting,
     upsertApplicationLayoutWidget
 } from '../persistence/applicationLayoutsStore'
-
-const APPLICATION_ADMIN_ROLES: ApplicationRole[] = ['owner', 'admin']
-const APPLICATION_LAYOUT_READ_ROLES = ['owner', 'admin', 'editor', 'member'] as const
-
-const applicationLayoutReadPolicySchema = z
-    .object({
-        applicationLayouts: z
-            .object({
-                readRoles: z.array(z.enum(APPLICATION_LAYOUT_READ_ROLES)).min(1).optional()
-            })
-            .strict()
-            .optional()
-    })
-    .passthrough()
 
 const applicationLayoutListQuerySchema = z
     .object({
@@ -190,39 +177,12 @@ const parseSettingKeyParam = (res: Response, value: unknown): string | null => {
     return value
 }
 
-const normalizeLayoutReadRoles = (settings: unknown): ApplicationRole[] => {
-    const parsed = applicationLayoutReadPolicySchema.safeParse(settings)
-    const configuredRoles = parsed.success ? parsed.data.applicationLayouts?.readRoles : undefined
-    if (!configuredRoles || configuredRoles.length === 0) {
-        return APPLICATION_ADMIN_ROLES
-    }
-
-    const roles = new Set<ApplicationRole>(['owner', 'admin'])
-    for (const role of configuredRoles) {
-        roles.add(role)
-    }
-    return APPLICATION_LAYOUT_READ_ROLES.filter((role) => roles.has(role))
-}
-
 export function createApplicationLayoutsController(
     getDbExecutor: () => DbExecutor,
     getRequestScopedDbExecutor: (req: Request) => DbExecutor = (req) => getRequestDbExecutor(req, getDbExecutor())
 ) {
-    const resolveReadRoles = async (executor: DbExecutor, applicationId: string): Promise<ApplicationRole[]> => {
-        const rows = await executor.query<{ settings: unknown }>(
-            `
-            SELECT settings
-            FROM applications.obj_applications
-            WHERE id = $1
-              AND _upl_deleted = false
-              AND _app_deleted = false
-            LIMIT 1
-            `,
-            [applicationId]
-        )
-
-        return normalizeLayoutReadRoles(rows[0]?.settings)
-    }
+    const resolveReadRoles = (executor: DbExecutor, applicationId: string): Promise<ApplicationRole[]> =>
+        resolveApplicationLayoutReadRoles(executor, applicationId)
 
     const ensureSchema = async (req: Request, res: Response, roles: ApplicationRole[] = APPLICATION_ADMIN_ROLES) => {
         const { applicationId } = req.params

@@ -108,7 +108,7 @@ const createSnapshot = (): PublishedApplicationSnapshot => ({
             templateKey: 'marketing-page',
             name: { en: 'Landing page' },
             description: null,
-            config: { themeMode: 'light' },
+            config: {},
             isActive: true,
             isDefault: true,
             sortOrder: 0

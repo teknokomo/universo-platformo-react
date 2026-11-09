@@ -54,6 +54,15 @@ const resolveCodenameSortText = (value: unknown): string => {
     return value && typeof value === 'object' ? getCodenamePrimary(value as Parameters<typeof getCodenamePrimary>[0]) : ''
 }
 
+/** Layout configs carry `appearance.resolved` as server-owned materialization (TZ §10.2) — it never participates in snapshot hashes. */
+const omitAppearanceResolved = (config: unknown): unknown => {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) return config
+    const appearance = (config as Record<string, unknown>).appearance
+    if (!appearance || typeof appearance !== 'object' || Array.isArray(appearance) || !('resolved' in appearance)) return config
+    const { resolved: _resolved, ...appearanceWithoutResolved } = appearance as Record<string, unknown>
+    return { ...(config as Record<string, unknown>), appearance: appearanceWithoutResolved }
+}
+
 const normalizeLayout = (layoutValue: unknown): Record<string, unknown> => {
     const layout = asRecord(layoutValue)
 
@@ -62,7 +71,7 @@ const normalizeLayout = (layoutValue: unknown): Record<string, unknown> => {
         templateKey: layout.templateKey,
         name: layout.name ?? {},
         description: layout.description ?? null,
-        config: layout.config ?? {},
+        config: omitAppearanceResolved(layout.config ?? {}),
         isDefault: Boolean(layout.isDefault),
         isActive: Boolean(layout.isActive),
         sortOrder: typeof layout.sortOrder === 'number' ? layout.sortOrder : 0

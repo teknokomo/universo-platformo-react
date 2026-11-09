@@ -1,9 +1,9 @@
 {
     "kind": "metahub_snapshot_bundle",
     "bundleVersion": 1,
-    "exportedAt": "2026-10-25T02:23:30.421Z",
+    "exportedAt": "2026-11-06T00:32:26.878Z",
     "metahub": {
-        "id": "01a170de-c20d-7287-a874-73a33fd4bdde",
+        "id": "01a1ae45-627b-78f8-9bd3-61a2aa5d6be8",
         "name": {
             "_schema": "1",
             "_primary": "en",
@@ -12,15 +12,15 @@
                     "content": "Interpretation Network",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-10-25T02:23:30.413Z",
-                    "updatedAt": "2026-10-25T02:23:30.413Z"
+                    "createdAt": "2026-11-06T00:32:26.864Z",
+                    "updatedAt": "2026-11-06T00:32:26.864Z"
                 },
                 "ru": {
                     "content": "Трактовочная сеть",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-10-25T02:23:30.413Z",
-                    "updatedAt": "2026-10-25T02:23:30.413Z"
+                    "createdAt": "2026-11-06T00:32:26.864Z",
+                    "updatedAt": "2026-11-06T00:32:26.864Z"
                 }
             }
         },
@@ -32,15 +32,15 @@
                     "content": "Interpretation network configuration with Structures, Interpretations, typed Relations, Editor.js Materials, and matrix cell styling.",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-10-25T02:23:30.413Z",
-                    "updatedAt": "2026-10-25T02:23:30.413Z"
+                    "createdAt": "2026-11-06T00:32:26.864Z",
+                    "updatedAt": "2026-11-06T00:32:26.864Z"
                 },
                 "ru": {
                     "content": "Конфигурация трактовочной сети со структурами, трактовками, типизированными связями, материалами Editor.js и стилями ячеек матрицы.",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-10-25T02:23:30.413Z",
-                    "updatedAt": "2026-10-25T02:23:30.413Z"
+                    "createdAt": "2026-11-06T00:32:26.864Z",
+                    "updatedAt": "2026-11-06T00:32:26.864Z"
                 }
             }
         },
@@ -52,23 +52,23 @@
                     "content": "InterpretationNetwork",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-10-25T02:23:30.413Z",
-                    "updatedAt": "2026-10-25T02:23:30.413Z"
+                    "createdAt": "2026-11-06T00:32:26.864Z",
+                    "updatedAt": "2026-11-06T00:32:26.864Z"
                 }
             }
         }
     },
     "snapshot": {
         "version": 1,
-        "metahubId": "01a170de-c20d-7287-a874-73a33fd4bdde",
+        "metahubId": "01a1ae45-627b-78f8-9bd3-61a2aa5d6be8",
         "versionEnvelope": {
             "structureVersion": "0.1.0",
             "templateVersion": null,
             "snapshotFormatVersion": 1
         },
         "entities": {
-            "01a170de-c403-77a1-ba53-b97749172d0b": {
-                "id": "01a170de-c403-77a1-ba53-b97749172d0b",
+            "01a1ae45-64c0-744f-8292-38404c41a673": {
+                "id": "01a1ae45-64c0-744f-8292-38404c41a673",
                 "kind": "hub",
                 "codename": {
                     "_schema": "1",
@@ -77,15 +77,15 @@
                             "content": "Main",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.794Z",
-                            "updatedAt": "2026-10-25T02:23:29.794Z"
+                            "createdAt": "2026-11-06T00:32:25.791Z",
+                            "updatedAt": "2026-11-06T00:32:25.791Z"
                         },
                         "ru": {
                             "content": "",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.794Z",
-                            "updatedAt": "2026-10-25T02:23:29.794Z"
+                            "createdAt": "2026-11-06T00:32:25.791Z",
+                            "updatedAt": "2026-11-06T00:32:25.791Z"
                         }
                     },
                     "_primary": "en"
@@ -171,8 +171,8 @@
                 "fields": [],
                 "hubs": []
             },
-            "01a170de-c417-7418-ae20-c32560b75be3": {
-                "id": "01a170de-c417-7418-ae20-c32560b75be3",
+            "01a1ae45-64e5-7450-87a1-6d39f483da88": {
+                "id": "01a1ae45-64e5-7450-87a1-6d39f483da88",
                 "kind": "enumeration",
                 "codename": {
                     "_schema": "1",
@@ -181,20 +181,20 @@
                             "content": "Main",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.814Z",
-                            "updatedAt": "2026-10-25T02:23:29.814Z"
+                            "createdAt": "2026-11-06T00:32:25.829Z",
+                            "updatedAt": "2026-11-06T00:32:25.829Z"
                         },
                         "ru": {
                             "content": "",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.814Z",
-                            "updatedAt": "2026-10-25T02:23:29.814Z"
+                            "createdAt": "2026-11-06T00:32:25.829Z",
+                            "updatedAt": "2026-11-06T00:32:25.829Z"
                         }
                     },
                     "_primary": "en"
                 },
-                "tableName": "enum_01a170dec4177418ae20c32560b75be3",
+                "tableName": "enum_01a1ae4564e5745087a16d39f483da88",
                 "presentation": {
                     "name": {
                         "_schema": "1",
@@ -279,8 +279,8 @@
                 "fields": [],
                 "hubs": []
             },
-            "01a170de-c46a-7c4f-9679-58f77bf210b5": {
-                "id": "01a170de-c46a-7c4f-9679-58f77bf210b5",
+            "01a1ae45-6565-79a7-9475-5d9c9e067682": {
+                "id": "01a1ae45-6565-79a7-9475-5d9c9e067682",
                 "kind": "enumeration",
                 "codename": {
                     "_schema": "1",
@@ -289,20 +289,20 @@
                             "content": "Context",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.898Z",
-                            "updatedAt": "2026-10-25T02:23:29.898Z"
+                            "createdAt": "2026-11-06T00:32:25.956Z",
+                            "updatedAt": "2026-11-06T00:32:25.956Z"
                         },
                         "ru": {
                             "content": "",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.898Z",
-                            "updatedAt": "2026-10-25T02:23:29.898Z"
+                            "createdAt": "2026-11-06T00:32:25.956Z",
+                            "updatedAt": "2026-11-06T00:32:25.956Z"
                         }
                     },
                     "_primary": "en"
                 },
-                "tableName": "enum_01a170dec46a7c4f967958f77bf210b5",
+                "tableName": "enum_01a1ae45656579a794755d9c9e067682",
                 "presentation": {
                     "name": {
                         "_schema": "1",
@@ -351,7 +351,9 @@
                         "managed": true,
                         "presetCodename": "enumeration"
                     },
-                    "hubs": ["01a170de-c403-77a1-ba53-b97749172d0b"],
+                    "hubs": [
+                        "01a1ae45-64c0-744f-8292-38404c41a673"
+                    ],
                     "sortOrder": 2,
                     "capabilities": {
                         "dataSchema": false,
@@ -386,10 +388,12 @@
                     }
                 },
                 "fields": [],
-                "hubs": ["01a170de-c403-77a1-ba53-b97749172d0b"]
+                "hubs": [
+                    "01a1ae45-64c0-744f-8292-38404c41a673"
+                ]
             },
-            "01a170de-c46c-7240-bc1f-97c42727c1a8": {
-                "id": "01a170de-c46c-7240-bc1f-97c42727c1a8",
+            "01a1ae45-6567-7731-8db8-8f19eb796d03": {
+                "id": "01a1ae45-6567-7731-8db8-8f19eb796d03",
                 "kind": "enumeration",
                 "codename": {
                     "_schema": "1",
@@ -398,20 +402,20 @@
                             "content": "RelationType",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.899Z",
-                            "updatedAt": "2026-10-25T02:23:29.899Z"
+                            "createdAt": "2026-11-06T00:32:25.958Z",
+                            "updatedAt": "2026-11-06T00:32:25.958Z"
                         },
                         "ru": {
                             "content": "",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.899Z",
-                            "updatedAt": "2026-10-25T02:23:29.899Z"
+                            "createdAt": "2026-11-06T00:32:25.958Z",
+                            "updatedAt": "2026-11-06T00:32:25.958Z"
                         }
                     },
                     "_primary": "en"
                 },
-                "tableName": "enum_01a170dec46c7240bc1f97c42727c1a8",
+                "tableName": "enum_01a1ae45656777318db88f19eb796d03",
                 "presentation": {
                     "name": {
                         "_schema": "1",
@@ -460,7 +464,9 @@
                         "managed": true,
                         "presetCodename": "enumeration"
                     },
-                    "hubs": ["01a170de-c403-77a1-ba53-b97749172d0b"],
+                    "hubs": [
+                        "01a1ae45-64c0-744f-8292-38404c41a673"
+                    ],
                     "sortOrder": 3,
                     "capabilities": {
                         "dataSchema": false,
@@ -495,10 +501,12 @@
                     }
                 },
                 "fields": [],
-                "hubs": ["01a170de-c403-77a1-ba53-b97749172d0b"]
+                "hubs": [
+                    "01a1ae45-64c0-744f-8292-38404c41a673"
+                ]
             },
-            "01a170de-c404-72a6-a1e0-19c15125da87": {
-                "id": "01a170de-c404-72a6-a1e0-19c15125da87",
+            "01a1ae45-64c4-7031-b77e-d02b9a3cb774": {
+                "id": "01a1ae45-64c4-7031-b77e-d02b9a3cb774",
                 "kind": "object",
                 "codename": {
                     "_schema": "1",
@@ -507,20 +515,20 @@
                             "content": "Main",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.796Z",
-                            "updatedAt": "2026-10-25T02:23:29.796Z"
+                            "createdAt": "2026-11-06T00:32:25.795Z",
+                            "updatedAt": "2026-11-06T00:32:25.795Z"
                         },
                         "ru": {
                             "content": "",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.796Z",
-                            "updatedAt": "2026-10-25T02:23:29.796Z"
+                            "createdAt": "2026-11-06T00:32:25.795Z",
+                            "updatedAt": "2026-11-06T00:32:25.795Z"
                         }
                     },
                     "_primary": "en"
                 },
-                "tableName": "obj_01a170dec40472a6a1e019c15125da87",
+                "tableName": "obj_01a1ae4564c47031b77ed02b9a3cb774",
                 "presentation": {
                     "name": {
                         "_schema": "1",
@@ -611,7 +619,9 @@
                         "nestedCollections": false,
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "actions": {
                             "enabled": true
@@ -657,7 +667,7 @@
                 },
                 "fields": [
                     {
-                        "id": "01a170de-c47b-7d66-bedf-22ea4bb1cfae",
+                        "id": "01a1ae45-657b-7b97-b9b3-4440930ba7b1",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -665,8 +675,8 @@
                                     "content": "Title",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.914Z",
-                                    "updatedAt": "2026-10-25T02:23:29.914Z"
+                                    "createdAt": "2026-11-06T00:32:25.978Z",
+                                    "updatedAt": "2026-11-06T00:32:25.978Z"
                                 }
                             },
                             "_primary": "en"
@@ -708,7 +718,7 @@
                         "sortOrder": 1
                     },
                     {
-                        "id": "01a170de-c47d-703a-b3c4-6e29411df6ce",
+                        "id": "01a1ae45-657e-7834-af7d-d82a1db0c125",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -716,8 +726,8 @@
                                     "content": "Description",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.917Z",
-                                    "updatedAt": "2026-10-25T02:23:29.917Z"
+                                    "createdAt": "2026-11-06T00:32:25.981Z",
+                                    "updatedAt": "2026-11-06T00:32:25.981Z"
                                 }
                             },
                             "_primary": "en"
@@ -756,8 +766,8 @@
                 ],
                 "hubs": []
             },
-            "01a170de-c419-7726-8612-2182a9c70961": {
-                "id": "01a170de-c419-7726-8612-2182a9c70961",
+            "01a1ae45-64ea-76aa-8292-ca3b2f091b18": {
+                "id": "01a1ae45-64ea-76aa-8292-ca3b2f091b18",
                 "kind": "object",
                 "codename": {
                     "_schema": "1",
@@ -766,20 +776,20 @@
                             "content": "Structure",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.817Z",
-                            "updatedAt": "2026-10-25T02:23:29.817Z"
+                            "createdAt": "2026-11-06T00:32:25.833Z",
+                            "updatedAt": "2026-11-06T00:32:25.833Z"
                         },
                         "ru": {
                             "content": "",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.817Z",
-                            "updatedAt": "2026-10-25T02:23:29.817Z"
+                            "createdAt": "2026-11-06T00:32:25.833Z",
+                            "updatedAt": "2026-11-06T00:32:25.833Z"
                         }
                     },
                     "_primary": "en"
                 },
-                "tableName": "obj_01a170dec419772686122182a9c70961",
+                "tableName": "obj_01a1ae4564ea76aa8292ca3b2f091b18",
                 "presentation": {
                     "name": {
                         "_schema": "1",
@@ -853,7 +863,9 @@
                         "nestedCollections": false,
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "actions": {
                             "enabled": true
@@ -899,7 +911,7 @@
                 },
                 "fields": [
                     {
-                        "id": "01a170de-c480-733e-97c9-63dd887d0add",
+                        "id": "01a1ae45-6581-7a04-b36e-2a093b63484e",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -907,8 +919,8 @@
                                     "content": "Name",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.919Z",
-                                    "updatedAt": "2026-10-25T02:23:29.919Z"
+                                    "createdAt": "2026-11-06T00:32:25.984Z",
+                                    "updatedAt": "2026-11-06T00:32:25.984Z"
                                 }
                             },
                             "_primary": "en"
@@ -951,7 +963,7 @@
                         "sortOrder": 1
                     },
                     {
-                        "id": "01a170de-c482-7ec0-b389-fd9928e204d1",
+                        "id": "01a1ae45-6584-7dfa-90d0-9b77e5ae84e7",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -959,8 +971,8 @@
                                     "content": "Description",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.921Z",
-                                    "updatedAt": "2026-10-25T02:23:29.921Z"
+                                    "createdAt": "2026-11-06T00:32:25.987Z",
+                                    "updatedAt": "2026-11-06T00:32:25.987Z"
                                 }
                             },
                             "_primary": "en"
@@ -1003,7 +1015,7 @@
                         "sortOrder": 2
                     },
                     {
-                        "id": "01a170de-c484-71f2-a442-e558f6972046",
+                        "id": "01a1ae45-6586-7afd-a025-dd167e20cebd",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -1011,8 +1023,8 @@
                                     "content": "SystemKey",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.923Z",
-                                    "updatedAt": "2026-10-25T02:23:29.923Z"
+                                    "createdAt": "2026-11-06T00:32:25.989Z",
+                                    "updatedAt": "2026-11-06T00:32:25.989Z"
                                 }
                             },
                             "_primary": "en"
@@ -1077,8 +1089,8 @@
                 ],
                 "hubs": []
             },
-            "01a170de-c428-7542-971a-4eaca3ce0551": {
-                "id": "01a170de-c428-7542-971a-4eaca3ce0551",
+            "01a1ae45-64fe-77dc-9712-0881d1433530": {
+                "id": "01a1ae45-64fe-77dc-9712-0881d1433530",
                 "kind": "object",
                 "codename": {
                     "_schema": "1",
@@ -1087,20 +1099,20 @@
                             "content": "Interpretation",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.831Z",
-                            "updatedAt": "2026-10-25T02:23:29.831Z"
+                            "createdAt": "2026-11-06T00:32:25.853Z",
+                            "updatedAt": "2026-11-06T00:32:25.853Z"
                         },
                         "ru": {
                             "content": "",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.831Z",
-                            "updatedAt": "2026-10-25T02:23:29.831Z"
+                            "createdAt": "2026-11-06T00:32:25.853Z",
+                            "updatedAt": "2026-11-06T00:32:25.853Z"
                         }
                     },
                     "_primary": "en"
                 },
-                "tableName": "obj_01a170dec4287542971a4eaca3ce0551",
+                "tableName": "obj_01a1ae4564fe77dc97120881d1433530",
                 "presentation": {
                     "name": {
                         "_schema": "1",
@@ -1150,7 +1162,9 @@
                         "managed": true,
                         "presetCodename": "object"
                     },
-                    "hubs": ["01a170de-c403-77a1-ba53-b97749172d0b"],
+                    "hubs": [
+                        "01a1ae45-64c0-744f-8292-38404c41a673"
+                    ],
                     "sortOrder": 3,
                     "recordPolicy": {
                         "version": 1,
@@ -1177,7 +1191,9 @@
                         "nestedCollections": false,
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "actions": {
                             "enabled": true
@@ -1223,7 +1239,7 @@
                 },
                 "fields": [
                     {
-                        "id": "01a170de-c486-70be-b46d-62ae3d0fdc66",
+                        "id": "01a1ae45-6589-737f-b354-41f95b53c7d0",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -1231,8 +1247,8 @@
                                     "content": "Title",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.925Z",
-                                    "updatedAt": "2026-10-25T02:23:29.925Z"
+                                    "createdAt": "2026-11-06T00:32:25.992Z",
+                                    "updatedAt": "2026-11-06T00:32:25.992Z"
                                 }
                             },
                             "_primary": "en"
@@ -1275,7 +1291,7 @@
                         "sortOrder": 1
                     },
                     {
-                        "id": "01a170de-c487-7475-9414-d9fc7afb52e9",
+                        "id": "01a1ae45-658b-794e-9846-500e63edbb41",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -1283,8 +1299,8 @@
                                     "content": "ParentStructure",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.927Z",
-                                    "updatedAt": "2026-10-25T02:23:29.927Z"
+                                    "createdAt": "2026-11-06T00:32:25.994Z",
+                                    "updatedAt": "2026-11-06T00:32:25.994Z"
                                 }
                             },
                             "_primary": "en"
@@ -1292,7 +1308,7 @@
                         "dataType": "REF",
                         "isRequired": false,
                         "isDisplayComponent": false,
-                        "targetEntityId": "01a170de-c419-7726-8612-2182a9c70961",
+                        "targetEntityId": "01a1ae45-64ea-76aa-8292-ca3b2f091b18",
                         "targetEntityKind": "object",
                         "targetConstantId": null,
                         "presentation": {
@@ -1323,7 +1339,7 @@
                         "sortOrder": 2
                     },
                     {
-                        "id": "01a170de-c489-7309-97d8-0313655c5827",
+                        "id": "01a1ae45-658f-7712-a57d-0f469e15d7ae",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -1331,8 +1347,8 @@
                                     "content": "Context",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.929Z",
-                                    "updatedAt": "2026-10-25T02:23:29.929Z"
+                                    "createdAt": "2026-11-06T00:32:25.999Z",
+                                    "updatedAt": "2026-11-06T00:32:25.999Z"
                                 }
                             },
                             "_primary": "en"
@@ -1340,7 +1356,7 @@
                         "dataType": "REF",
                         "isRequired": false,
                         "isDisplayComponent": false,
-                        "targetEntityId": "01a170de-c46a-7c4f-9679-58f77bf210b5",
+                        "targetEntityId": "01a1ae45-6565-79a7-9475-5d9c9e067682",
                         "targetEntityKind": "enumeration",
                         "targetConstantId": null,
                         "presentation": {
@@ -1371,7 +1387,7 @@
                         "sortOrder": 3
                     },
                     {
-                        "id": "01a170de-c48b-79e2-a11a-eca5c38fc61b",
+                        "id": "01a1ae45-6592-7e07-a22b-cbab2af97cf1",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -1379,8 +1395,8 @@
                                     "content": "InterpretationMatrix",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.931Z",
-                                    "updatedAt": "2026-10-25T02:23:29.931Z"
+                                    "createdAt": "2026-11-06T00:32:26.001Z",
+                                    "updatedAt": "2026-11-06T00:32:26.001Z"
                                 }
                             },
                             "_primary": "en"
@@ -1441,7 +1457,7 @@
                         "sortOrder": 4,
                         "childFields": [
                             {
-                                "id": "01a170de-c48d-7dbd-9a60-c9c7842a7b14",
+                                "id": "01a1ae45-6594-7433-babc-fefc9cc694bb",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -1449,8 +1465,8 @@
                                             "content": "CellId",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.932Z",
-                                            "updatedAt": "2026-10-25T02:23:29.932Z"
+                                            "createdAt": "2026-11-06T00:32:26.003Z",
+                                            "updatedAt": "2026-11-06T00:32:26.003Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -1509,10 +1525,10 @@
                                     "serverOwned": true
                                 },
                                 "sortOrder": 1,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             },
                             {
-                                "id": "01a170de-c48f-7e89-970a-4b4722a86d97",
+                                "id": "01a1ae45-6597-7552-8363-abc057119a35",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -1520,8 +1536,8 @@
                                             "content": "ParentCellId",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.934Z",
-                                            "updatedAt": "2026-10-25T02:23:29.934Z"
+                                            "createdAt": "2026-11-06T00:32:26.006Z",
+                                            "updatedAt": "2026-11-06T00:32:26.006Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -1583,10 +1599,10 @@
                                     "hierarchyIdentityField": "CellId"
                                 },
                                 "sortOrder": 2,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             },
                             {
-                                "id": "01a170de-c491-7be8-ae03-a366981ac603",
+                                "id": "01a1ae45-6599-712c-b082-17a4da278a27",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -1594,8 +1610,8 @@
                                             "content": "ColKey",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.936Z",
-                                            "updatedAt": "2026-10-25T02:23:29.936Z"
+                                            "createdAt": "2026-11-06T00:32:26.009Z",
+                                            "updatedAt": "2026-11-06T00:32:26.009Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -1635,10 +1651,10 @@
                                     "serverOwned": true
                                 },
                                 "sortOrder": 3,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             },
                             {
-                                "id": "01a170de-c492-7c7c-b693-85501be970ee",
+                                "id": "01a1ae45-659b-70b9-800f-0a124ab897e7",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -1646,8 +1662,8 @@
                                             "content": "ColLabel",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.938Z",
-                                            "updatedAt": "2026-10-25T02:23:29.938Z"
+                                            "createdAt": "2026-11-06T00:32:26.011Z",
+                                            "updatedAt": "2026-11-06T00:32:26.011Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -1688,10 +1704,10 @@
                                     "widget": "textarea"
                                 },
                                 "sortOrder": 4,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             },
                             {
-                                "id": "01a170de-c494-7178-8209-d44657df85b6",
+                                "id": "01a1ae45-659e-7a7b-85bc-8a812495f18e",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -1699,8 +1715,8 @@
                                             "content": "RowKey",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.940Z",
-                                            "updatedAt": "2026-10-25T02:23:29.940Z"
+                                            "createdAt": "2026-11-06T00:32:26.013Z",
+                                            "updatedAt": "2026-11-06T00:32:26.013Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -1740,10 +1756,10 @@
                                     "serverOwned": true
                                 },
                                 "sortOrder": 5,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             },
                             {
-                                "id": "01a170de-c496-78de-b470-c763389786cb",
+                                "id": "01a1ae45-65a0-7d48-b3eb-415be9840d78",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -1751,8 +1767,8 @@
                                             "content": "RowLabel",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.941Z",
-                                            "updatedAt": "2026-10-25T02:23:29.941Z"
+                                            "createdAt": "2026-11-06T00:32:26.015Z",
+                                            "updatedAt": "2026-11-06T00:32:26.015Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -1790,10 +1806,10 @@
                                 },
                                 "uiConfig": {},
                                 "sortOrder": 6,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             },
                             {
-                                "id": "01a170de-c497-70d4-94a4-9319b27565cc",
+                                "id": "01a1ae45-65a2-7444-8d68-8fb6a16c0d39",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -1801,8 +1817,8 @@
                                             "content": "CellValue",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.943Z",
-                                            "updatedAt": "2026-10-25T02:23:29.943Z"
+                                            "createdAt": "2026-11-06T00:32:26.018Z",
+                                            "updatedAt": "2026-11-06T00:32:26.018Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -1859,10 +1875,10 @@
                                     }
                                 },
                                 "sortOrder": 7,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             },
                             {
-                                "id": "01a170de-c499-7e64-8847-e4511b879ffa",
+                                "id": "01a1ae45-65a4-7d30-81a1-c4faf81f4dbb",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -1870,8 +1886,8 @@
                                             "content": "CellDescription",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.944Z",
-                                            "updatedAt": "2026-10-25T02:23:29.944Z"
+                                            "createdAt": "2026-11-06T00:32:26.020Z",
+                                            "updatedAt": "2026-11-06T00:32:26.020Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -1913,10 +1929,10 @@
                                     "gridHidden": true
                                 },
                                 "sortOrder": 8,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             },
                             {
-                                "id": "01a170de-c49b-7c6c-997a-b72d598a16a4",
+                                "id": "01a1ae45-65a7-7bef-8f51-4e83a6b13cd1",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -1924,8 +1940,8 @@
                                             "content": "CellFillColor",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.946Z",
-                                            "updatedAt": "2026-10-25T02:23:29.946Z"
+                                            "createdAt": "2026-11-06T00:32:26.022Z",
+                                            "updatedAt": "2026-11-06T00:32:26.022Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -1966,10 +1982,10 @@
                                     "interpretationNetworkStyleRole": "fill"
                                 },
                                 "sortOrder": 9,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             },
                             {
-                                "id": "01a170de-c49c-7cd9-a50c-744cb600954a",
+                                "id": "01a1ae45-65a9-789b-875d-ee7ea4756d20",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -1977,8 +1993,8 @@
                                             "content": "TextColor",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.948Z",
-                                            "updatedAt": "2026-10-25T02:23:29.948Z"
+                                            "createdAt": "2026-11-06T00:32:26.024Z",
+                                            "updatedAt": "2026-11-06T00:32:26.024Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -2019,10 +2035,10 @@
                                     "interpretationNetworkStyleRole": "text"
                                 },
                                 "sortOrder": 10,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             },
                             {
-                                "id": "01a170de-c49e-75c1-aa68-8857fe420fe7",
+                                "id": "01a1ae45-65ab-78fb-aaa4-a55eb5c28e54",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -2030,8 +2046,8 @@
                                             "content": "BorderTopColor",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.949Z",
-                                            "updatedAt": "2026-10-25T02:23:29.949Z"
+                                            "createdAt": "2026-11-06T00:32:26.026Z",
+                                            "updatedAt": "2026-11-06T00:32:26.026Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -2072,10 +2088,10 @@
                                     "interpretationNetworkStyleRole": "borderTopColor"
                                 },
                                 "sortOrder": 11,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             },
                             {
-                                "id": "01a170de-c49f-7a00-97cf-de2a611ea22e",
+                                "id": "01a1ae45-65ad-76cd-979a-8dd304f0b79d",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -2083,8 +2099,8 @@
                                             "content": "BorderRightColor",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.951Z",
-                                            "updatedAt": "2026-10-25T02:23:29.951Z"
+                                            "createdAt": "2026-11-06T00:32:26.028Z",
+                                            "updatedAt": "2026-11-06T00:32:26.028Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -2125,10 +2141,10 @@
                                     "interpretationNetworkStyleRole": "borderRightColor"
                                 },
                                 "sortOrder": 12,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             },
                             {
-                                "id": "01a170de-c4a1-7e32-b576-f0d2db8d5456",
+                                "id": "01a1ae45-65b0-75a7-a5a8-960c4e1b2259",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -2136,8 +2152,8 @@
                                             "content": "BorderBottomColor",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.952Z",
-                                            "updatedAt": "2026-10-25T02:23:29.952Z"
+                                            "createdAt": "2026-11-06T00:32:26.030Z",
+                                            "updatedAt": "2026-11-06T00:32:26.030Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -2178,10 +2194,10 @@
                                     "interpretationNetworkStyleRole": "borderBottomColor"
                                 },
                                 "sortOrder": 13,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             },
                             {
-                                "id": "01a170de-c4a2-7293-9496-c1b103a26b30",
+                                "id": "01a1ae45-65b2-7fa1-8ac8-0183a1b033ab",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -2189,8 +2205,8 @@
                                             "content": "BorderLeftColor",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.954Z",
-                                            "updatedAt": "2026-10-25T02:23:29.954Z"
+                                            "createdAt": "2026-11-06T00:32:26.034Z",
+                                            "updatedAt": "2026-11-06T00:32:26.034Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -2231,10 +2247,10 @@
                                     "interpretationNetworkStyleRole": "borderLeftColor"
                                 },
                                 "sortOrder": 14,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             },
                             {
-                                "id": "01a170de-c4a3-7f07-990a-0ef8438124e1",
+                                "id": "01a1ae45-65b4-798b-a22b-29a5b0968ea6",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -2242,8 +2258,8 @@
                                             "content": "BorderTopWidth",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.955Z",
-                                            "updatedAt": "2026-10-25T02:23:29.955Z"
+                                            "createdAt": "2026-11-06T00:32:26.036Z",
+                                            "updatedAt": "2026-11-06T00:32:26.036Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -2282,10 +2298,10 @@
                                     "interpretationNetworkStyleRole": "borderTopWidth"
                                 },
                                 "sortOrder": 15,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             },
                             {
-                                "id": "01a170de-c4a5-753f-80ef-7cb287acf569",
+                                "id": "01a1ae45-65b7-7553-a45e-5e59b022a91a",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -2293,8 +2309,8 @@
                                             "content": "BorderRightWidth",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.956Z",
-                                            "updatedAt": "2026-10-25T02:23:29.956Z"
+                                            "createdAt": "2026-11-06T00:32:26.038Z",
+                                            "updatedAt": "2026-11-06T00:32:26.038Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -2333,10 +2349,10 @@
                                     "interpretationNetworkStyleRole": "borderRightWidth"
                                 },
                                 "sortOrder": 16,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             },
                             {
-                                "id": "01a170de-c4a6-75cb-ab13-ff6af080487e",
+                                "id": "01a1ae45-65b8-7592-bb63-c204d8738de8",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -2344,8 +2360,8 @@
                                             "content": "BorderBottomWidth",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.958Z",
-                                            "updatedAt": "2026-10-25T02:23:29.958Z"
+                                            "createdAt": "2026-11-06T00:32:26.040Z",
+                                            "updatedAt": "2026-11-06T00:32:26.040Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -2384,10 +2400,10 @@
                                     "interpretationNetworkStyleRole": "borderBottomWidth"
                                 },
                                 "sortOrder": 17,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             },
                             {
-                                "id": "01a170de-c4a8-7411-abf2-9554a8568b6f",
+                                "id": "01a1ae45-65ba-7ba9-b6db-4d97ba8371ba",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -2395,8 +2411,8 @@
                                             "content": "BorderLeftWidth",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.959Z",
-                                            "updatedAt": "2026-10-25T02:23:29.959Z"
+                                            "createdAt": "2026-11-06T00:32:26.042Z",
+                                            "updatedAt": "2026-11-06T00:32:26.042Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -2435,10 +2451,10 @@
                                     "interpretationNetworkStyleRole": "borderLeftWidth"
                                 },
                                 "sortOrder": 18,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             },
                             {
-                                "id": "01a170de-c4a9-78b5-a8b2-70df6976dc95",
+                                "id": "01a1ae45-65bc-7434-a64c-bcee25ed92e3",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -2446,8 +2462,8 @@
                                             "content": "BorderTopStyle",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.961Z",
-                                            "updatedAt": "2026-10-25T02:23:29.961Z"
+                                            "createdAt": "2026-11-06T00:32:26.044Z",
+                                            "updatedAt": "2026-11-06T00:32:26.044Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -2486,10 +2502,10 @@
                                     "interpretationNetworkStyleRole": "borderTopStyle"
                                 },
                                 "sortOrder": 19,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             },
                             {
-                                "id": "01a170de-c4ab-7926-b059-7b315570b9ee",
+                                "id": "01a1ae45-65bf-7456-b548-67f553cc4c10",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -2497,8 +2513,8 @@
                                             "content": "BorderRightStyle",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.962Z",
-                                            "updatedAt": "2026-10-25T02:23:29.962Z"
+                                            "createdAt": "2026-11-06T00:32:26.046Z",
+                                            "updatedAt": "2026-11-06T00:32:26.046Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -2537,10 +2553,10 @@
                                     "interpretationNetworkStyleRole": "borderRightStyle"
                                 },
                                 "sortOrder": 20,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             },
                             {
-                                "id": "01a170de-c4ac-726a-8dd8-72393791ac7c",
+                                "id": "01a1ae45-65c1-7140-9674-713513248e49",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -2548,8 +2564,8 @@
                                             "content": "BorderBottomStyle",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.964Z",
-                                            "updatedAt": "2026-10-25T02:23:29.964Z"
+                                            "createdAt": "2026-11-06T00:32:26.048Z",
+                                            "updatedAt": "2026-11-06T00:32:26.048Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -2588,10 +2604,10 @@
                                     "interpretationNetworkStyleRole": "borderBottomStyle"
                                 },
                                 "sortOrder": 21,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             },
                             {
-                                "id": "01a170de-c4ae-7bdf-90d6-6a38f1bab8f8",
+                                "id": "01a1ae45-65c2-711a-a25d-ea2079d6d2ae",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -2599,8 +2615,8 @@
                                             "content": "BorderLeftStyle",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.965Z",
-                                            "updatedAt": "2026-10-25T02:23:29.965Z"
+                                            "createdAt": "2026-11-06T00:32:26.050Z",
+                                            "updatedAt": "2026-11-06T00:32:26.050Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -2639,10 +2655,10 @@
                                     "interpretationNetworkStyleRole": "borderLeftStyle"
                                 },
                                 "sortOrder": 22,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             },
                             {
-                                "id": "01a170de-c4af-7096-b833-3ef07a067342",
+                                "id": "01a1ae45-65c4-7f05-8f78-6bebc9820822",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -2650,8 +2666,8 @@
                                             "content": "MaterialRef",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.967Z",
-                                            "updatedAt": "2026-10-25T02:23:29.967Z"
+                                            "createdAt": "2026-11-06T00:32:26.052Z",
+                                            "updatedAt": "2026-11-06T00:32:26.052Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -2659,7 +2675,7 @@
                                 "dataType": "REF",
                                 "isRequired": false,
                                 "isDisplayComponent": false,
-                                "targetEntityId": "01a170de-c444-78e4-9e14-c4a902979673",
+                                "targetEntityId": "01a1ae45-6524-7be1-824b-99ee691d4eba",
                                 "targetEntityKind": "object",
                                 "targetConstantId": null,
                                 "presentation": {
@@ -2711,15 +2727,17 @@
                                     "enumPresentationMode": "label"
                                 },
                                 "sortOrder": 23,
-                                "parentComponentId": "01a170de-c48b-79e2-a11a-eca5c38fc61b"
+                                "parentComponentId": "01a1ae45-6592-7e07-a22b-cbab2af97cf1"
                             }
                         ]
                     }
                 ],
-                "hubs": ["01a170de-c403-77a1-ba53-b97749172d0b"]
+                "hubs": [
+                    "01a1ae45-64c0-744f-8292-38404c41a673"
+                ]
             },
-            "01a170de-c436-7dae-8cc5-15e0f92992b4": {
-                "id": "01a170de-c436-7dae-8cc5-15e0f92992b4",
+            "01a1ae45-6512-78b0-9c9f-41ce4cc4e1fd": {
+                "id": "01a1ae45-6512-78b0-9c9f-41ce4cc4e1fd",
                 "kind": "object",
                 "codename": {
                     "_schema": "1",
@@ -2728,20 +2746,20 @@
                             "content": "Relation",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.846Z",
-                            "updatedAt": "2026-10-25T02:23:29.846Z"
+                            "createdAt": "2026-11-06T00:32:25.873Z",
+                            "updatedAt": "2026-11-06T00:32:25.873Z"
                         },
                         "ru": {
                             "content": "",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.846Z",
-                            "updatedAt": "2026-10-25T02:23:29.846Z"
+                            "createdAt": "2026-11-06T00:32:25.873Z",
+                            "updatedAt": "2026-11-06T00:32:25.873Z"
                         }
                     },
                     "_primary": "en"
                 },
-                "tableName": "obj_01a170dec4367dae8cc515e0f92992b4",
+                "tableName": "obj_01a1ae45651278b09c9f41ce4cc4e1fd",
                 "presentation": {
                     "name": {
                         "_schema": "1",
@@ -2791,7 +2809,9 @@
                         "managed": true,
                         "presetCodename": "object"
                     },
-                    "hubs": ["01a170de-c403-77a1-ba53-b97749172d0b"],
+                    "hubs": [
+                        "01a1ae45-64c0-744f-8292-38404c41a673"
+                    ],
                     "sortOrder": 4,
                     "capabilities": {
                         "dataSchema": {
@@ -2812,7 +2832,9 @@
                         "nestedCollections": false,
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "actions": {
                             "enabled": true
@@ -2858,7 +2880,7 @@
                 },
                 "fields": [
                     {
-                        "id": "01a170de-c4b1-7cc0-81a6-9f7b8172e2ae",
+                        "id": "01a1ae45-65c6-76be-8878-249d3374ca9c",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -2866,8 +2888,8 @@
                                     "content": "SourceLabel",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.968Z",
-                                    "updatedAt": "2026-10-25T02:23:29.968Z"
+                                    "createdAt": "2026-11-06T00:32:26.053Z",
+                                    "updatedAt": "2026-11-06T00:32:26.053Z"
                                 }
                             },
                             "_primary": "en"
@@ -2910,7 +2932,7 @@
                         "sortOrder": 1
                     },
                     {
-                        "id": "01a170de-c4b2-7629-a373-a377cd9bdbe6",
+                        "id": "01a1ae45-65c8-7315-8165-6ff57f310405",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -2918,8 +2940,8 @@
                                     "content": "SourceKind",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.970Z",
-                                    "updatedAt": "2026-10-25T02:23:29.970Z"
+                                    "createdAt": "2026-11-06T00:32:26.056Z",
+                                    "updatedAt": "2026-11-06T00:32:26.056Z"
                                 }
                             },
                             "_primary": "en"
@@ -2982,7 +3004,7 @@
                         "sortOrder": 2
                     },
                     {
-                        "id": "01a170de-c4b4-7037-b654-a357cc64379e",
+                        "id": "01a1ae45-65ca-7479-8696-57d33a38c43f",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -2990,8 +3012,8 @@
                                     "content": "SourceId",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.971Z",
-                                    "updatedAt": "2026-10-25T02:23:29.971Z"
+                                    "createdAt": "2026-11-06T00:32:26.058Z",
+                                    "updatedAt": "2026-11-06T00:32:26.058Z"
                                 }
                             },
                             "_primary": "en"
@@ -3035,7 +3057,7 @@
                         "sortOrder": 3
                     },
                     {
-                        "id": "01a170de-c4b5-7036-b7bc-c52cd305e892",
+                        "id": "01a1ae45-65cc-7481-a74d-dd1bc2d94e49",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -3043,8 +3065,8 @@
                                     "content": "TargetLabel",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.973Z",
-                                    "updatedAt": "2026-10-25T02:23:29.973Z"
+                                    "createdAt": "2026-11-06T00:32:26.060Z",
+                                    "updatedAt": "2026-11-06T00:32:26.060Z"
                                 }
                             },
                             "_primary": "en"
@@ -3086,7 +3108,7 @@
                         "sortOrder": 4
                     },
                     {
-                        "id": "01a170de-c4b7-7d8b-b9c1-135f88bca363",
+                        "id": "01a1ae45-65cf-752e-8021-308e3506fbe8",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -3094,8 +3116,8 @@
                                     "content": "TargetKind",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.974Z",
-                                    "updatedAt": "2026-10-25T02:23:29.974Z"
+                                    "createdAt": "2026-11-06T00:32:26.062Z",
+                                    "updatedAt": "2026-11-06T00:32:26.062Z"
                                 }
                             },
                             "_primary": "en"
@@ -3139,7 +3161,7 @@
                         "sortOrder": 5
                     },
                     {
-                        "id": "01a170de-c4b8-73ca-9bce-a4c6e3d17d5a",
+                        "id": "01a1ae45-65d1-79b7-a066-3a38c8b18d6e",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -3147,8 +3169,8 @@
                                     "content": "TargetId",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.976Z",
-                                    "updatedAt": "2026-10-25T02:23:29.976Z"
+                                    "createdAt": "2026-11-06T00:32:26.064Z",
+                                    "updatedAt": "2026-11-06T00:32:26.064Z"
                                 }
                             },
                             "_primary": "en"
@@ -3192,7 +3214,7 @@
                         "sortOrder": 6
                     },
                     {
-                        "id": "01a170de-c4ba-7865-9575-b5978baa98d9",
+                        "id": "01a1ae45-65d3-75da-885b-4e8367ea66e6",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -3200,8 +3222,8 @@
                                     "content": "RelationType",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.977Z",
-                                    "updatedAt": "2026-10-25T02:23:29.977Z"
+                                    "createdAt": "2026-11-06T00:32:26.066Z",
+                                    "updatedAt": "2026-11-06T00:32:26.066Z"
                                 }
                             },
                             "_primary": "en"
@@ -3209,7 +3231,7 @@
                         "dataType": "REF",
                         "isRequired": false,
                         "isDisplayComponent": false,
-                        "targetEntityId": "01a170de-c46c-7240-bc1f-97c42727c1a8",
+                        "targetEntityId": "01a1ae45-6567-7731-8db8-8f19eb796d03",
                         "targetEntityKind": "enumeration",
                         "targetConstantId": null,
                         "presentation": {
@@ -3240,7 +3262,7 @@
                         "sortOrder": 7
                     },
                     {
-                        "id": "01a170de-c4bc-7d88-9aa3-a7ed0a0ffb2a",
+                        "id": "01a1ae45-65d5-79e6-81fd-d95f6e44b3f2",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -3248,8 +3270,8 @@
                                     "content": "Description",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.979Z",
-                                    "updatedAt": "2026-10-25T02:23:29.979Z"
+                                    "createdAt": "2026-11-06T00:32:26.068Z",
+                                    "updatedAt": "2026-11-06T00:32:26.068Z"
                                 }
                             },
                             "_primary": "en"
@@ -3292,10 +3314,12 @@
                         "sortOrder": 8
                     }
                 ],
-                "hubs": ["01a170de-c403-77a1-ba53-b97749172d0b"]
+                "hubs": [
+                    "01a1ae45-64c0-744f-8292-38404c41a673"
+                ]
             },
-            "01a170de-c444-78e4-9e14-c4a902979673": {
-                "id": "01a170de-c444-78e4-9e14-c4a902979673",
+            "01a1ae45-6524-7be1-824b-99ee691d4eba": {
+                "id": "01a1ae45-6524-7be1-824b-99ee691d4eba",
                 "kind": "object",
                 "codename": {
                     "_schema": "1",
@@ -3304,20 +3328,20 @@
                             "content": "Material",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.859Z",
-                            "updatedAt": "2026-10-25T02:23:29.859Z"
+                            "createdAt": "2026-11-06T00:32:25.892Z",
+                            "updatedAt": "2026-11-06T00:32:25.892Z"
                         },
                         "ru": {
                             "content": "",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.859Z",
-                            "updatedAt": "2026-10-25T02:23:29.859Z"
+                            "createdAt": "2026-11-06T00:32:25.892Z",
+                            "updatedAt": "2026-11-06T00:32:25.892Z"
                         }
                     },
                     "_primary": "en"
                 },
-                "tableName": "obj_01a170dec44478e49e14c4a902979673",
+                "tableName": "obj_01a1ae4565247be1824b99ee691d4eba",
                 "presentation": {
                     "name": {
                         "_schema": "1",
@@ -3367,7 +3391,9 @@
                         "managed": true,
                         "presetCodename": "object"
                     },
-                    "hubs": ["01a170de-c403-77a1-ba53-b97749172d0b"],
+                    "hubs": [
+                        "01a1ae45-64c0-744f-8292-38404c41a673"
+                    ],
                     "runtime": {
                         "menuVisibility": "hidden"
                     },
@@ -3398,7 +3424,9 @@
                         "nestedCollections": false,
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "actions": {
                             "enabled": true
@@ -3444,7 +3472,7 @@
                 },
                 "fields": [
                     {
-                        "id": "01a170de-c4bd-72ff-a8be-2c2106e42363",
+                        "id": "01a1ae45-65d8-7eb6-9b06-9b2e1ff4fe78",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -3452,8 +3480,8 @@
                                     "content": "Title",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.981Z",
-                                    "updatedAt": "2026-10-25T02:23:29.981Z"
+                                    "createdAt": "2026-11-06T00:32:26.071Z",
+                                    "updatedAt": "2026-11-06T00:32:26.071Z"
                                 }
                             },
                             "_primary": "en"
@@ -3496,7 +3524,7 @@
                         "sortOrder": 1
                     },
                     {
-                        "id": "01a170de-c4bf-7766-b27b-32bb50090584",
+                        "id": "01a1ae45-65da-7476-ba06-8d9fb90be7cc",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -3504,8 +3532,8 @@
                                     "content": "Description",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.982Z",
-                                    "updatedAt": "2026-10-25T02:23:29.982Z"
+                                    "createdAt": "2026-11-06T00:32:26.073Z",
+                                    "updatedAt": "2026-11-06T00:32:26.073Z"
                                 }
                             },
                             "_primary": "en"
@@ -3548,7 +3576,7 @@
                         "sortOrder": 2
                     },
                     {
-                        "id": "01a170de-c4c0-79d8-90d5-82998cc07e6d",
+                        "id": "01a1ae45-65dc-7c46-b8eb-95263365216d",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -3556,8 +3584,8 @@
                                     "content": "Body",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.984Z",
-                                    "updatedAt": "2026-10-25T02:23:29.984Z"
+                                    "createdAt": "2026-11-06T00:32:26.075Z",
+                                    "updatedAt": "2026-11-06T00:32:26.075Z"
                                 }
                             },
                             "_primary": "en"
@@ -3614,13 +3642,22 @@
                             "gridHidden": true,
                             "blockEditor": {
                                 "maxBlocks": 200,
-                                "allowedBlockTypes": ["paragraph", "header", "list", "quote", "table", "image", "embed", "delimiter"]
+                                "allowedBlockTypes": [
+                                    "paragraph",
+                                    "header",
+                                    "list",
+                                    "quote",
+                                    "table",
+                                    "image",
+                                    "embed",
+                                    "delimiter"
+                                ]
                             }
                         },
                         "sortOrder": 3
                     },
                     {
-                        "id": "01a170de-c4c1-73ad-a087-41ff255f153d",
+                        "id": "01a1ae45-65de-7ec4-98ed-6dc79a896d0d",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -3628,8 +3665,8 @@
                                     "content": "CellId",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.985Z",
-                                    "updatedAt": "2026-10-25T02:23:29.985Z"
+                                    "createdAt": "2026-11-06T00:32:26.077Z",
+                                    "updatedAt": "2026-11-06T00:32:26.077Z"
                                 }
                             },
                             "_primary": "en"
@@ -3673,7 +3710,7 @@
                         "sortOrder": 4
                     },
                     {
-                        "id": "01a170de-c4c3-7142-810e-1a37bba190d8",
+                        "id": "01a1ae45-65e0-796b-af85-ddf6850c3316",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -3681,8 +3718,8 @@
                                     "content": "InterpretationId",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.987Z",
-                                    "updatedAt": "2026-10-25T02:23:29.987Z"
+                                    "createdAt": "2026-11-06T00:32:26.080Z",
+                                    "updatedAt": "2026-11-06T00:32:26.080Z"
                                 }
                             },
                             "_primary": "en"
@@ -3745,7 +3782,7 @@
                         "sortOrder": 5
                     },
                     {
-                        "id": "01a170de-c4c5-7767-9ddf-67f3f49f72a6",
+                        "id": "01a1ae45-65e3-7604-865e-3d776067a4a5",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -3753,8 +3790,8 @@
                                     "content": "TemplateOwnerId",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.988Z",
-                                    "updatedAt": "2026-10-25T02:23:29.988Z"
+                                    "createdAt": "2026-11-06T00:32:26.082Z",
+                                    "updatedAt": "2026-11-06T00:32:26.082Z"
                                 }
                             },
                             "_primary": "en"
@@ -3817,10 +3854,12 @@
                         "sortOrder": 6
                     }
                 ],
-                "hubs": ["01a170de-c403-77a1-ba53-b97749172d0b"]
+                "hubs": [
+                    "01a1ae45-64c0-744f-8292-38404c41a673"
+                ]
             },
-            "01a170de-c450-76c1-af5f-350953a86164": {
-                "id": "01a170de-c450-76c1-af5f-350953a86164",
+            "01a1ae45-6538-7d5e-b278-c7a7804e2779": {
+                "id": "01a1ae45-6538-7d5e-b278-c7a7804e2779",
                 "kind": "object",
                 "codename": {
                     "_schema": "1",
@@ -3829,20 +3868,20 @@
                             "content": "Favorite",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.872Z",
-                            "updatedAt": "2026-10-25T02:23:29.872Z"
+                            "createdAt": "2026-11-06T00:32:25.912Z",
+                            "updatedAt": "2026-11-06T00:32:25.912Z"
                         },
                         "ru": {
                             "content": "",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.872Z",
-                            "updatedAt": "2026-10-25T02:23:29.872Z"
+                            "createdAt": "2026-11-06T00:32:25.912Z",
+                            "updatedAt": "2026-11-06T00:32:25.912Z"
                         }
                     },
                     "_primary": "en"
                 },
-                "tableName": "obj_01a170dec45076c1af5f350953a86164",
+                "tableName": "obj_01a1ae4565387d5eb278c7a7804e2779",
                 "presentation": {
                     "name": {
                         "_schema": "1",
@@ -3926,7 +3965,9 @@
                         "nestedCollections": false,
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "actions": {
                             "enabled": true
@@ -3972,7 +4013,7 @@
                 },
                 "fields": [
                     {
-                        "id": "01a170de-c4c6-7a4e-ae2f-725dc50746d3",
+                        "id": "01a1ae45-65e5-72e6-9c92-e5f073180f28",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -3980,8 +4021,8 @@
                                     "content": "OwnerUserId",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.990Z",
-                                    "updatedAt": "2026-10-25T02:23:29.990Z"
+                                    "createdAt": "2026-11-06T00:32:26.084Z",
+                                    "updatedAt": "2026-11-06T00:32:26.084Z"
                                 }
                             },
                             "_primary": "en"
@@ -4025,7 +4066,7 @@
                         "sortOrder": 1
                     },
                     {
-                        "id": "01a170de-c4c7-7726-94e2-51357342208e",
+                        "id": "01a1ae45-65e7-70f4-9f3c-09716089e62c",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -4033,8 +4074,8 @@
                                     "content": "TargetInterpretationId",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.991Z",
-                                    "updatedAt": "2026-10-25T02:23:29.991Z"
+                                    "createdAt": "2026-11-06T00:32:26.086Z",
+                                    "updatedAt": "2026-11-06T00:32:26.086Z"
                                 }
                             },
                             "_primary": "en"
@@ -4078,7 +4119,7 @@
                         "sortOrder": 2
                     },
                     {
-                        "id": "01a170de-c4c9-7c65-8560-988e4bf443cd",
+                        "id": "01a1ae45-65e9-7474-8a46-b03b72b6afd2",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -4086,8 +4127,8 @@
                                     "content": "TargetCellId",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.992Z",
-                                    "updatedAt": "2026-10-25T02:23:29.992Z"
+                                    "createdAt": "2026-11-06T00:32:26.089Z",
+                                    "updatedAt": "2026-11-06T00:32:26.089Z"
                                 }
                             },
                             "_primary": "en"
@@ -4133,8 +4174,8 @@
                 ],
                 "hubs": []
             },
-            "01a170de-c45c-7933-8ce1-7c7de255c5d6": {
-                "id": "01a170de-c45c-7933-8ce1-7c7de255c5d6",
+            "01a1ae45-654f-7202-8567-a914a86236a6": {
+                "id": "01a1ae45-654f-7202-8567-a914a86236a6",
                 "kind": "object",
                 "codename": {
                     "_schema": "1",
@@ -4143,20 +4184,20 @@
                             "content": "TableTemplate",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.884Z",
-                            "updatedAt": "2026-10-25T02:23:29.884Z"
+                            "createdAt": "2026-11-06T00:32:25.934Z",
+                            "updatedAt": "2026-11-06T00:32:25.934Z"
                         },
                         "ru": {
                             "content": "",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.884Z",
-                            "updatedAt": "2026-10-25T02:23:29.884Z"
+                            "createdAt": "2026-11-06T00:32:25.934Z",
+                            "updatedAt": "2026-11-06T00:32:25.934Z"
                         }
                     },
                     "_primary": "en"
                 },
-                "tableName": "obj_01a170dec45c79338ce17c7de255c5d6",
+                "tableName": "obj_01a1ae45654f72028567a914a86236a6",
                 "presentation": {
                     "name": {
                         "_schema": "1",
@@ -4206,7 +4247,9 @@
                         "managed": true,
                         "presetCodename": "object"
                     },
-                    "hubs": ["01a170de-c403-77a1-ba53-b97749172d0b"],
+                    "hubs": [
+                        "01a1ae45-64c0-744f-8292-38404c41a673"
+                    ],
                     "sortOrder": 7,
                     "capabilities": {
                         "dataSchema": {
@@ -4227,7 +4270,9 @@
                         "nestedCollections": false,
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "actions": {
                             "enabled": true
@@ -4273,7 +4318,7 @@
                 },
                 "fields": [
                     {
-                        "id": "01a170de-c4ca-7beb-b71d-b616016a2f71",
+                        "id": "01a1ae45-65eb-7bc4-8ffc-3c8cdd7243be",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -4281,8 +4326,8 @@
                                     "content": "Name",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.994Z",
-                                    "updatedAt": "2026-10-25T02:23:29.994Z"
+                                    "createdAt": "2026-11-06T00:32:26.091Z",
+                                    "updatedAt": "2026-11-06T00:32:26.091Z"
                                 }
                             },
                             "_primary": "en"
@@ -4325,7 +4370,7 @@
                         "sortOrder": 1
                     },
                     {
-                        "id": "01a170de-c4cb-7ef6-a24c-09a41c003e2e",
+                        "id": "01a1ae45-65ed-7332-bf7a-84dc405486d2",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -4333,8 +4378,8 @@
                                     "content": "Description",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.995Z",
-                                    "updatedAt": "2026-10-25T02:23:29.995Z"
+                                    "createdAt": "2026-11-06T00:32:26.092Z",
+                                    "updatedAt": "2026-11-06T00:32:26.092Z"
                                 }
                             },
                             "_primary": "en"
@@ -4377,7 +4422,7 @@
                         "sortOrder": 2
                     },
                     {
-                        "id": "01a170de-c4cd-776f-aa60-33cb5e9f920e",
+                        "id": "01a1ae45-65ef-7c1e-8212-eb229677e247",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -4385,8 +4430,8 @@
                                     "content": "MaterialPolicy",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.996Z",
-                                    "updatedAt": "2026-10-25T02:23:29.996Z"
+                                    "createdAt": "2026-11-06T00:32:26.095Z",
+                                    "updatedAt": "2026-11-06T00:32:26.095Z"
                                 }
                             },
                             "_primary": "en"
@@ -4449,7 +4494,7 @@
                         "sortOrder": 3
                     },
                     {
-                        "id": "01a170de-c4ce-78da-9db2-aef9db03144b",
+                        "id": "01a1ae45-65f1-7227-8919-7f1f61fd098f",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -4457,8 +4502,8 @@
                                     "content": "TemplateMatrix",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-10-25T02:23:29.998Z",
-                                    "updatedAt": "2026-10-25T02:23:29.998Z"
+                                    "createdAt": "2026-11-06T00:32:26.097Z",
+                                    "updatedAt": "2026-11-06T00:32:26.097Z"
                                 }
                             },
                             "_primary": "en"
@@ -4519,7 +4564,7 @@
                         "sortOrder": 4,
                         "childFields": [
                             {
-                                "id": "01a170de-c4d0-7c28-b2d1-79e991b2fee0",
+                                "id": "01a1ae45-65f3-7305-8956-59ddb88c1078",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -4527,8 +4572,8 @@
                                             "content": "CellId",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:29.999Z",
-                                            "updatedAt": "2026-10-25T02:23:29.999Z"
+                                            "createdAt": "2026-11-06T00:32:26.098Z",
+                                            "updatedAt": "2026-11-06T00:32:26.098Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -4587,10 +4632,10 @@
                                     "serverOwned": true
                                 },
                                 "sortOrder": 1,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             },
                             {
-                                "id": "01a170de-c4d1-7003-983a-95257a97e064",
+                                "id": "01a1ae45-65f5-7ab7-a6ca-4a4bee5f38a4",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -4598,8 +4643,8 @@
                                             "content": "ParentCellId",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:30.001Z",
-                                            "updatedAt": "2026-10-25T02:23:30.001Z"
+                                            "createdAt": "2026-11-06T00:32:26.100Z",
+                                            "updatedAt": "2026-11-06T00:32:26.100Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -4661,10 +4706,10 @@
                                     "hierarchyIdentityField": "CellId"
                                 },
                                 "sortOrder": 2,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             },
                             {
-                                "id": "01a170de-c4d3-78e0-a150-304d63ea665b",
+                                "id": "01a1ae45-65f7-78ae-b67a-9aa7eeec7cb9",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -4672,8 +4717,8 @@
                                             "content": "ColKey",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:30.002Z",
-                                            "updatedAt": "2026-10-25T02:23:30.002Z"
+                                            "createdAt": "2026-11-06T00:32:26.102Z",
+                                            "updatedAt": "2026-11-06T00:32:26.102Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -4713,10 +4758,10 @@
                                     "serverOwned": true
                                 },
                                 "sortOrder": 3,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             },
                             {
-                                "id": "01a170de-c4d4-7168-9def-ba6682f58ccf",
+                                "id": "01a1ae45-65f9-72fa-b133-d0c753c5ed8a",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -4724,8 +4769,8 @@
                                             "content": "ColLabel",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:30.004Z",
-                                            "updatedAt": "2026-10-25T02:23:30.004Z"
+                                            "createdAt": "2026-11-06T00:32:26.104Z",
+                                            "updatedAt": "2026-11-06T00:32:26.104Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -4766,10 +4811,10 @@
                                     "widget": "textarea"
                                 },
                                 "sortOrder": 4,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             },
                             {
-                                "id": "01a170de-c4d6-7f32-88e5-0917d1c69f86",
+                                "id": "01a1ae45-65fb-701d-8d42-c64b76f91fb1",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -4777,8 +4822,8 @@
                                             "content": "RowKey",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:30.005Z",
-                                            "updatedAt": "2026-10-25T02:23:30.005Z"
+                                            "createdAt": "2026-11-06T00:32:26.106Z",
+                                            "updatedAt": "2026-11-06T00:32:26.106Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -4818,10 +4863,10 @@
                                     "serverOwned": true
                                 },
                                 "sortOrder": 5,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             },
                             {
-                                "id": "01a170de-c4d7-70fd-b0de-282b0f9ec2be",
+                                "id": "01a1ae45-65fd-7911-b1d3-8bbcf89f52eb",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -4829,8 +4874,8 @@
                                             "content": "RowLabel",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:30.007Z",
-                                            "updatedAt": "2026-10-25T02:23:30.007Z"
+                                            "createdAt": "2026-11-06T00:32:26.108Z",
+                                            "updatedAt": "2026-11-06T00:32:26.108Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -4868,10 +4913,10 @@
                                 },
                                 "uiConfig": {},
                                 "sortOrder": 6,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             },
                             {
-                                "id": "01a170de-c4d9-7b4a-a954-05efb242c440",
+                                "id": "01a1ae45-65fe-7c83-8798-1a1f0a4dd851",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -4879,8 +4924,8 @@
                                             "content": "CellValue",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:30.009Z",
-                                            "updatedAt": "2026-10-25T02:23:30.009Z"
+                                            "createdAt": "2026-11-06T00:32:26.110Z",
+                                            "updatedAt": "2026-11-06T00:32:26.110Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -4937,10 +4982,10 @@
                                     }
                                 },
                                 "sortOrder": 7,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             },
                             {
-                                "id": "01a170de-c4db-7731-8b5e-6d9e47c3ee3b",
+                                "id": "01a1ae45-6601-735b-baad-84c4a8a74830",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -4948,8 +4993,8 @@
                                             "content": "CellDescription",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:30.010Z",
-                                            "updatedAt": "2026-10-25T02:23:30.010Z"
+                                            "createdAt": "2026-11-06T00:32:26.112Z",
+                                            "updatedAt": "2026-11-06T00:32:26.112Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -4991,10 +5036,10 @@
                                     "gridHidden": true
                                 },
                                 "sortOrder": 8,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             },
                             {
-                                "id": "01a170de-c4dd-70c2-9183-44891016c882",
+                                "id": "01a1ae45-6603-7959-adee-b630bb0a5c45",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -5002,8 +5047,8 @@
                                             "content": "CellFillColor",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:30.012Z",
-                                            "updatedAt": "2026-10-25T02:23:30.012Z"
+                                            "createdAt": "2026-11-06T00:32:26.114Z",
+                                            "updatedAt": "2026-11-06T00:32:26.114Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -5044,10 +5089,10 @@
                                     "interpretationNetworkStyleRole": "fill"
                                 },
                                 "sortOrder": 9,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             },
                             {
-                                "id": "01a170de-c4de-7a30-b274-0ea4daa35c52",
+                                "id": "01a1ae45-6605-792c-9c00-65a496a7a30f",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -5055,8 +5100,8 @@
                                             "content": "TextColor",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:30.014Z",
-                                            "updatedAt": "2026-10-25T02:23:30.014Z"
+                                            "createdAt": "2026-11-06T00:32:26.116Z",
+                                            "updatedAt": "2026-11-06T00:32:26.116Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -5097,10 +5142,10 @@
                                     "interpretationNetworkStyleRole": "text"
                                 },
                                 "sortOrder": 10,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             },
                             {
-                                "id": "01a170de-c4df-74e2-aac0-ce1eff4f7114",
+                                "id": "01a1ae45-6606-7ad4-aff8-ec8cc6936cc7",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -5108,8 +5153,8 @@
                                             "content": "BorderTopColor",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:30.015Z",
-                                            "updatedAt": "2026-10-25T02:23:30.015Z"
+                                            "createdAt": "2026-11-06T00:32:26.118Z",
+                                            "updatedAt": "2026-11-06T00:32:26.118Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -5150,10 +5195,10 @@
                                     "interpretationNetworkStyleRole": "borderTopColor"
                                 },
                                 "sortOrder": 11,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             },
                             {
-                                "id": "01a170de-c4e1-7b36-b69b-c87dd77f0f2e",
+                                "id": "01a1ae45-6609-7fbb-b9bc-759c4b60a03c",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -5161,8 +5206,8 @@
                                             "content": "BorderRightColor",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:30.016Z",
-                                            "updatedAt": "2026-10-25T02:23:30.016Z"
+                                            "createdAt": "2026-11-06T00:32:26.120Z",
+                                            "updatedAt": "2026-11-06T00:32:26.120Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -5203,10 +5248,10 @@
                                     "interpretationNetworkStyleRole": "borderRightColor"
                                 },
                                 "sortOrder": 12,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             },
                             {
-                                "id": "01a170de-c4e2-7b88-a6fb-d5e27434f7fd",
+                                "id": "01a1ae45-660b-79ee-8923-8f982462ab6e",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -5214,8 +5259,8 @@
                                             "content": "BorderBottomColor",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:30.017Z",
-                                            "updatedAt": "2026-10-25T02:23:30.017Z"
+                                            "createdAt": "2026-11-06T00:32:26.123Z",
+                                            "updatedAt": "2026-11-06T00:32:26.123Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -5256,10 +5301,10 @@
                                     "interpretationNetworkStyleRole": "borderBottomColor"
                                 },
                                 "sortOrder": 13,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             },
                             {
-                                "id": "01a170de-c4e3-7dc3-805c-e4fd8889fd79",
+                                "id": "01a1ae45-660d-7787-abed-7b27f807d593",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -5267,8 +5312,8 @@
                                             "content": "BorderLeftColor",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:30.019Z",
-                                            "updatedAt": "2026-10-25T02:23:30.019Z"
+                                            "createdAt": "2026-11-06T00:32:26.125Z",
+                                            "updatedAt": "2026-11-06T00:32:26.125Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -5309,10 +5354,10 @@
                                     "interpretationNetworkStyleRole": "borderLeftColor"
                                 },
                                 "sortOrder": 14,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             },
                             {
-                                "id": "01a170de-c4e5-7763-8462-ab621b29ec34",
+                                "id": "01a1ae45-660f-735b-ab18-9e24dae8a87a",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -5320,8 +5365,8 @@
                                             "content": "BorderTopWidth",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:30.021Z",
-                                            "updatedAt": "2026-10-25T02:23:30.021Z"
+                                            "createdAt": "2026-11-06T00:32:26.126Z",
+                                            "updatedAt": "2026-11-06T00:32:26.126Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -5360,10 +5405,10 @@
                                     "interpretationNetworkStyleRole": "borderTopWidth"
                                 },
                                 "sortOrder": 15,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             },
                             {
-                                "id": "01a170de-c4e6-7f97-86d4-cf135cfc5b62",
+                                "id": "01a1ae45-6611-7790-8ca7-89964a491f70",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -5371,8 +5416,8 @@
                                             "content": "BorderRightWidth",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:30.022Z",
-                                            "updatedAt": "2026-10-25T02:23:30.022Z"
+                                            "createdAt": "2026-11-06T00:32:26.129Z",
+                                            "updatedAt": "2026-11-06T00:32:26.129Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -5411,10 +5456,10 @@
                                     "interpretationNetworkStyleRole": "borderRightWidth"
                                 },
                                 "sortOrder": 16,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             },
                             {
-                                "id": "01a170de-c4e8-7575-8d61-d38ef447141b",
+                                "id": "01a1ae45-6614-7995-93e3-11fad8473225",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -5422,8 +5467,8 @@
                                             "content": "BorderBottomWidth",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:30.023Z",
-                                            "updatedAt": "2026-10-25T02:23:30.023Z"
+                                            "createdAt": "2026-11-06T00:32:26.131Z",
+                                            "updatedAt": "2026-11-06T00:32:26.131Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -5462,10 +5507,10 @@
                                     "interpretationNetworkStyleRole": "borderBottomWidth"
                                 },
                                 "sortOrder": 17,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             },
                             {
-                                "id": "01a170de-c4e9-7514-8e0c-f1b35c8cd34f",
+                                "id": "01a1ae45-6616-7dbf-8779-1bd17b40a3d8",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -5473,8 +5518,8 @@
                                             "content": "BorderLeftWidth",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:30.025Z",
-                                            "updatedAt": "2026-10-25T02:23:30.025Z"
+                                            "createdAt": "2026-11-06T00:32:26.133Z",
+                                            "updatedAt": "2026-11-06T00:32:26.133Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -5513,10 +5558,10 @@
                                     "interpretationNetworkStyleRole": "borderLeftWidth"
                                 },
                                 "sortOrder": 18,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             },
                             {
-                                "id": "01a170de-c4eb-70ee-af1f-c4b640dbf74b",
+                                "id": "01a1ae45-6618-7a84-a020-2416aba739b7",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -5524,8 +5569,8 @@
                                             "content": "BorderTopStyle",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:30.026Z",
-                                            "updatedAt": "2026-10-25T02:23:30.026Z"
+                                            "createdAt": "2026-11-06T00:32:26.135Z",
+                                            "updatedAt": "2026-11-06T00:32:26.135Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -5564,10 +5609,10 @@
                                     "interpretationNetworkStyleRole": "borderTopStyle"
                                 },
                                 "sortOrder": 19,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             },
                             {
-                                "id": "01a170de-c4ec-72f0-8c44-f0685ad0c573",
+                                "id": "01a1ae45-661a-724f-999e-4407e32a3f9f",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -5575,8 +5620,8 @@
                                             "content": "BorderRightStyle",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:30.028Z",
-                                            "updatedAt": "2026-10-25T02:23:30.028Z"
+                                            "createdAt": "2026-11-06T00:32:26.137Z",
+                                            "updatedAt": "2026-11-06T00:32:26.137Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -5615,10 +5660,10 @@
                                     "interpretationNetworkStyleRole": "borderRightStyle"
                                 },
                                 "sortOrder": 20,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             },
                             {
-                                "id": "01a170de-c4ee-7f77-a939-1861dc08b04d",
+                                "id": "01a1ae45-661c-77d9-a754-9aaa7a2cb242",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -5626,8 +5671,8 @@
                                             "content": "BorderBottomStyle",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:30.029Z",
-                                            "updatedAt": "2026-10-25T02:23:30.029Z"
+                                            "createdAt": "2026-11-06T00:32:26.140Z",
+                                            "updatedAt": "2026-11-06T00:32:26.140Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -5666,10 +5711,10 @@
                                     "interpretationNetworkStyleRole": "borderBottomStyle"
                                 },
                                 "sortOrder": 21,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             },
                             {
-                                "id": "01a170de-c4ef-711d-b775-5c7eb7bdb88c",
+                                "id": "01a1ae45-661e-7ec3-82b2-9e4fcb7bdcd7",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -5677,8 +5722,8 @@
                                             "content": "BorderLeftStyle",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:30.031Z",
-                                            "updatedAt": "2026-10-25T02:23:30.031Z"
+                                            "createdAt": "2026-11-06T00:32:26.142Z",
+                                            "updatedAt": "2026-11-06T00:32:26.142Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -5717,10 +5762,10 @@
                                     "interpretationNetworkStyleRole": "borderLeftStyle"
                                 },
                                 "sortOrder": 22,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             },
                             {
-                                "id": "01a170de-c4f1-77f9-9954-4139ccb4ef64",
+                                "id": "01a1ae45-6621-7686-a4a0-a87b1174ce6f",
                                 "codename": {
                                     "_schema": "1",
                                     "locales": {
@@ -5728,8 +5773,8 @@
                                             "content": "MaterialRef",
                                             "version": 1,
                                             "isActive": true,
-                                            "createdAt": "2026-10-25T02:23:30.032Z",
-                                            "updatedAt": "2026-10-25T02:23:30.032Z"
+                                            "createdAt": "2026-11-06T00:32:26.144Z",
+                                            "updatedAt": "2026-11-06T00:32:26.144Z"
                                         }
                                     },
                                     "_primary": "en"
@@ -5737,7 +5782,7 @@
                                 "dataType": "REF",
                                 "isRequired": false,
                                 "isDisplayComponent": false,
-                                "targetEntityId": "01a170de-c444-78e4-9e14-c4a902979673",
+                                "targetEntityId": "01a1ae45-6524-7be1-824b-99ee691d4eba",
                                 "targetEntityKind": "object",
                                 "targetConstantId": null,
                                 "presentation": {
@@ -5789,15 +5834,17 @@
                                     "enumPresentationMode": "label"
                                 },
                                 "sortOrder": 23,
-                                "parentComponentId": "01a170de-c4ce-78da-9db2-aef9db03144b"
+                                "parentComponentId": "01a1ae45-65f1-7227-8919-7f1f61fd098f"
                             }
                         ]
                     }
                 ],
-                "hubs": ["01a170de-c403-77a1-ba53-b97749172d0b"]
+                "hubs": [
+                    "01a1ae45-64c0-744f-8292-38404c41a673"
+                ]
             },
-            "01a170de-c418-7b76-8394-3170761c2f6f": {
-                "id": "01a170de-c418-7b76-8394-3170761c2f6f",
+            "01a1ae45-64e8-7ac3-9f1e-bcc13a06979e": {
+                "id": "01a1ae45-64e8-7ac3-9f1e-bcc13a06979e",
                 "kind": "page",
                 "codename": {
                     "_schema": "1",
@@ -5806,15 +5853,15 @@
                             "content": "InterpretationNetworkIntro",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.816Z",
-                            "updatedAt": "2026-10-25T02:23:29.816Z"
+                            "createdAt": "2026-11-06T00:32:25.831Z",
+                            "updatedAt": "2026-11-06T00:32:25.831Z"
                         },
                         "ru": {
                             "content": "",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.816Z",
-                            "updatedAt": "2026-10-25T02:23:29.816Z"
+                            "createdAt": "2026-11-06T00:32:25.831Z",
+                            "updatedAt": "2026-11-06T00:32:25.831Z"
                         }
                     },
                     "_primary": "en"
@@ -5927,8 +5974,19 @@
                             "enabled": true,
                             "storage": "objectConfig",
                             "defaultFormat": "editorjs",
-                            "supportedFormats": ["editorjs"],
-                            "allowedBlockTypes": ["paragraph", "header", "list", "quote", "table", "image", "embed", "delimiter"],
+                            "supportedFormats": [
+                                "editorjs"
+                            ],
+                            "allowedBlockTypes": [
+                                "paragraph",
+                                "header",
+                                "list",
+                                "quote",
+                                "table",
+                                "image",
+                                "embed",
+                                "delimiter"
+                            ],
                             "maxBlocks": 500
                         },
                         "layoutConfig": {
@@ -5947,8 +6005,8 @@
                 "fields": [],
                 "hubs": []
             },
-            "01a170de-c415-79e5-821f-9856a391fd0f": {
-                "id": "01a170de-c415-79e5-821f-9856a391fd0f",
+            "01a1ae45-64e3-7e55-a548-0c75d7df25b3": {
+                "id": "01a1ae45-64e3-7e55-a548-0c75d7df25b3",
                 "kind": "set",
                 "codename": {
                     "_schema": "1",
@@ -5957,20 +6015,20 @@
                             "content": "Main",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.813Z",
-                            "updatedAt": "2026-10-25T02:23:29.813Z"
+                            "createdAt": "2026-11-06T00:32:25.826Z",
+                            "updatedAt": "2026-11-06T00:32:25.826Z"
                         },
                         "ru": {
                             "content": "",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-10-25T02:23:29.813Z",
-                            "updatedAt": "2026-10-25T02:23:29.813Z"
+                            "createdAt": "2026-11-06T00:32:25.826Z",
+                            "updatedAt": "2026-11-06T00:32:25.826Z"
                         }
                     },
                     "_primary": "en"
                 },
-                "tableName": "set_01a170dec41579e5821f9856a391fd0f",
+                "tableName": "set_01a1ae4564e37e55a5480c75d7df25b3",
                 "presentation": {
                     "name": {
                         "_schema": "1",
@@ -6062,7 +6120,7 @@
         },
         "entityTypeDefinitions": {
             "enumeration": {
-                "id": "01a170de-c3e5-7e69-9fc8-bb252e1a1367",
+                "id": "01a1ae45-6491-7d53-b389-b7b4ef855b2f",
                 "kindKey": "enumeration",
                 "codename": {
                     "_schema": "1",
@@ -6241,7 +6299,11 @@
                 },
                 "ui": {
                     "iconName": "IconFiles",
-                    "tabs": ["general", "hubs", "modules"],
+                    "tabs": [
+                        "general",
+                        "hubs",
+                        "modules"
+                    ],
                     "sidebarSection": "objects",
                     "sidebarOrder": 50,
                     "nameKey": "metahubs:enumerations.title",
@@ -6567,7 +6629,7 @@
                 "published": true
             },
             "hub": {
-                "id": "01a170de-c3db-7fdc-ab03-cf95b8bc5768",
+                "id": "01a1ae45-6483-70c1-b9f4-6b04d4c7a72f",
                 "kindKey": "hub",
                 "codename": {
                     "_schema": "1",
@@ -6742,7 +6804,9 @@
                 },
                 "ui": {
                     "iconName": "IconHierarchy",
-                    "tabs": ["general"],
+                    "tabs": [
+                        "general"
+                    ],
                     "sidebarSection": "objects",
                     "sidebarOrder": 10,
                     "nameKey": "metahubs:hubs.title"
@@ -6757,7 +6821,7 @@
                 "published": true
             },
             "object": {
-                "id": "01a170de-c3de-754a-a349-89e38ff841e3",
+                "id": "01a1ae45-6488-74e8-beb7-a83f01e25b3a",
                 "kindKey": "object",
                 "codename": {
                     "_schema": "1",
@@ -6922,7 +6986,9 @@
                     "nestedCollections": false,
                     "relations": {
                         "enabled": true,
-                        "allowedRelationTypes": ["manyToOne"]
+                        "allowedRelationTypes": [
+                            "manyToOne"
+                        ]
                     },
                     "actions": {
                         "enabled": true
@@ -6967,7 +7033,14 @@
                 },
                 "ui": {
                     "iconName": "IconDatabase",
-                    "tabs": ["behavior", "general", "hubs", "layout", "ledgerSchema", "modules"],
+                    "tabs": [
+                        "behavior",
+                        "general",
+                        "hubs",
+                        "layout",
+                        "ledgerSchema",
+                        "modules"
+                    ],
                     "sidebarSection": "objects",
                     "sidebarOrder": 30,
                     "nameKey": "metahubs:objects.title",
@@ -7315,7 +7388,7 @@
                 "published": true
             },
             "page": {
-                "id": "01a170de-c3e8-746f-ae49-e50ec90e64c7",
+                "id": "01a1ae45-6496-7de9-bd0c-5e54fdef630e",
                 "kindKey": "page",
                 "codename": {
                     "_schema": "1",
@@ -7487,8 +7560,19 @@
                         "enabled": true,
                         "storage": "objectConfig",
                         "defaultFormat": "editorjs",
-                        "supportedFormats": ["editorjs"],
-                        "allowedBlockTypes": ["paragraph", "header", "list", "quote", "table", "image", "embed", "delimiter"],
+                        "supportedFormats": [
+                            "editorjs"
+                        ],
+                        "allowedBlockTypes": [
+                            "paragraph",
+                            "header",
+                            "list",
+                            "quote",
+                            "table",
+                            "image",
+                            "embed",
+                            "delimiter"
+                        ],
                         "maxBlocks": 500
                     },
                     "layoutConfig": {
@@ -7505,7 +7589,13 @@
                 },
                 "ui": {
                     "iconName": "IconFileText",
-                    "tabs": ["content", "general", "hubs", "layout", "modules"],
+                    "tabs": [
+                        "content",
+                        "general",
+                        "hubs",
+                        "layout",
+                        "modules"
+                    ],
                     "sidebarSection": "objects",
                     "sidebarOrder": 20,
                     "nameKey": "metahubs:pages.title",
@@ -7802,7 +7892,7 @@
                 "published": true
             },
             "set": {
-                "id": "01a170de-c3e1-7603-9b89-10944c1086de",
+                "id": "01a1ae45-648d-71df-a66f-efabdabea573",
                 "kindKey": "set",
                 "codename": {
                     "_schema": "1",
@@ -7985,7 +8075,11 @@
                 },
                 "ui": {
                     "iconName": "IconStack2",
-                    "tabs": ["general", "hubs", "modules"],
+                    "tabs": [
+                        "general",
+                        "hubs",
+                        "modules"
+                    ],
                     "sidebarSection": "objects",
                     "sidebarOrder": 40,
                     "nameKey": "metahubs:sets.title",
@@ -8312,10 +8406,10 @@
             }
         },
         "fixedValues": {
-            "01a170de-c415-79e5-821f-9856a391fd0f": [
+            "01a1ae45-64e3-7e55-a548-0c75d7df25b3": [
                 {
-                    "id": "01a170de-c478-7650-a98f-e4c168c1d0e1",
-                    "objectId": "01a170de-c415-79e5-821f-9856a391fd0f",
+                    "id": "01a1ae45-6577-7dec-a8f2-0db557395dec",
+                    "objectId": "01a1ae45-64e3-7e55-a548-0c75d7df25b3",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -8323,8 +8417,8 @@
                                 "content": "AppName",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-10-25T02:23:29.912Z",
-                                "updatedAt": "2026-10-25T02:23:29.912Z"
+                                "createdAt": "2026-11-06T00:32:25.975Z",
+                                "updatedAt": "2026-11-06T00:32:25.975Z"
                             }
                         },
                         "_primary": "en"
@@ -8360,10 +8454,10 @@
             ]
         },
         "optionValues": {
-            "01a170de-c417-7418-ae20-c32560b75be3": [
+            "01a1ae45-64e5-7450-87a1-6d39f483da88": [
                 {
-                    "id": "01a170de-c4f4-7104-9b7f-c8bce107976a",
-                    "objectId": "01a170de-c417-7418-ae20-c32560b75be3",
+                    "id": "01a1ae45-6626-7f30-bfff-ada0c436fe72",
+                    "objectId": "01a1ae45-64e5-7450-87a1-6d39f483da88",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -8371,8 +8465,8 @@
                                 "content": "Active",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-10-25T02:23:30.036Z",
-                                "updatedAt": "2026-10-25T02:23:30.036Z"
+                                "createdAt": "2026-11-06T00:32:26.149Z",
+                                "updatedAt": "2026-11-06T00:32:26.149Z"
                             }
                         },
                         "_primary": "en"
@@ -8403,8 +8497,8 @@
                     "isDefault": true
                 },
                 {
-                    "id": "01a170de-c4f6-7e57-bc6a-206f954d46fa",
-                    "objectId": "01a170de-c417-7418-ae20-c32560b75be3",
+                    "id": "01a1ae45-6628-7b33-a875-7b4ec9876341",
+                    "objectId": "01a1ae45-64e5-7450-87a1-6d39f483da88",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -8412,8 +8506,8 @@
                                 "content": "Inactive",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-10-25T02:23:30.038Z",
-                                "updatedAt": "2026-10-25T02:23:30.038Z"
+                                "createdAt": "2026-11-06T00:32:26.151Z",
+                                "updatedAt": "2026-11-06T00:32:26.151Z"
                             }
                         },
                         "_primary": "en"
@@ -8444,10 +8538,10 @@
                     "isDefault": false
                 }
             ],
-            "01a170de-c46a-7c4f-9679-58f77bf210b5": [
+            "01a1ae45-6565-79a7-9475-5d9c9e067682": [
                 {
-                    "id": "01a170de-c4f8-7c7a-97d5-877fdfee6f59",
-                    "objectId": "01a170de-c46a-7c4f-9679-58f77bf210b5",
+                    "id": "01a1ae45-662a-73c9-b63b-d74df51cc45b",
+                    "objectId": "01a1ae45-6565-79a7-9475-5d9c9e067682",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -8455,8 +8549,8 @@
                                 "content": "Science",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-10-25T02:23:30.039Z",
-                                "updatedAt": "2026-10-25T02:23:30.039Z"
+                                "createdAt": "2026-11-06T00:32:26.154Z",
+                                "updatedAt": "2026-11-06T00:32:26.154Z"
                             }
                         },
                         "_primary": "en"
@@ -8487,8 +8581,8 @@
                     "isDefault": false
                 },
                 {
-                    "id": "01a170de-c4f9-7b8a-a6cf-df93d096aded",
-                    "objectId": "01a170de-c46a-7c4f-9679-58f77bf210b5",
+                    "id": "01a1ae45-662c-72fd-a5ed-6e985bf3e04f",
+                    "objectId": "01a1ae45-6565-79a7-9475-5d9c9e067682",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -8496,8 +8590,8 @@
                                 "content": "Education",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-10-25T02:23:30.041Z",
-                                "updatedAt": "2026-10-25T02:23:30.041Z"
+                                "createdAt": "2026-11-06T00:32:26.156Z",
+                                "updatedAt": "2026-11-06T00:32:26.156Z"
                             }
                         },
                         "_primary": "en"
@@ -8528,8 +8622,8 @@
                     "isDefault": false
                 },
                 {
-                    "id": "01a170de-c4fb-7f6c-9f03-373a7dd471b9",
-                    "objectId": "01a170de-c46a-7c4f-9679-58f77bf210b5",
+                    "id": "01a1ae45-662f-7e22-8334-727e38c1cee7",
+                    "objectId": "01a1ae45-6565-79a7-9475-5d9c9e067682",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -8537,8 +8631,8 @@
                                 "content": "Law",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-10-25T02:23:30.042Z",
-                                "updatedAt": "2026-10-25T02:23:30.042Z"
+                                "createdAt": "2026-11-06T00:32:26.158Z",
+                                "updatedAt": "2026-11-06T00:32:26.158Z"
                             }
                         },
                         "_primary": "en"
@@ -8569,8 +8663,8 @@
                     "isDefault": false
                 },
                 {
-                    "id": "01a170de-c4fd-797e-bb74-368ed85232a3",
-                    "objectId": "01a170de-c46a-7c4f-9679-58f77bf210b5",
+                    "id": "01a1ae45-6631-7913-802a-86e63d915456",
+                    "objectId": "01a1ae45-6565-79a7-9475-5d9c9e067682",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -8578,8 +8672,8 @@
                                 "content": "Economy",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-10-25T02:23:30.044Z",
-                                "updatedAt": "2026-10-25T02:23:30.044Z"
+                                "createdAt": "2026-11-06T00:32:26.160Z",
+                                "updatedAt": "2026-11-06T00:32:26.160Z"
                             }
                         },
                         "_primary": "en"
@@ -8610,8 +8704,8 @@
                     "isDefault": false
                 },
                 {
-                    "id": "01a170de-c4fe-7d6a-a8e1-300ff90f99fe",
-                    "objectId": "01a170de-c46a-7c4f-9679-58f77bf210b5",
+                    "id": "01a1ae45-6633-78d6-9fd9-bde09d888c64",
+                    "objectId": "01a1ae45-6565-79a7-9475-5d9c9e067682",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -8619,8 +8713,8 @@
                                 "content": "Programming",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-10-25T02:23:30.046Z",
-                                "updatedAt": "2026-10-25T02:23:30.046Z"
+                                "createdAt": "2026-11-06T00:32:26.162Z",
+                                "updatedAt": "2026-11-06T00:32:26.162Z"
                             }
                         },
                         "_primary": "en"
@@ -8651,8 +8745,8 @@
                     "isDefault": false
                 },
                 {
-                    "id": "01a170de-c500-7d69-a7e8-d32ba06844db",
-                    "objectId": "01a170de-c46a-7c4f-9679-58f77bf210b5",
+                    "id": "01a1ae45-6636-77b9-9384-f6bb2f0e0ec6",
+                    "objectId": "01a1ae45-6565-79a7-9475-5d9c9e067682",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -8660,8 +8754,8 @@
                                 "content": "Culture",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-10-25T02:23:30.048Z",
-                                "updatedAt": "2026-10-25T02:23:30.048Z"
+                                "createdAt": "2026-11-06T00:32:26.165Z",
+                                "updatedAt": "2026-11-06T00:32:26.165Z"
                             }
                         },
                         "_primary": "en"
@@ -8692,8 +8786,8 @@
                     "isDefault": false
                 },
                 {
-                    "id": "01a170de-c504-7ac7-a346-1aecbc784508",
-                    "objectId": "01a170de-c46a-7c4f-9679-58f77bf210b5",
+                    "id": "01a1ae45-663c-75a8-8644-af86a054f490",
+                    "objectId": "01a1ae45-6565-79a7-9475-5d9c9e067682",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -8701,8 +8795,8 @@
                                 "content": "General",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-10-25T02:23:30.051Z",
-                                "updatedAt": "2026-10-25T02:23:30.051Z"
+                                "createdAt": "2026-11-06T00:32:26.172Z",
+                                "updatedAt": "2026-11-06T00:32:26.172Z"
                             }
                         },
                         "_primary": "en"
@@ -8733,10 +8827,10 @@
                     "isDefault": true
                 }
             ],
-            "01a170de-c46c-7240-bc1f-97c42727c1a8": [
+            "01a1ae45-6567-7731-8db8-8f19eb796d03": [
                 {
-                    "id": "01a170de-c505-763d-8795-508d0954f346",
-                    "objectId": "01a170de-c46c-7240-bc1f-97c42727c1a8",
+                    "id": "01a1ae45-663f-788b-81fd-057c1ed42fbd",
+                    "objectId": "01a1ae45-6567-7731-8db8-8f19eb796d03",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -8744,8 +8838,8 @@
                                 "content": "partOf",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-10-25T02:23:30.053Z",
-                                "updatedAt": "2026-10-25T02:23:30.053Z"
+                                "createdAt": "2026-11-06T00:32:26.175Z",
+                                "updatedAt": "2026-11-06T00:32:26.175Z"
                             }
                         },
                         "_primary": "en"
@@ -8776,8 +8870,8 @@
                     "isDefault": false
                 },
                 {
-                    "id": "01a170de-c507-7cfe-abbf-13d9322e6b84",
-                    "objectId": "01a170de-c46c-7240-bc1f-97c42727c1a8",
+                    "id": "01a1ae45-6643-7ba7-b463-2629363f72fa",
+                    "objectId": "01a1ae45-6567-7731-8db8-8f19eb796d03",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -8785,8 +8879,8 @@
                                 "content": "causes",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-10-25T02:23:30.054Z",
-                                "updatedAt": "2026-10-25T02:23:30.054Z"
+                                "createdAt": "2026-11-06T00:32:26.178Z",
+                                "updatedAt": "2026-11-06T00:32:26.178Z"
                             }
                         },
                         "_primary": "en"
@@ -8817,8 +8911,8 @@
                     "isDefault": false
                 },
                 {
-                    "id": "01a170de-c509-7f89-b451-847c466ecdb9",
-                    "objectId": "01a170de-c46c-7240-bc1f-97c42727c1a8",
+                    "id": "01a1ae45-6645-76b8-805d-e3199ad31dfc",
+                    "objectId": "01a1ae45-6567-7731-8db8-8f19eb796d03",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -8826,8 +8920,8 @@
                                 "content": "causedBy",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-10-25T02:23:30.056Z",
-                                "updatedAt": "2026-10-25T02:23:30.056Z"
+                                "createdAt": "2026-11-06T00:32:26.181Z",
+                                "updatedAt": "2026-11-06T00:32:26.181Z"
                             }
                         },
                         "_primary": "en"
@@ -8858,8 +8952,8 @@
                     "isDefault": false
                 },
                 {
-                    "id": "01a170de-c50a-77e4-bf1f-a9be8bb64679",
-                    "objectId": "01a170de-c46c-7240-bc1f-97c42727c1a8",
+                    "id": "01a1ae45-6648-7efc-94ab-f8ad1464177b",
+                    "objectId": "01a1ae45-6567-7731-8db8-8f19eb796d03",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -8867,8 +8961,8 @@
                                 "content": "analogue",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-10-25T02:23:30.058Z",
-                                "updatedAt": "2026-10-25T02:23:30.058Z"
+                                "createdAt": "2026-11-06T00:32:26.183Z",
+                                "updatedAt": "2026-11-06T00:32:26.183Z"
                             }
                         },
                         "_primary": "en"
@@ -8899,8 +8993,8 @@
                     "isDefault": false
                 },
                 {
-                    "id": "01a170de-c50b-7795-b676-a71f1bfa2852",
-                    "objectId": "01a170de-c46c-7240-bc1f-97c42727c1a8",
+                    "id": "01a1ae45-664b-7bba-94c3-4db91606a1d8",
+                    "objectId": "01a1ae45-6567-7731-8db8-8f19eb796d03",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -8908,8 +9002,8 @@
                                 "content": "opposite",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-10-25T02:23:30.059Z",
-                                "updatedAt": "2026-10-25T02:23:30.059Z"
+                                "createdAt": "2026-11-06T00:32:26.186Z",
+                                "updatedAt": "2026-11-06T00:32:26.186Z"
                             }
                         },
                         "_primary": "en"
@@ -8940,8 +9034,8 @@
                     "isDefault": false
                 },
                 {
-                    "id": "01a170de-c50d-76c9-b087-1dd6d476993b",
-                    "objectId": "01a170de-c46c-7240-bc1f-97c42727c1a8",
+                    "id": "01a1ae45-664e-7b1e-899b-3173f277d1c3",
+                    "objectId": "01a1ae45-6567-7731-8db8-8f19eb796d03",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -8949,8 +9043,8 @@
                                 "content": "relatedProcess",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-10-25T02:23:30.061Z",
-                                "updatedAt": "2026-10-25T02:23:30.061Z"
+                                "createdAt": "2026-11-06T00:32:26.189Z",
+                                "updatedAt": "2026-11-06T00:32:26.189Z"
                             }
                         },
                         "_primary": "en"
@@ -8983,7 +9077,7 @@
             ]
         },
         "systemFields": {
-            "01a170de-c404-72a6-a1e0-19c15125da87": {
+            "01a1ae45-64c4-7031-b77e-d02b9a3cb774": {
                 "fields": [
                     {
                         "key": "app.published",
@@ -9064,7 +9158,7 @@
                     }
                 }
             },
-            "01a170de-c419-7726-8612-2182a9c70961": {
+            "01a1ae45-64ea-76aa-8292-ca3b2f091b18": {
                 "fields": [
                     {
                         "key": "app.published",
@@ -9145,7 +9239,7 @@
                     }
                 }
             },
-            "01a170de-c428-7542-971a-4eaca3ce0551": {
+            "01a1ae45-64fe-77dc-9712-0881d1433530": {
                 "fields": [
                     {
                         "key": "app.published",
@@ -9226,7 +9320,7 @@
                     }
                 }
             },
-            "01a170de-c436-7dae-8cc5-15e0f92992b4": {
+            "01a1ae45-6512-78b0-9c9f-41ce4cc4e1fd": {
                 "fields": [
                     {
                         "key": "app.published",
@@ -9307,7 +9401,7 @@
                     }
                 }
             },
-            "01a170de-c444-78e4-9e14-c4a902979673": {
+            "01a1ae45-6524-7be1-824b-99ee691d4eba": {
                 "fields": [
                     {
                         "key": "app.published",
@@ -9388,7 +9482,7 @@
                     }
                 }
             },
-            "01a170de-c450-76c1-af5f-350953a86164": {
+            "01a1ae45-6538-7d5e-b278-c7a7804e2779": {
                 "fields": [
                     {
                         "key": "app.published",
@@ -9469,7 +9563,7 @@
                     }
                 }
             },
-            "01a170de-c45c-7933-8ce1-7c7de255c5d6": {
+            "01a1ae45-654f-7202-8567-a914a86236a6": {
                 "fields": [
                     {
                         "key": "app.published",
@@ -9553,7 +9647,7 @@
         },
         "layouts": [
             {
-                "id": "01a170de-c3ec-7ed0-bb2c-8b426ad4aab8",
+                "id": "01a1ae45-649e-76ef-8151-4a2b10baae2f",
                 "templateKey": "dashboard",
                 "name": {
                     "_schema": "1",
@@ -9605,8 +9699,8 @@
         ],
         "scopedLayouts": [
             {
-                "id": "01a170de-c510-74a8-ae5f-d1c6b540e625",
-                "baseLayoutId": "01a170de-c3ec-7ed0-bb2c-8b426ad4aab8",
+                "id": "01a1ae45-6656-7ce9-8fe3-559c05cb97b8",
+                "baseLayoutId": "01a1ae45-649e-76ef-8151-4a2b10baae2f",
                 "templateKey": "dashboard",
                 "name": {
                     "_schema": "1",
@@ -9648,18 +9742,22 @@
                     },
                     "_primary": "en"
                 },
-                "config": {},
+                "config": {
+                    "objectBehavior": {
+                        "showCreateButton": false
+                    }
+                },
                 "isActive": true,
                 "isDefault": true,
                 "sortOrder": 0,
-                "scopeEntityId": "01a170de-c419-7726-8612-2182a9c70961",
+                "scopeEntityId": "01a1ae45-64ea-76aa-8292-ca3b2f091b18",
                 "compositionMode": "overlay"
             }
         ],
         "layoutZoneWidgets": [
             {
-                "id": "01a170de-c516-7f50-beca-cce2b1918f1d",
-                "layoutId": "01a170de-c3ec-7ed0-bb2c-8b426ad4aab8",
+                "id": "01a1ae45-6660-769d-aa86-658f2d386037",
+                "layoutId": "01a1ae45-649e-76ef-8151-4a2b10baae2f",
                 "instanceKey": "workspace-switcher",
                 "parentWidgetId": null,
                 "slotKey": null,
@@ -9670,8 +9768,8 @@
                 "isActive": true
             },
             {
-                "id": "01a170de-c519-7146-b7c6-c64c214fee80",
-                "layoutId": "01a170de-c3ec-7ed0-bb2c-8b426ad4aab8",
+                "id": "01a1ae45-6669-7133-9abf-81a0a8fa1686",
+                "layoutId": "01a1ae45-649e-76ef-8151-4a2b10baae2f",
                 "instanceKey": "main-menu",
                 "parentWidgetId": null,
                 "slotKey": null,
@@ -9684,8 +9782,8 @@
                 "isActive": true
             },
             {
-                "id": "01a170de-c514-7da6-a58b-3b30f67edd2a",
-                "layoutId": "01a170de-c3ec-7ed0-bb2c-8b426ad4aab8",
+                "id": "01a1ae45-665d-72ba-8924-7e61be057e7c",
+                "layoutId": "01a1ae45-649e-76ef-8151-4a2b10baae2f",
                 "instanceKey": "application-navbar",
                 "parentWidgetId": null,
                 "slotKey": null,
@@ -9696,8 +9794,8 @@
                 "isActive": true
             },
             {
-                "id": "01a170de-c518-7973-88e0-867895d291cd",
-                "layoutId": "01a170de-c3ec-7ed0-bb2c-8b426ad4aab8",
+                "id": "01a1ae45-6664-7715-a15e-cb1f172b2afd",
+                "layoutId": "01a1ae45-649e-76ef-8151-4a2b10baae2f",
                 "instanceKey": "application-header",
                 "parentWidgetId": null,
                 "slotKey": null,
@@ -9708,8 +9806,8 @@
                 "isActive": true
             },
             {
-                "id": "01a170de-c51b-7278-ad78-93dab6854f17",
-                "layoutId": "01a170de-c3ec-7ed0-bb2c-8b426ad4aab8",
+                "id": "01a1ae45-666c-714c-8273-6753e0b6bd49",
+                "layoutId": "01a1ae45-649e-76ef-8151-4a2b10baae2f",
                 "instanceKey": "language-switcher",
                 "parentWidgetId": null,
                 "slotKey": null,
@@ -9720,8 +9818,8 @@
                 "isActive": true
             },
             {
-                "id": "01a170de-c51c-717b-9452-b9a5d8451a29",
-                "layoutId": "01a170de-c3ec-7ed0-bb2c-8b426ad4aab8",
+                "id": "01a1ae45-666f-7b90-9686-954f3f47c054",
+                "layoutId": "01a1ae45-649e-76ef-8151-4a2b10baae2f",
                 "instanceKey": "color-mode-switcher",
                 "parentWidgetId": null,
                 "slotKey": null,
@@ -9732,8 +9830,8 @@
                 "isActive": true
             },
             {
-                "id": "01a170de-c51e-74d8-af09-dc77473d0723",
-                "layoutId": "01a170de-c510-74a8-ae5f-d1c6b540e625",
+                "id": "01a1ae45-6673-7416-b96b-ab2a4a9a3c2c",
+                "layoutId": "01a1ae45-6656-7ce9-8fe3-559c05cb97b8",
                 "instanceKey": "interpretation-workspace",
                 "parentWidgetId": null,
                 "slotKey": null,
@@ -9789,7 +9887,11 @@
                         "startIndex": 1,
                         "includeRoot": true
                     },
-                    "allowedMatrixViews": ["table", "horizontalRows", "verticalTree"],
+                    "allowedMatrixViews": [
+                        "table",
+                        "horizontalRows",
+                        "verticalTree"
+                    ],
                     "materialTitleField": "Title",
                     "tableTemplateCodename": "TableTemplate",
                     "colorBreadcrumbsByCell": true,
@@ -9807,7 +9909,7 @@
             }
         ],
         "layoutWidgetOverrides": [],
-        "defaultLayoutId": "01a170de-c3ec-7ed0-bb2c-8b426ad4aab8",
+        "defaultLayoutId": "01a1ae45-649e-76ef-8151-4a2b10baae2f",
         "settings": [
             {
                 "key": "entity.object.allowComponentCopy",
@@ -9888,10 +9990,10 @@
                 }
             }
         ],
-        "generatedAt": "2026-10-25T02:23:30.372Z",
+        "generatedAt": "2026-11-06T00:32:26.798Z",
         "runtimePolicy": {
             "workspaceMode": "required"
         }
     },
-    "snapshotHash": "a599c0093452f9ee511783a3180eb2a84a18597936136359ce23a1d54a75c48b"
+    "snapshotHash": "8222028575732228c17984b15c39e4fd30643220a300afbbeaaeccb6ba0c5793"
 }

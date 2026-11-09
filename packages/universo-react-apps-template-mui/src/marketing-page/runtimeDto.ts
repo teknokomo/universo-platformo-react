@@ -8,7 +8,7 @@ import {
     marketingHeaderPositionSchema,
     marketingLayoutZoneSchema,
     marketingLocaleCodeSchema,
-    marketingPageConfigSchema,
+    marketingRuntimePageConfigSchema,
     marketingRuntimeIdentitySchema,
     marketingWidgetInstanceKeySchema,
     publicMarketingHeaderWidgetSchema,
@@ -16,7 +16,10 @@ import {
     pageBlockContentSchema
 } from '@universo-react/types'
 
-const rendererConfigSchema = marketingPageConfigSchema
+// The authenticated runtime route serves the PUBLIC config projection
+// (appearance = { mode, resolved }; no preset/overrides), so the renderer
+// parses the runtime config schema, not the authoring one.
+const rendererConfigSchema = marketingRuntimePageConfigSchema
 const publicRuntimeRecordSchema = publicMarketingPageRecordSchema
 // Authenticated and anonymous widget records use renderer-only projections.
 // Physical layout/source IDs, Entity IDs, and seed provenance are not renderer inputs.

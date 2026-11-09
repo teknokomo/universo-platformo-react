@@ -18,50 +18,32 @@ import {
 } from './marketingPagePrimitives'
 import type { MarketingAction, MarketingLocaleCode, MarketingProvenance } from './marketingPagePrimitives'
 import { publicMarketingImageRecordSchema, publicMarketingPageRecordSchema } from './marketingPageRecords'
+import { themeAppearanceSchema, themePublicAppearanceSchema } from './themePreset'
 
-const marketingThemeModeSchema = z.enum(['system', 'light', 'dark']).default('system')
-
-const marketingHexColorSchema = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i
-
-const marketingColorLuminance = (value: string): number | undefined => {
-    if (!marketingHexColorSchema.test(value)) return undefined
-    const hex = value.slice(1)
-    if (hex.length === 8 && hex.slice(6).toLowerCase() !== 'ff') return undefined
-    const channels =
-        hex.length === 3
-            ? hex.split('').map((channel) => Number.parseInt(`${channel}${channel}`, 16))
-            : [0, 2, 4].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16))
-    if (channels.some((channel) => Number.isNaN(channel))) return undefined
-    return channels
-        .map((channel) => channel / 255)
-        .map((channel) => (channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4))
-        .reduce((luminance, channel, index) => luminance + channel * [0.2126, 0.7152, 0.0722][index], 0)
-}
-
-/** Brand colors must have an AA-safe foreground choice on light or dark surfaces. */
-export const marketingThemeColorSchema = z
-    .string()
-    .trim()
-    .regex(marketingHexColorSchema)
-    .refine((value) => {
-        const luminance = marketingColorLuminance(value)
-        if (luminance === undefined) return false
-        const lightContrast = 1.05 / (luminance + 0.05)
-        const darkContrast = (luminance + 0.05) / 0.05
-        return Math.max(lightContrast, darkContrast) >= 4.5
-    }, 'Theme colors must provide at least 4.5:1 contrast with black or white text.')
-
+/**
+ * Marketing appearance is owned by the cross-template `appearance` contract
+ * (mode, preset reference, overrides, server-resolved tokens); the action and
+ * link policy fields stay marketing-specific.
+ */
 export const marketingPageConfigSchema = z
     .object({
-        themeMode: marketingThemeModeSchema,
-        primaryColor: marketingThemeColorSchema.optional(),
-        accentColor: marketingThemeColorSchema.optional(),
         allowEmailActions: z.boolean().default(true),
         allowTelephoneActions: z.boolean().default(true),
-        externalLinkTarget: marketingLinkTargetSchema.default('new-tab')
+        externalLinkTarget: marketingLinkTargetSchema.default('new-tab'),
+        appearance: themeAppearanceSchema.optional()
     })
     .strict()
 export type MarketingPageConfig = z.infer<typeof marketingPageConfigSchema>
+
+/**
+ * Runtime payload config: the appearance is projected to `{ mode, resolved }`
+ * (TZ §11.4) — the preset reference and overrides are authoring-only state
+ * that never crosses the runtime boundary.
+ */
+export const marketingRuntimePageConfigSchema = marketingPageConfigSchema.extend({
+    appearance: themePublicAppearanceSchema.optional()
+})
+export type MarketingRuntimePageConfig = z.infer<typeof marketingRuntimePageConfigSchema>
 
 export const marketingNavigationWidgetConfigSchema = z
     .object({
@@ -421,7 +403,7 @@ export const marketingPageWidgetSchema: z.ZodType<
 export type MarketingPageData = {
     templateKey: typeof MARKETING_PAGE_TEMPLATE_KEY
     locale: MarketingLocaleCode
-    config: MarketingPageConfig
+    config: MarketingRuntimePageConfig
     widgets: Array<MarketingRuntimeWidget | MarketingAtomicHeaderWidget>
     runtime: MarketingRuntimeIdentity
     provenance?: MarketingProvenance
@@ -431,7 +413,7 @@ export type MarketingPageData = {
 type MarketingPageDataInput = {
     templateKey: typeof MARKETING_PAGE_TEMPLATE_KEY
     locale: z.input<typeof marketingLocaleCodeSchema>
-    config: z.input<typeof marketingPageConfigSchema>
+    config: z.input<typeof marketingRuntimePageConfigSchema>
     widgets: MarketingPageWidgetInput[]
     runtime: z.input<typeof marketingRuntimeIdentitySchema>
     provenance?: z.input<typeof marketingProvenanceSchema>
@@ -442,7 +424,7 @@ export const marketingPageDataSchema: z.ZodType<MarketingPageData, z.ZodTypeDef,
     .object({
         templateKey: z.literal(MARKETING_PAGE_TEMPLATE_KEY),
         locale: marketingLocaleCodeSchema,
-        config: marketingPageConfigSchema,
+        config: marketingRuntimePageConfigSchema,
         widgets: z.array(marketingPageWidgetSchema).max(64),
         runtime: marketingRuntimeIdentitySchema,
         provenance: marketingProvenanceSchema.optional(),

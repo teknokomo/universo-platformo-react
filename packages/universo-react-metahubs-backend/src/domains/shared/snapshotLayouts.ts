@@ -13,9 +13,14 @@ import {
     parseApplicationLayoutConfig,
     validateWidgetBindings,
     normalizeWidgetBindingDataType,
-    matchesWidgetBindingComponentValidationRules
+    matchesWidgetBindingComponentValidationRules,
+    themeAppearanceSchema,
+    themeTokensSchema,
+    type ThemeAppearance
 } from '@universo-react/types'
-import { getCodenamePrimary, validateSnapshotLayoutNeutralMetadata } from '@universo-react/utils'
+import { findFileThemePreset } from '@universo-react/theme'
+import { resolveThemeAppearance, ThemeAppearanceResolveError } from '@universo-react/theme/resolve'
+import { getCodenamePrimary, serialization, validateSnapshotLayoutNeutralMetadata } from '@universo-react/utils'
 import type { DbExecutor } from '@universo-react/utils/database'
 import type { MetahubSchemaService } from '../metahubs/services/MetahubSchemaService'
 import type { MetahubSnapshot } from '../publications/services/SnapshotSerializer'
@@ -24,7 +29,7 @@ import { findDuplicateActiveSingleInstanceWidgetKey } from '../layouts/widgetInv
 import { validateLayoutWidgetPlacementGraph } from '../layouts/widgetPlacementGraph'
 import { assertNoWidgetSharedBehaviorConfig } from '../layouts/widgetOwnership'
 import { acquireMetahubLayoutGraphLock } from '../layouts/layoutGraphLocks'
-import { MetahubValidationError } from './domainErrors'
+import { MetahubDomainError, MetahubValidationError } from './domainErrors'
 
 const log = createLogger('snapshotLayouts')
 
@@ -307,6 +312,109 @@ const normalizeSnapshotLayoutConfig = (
     )
 }
 
+/**
+ * TH-17 publication integrity (QA-S1): the `appearance` stored in a layout
+ * config is server-authored materialization. After the strict config parse
+ * (inside `normalizeSnapshotLayoutConfig`) re-validate it and, when the
+ * referenced preset is resolvable server-side (file registry or the
+ * same-metahub DB preset), recompute the resolved hash and the resolved
+ * tokens and fail the publication on either mismatch — a tampered snapshot
+ * must never publish. The tokens deep-compare closes the gap where a caller
+ * kept a valid `resolved.hash` but swapped `resolved.tokens`: the hash check
+ * alone would pass such a forgery.
+ *
+ * `preset.source === 'application'` is carried as data with NO re-check
+ * (Pinned Decision 14: the metahubs side cannot resolve application-scoped
+ * presets). The stored preset ref is fed back verbatim (including its
+ * recorded version) so the recompute reproduces the authored hash; a preset
+ * whose tokens changed since authoring therefore fails closed until the
+ * layout is refreshed via apply-latest.
+ *
+ * Seam note: normalization itself is synchronous and pure, while DB preset
+ * tokens need an executor — so verification runs in the publication
+ * transaction right after the layouts are normalized, with ONE batched
+ * preset lookup per publication (no N+1).
+ */
+function throwThemeAppearanceResolveFailed(details: Record<string, unknown>): never {
+    throw new MetahubDomainError({
+        message: 'Stored layout appearance failed theme resolution re-validation.',
+        statusCode: 422,
+        code: 'THEME_APPEARANCE_RESOLVE_FAILED',
+        details
+    })
+}
+
+const verifySnapshotLayoutAppearances = async (options: {
+    snapshot: MetahubSnapshot
+    executor: DbExecutor
+    metahubId: string
+}): Promise<void> => {
+    const { snapshot, executor, metahubId } = options
+    const layouts = [...(snapshot.layouts ?? []), ...(snapshot.scopedLayouts ?? [])]
+
+    // Stage 1 — strict appearance validation and distinct preset-id collection.
+    const appearances: { layoutId: string; appearance: ThemeAppearance }[] = []
+    const dbPresetIds = new Set<string>()
+    for (const layout of layouts) {
+        const raw = layout.config?.appearance
+        if (raw === undefined) continue
+        const parsed = themeAppearanceSchema.safeParse(raw)
+        if (!parsed.success) {
+            throwThemeAppearanceResolveFailed({ layoutId: layout.id, reason: 'appearance-schema-validation-failed' })
+        }
+        if (parsed.data.preset.source === 'application') continue
+        if (parsed.data.preset.source === 'metahub') dbPresetIds.add(parsed.data.preset.id)
+        appearances.push({ layoutId: layout.id, appearance: parsed.data })
+    }
+    if (appearances.length === 0) return
+
+    // Stage 2 — one batched DB lookup for every referenced metahub preset.
+    const dbPresetTokensById = new Map<string, unknown>()
+    if (dbPresetIds.size > 0) {
+        const rows = await executor.query<{ id: string; tokens: unknown }>(
+            `SELECT p.id, p.tokens
+             FROM metahubs.obj_theme_presets p
+             WHERE p.metahub_id = $1
+               AND p._upl_deleted = false
+               AND p.id = ANY($2::uuid[])`,
+            [metahubId, [...dbPresetIds]]
+        )
+        for (const row of rows ?? []) dbPresetTokensById.set(row.id, row.tokens)
+    }
+
+    // Stage 3 — recompute each resolved hash and tokens against the stored draft.
+    for (const { layoutId, appearance } of appearances) {
+        const { preset } = appearance
+        const rawPresetTokens = preset.source === 'file' ? findFileThemePreset(preset.id)?.tokens : dbPresetTokensById.get(preset.id)
+        if (!rawPresetTokens) {
+            throwThemeAppearanceResolveFailed({ layoutId, presetId: preset.id, reason: 'preset-unavailable' })
+        }
+        try {
+            const resolved = resolveThemeAppearance({
+                preset,
+                presetTokens: themeTokensSchema.parse(rawPresetTokens),
+                overrides: appearance.overrides
+            })
+            if (resolved.hash !== appearance.resolved.hash) {
+                throwThemeAppearanceResolveFailed({ layoutId, presetId: preset.id, reason: 'resolved-hash-mismatch' })
+            }
+            // Publication integrity: the hash alone is not enough — a caller
+            // holding a valid hash could swap `resolved.tokens`. Deep-compare
+            // the recomputed tokens against the stored ones canonically.
+            if (serialization.stableStringify(resolved.tokens) !== serialization.stableStringify(appearance.resolved.tokens)) {
+                throwThemeAppearanceResolveFailed({ layoutId, presetId: preset.id, reason: 'resolved-tokens-mismatch' })
+            }
+        } catch (error) {
+            if (error instanceof MetahubDomainError) throw error
+            throwThemeAppearanceResolveFailed({
+                layoutId,
+                presetId: preset.id,
+                reason: error instanceof ThemeAppearanceResolveError ? 'resolve-failed' : 'preset-tokens-validation-failed'
+            })
+        }
+    }
+}
+
 export { validateSnapshotLayoutNeutralMetadata }
 
 const manifestKey = (projectId: string, sceneId: string | null | undefined): string => `${projectId}\u0000${sceneId ?? ''}`
@@ -503,7 +611,8 @@ export async function attachLayoutsToSnapshot(options: AttachLayoutsToSnapshotOp
             await attachLayoutsToSnapshotInTransaction({
                 snapshot,
                 executor: tx,
-                branchSchemaName
+                branchSchemaName,
+                metahubId
             })
         })
     } catch (e) {
@@ -523,6 +632,7 @@ const attachLayoutsToSnapshotInTransaction = async (options: {
     snapshot: MetahubSnapshot
     executor: DbExecutor
     branchSchemaName: string
+    metahubId: string
 }): Promise<void> => {
     const { snapshot, executor, branchSchemaName } = options
 
@@ -609,6 +719,11 @@ const attachLayoutsToSnapshotInTransaction = async (options: {
         compositionMode: decodedComposition.mode
     }))
     snapshot.defaultLayoutId = defaultLayout?.id ?? null
+
+    // TH-17: the normalized configs are the strict-parse output — verify the
+    // appearance integrity before any further snapshot work runs.
+    await verifySnapshotLayoutAppearances({ snapshot, executor, metahubId: options.metahubId })
+
     const hasTableRows = await executor.query<{ exists: boolean }>(
         `SELECT EXISTS (
           SELECT 1 FROM information_schema.tables

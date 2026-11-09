@@ -63,6 +63,7 @@ export type { MarketingPageRuntimePayload, MarketingRendererConfig } from './mar
 // Layout
 export { default as AppMainLayout, AppMainLayoutContext } from './layouts/AppMainLayout'
 export type { AppMainLayoutAppearance, AppMainLayoutProps } from './layouts/AppMainLayout'
+export { default as RuntimeAppearanceInjector } from './layouts/RuntimeAppearanceInjector'
 
 // i18n side-effect registration
 export { appsTranslations } from './i18n'

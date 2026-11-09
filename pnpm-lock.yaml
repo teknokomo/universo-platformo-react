@@ -832,6 +832,9 @@ importers:
       '@universo-react/schema-ddl':
         specifier: workspace:*
         version: link:../universo-react-schema-ddl
+      '@universo-react/theme':
+        specifier: workspace:*
+        version: link:../universo-react-theme
       '@universo-react/types':
         specifier: workspace:*
         version: link:../universo-react-types
@@ -926,6 +929,9 @@ importers:
       '@universo-react/template-mui':
         specifier: workspace:*
         version: link:../universo-react-template-mui
+      '@universo-react/theme':
+        specifier: workspace:*
+        version: link:../universo-react-theme
       '@universo-react/types':
         specifier: workspace:*
         version: link:../universo-react-types
@@ -1134,6 +1140,9 @@ importers:
       '@universo-react/playcanvas-engine':
         specifier: workspace:*
         version: link:../universo-react-playcanvas-engine
+      '@universo-react/theme':
+        specifier: workspace:*
+        version: link:../universo-react-theme
       '@universo-react/types':
         specifier: workspace:*
         version: link:../universo-react-types
@@ -1835,6 +1844,9 @@ importers:
       '@universo-react/schema-ddl':
         specifier: workspace:*
         version: link:../universo-react-schema-ddl
+      '@universo-react/theme':
+        specifier: workspace:*
+        version: link:../universo-react-theme
       '@universo-react/types':
         specifier: workspace:*
         version: link:../universo-react-types
@@ -1935,6 +1947,9 @@ importers:
       '@universo-react/template-mui':
         specifier: workspace:*
         version: link:../universo-react-template-mui
+      '@universo-react/theme':
+        specifier: workspace:*
+        version: link:../universo-react-theme
       '@universo-react/types':
         specifier: workspace:*
         version: link:../universo-react-types
@@ -2963,6 +2978,9 @@ importers:
       '@universo-react/store':
         specifier: workspace:*
         version: link:../universo-react-store
+      '@universo-react/theme':
+        specifier: workspace:*
+        version: link:../universo-react-theme
       '@universo-react/types':
         specifier: workspace:*
         version: link:../universo-react-types
@@ -3042,6 +3060,34 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
+
+  packages/universo-react-theme:
+    dependencies:
+      '@universo-react/types':
+        specifier: workspace:*
+        version: link:../universo-react-types
+      '@universo-react/utils':
+        specifier: workspace:*
+        version: link:../universo-react-utils
+    devDependencies:
+      '@types/node':
+        specifier: 22.19.18
+        version: 22.19.18
+      eslint:
+        specifier: 'catalog:'
+        version: 8.57.1(supports-color@8.1.1)
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.15.7(supports-color@8.1.1)(typescript@5.9.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
 
   packages/universo-react-types:
     dependencies:

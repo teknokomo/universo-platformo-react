@@ -56,6 +56,7 @@
         "@universo-react/template-mui": "workspace:*",
         "@universo-react/types": "workspace:*",
         "@universo-react/utils": "workspace:*",
+        "@universo-react/theme": "workspace:*",
         "@tanstack/react-query": "catalog:",
         "react": "catalog:",
         "react-i18next": "catalog:",

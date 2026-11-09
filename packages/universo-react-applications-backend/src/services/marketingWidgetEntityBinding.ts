@@ -36,13 +36,19 @@ const requiredLocalized = (value: unknown): Record<string, string> => {
 const boundedNumber = (value: unknown, fallback: number, maximum = 10000): number =>
     Math.max(0, Math.min(maximum, Math.trunc(asMarketingNumber(value, fallback))))
 
-const applyActionPolicy = (action: MarketingAction, config: MarketingPageConfig): MarketingAction => {
+const applyActionPolicy = (
+    action: MarketingAction,
+    config: Pick<MarketingPageConfig, 'allowEmailActions' | 'allowTelephoneActions' | 'externalLinkTarget'>
+): MarketingAction => {
     if (action.kind === 'email' && !config.allowEmailActions) throw new Error('MARKETING_ACTION_DISABLED')
     if (action.kind === 'tel' && !config.allowTelephoneActions) throw new Error('MARKETING_ACTION_DISABLED')
     return action.kind === 'external' ? { ...action, target: config.externalLinkTarget } : action
 }
 
-const safeCanonicalAction = (value: unknown, config: MarketingPageConfig): MarketingAction | undefined => {
+const safeCanonicalAction = (
+    value: unknown,
+    config: Pick<MarketingPageConfig, 'allowEmailActions' | 'allowTelephoneActions' | 'externalLinkTarget'>
+): MarketingAction | undefined => {
     const parsed = marketingActionSchema.safeParse(value)
     if (!parsed.success) return undefined
     try {
@@ -52,7 +58,10 @@ const safeCanonicalAction = (value: unknown, config: MarketingPageConfig): Marke
     }
 }
 
-const safeHrefAction = (value: unknown, config: MarketingPageConfig): MarketingAction | undefined => {
+const safeHrefAction = (
+    value: unknown,
+    config: Pick<MarketingPageConfig, 'allowEmailActions' | 'allowTelephoneActions' | 'externalLinkTarget'>
+): MarketingAction | undefined => {
     if (typeof value !== 'string') return undefined
     const action = parseMarketingActionHref(value, { externalTarget: config.externalLinkTarget })
     if (!action) return undefined
@@ -63,7 +72,10 @@ const safeHrefAction = (value: unknown, config: MarketingPageConfig): MarketingA
     }
 }
 
-const requiredHrefAction = (value: unknown, config: MarketingPageConfig): MarketingAction => {
+const requiredHrefAction = (
+    value: unknown,
+    config: Pick<MarketingPageConfig, 'allowEmailActions' | 'allowTelephoneActions' | 'externalLinkTarget'>
+): MarketingAction => {
     const action = safeHrefAction(value, config)
     if (!action) throw new Error('MARKETING_WIDGET_ACTION_INVALID')
     return action
@@ -120,7 +132,7 @@ const sectionRecord = (target: ResolvedWidgetBindingTarget): PublicMarketingPage
 
 const siteSettingsRecord = (
     target: ResolvedWidgetBindingTarget,
-    config: MarketingPageConfig,
+    config: Pick<MarketingPageConfig, 'allowEmailActions' | 'allowTelephoneActions' | 'externalLinkTarget'>,
     includeFooter: boolean,
     includeNewsletter = true
 ): PublicMarketingPageRecord => {
@@ -193,7 +205,7 @@ const adaptRecords = (
     widgetKey: string,
     targets: readonly ResolvedWidgetBindingTarget[],
     rendererConfig: RuntimeRecord,
-    config: MarketingPageConfig
+    config: Pick<MarketingPageConfig, 'allowEmailActions' | 'allowTelephoneActions' | 'externalLinkTarget'>
 ): PublicMarketingPageRecord[] => {
     if (widgetKey === 'marketing.brand') return [siteSettingsRecord(requireSingleSlotTarget(targets, 'site'), config, false)]
     if (widgetKey === 'marketing.navigation') {
@@ -367,7 +379,10 @@ const adaptRecords = (
     throw new Error('MARKETING_WIDGET_BINDING_ADAPTER_UNAVAILABLE')
 }
 
-const resolveMarketingHeroEntityContent = (resolvedTargets: readonly ResolvedWidgetBindingTarget[], config: MarketingPageConfig) => {
+const resolveMarketingHeroEntityContent = (
+    resolvedTargets: readonly ResolvedWidgetBindingTarget[],
+    config: Pick<MarketingPageConfig, 'allowEmailActions' | 'allowTelephoneActions' | 'externalLinkTarget'>
+) => {
     const resolved = requireSingleSlotTarget(resolvedTargets, 'content')
     const data = resolved.data
     const termsAction = safeCanonicalAction(data.termsAction, config)
@@ -394,7 +409,7 @@ interface ProjectMarketingWidgetBindingDataInput {
     widgetKey: string
     bindings: unknown
     loadRecords: WidgetBindingRecordLoader
-    config: MarketingPageConfig
+    config: Pick<MarketingPageConfig, 'allowEmailActions' | 'allowTelephoneActions' | 'externalLinkTarget'>
     rendererConfig?: unknown
 }
 

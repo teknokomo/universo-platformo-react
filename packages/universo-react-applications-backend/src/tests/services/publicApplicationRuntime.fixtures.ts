@@ -254,7 +254,7 @@ export const createPublicMarketingEffectiveLayout = (
     ({
         layout: {
             templateKey: 'marketing-page',
-            config: { themeMode: 'system', allowEmailActions: true, allowTelephoneActions: true, externalLinkTarget: 'new-tab' },
+            config: { allowEmailActions: true, allowTelephoneActions: true, externalLinkTarget: 'new-tab' },
             ...(headerPosition ? { zoneSettings: { 'marketing-header': { position: headerPosition } } } : {})
         },
         scope,

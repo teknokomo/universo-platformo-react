@@ -22,7 +22,9 @@ import type {
     LayoutWidgetDefinition,
     LayoutWidgetMetadataResponse,
     RuntimeDatasourceFilter,
-    RuntimeDatasourceSort
+    RuntimeDatasourceSort,
+    ThemeAppearance,
+    ThemeAppearanceDraft
 } from '@universo-react/types'
 import {
     authenticatedApplicationRuntimeReferenceSchema,
@@ -658,6 +660,140 @@ export const copyApplicationLayout = async (
         expectedVersion
     })
     return parseApplicationLayoutItemResponse(response.data)
+}
+
+// ============ THEME PRESETS & LAYOUT APPEARANCE ============
+// Naming contract (deliberate, no rename): preset CRUD is `*ApplicationThemePreset*`
+// (application-scoped resource), while appearance mutations are `*LayoutAppearance*`
+// — they act on the `/layouts/{layoutId}/appearance` subresource, mirroring the
+// metahubs scope (`applyLayoutAppearance` et al.) one-to-one.
+
+export interface ApplicationThemePresetSummary {
+    id: string
+    codename: string
+    source: 'file' | 'application'
+    version: number
+    name: Record<string, string>
+    description?: Record<string, string> | null
+    archived: boolean
+    usageCount: number | null
+}
+
+export interface ApplicationThemePresetListResult {
+    file: ApplicationThemePresetSummary[]
+    presets: ApplicationThemePresetSummary[]
+}
+
+export interface ApplicationThemePresetRecordDto extends ApplicationThemePresetSummary {
+    tokens: unknown
+}
+
+export interface ApplicationLayoutAppearanceMutationResult {
+    layoutId: string
+    version: number
+    appearance: ThemeAppearance | null
+}
+
+export interface ApplyApplicationLayoutAppearanceInput {
+    appearance: ThemeAppearanceDraft
+    expectedVersion: number
+}
+
+export const listApplicationThemePresets = async (applicationId: string): Promise<ApplicationThemePresetListResult> => {
+    // Archived presets are included so the manager dialog can Delete/Export/Copy
+    // them; selection surfaces disable archived entries via `preset.archived`.
+    const response = await apiClient.get<ApplicationThemePresetListResult>(`/applications/${applicationId}/theme-presets`, {
+        params: { includeArchived: true }
+    })
+    return response.data
+}
+
+export interface CreateApplicationThemePresetInput {
+    codename: string
+    name: Record<string, string>
+    description?: Record<string, string>
+    tokens: unknown
+    /** Provenance when the copy cannot use the same-schema FK (e.g. `metahub:<uuid>`). */
+    basePresetCodename?: string
+}
+
+export const createApplicationThemePreset = async (
+    applicationId: string,
+    data: CreateApplicationThemePresetInput
+): Promise<ApplicationThemePresetRecordDto> => {
+    const response = await apiClient.post<ApplicationThemePresetRecordDto>(`/applications/${applicationId}/theme-presets`, data)
+    return response.data
+}
+
+export const copyApplicationThemePreset = async (
+    applicationId: string,
+    presetId: string,
+    data: { presetId?: string; codename?: string }
+): Promise<ApplicationThemePresetRecordDto> => {
+    const response = await apiClient.post<ApplicationThemePresetRecordDto>(
+        `/applications/${applicationId}/theme-presets/${presetId}/copy`,
+        data
+    )
+    return response.data
+}
+
+export const deleteApplicationThemePreset = async (
+    applicationId: string,
+    presetId: string,
+    expectedVersion: number
+): Promise<ApplicationThemePresetRecordDto> => {
+    const response = await apiClient.delete<ApplicationThemePresetRecordDto>(`/applications/${applicationId}/theme-presets/${presetId}`, {
+        data: { expectedVersion }
+    })
+    return response.data
+}
+
+/** Download the preset file envelope as `<codename>.theme.json`. */
+export const exportApplicationThemePreset = async (applicationId: string, presetId: string): Promise<void> => {
+    const response = await apiClient.get(`/applications/${applicationId}/theme-presets/${presetId}/export`, { responseType: 'blob' })
+    const blob = new Blob([response.data], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    const disposition = response.headers['content-disposition'] ?? ''
+    const filenameMatch = disposition.match(/filename\*?="?(?:UTF-8'')?([^";]+)"?/)
+    anchor.download = filenameMatch?.[1] ? decodeURIComponent(filenameMatch[1]) : 'theme-preset.json'
+    document.body.appendChild(anchor)
+    anchor.click()
+    document.body.removeChild(anchor)
+    URL.revokeObjectURL(url)
+}
+
+/** Apply a draft appearance through the dedicated PATCH; the server resolves tokens. */
+export const applyLayoutAppearance = async (
+    applicationId: string,
+    layoutId: string,
+    data: ApplyApplicationLayoutAppearanceInput
+): Promise<ApplicationLayoutAppearanceMutationResult> => {
+    const response = await apiClient.patch<unknown>(`/applications/${applicationId}/layouts/${layoutId}/appearance`, data)
+    return response.data as ApplicationLayoutAppearanceMutationResult
+}
+
+export const resetLayoutAppearance = async (
+    applicationId: string,
+    layoutId: string,
+    expectedVersion: number
+): Promise<ApplicationLayoutAppearanceMutationResult> => {
+    const response = await apiClient.post<unknown>(`/applications/${applicationId}/layouts/${layoutId}/appearance/reset`, {
+        expectedVersion
+    })
+    return response.data as ApplicationLayoutAppearanceMutationResult
+}
+
+export const applyLatestLayoutAppearance = async (
+    applicationId: string,
+    layoutId: string,
+    expectedVersion: number
+): Promise<ApplicationLayoutAppearanceMutationResult> => {
+    const response = await apiClient.post<unknown>(`/applications/${applicationId}/layouts/${layoutId}/appearance/apply-latest`, {
+        expectedVersion
+    })
+    return response.data as ApplicationLayoutAppearanceMutationResult
 }
 
 export const listApplicationLayoutWidgets = async (applicationId: string, layoutId: string): Promise<ApplicationLayoutWidget[]> => {

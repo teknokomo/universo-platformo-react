@@ -9,6 +9,7 @@ import { useContext, useEffect, useMemo } from 'react'
 import { fetchMarketingPageRuntime } from '../api/api'
 import type { MarketingRuntimeTarget } from '../api/api'
 import AppMainLayout, { AppMainLayoutContext } from '../layouts/AppMainLayout'
+import { themeTokensToMuiInput } from '@universo-react/theme'
 import MarketingPage from './MarketingPage'
 import { normalizeMarketingPageRuntime } from './normalize'
 import type { MarketingPageRuntimePayload } from './runtimeDto'
@@ -191,14 +192,18 @@ export default function MarketingRuntimeContent({
         }
     }
 
-    const appearance = useMemo(
-        () => ({
-            defaultMode: data?.config?.themeMode,
-            primaryColor: data?.config?.primaryColor,
-            accentColor: data?.config?.accentColor
-        }),
-        [data?.config?.accentColor, data?.config?.primaryColor, data?.config?.themeMode]
-    )
+    const appearance = useMemo(() => {
+        const tokenAppearance = data?.config?.appearance
+        if (!tokenAppearance) return null
+        return {
+            defaultMode: tokenAppearance.mode,
+            mode: tokenAppearance.mode,
+            resolvedTokens: {
+                hash: tokenAppearance.resolved.hash,
+                input: themeTokensToMuiInput(tokenAppearance.resolved.tokens)
+            }
+        }
+    }, [data?.config?.appearance])
     const hasData = Boolean(data)
 
     useEffect(() => {
@@ -253,5 +258,5 @@ export default function MarketingRuntimeContent({
             onAction={onAction}
         />
     )
-    return hostLayout ? page : <AppMainLayout {...appearance}>{page}</AppMainLayout>
+    return hostLayout ? page : <AppMainLayout {...(appearance ?? {})}>{page}</AppMainLayout>
 }

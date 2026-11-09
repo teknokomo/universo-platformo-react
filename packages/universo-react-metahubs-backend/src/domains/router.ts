@@ -9,6 +9,8 @@ import { createEntityComponentRoutes } from './entities/metadata/component/route
 import { createEntityRecordRoutes } from './entities/metadata/record/routes'
 import { createEntityFixedValueRoutes } from './entities/metadata/fixedValue/routes'
 import { createLayoutsRoutes } from './layouts/routes/layoutsRoutes'
+import { createThemePresetsRoutes } from './theme-presets/routes/themePresetsRoutes'
+import { isThemePresetsEnabled } from '@universo-react/utils/env'
 import { createModulesRoutes } from './modules/routes/modulesRoutes'
 import { createPackagesRoutes } from './packages/routes/packagesRoutes'
 import { createPackageArtifactRoutes } from './packages/routes/packageArtifactRoutes'
@@ -101,6 +103,9 @@ export function createMetahubsServiceRoutes(
     router.use('/', createEntityFixedValueRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createEntityRecordRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createLayoutsRoutes(ensureAuth, getDbExecutor, read, write))
+    if (isThemePresetsEnabled()) {
+        router.use('/', createThemePresetsRoutes(ensureAuth, getDbExecutor, read, write))
+    }
     router.use('/', createPackagesRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createModulesRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createSharedEntityOverridesRoutes(ensureAuth, getDbExecutor, read, write))

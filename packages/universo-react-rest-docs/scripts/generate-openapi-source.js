@@ -42,6 +42,7 @@ const tagDescriptions = {
     Packages: 'Metahub package registry and attachment endpoints.',
     'Shared Entity Overrides': 'Metahub-level shared entity override endpoints.',
     Settings: 'Metahub settings and metahub setting-key endpoints.',
+    'Theme Presets': 'Theme preset library and layout appearance endpoints.',
     Templates: 'Template catalog endpoints.'
 }
 
@@ -117,6 +118,12 @@ const routeSources = [
         file: 'packages/universo-react-applications-backend/src/routes/applicationAliasesRoutes.ts',
         mountPrefix: '',
         tag: 'Applications',
+        security: bearerSecurity
+    },
+    {
+        file: 'packages/universo-react-applications-backend/src/routes/themePresetsRoutes.ts',
+        mountPrefix: '',
+        tag: 'Theme Presets',
         security: bearerSecurity
     },
     {
@@ -226,6 +233,12 @@ const routeSources = [
         file: 'packages/universo-react-metahubs-backend/src/domains/layouts/routes/layoutsRoutes.ts',
         mountPrefix: '',
         tag: 'Layouts',
+        security: bearerSecurity
+    },
+    {
+        file: 'packages/universo-react-metahubs-backend/src/domains/theme-presets/routes/themePresetsRoutes.ts',
+        mountPrefix: '',
+        tag: 'Theme Presets',
         security: bearerSecurity
     },
     {

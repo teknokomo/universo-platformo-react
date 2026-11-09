@@ -84,3 +84,7 @@ pnpm run test:e2e:messenger-app:verify:local-supabase
 The gate uses the minimal local Supabase profile, regenerates the fixture, checks its contract and drift, and runs the focused Playwright runtime flow. Browser screenshots and their viewport details are retained with the E2E artifacts. Actual Telegram and MAX clients require separate manual acceptance; browser bridge stubs do not prove external client configuration or eligibility.
 
 See [Public applications, aliases, and global short links](public-applications-and-aliases.md), [Application Layouts](../guides/application-layouts.md), and [Browser E2E testing](../guides/browser-e2e-testing.md) for related runtime and test workflows.
+
+## Appearance
+
+The messenger template shares the cross-template `appearance` contract: the authenticated runtime applies the resolved preset via the host injector (see `docs/en/platform/theme-presets.md`). The public messenger payload does not project appearance tokens yet — anonymous messenger runtimes render the built-in `universo-default` theme; projecting resolved tokens into the anonymous payload is planned follow-up work.

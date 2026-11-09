@@ -1,12 +1,12 @@
 {
     "version": 3,
-    "generatedAt": "2026-10-18T09:06:53.394Z",
+    "generatedAt": "2026-11-09T16:59:07.569Z",
     "generator": "tools/testing/e2e/specs/generators/docs-marketing-page-screenshots.spec.ts",
     "generatorSha256": "9e019cf5e8cf08007cc44891fd5fcb29bef3f8de03999ea9546ca83060fb87ab",
     "manifest": "tools/docs/marketing-page-screenshot-manifest.json",
     "manifestSha256": "9fa4f74e7a653423a124ad2dcf6eec1ec731b02c6e8a83d33270e66ce19ced75",
     "sourceTemplate": "packages/universo-react-metahubs-backend/src/domains/templates/data/marketing-page.template.ts",
-    "sourceTemplateSha256": "330b0ac9b36bb6ba2db72721709a1741a69c097fb71ad61c89789d923383d2ea",
+    "sourceTemplateSha256": "eceef11eaa0095f3a5d299568a5256a67eb111f39faabe5c1dc53385fa914c8d",
     "seedInputs": [
         {
             "path": "packages/universo-react-metahubs-backend/src/domains/templates/data/basic.template.ts",
@@ -48,10 +48,10 @@
                 "height": 900
             },
             "path": "docs/en/.gitbook/assets/marketing-page/marketing-page-runtime-en-light.png",
-            "sha256": "ccab7952b46ac38cc111cf11fe778dd4b89330d96aeb5500f84ed873dc430248",
+            "sha256": "8773b3631737c30d36b168b68525a6bc8e16ac5dfb8c270a7a8f70845f2ffcd6",
             "dimensions": {
                 "width": 1440,
-                "height": 5749
+                "height": 5760
             }
         },
         {
@@ -67,10 +67,10 @@
                 "height": 900
             },
             "path": "docs/ru/.gitbook/assets/marketing-page/marketing-page-runtime-ru-light.png",
-            "sha256": "494fe66dc69d26b136c56acab4046cbe9228e353d70bae7f3a3177e0a89423ae",
+            "sha256": "8f1f811e018f58bd4fade87098a8d847517a74430b6b2659a9cf92aa8dfa1f59",
             "dimensions": {
                 "width": 1440,
-                "height": 5685
+                "height": 5696
             }
         }
     ],
@@ -79,20 +79,20 @@
             "id": "marketing-page-runtime-en-light",
             "locale": "en",
             "path": "docs/en/.gitbook/assets/marketing-page/marketing-page-runtime-en-light.png",
-            "sha256": "ccab7952b46ac38cc111cf11fe778dd4b89330d96aeb5500f84ed873dc430248",
+            "sha256": "8773b3631737c30d36b168b68525a6bc8e16ac5dfb8c270a7a8f70845f2ffcd6",
             "dimensions": {
                 "width": 1440,
-                "height": 5749
+                "height": 5760
             }
         },
         {
             "id": "marketing-page-runtime-ru-light",
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/marketing-page/marketing-page-runtime-ru-light.png",
-            "sha256": "494fe66dc69d26b136c56acab4046cbe9228e353d70bae7f3a3177e0a89423ae",
+            "sha256": "8f1f811e018f58bd4fade87098a8d847517a74430b6b2659a9cf92aa8dfa1f59",
             "dimensions": {
                 "width": 1440,
-                "height": 5685
+                "height": 5696
             }
         }
     ]

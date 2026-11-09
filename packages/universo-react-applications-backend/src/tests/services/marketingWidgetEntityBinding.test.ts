@@ -9,7 +9,7 @@ import {
 import { isCompatibleMarketingWidgetObject, projectMarketingWidgetBindingData } from '../../services/marketingWidgetEntityBinding'
 
 const definition = getLayoutWidgetDefinition('marketing.hero')!
-const config = marketingPageConfigSchema.parse({ themeMode: 'system' })
+const config = marketingPageConfigSchema.parse({})
 const bindings = buildSingleTargetWidgetBinding(definition, 'content', {
     entityKind: 'object',
     entityCodename: 'MarketingPageHero',
@@ -890,7 +890,7 @@ describe('shared marketing widget binding projection', () => {
 
     it('rejects an action that violates the application marketing action policy', async () => {
         const emailRecord = { ...record, data: { ...record.data, primaryAction: { kind: 'email', address: 'team@example.test' } } }
-        const restrictedConfig = marketingPageConfigSchema.parse({ themeMode: 'system', allowEmailActions: false })
+        const restrictedConfig = marketingPageConfigSchema.parse({ allowEmailActions: false })
 
         await expect(
             projectMarketingWidgetBindingData({

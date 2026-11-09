@@ -548,7 +548,7 @@ describe('effectiveLayoutResolver', () => {
                 scope_entity_id: entityId,
                 template_key: 'marketing-page',
                 name: { en: 'Marketing' },
-                config: { themeMode: 'system', __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
+                config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
                 source_kind: 'application',
                 source_layout_id: globalLayoutId,
                 source_snapshot_hash: null,
@@ -764,7 +764,7 @@ describe('effectiveLayoutResolver', () => {
                 id: scopedLayoutId,
                 scope_entity_id: entityId,
                 template_key: 'marketing-page',
-                config: { themeMode: 'system', __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
+                config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
                 source_kind: 'application',
                 source_layout_id: null,
                 source_snapshot_hash: null,
@@ -807,7 +807,6 @@ describe('effectiveLayoutResolver', () => {
                 layoutRow({
                     template_key: 'marketing-page',
                     config: {
-                        themeMode: 'system',
                         __layout: { composition: { mode: 'independent', baseLayoutId: null } }
                     }
                 })
@@ -1148,14 +1147,14 @@ describe('effectiveLayoutResolver', () => {
             layoutRow({
                 template_key: 'marketing-page',
                 name: { en: 'Published marketing' },
-                config: { themeMode: 'system', __layout: { composition: { mode: 'independent', baseLayoutId: null } } }
+                config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } }
             }),
             layoutRow({
                 id: scopedLayoutId,
                 scope_entity_id: entityId,
                 template_key: 'marketing-page',
                 name: { en: 'Published local marketing' },
-                config: { themeMode: 'system', __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
+                config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
                 source_kind: 'application',
                 source_layout_id: null,
                 source_snapshot_hash: null,

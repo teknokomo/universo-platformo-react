@@ -1,6 +1,6 @@
 import * as React from 'react'
 import CssBaseline from '@mui/material/CssBaseline'
-import AppTheme from '../shared-theme/AppTheme'
+import AppTheme, { type AppThemeResolvedTokens } from '../shared-theme/AppTheme'
 import {
     chartsCustomizations,
     dataGridCustomizations,
@@ -21,14 +21,15 @@ export interface AppMainLayoutProps {
     disableCustomTheme?: boolean
     /** Optional template-owned color scheme and brand overrides for standalone pages. */
     defaultMode?: 'light' | 'dark' | 'system'
-    primaryColor?: string
-    accentColor?: string
+    /** Theme-preset appearance (mode + resolved tokens). */
+    mode?: 'system' | 'light' | 'dark'
+    resolvedTokens?: AppThemeResolvedTokens
 }
 
 export interface AppMainLayoutAppearance {
     defaultMode?: 'light' | 'dark' | 'system'
-    primaryColor?: string
-    accentColor?: string
+    mode?: 'system' | 'light' | 'dark'
+    resolvedTokens?: AppThemeResolvedTokens
 }
 
 interface AppMainLayoutContextValue {
@@ -55,21 +56,24 @@ export const AppMainLayoutContext = React.createContext<AppMainLayoutContextValu
  * together with dialogs (FormDialog, ConfirmDeleteDialog) so that
  * _all_ UI elements share the same visual style.
  */
-export default function AppMainLayout({ children, disableCustomTheme, defaultMode, primaryColor, accentColor }: AppMainLayoutProps) {
+export default function AppMainLayout({ children, disableCustomTheme, defaultMode, mode, resolvedTokens }: AppMainLayoutProps) {
     const [runtimeAppearance, setRuntimeAppearance] = React.useState<AppMainLayoutAppearance | null>(null)
     const setAppearance = React.useCallback((appearance: AppMainLayoutAppearance | null) => {
         setRuntimeAppearance(appearance)
     }, [])
     const contextValue = React.useMemo<AppMainLayoutContextValue>(() => ({ setAppearance }), [setAppearance])
-    const effectiveAppearance = runtimeAppearance ?? { defaultMode, primaryColor, accentColor }
+    const effectiveAppearance = runtimeAppearance ?? { defaultMode, mode, resolvedTokens }
+    // The resolved snapshot rides with the appearance object; memoize on the
+    // snapshot hash so AppTheme's createTheme memo is not rebuilt per render.
+    const effectiveResolvedTokens = React.useMemo(() => effectiveAppearance.resolvedTokens ?? null, [effectiveAppearance.resolvedTokens])
 
     return (
         <AppMainLayoutContext.Provider value={contextValue}>
             <AppTheme
                 disableCustomTheme={disableCustomTheme}
                 defaultMode={effectiveAppearance.defaultMode}
-                primaryColor={effectiveAppearance.primaryColor}
-                accentColor={effectiveAppearance.accentColor}
+                resolvedTokens={effectiveResolvedTokens ?? undefined}
+                runtimeMode={effectiveAppearance.mode}
                 themeComponents={xThemeComponents}
             >
                 <CssBaseline enableColorScheme />

@@ -969,8 +969,9 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         const adminBrowserIssues = watchBrowserRuntimeIssues(adminBrowser.page)
         await adminBrowser.page.goto(`/a/${application.id}/admin/layouts/${marketingLayout.id}`)
         await expect(adminBrowser.page).toHaveURL(new RegExp(`/a/${application.id}/admin/layouts/${marketingLayout.id}(?:\\?.*)?$`))
-        await expect(adminBrowser.page.getByTestId('application-marketing-appearance-panel')).toBeVisible()
-        await expect(adminBrowser.page.getByLabel('Theme mode')).toBeEnabled()
+        await adminBrowser.page.getByTestId('application-layout-details-tab-appearance').click()
+        await expect(adminBrowser.page.getByTestId('application-appearance-section')).toBeVisible()
+        await expect(adminBrowser.page.getByTestId('application-appearance-mode-select')).toBeEnabled()
 
         const zoneSettingsButton = adminBrowser.page.getByTestId('layout-zone-settings-marketing-header')
         await expect(zoneSettingsButton).toBeVisible()
@@ -1070,7 +1071,7 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         await editorBrowser.page.goto(`/a/${application.id}/admin/layouts/${marketingLayout.id}?locale=ru`)
         await expect(editorBrowser.page).toHaveURL(new RegExp(`/a/${application.id}(?:\\?.*)?$`))
         await expect(editorBrowser.page.locator('#marketing-page-main')).toBeVisible()
-        await expect(editorBrowser.page.getByTestId('application-marketing-appearance-panel')).toHaveCount(0)
+        await expect(editorBrowser.page.getByTestId('application-appearance-section')).toHaveCount(0)
         // Application layout reads remain restricted to the configured read roles;
         // this fixture keeps the default owner/admin policy, so an editor is
         // redirected to the runtime and never receives an admin Zone Settings surface.
@@ -1087,7 +1088,7 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         await memberBrowser.page.goto(`/a/${application.id}/admin/layouts`)
         await expect(memberBrowser.page).toHaveURL(new RegExp(`/a/${application.id}(?:\\?.*)?$`))
         await expect(memberBrowser.page.locator('#marketing-page-main')).toBeVisible()
-        await expect(memberBrowser.page.getByTestId('application-marketing-appearance-panel')).toHaveCount(0)
+        await expect(memberBrowser.page.getByTestId('application-appearance-section')).toHaveCount(0)
         const memberBody = await memberBrowser.page.locator('body').innerText()
         expect(memberBody).not.toContain(application.id)
         expect(memberBody).not.toContain('[object Object]')

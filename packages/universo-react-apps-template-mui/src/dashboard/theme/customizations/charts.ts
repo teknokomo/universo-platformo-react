@@ -38,7 +38,7 @@ export const chartsCustomizations: ChartsComponents<Theme> = {
             table: ({ theme }) => ({
                 border: `1px solid ${(theme.vars || theme).palette.divider}`,
                 borderRadius: theme.shape.borderRadius,
-                background: 'hsl(0, 0%, 100%)',
+                background: (theme.vars || theme).palette.background.paper,
                 ...theme.applyStyles('dark', {
                     background: gray[900]
                 })

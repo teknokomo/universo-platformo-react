@@ -27,7 +27,6 @@ import {
     listApplicationLayoutWidgetObject,
     listApplicationLayouts,
     moveApplicationLayoutWidget,
-    resetApplicationLayoutConfig,
     resetApplicationLayoutZoneSetting,
     resetApplicationLayoutWidgetConfigsBatch,
     toggleApplicationLayoutWidget,
@@ -238,31 +237,6 @@ export const useApplicationLayoutsController = () => {
         onSuccess: invalidateLayouts
     })
 
-    const resetMarketingAppearanceMutation = useMutation({
-        mutationFn: ({ layout }: { layout: ApplicationLayout }) =>
-            resetApplicationLayoutConfig(String(applicationId), layout.id, { expectedVersion: layout.version }),
-        onError: (error) => {
-            const apiError = extractAxiosError(error)
-            const errorCode = apiError.code ?? apiError.message
-            const message =
-                errorCode === 'APPLICATION_LAYOUT_VERSION_CONFLICT'
-                    ? t(
-                          'layouts.marketing.resetConflict',
-                          'Marketing appearance changed while you were editing. Reload the layout and try again.'
-                      )
-                    : errorCode === 'APPLICATION_LAYOUT_MARKETING_RESET_NOT_SUPPORTED'
-                    ? t('layouts.marketing.resetUnsupported', 'Only marketing page layouts can restore marketing appearance defaults.')
-                    : t('layouts.marketing.resetError', 'Failed to restore marketing appearance defaults.')
-            enqueueSnackbar(message, { variant: 'error' })
-        },
-        onSuccess: async () => {
-            enqueueSnackbar(t('layouts.marketing.resetSuccess', 'Marketing appearance restored to template defaults.'), {
-                variant: 'success'
-            })
-            await invalidateLayouts()
-        }
-    })
-
     const updateZoneSettingMutation = useMutation({
         mutationFn: ({ layout, settingKey, value }: { layout: ApplicationLayout; settingKey: string; value: string }) =>
             updateApplicationLayoutZoneSetting(String(applicationId), layout.id, 'marketing-header', settingKey, {
@@ -330,20 +304,6 @@ export const useApplicationLayoutsController = () => {
             await invalidateLayouts()
         }
     })
-
-    const requestMarketingAppearanceReset = async (layout: ApplicationLayout) => {
-        if (resetMarketingAppearanceMutation.isPending) return
-        const confirmed = await confirm({
-            title: t('layouts.marketing.resetTitle', 'Restore marketing page defaults?'),
-            description: t(
-                'layouts.marketing.resetDescription',
-                'This restores the theme, colors, and action policy for this application layout. Widget composition and content records will not change.'
-            ),
-            confirmButtonName: t('layouts.marketing.resetConfirm', 'Restore defaults'),
-            cancelButtonName: tc('actions.cancel', 'Cancel')
-        })
-        if (confirmed) resetMarketingAppearanceMutation.mutate({ layout })
-    }
 
     const deleteMutation = useMutation({
         mutationFn: (layout: ApplicationLayout) => deleteApplicationLayout(String(applicationId), layout.id, layout.version),
@@ -791,6 +751,7 @@ export const useApplicationLayoutsController = () => {
         applicationId,
         layoutId,
         t,
+        confirm,
         i18n,
         tc,
         navigate,
@@ -846,10 +807,8 @@ export const useApplicationLayoutsController = () => {
         getWidgetPlacementOverridePolicy,
         createMutation,
         updateMutation,
-        resetMarketingAppearanceMutation,
         updateZoneSettingMutation,
         resetZoneSettingMutation,
-        requestMarketingAppearanceReset,
         requestDeleteLayout,
         copyMutation,
         toggleWidgetMutation,

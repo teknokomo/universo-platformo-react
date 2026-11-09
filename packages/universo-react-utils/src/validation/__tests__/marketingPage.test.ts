@@ -98,7 +98,11 @@ describe('marketing page validation utilities', () => {
 
         expect(() => normalizeMarketingMedia({ kind: 'logo', resource: { type: 'url', url: 'javascript:alert(1)' } })).toThrow('metadata')
 
-        expect(normalizeMarketingPageConfig({}).themeMode).toBe('system')
+        expect(normalizeMarketingPageConfig({})).toMatchObject({
+            allowEmailActions: true,
+            allowTelephoneActions: true,
+            externalLinkTarget: 'new-tab'
+        })
         expect(
             normalizeMarketingPageData({
                 templateKey: 'marketing-page',

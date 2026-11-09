@@ -7,3 +7,4 @@ export { seedBuiltinTemplatesMigration } from './1800000000200-SeedBuiltinTempla
 export { seedBuiltinPackagesMigration } from './1800000000260-SeedBuiltinPackages'
 export { addPackageAuthoringSettingsMigration } from './1800000000270-AddPackageAuthoringSettings'
 export { createPlayCanvasEditorDocumentBackupsMigration } from './1800000000280-CreatePlayCanvasEditorDocumentBackups'
+export { createThemePresetsMigrationDefinition } from './1800000000360-CreateThemePresets.sql'
