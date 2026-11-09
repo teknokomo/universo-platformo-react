@@ -271,10 +271,11 @@ describe('Marketing Page runtime DTOs', () => {
 
 describe('marketing config appearance contract', () => {
     const preset = findFileThemePreset('universo-default')!
+    // The runtime config projection carries only { mode, resolved } —
+    // preset/overrides are authoring state and must NOT cross the runtime
+    // boundary (TZ §11.4; the strict runtime schema rejects them).
     const appearance = {
         mode: 'dark' as const,
-        preset: { source: 'file' as const, id: 'universo-default', version: 1 },
-        overrides: {},
         resolved: { hash: `sha256:${'a'.repeat(64)}`, tokens: themeTokensSchema.parse(preset.tokens) }
     }
 
