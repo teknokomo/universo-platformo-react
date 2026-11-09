@@ -17,7 +17,8 @@ import {
     marketingHeroWidgetDataSchema,
     marketingImageWidgetDataSchema,
     marketingPageConfigSchema,
-    marketingPageRuntimeViewModelSchema
+    marketingPageRuntimeViewModelSchema,
+    marketingRuntimePageConfigSchema
 } from './marketingPageRuntimeSchemas'
 import type { MarketingPageConfig, MarketingPageRuntimeViewModel } from './marketingPageRuntimeSchemas'
 
@@ -327,7 +328,7 @@ export type MarketingHeaderPosition = z.infer<typeof marketingHeaderPositionSche
 export type PublicMarketingPageData = {
     templateKey: typeof MARKETING_PAGE_TEMPLATE_KEY
     locale: MarketingLocaleCode
-    config: MarketingPageConfig
+    config: MarketingRuntimePageConfig
     headerPosition: MarketingHeaderPosition
     widgets: Array<PublicMarketingRuntimeWidget | PublicMarketingAtomicHeaderWidget>
     /** Layout-driven header rows, including an empty array when none are configured. */
@@ -337,7 +338,7 @@ export type PublicMarketingPageData = {
 type PublicMarketingPageDataInput = {
     templateKey: typeof MARKETING_PAGE_TEMPLATE_KEY
     locale: z.input<typeof marketingLocaleCodeSchema>
-    config: z.input<typeof marketingPageConfigSchema>
+    config: z.input<typeof marketingRuntimePageConfigSchema>
     headerPosition: z.input<typeof marketingHeaderPositionSchema>
     widgets: PublicMarketingPageWidgetInput[]
     headerWidgets: z.input<typeof publicMarketingHeaderWidgetSchema>[]
@@ -347,7 +348,7 @@ export const publicMarketingPageDataSchema: z.ZodType<PublicMarketingPageData, z
     .object({
         templateKey: z.literal(MARKETING_PAGE_TEMPLATE_KEY),
         locale: marketingLocaleCodeSchema,
-        config: marketingPageConfigSchema,
+        config: marketingRuntimePageConfigSchema,
         headerPosition: marketingHeaderPositionSchema,
         widgets: z.array(publicMarketingPageWidgetSchema).max(64),
         headerWidgets: z.array(publicMarketingHeaderWidgetSchema).max(24)
