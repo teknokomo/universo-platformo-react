@@ -370,9 +370,27 @@ const applicationBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
                 isRequired: true,
                 targetTableCodename: 'applications'
             },
-            { codename: 'codename', physicalColumnName: 'codename', dataType: ComponentDefinitionDataType.STRING, physicalDataType: 'VARCHAR(64)', isRequired: true },
-            { codename: 'name', physicalColumnName: 'name', dataType: ComponentDefinitionDataType.JSON, defaultSqlExpression: `'{}'::jsonb`, isRequired: true, isDisplayComponent: true },
-            { codename: 'description', physicalColumnName: 'description', dataType: ComponentDefinitionDataType.JSON, defaultSqlExpression: `'{}'::jsonb` },
+            {
+                codename: 'codename',
+                physicalColumnName: 'codename',
+                dataType: ComponentDefinitionDataType.STRING,
+                physicalDataType: 'VARCHAR(64)',
+                isRequired: true
+            },
+            {
+                codename: 'name',
+                physicalColumnName: 'name',
+                dataType: ComponentDefinitionDataType.JSON,
+                defaultSqlExpression: `'{}'::jsonb`,
+                isRequired: true,
+                isDisplayComponent: true
+            },
+            {
+                codename: 'description',
+                physicalColumnName: 'description',
+                dataType: ComponentDefinitionDataType.JSON,
+                defaultSqlExpression: `'{}'::jsonb`
+            },
             { codename: 'tokens', physicalColumnName: 'tokens', dataType: ComponentDefinitionDataType.JSON, isRequired: true },
             {
                 codename: 'base_preset_id',
@@ -380,8 +398,19 @@ const applicationBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
                 dataType: ComponentDefinitionDataType.REF,
                 targetTableCodename: 'theme_presets'
             },
-            { codename: 'base_preset_codename', physicalColumnName: 'base_preset_codename', dataType: ComponentDefinitionDataType.STRING, physicalDataType: 'VARCHAR(64)' },
-            { codename: 'schema_version', physicalColumnName: 'schema_version', dataType: ComponentDefinitionDataType.NUMBER, physicalDataType: 'INTEGER', defaultSqlExpression: `1` }
+            {
+                codename: 'base_preset_codename',
+                physicalColumnName: 'base_preset_codename',
+                dataType: ComponentDefinitionDataType.STRING,
+                physicalDataType: 'VARCHAR(64)'
+            },
+            {
+                codename: 'schema_version',
+                physicalColumnName: 'schema_version',
+                dataType: ComponentDefinitionDataType.NUMBER,
+                physicalDataType: 'INTEGER',
+                defaultSqlExpression: `1`
+            }
         ]
     },
     {
@@ -403,10 +432,31 @@ const applicationBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
                 dataType: ComponentDefinitionDataType.REF,
                 targetTableCodename: 'theme_presets'
             },
-            { codename: 'event_type', physicalColumnName: 'event_type', dataType: ComponentDefinitionDataType.STRING, physicalDataType: 'VARCHAR(48)', isRequired: true },
-            { codename: 'changed_fields', physicalColumnName: 'changed_fields', dataType: ComponentDefinitionDataType.JSON, defaultSqlExpression: `'[]'::jsonb` },
-            { codename: 'previous_version', physicalColumnName: 'previous_version', dataType: ComponentDefinitionDataType.NUMBER, physicalDataType: 'INTEGER' },
-            { codename: 'new_version', physicalColumnName: 'new_version', dataType: ComponentDefinitionDataType.NUMBER, physicalDataType: 'INTEGER' },
+            {
+                codename: 'event_type',
+                physicalColumnName: 'event_type',
+                dataType: ComponentDefinitionDataType.STRING,
+                physicalDataType: 'VARCHAR(48)',
+                isRequired: true
+            },
+            {
+                codename: 'changed_fields',
+                physicalColumnName: 'changed_fields',
+                dataType: ComponentDefinitionDataType.JSON,
+                defaultSqlExpression: `'[]'::jsonb`
+            },
+            {
+                codename: 'previous_version',
+                physicalColumnName: 'previous_version',
+                dataType: ComponentDefinitionDataType.NUMBER,
+                physicalDataType: 'INTEGER'
+            },
+            {
+                codename: 'new_version',
+                physicalColumnName: 'new_version',
+                dataType: ComponentDefinitionDataType.NUMBER,
+                physicalDataType: 'INTEGER'
+            },
             { codename: 'actor', physicalColumnName: 'actor', dataType: ComponentDefinitionDataType.REF }
         ]
     }

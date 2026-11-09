@@ -10,7 +10,6 @@ const appearance = {
     resolved: { hash: `sha256:${'a'.repeat(64)}`, tokens: preset!.tokens }
 }
 
-
 describe('toPublicMarketingConfig', () => {
     it('projects the stored appearance to { mode, resolved } without preset/overrides', () => {
         const config = toPublicMarketingConfig({

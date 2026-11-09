@@ -233,7 +233,6 @@ describe('theme presets routes', () => {
                     updatedAt: new Date()
                 }
             ],
-            'SELECT schema_name': () => [{ schemaName: 'app_c0ffee' }],
             [COUNT]: () => [{ count: 1 }],
             [INSERT]: () => []
         })
@@ -276,7 +275,7 @@ describe('theme presets routes', () => {
     })
 
     it('maps an unknown preset to 404 THEME_PRESET_NOT_FOUND through toErrorBody', async () => {
-const executor = createMockExecutor({ 'SELECT schema_name': () => [{ schemaName: 'app_c0ffee' }], [GET_BY_ID]: () => [] })
+        const executor = createMockExecutor({ 'SELECT schema_name': () => [{ schemaName: 'app_c0ffee' }], [GET_BY_ID]: () => [] })
 
         const response = await request(buildApp({ executor })).get(`/applications/${applicationId}/theme-presets/${presetId}/export`)
 

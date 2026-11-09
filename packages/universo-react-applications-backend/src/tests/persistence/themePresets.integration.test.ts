@@ -89,10 +89,9 @@ describeIntegration('Application theme presets PostgreSQL invariants', () => {
                     actor: actorUserId
                 })
             )
-            const audits = await trx.raw(
-                `SELECT event_type, actor FROM applications.rel_theme_preset_audits WHERE preset_id = ?`,
-                [created.id]
-            )
+            const audits = await trx.raw(`SELECT event_type, actor FROM applications.rel_theme_preset_audits WHERE preset_id = ?`, [
+                created.id
+            ])
             expect(audits.rows).toHaveLength(1)
             expect(audits.rows[0]).toMatchObject({ event_type: 'theme_preset_created', actor: actorUserId })
         })
@@ -193,10 +192,7 @@ describeIntegration('Application theme presets PostgreSQL invariants', () => {
     it('counts layout usages by appearance preset id', async () => {
         await withRollback(knex, async (trx) => {
             const applicationId = await insertApplication(trx)
-            await trx.raw(`UPDATE applications.obj_applications SET schema_name = ? WHERE id = ?`, [
-                TEST_LAYOUT_SCHEMA,
-                applicationId
-            ])
+            await trx.raw(`UPDATE applications.obj_applications SET schema_name = ? WHERE id = ?`, [TEST_LAYOUT_SCHEMA, applicationId])
             const actorUserId = generateUuidV7()
             await insertApplicationMember(trx, applicationId, actorUserId)
             const executor = createKnexExecutor(trx)
@@ -218,7 +214,12 @@ describeIntegration('Application theme presets PostgreSQL invariants', () => {
             await trx.raw(
                 `INSERT INTO "${TEST_LAYOUT_SCHEMA}"._app_layouts (id, template_key, config)
                  VALUES (?, 'dashboard', ?::jsonb)`,
-                [layoutId, JSON.stringify({ appearance: { mode: 'dark', preset: { source: 'application', id: created.id, version: 1 }, overrides: {} } })]
+                [
+                    layoutId,
+                    JSON.stringify({
+                        appearance: { mode: 'dark', preset: { source: 'application', id: created.id, version: 1 }, overrides: {} }
+                    })
+                ]
             )
 
             const usageCount = await countThemePresetUsages(executor, [TEST_LAYOUT_SCHEMA], created.id)
@@ -259,9 +260,9 @@ describeIntegration('Application theme presets PostgreSQL invariants', () => {
 
             // The anon role holds no USAGE on the applications schema and no
             // table grants: any access fails closed with a permission error.
-            await expect(
-                withDatabaseRole(trx, 'anon', undefined, () => countActiveThemePresets(executor, applicationId))
-            ).rejects.toThrow(/permission denied/)
+            await expect(withDatabaseRole(trx, 'anon', undefined, () => countActiveThemePresets(executor, applicationId))).rejects.toThrow(
+                /permission denied/
+            )
         })
     })
 })

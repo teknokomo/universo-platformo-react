@@ -50,7 +50,7 @@ describe('ApplicationThemePresetsService.createPreset', () => {
                     updatedAt: new Date()
                 }
             ],
-            'rel_theme_preset_audits': (_sql: string, params?: unknown[]) => {
+            rel_theme_preset_audits: (_sql: string, params?: unknown[]) => {
                 auditWrites.push(params ?? [])
                 return [{ id: 'audit-1' }]
             }

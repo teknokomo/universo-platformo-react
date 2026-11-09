@@ -58,7 +58,12 @@ const toPublicConfig = (value: unknown, themeVariant?: MarketingThemeVariant): M
     const sourceAppearance = isRecord(raw.appearance) ? raw.appearance : getUniversoDefaultAppearance()
     // TZ §11.4: the runtime boundary carries { mode, resolved } only — the
     // preset reference and overrides are authoring state and never leave.
-    const { preset: _preset, overrides: _overrides, mode: appearanceMode, resolved } = sourceAppearance as {
+    const {
+        preset: _preset,
+        overrides: _overrides,
+        mode: appearanceMode,
+        resolved
+    } = sourceAppearance as {
         preset?: unknown
         overrides?: unknown
         mode?: 'system' | 'light' | 'dark'

@@ -140,9 +140,9 @@ describe('theme appearance schema', () => {
     })
 
     it('requires UUID v7 ids for DB-sourced preset refs and accepts file codenames', () => {
-        expect(themeAppearanceSchema.safeParse({ ...appearance, preset: { source: 'file', id: 'universo-default', version: 1 } }).success).toBe(
-            true
-        )
+        expect(
+            themeAppearanceSchema.safeParse({ ...appearance, preset: { source: 'file', id: 'universo-default', version: 1 } }).success
+        ).toBe(true)
         // A malformed DB identifier must fail validation (400 THEME_PRESET_INVALID)
         // instead of reaching the SQL store as a garbage literal.
         expect(

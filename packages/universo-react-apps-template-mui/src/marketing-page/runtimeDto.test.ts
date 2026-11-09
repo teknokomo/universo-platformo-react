@@ -297,6 +297,11 @@ describe('marketing config appearance contract', () => {
     })
 
     it('accepts config without appearance (universo-default backfill happens server-side)', () => {
-        expect(publicMarketingPageRuntimePayloadSchema.safeParse({ templateKey: 'marketing-page', marketingPage: { ...emptyPublicScopedPage } }).success).toBe(true)
+        expect(
+            publicMarketingPageRuntimePayloadSchema.safeParse({
+                templateKey: 'marketing-page',
+                marketingPage: { ...emptyPublicScopedPage }
+            }).success
+        ).toBe(true)
     })
 })

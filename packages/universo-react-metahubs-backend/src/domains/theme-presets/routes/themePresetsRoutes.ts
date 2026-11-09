@@ -147,9 +147,7 @@ export function createThemePresetsRoutes(
                 if (!layoutId) return res.status(400).json({ error: 'Invalid layout ID' })
                 const parsed = layoutAppearanceMutationSchema.safeParse(req.body)
                 if (!parsed.success) {
-                    return res
-                        .status(400)
-                        .json({ error: 'Invalid input', code: 'THEME_PRESET_INVALID', details: parsed.error.flatten() })
+                    return res.status(400).json({ error: 'Invalid input', code: 'THEME_PRESET_INVALID', details: parsed.error.flatten() })
                 }
                 const result = await service(exec, schemaService).applyLayoutAppearance(metahubId, layoutId, parsed.data, userId)
                 return res.json(result)
