@@ -14,8 +14,22 @@ describe('themeTokensToMuiInput', () => {
         expect(input.palettePerScheme.dark.background.default).toBe(defaultTokens.modes.dark.background.default)
         expect(input.fontFamily).toContain('Inter')
         expect(input.fontSize).toBe(16)
+        expect(input.fontWeight).toEqual({ regular: 400, medium: 500, bold: 700 })
         expect(input.shape).toEqual({ borderRadius: 8, borderWidth: 1 })
         expect(input.spacingUnit).toBe(8)
+    })
+
+    it('passes shared typography weights through to the MUI font weight defaults', () => {
+        // Custom weights (still inside the schema's 100–900 integer bounds)
+        // must flow through verbatim — they were previously dropped.
+        const custom = themeTokensToMuiInput({
+            ...defaultTokens,
+            shared: {
+                ...defaultTokens.shared,
+                typography: { ...defaultTokens.shared.typography, weights: { regular: 350, medium: 550, bold: 800 } }
+            }
+        })
+        expect(custom.fontWeight).toEqual({ regular: 350, medium: 550, bold: 800 })
     })
 
     it('computes a descending heading scale and applies the compact density factor', () => {

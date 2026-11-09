@@ -82,6 +82,11 @@ const buildTokenizedTypography = (input: ThemeMuiInput): ThemeOptions['typograph
         ...typography,
         fontFamily: input.fontFamily,
         fontSize: input.fontSize,
+        // Token font weights become MUI's typography-level defaults
+        // (body variants derive from these unless overridden per-variant).
+        fontWeightRegular: input.fontWeight.regular,
+        fontWeightMedium: input.fontWeight.medium,
+        fontWeightBold: input.fontWeight.bold,
         ...headingOverrides
     }
 }

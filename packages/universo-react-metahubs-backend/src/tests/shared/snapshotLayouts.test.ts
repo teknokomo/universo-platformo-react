@@ -1393,6 +1393,37 @@ describe('attachLayoutsToSnapshot appearance integrity (TH-17)', () => {
         await expect(attach(snapshot)).rejects.toMatchObject({ code: 'THEME_APPEARANCE_RESOLVE_FAILED', statusCode: 422 })
     })
 
+    it('fails the publication when a valid hash is paired with swapped tokens', async () => {
+        // A caller who kept the authored `resolved.hash` but swapped
+        // `resolved.tokens` must not pass the hash-only re-validation: the
+        // recomputed tokens are deep-compared against the stored ones.
+        const swappedTokens = {
+            ...validTokens,
+            modes: {
+                ...validTokens.modes,
+                light: {
+                    ...validTokens.modes.light,
+                    text: { ...validTokens.modes.light.text, primary: '#123456' }
+                }
+            }
+        }
+        const appearance = {
+            mode: 'system',
+            preset: { source: 'file', id: filePreset.id, version: filePreset.version },
+            overrides: {},
+            resolved: { hash: fileResolved.hash, tokens: swappedTokens }
+        }
+        const harness = createAppearanceExecutor()
+        harness.run([appearanceConfig(appearance)])
+        const snapshot = {} as MetahubSnapshot
+
+        await expect(attach(snapshot)).rejects.toMatchObject({
+            code: 'THEME_APPEARANCE_RESOLVE_FAILED',
+            statusCode: 422,
+            details: { reason: 'resolved-tokens-mismatch' }
+        })
+    })
+
     it('carries an application-scoped preset appearance as data without a re-check (Pinned 14)', async () => {
         const appearance = {
             mode: 'system',

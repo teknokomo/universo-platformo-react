@@ -466,6 +466,7 @@ export class MetahubThemePresetsService {
                 WHERE l.id = $1
                   AND COALESCE(l._upl_version, 1) = $3
                   AND l._upl_deleted = false
+                  AND l._mhb_deleted = false
                 RETURNING l.id
                 `,
                 [layoutId, userId, expectedVersion]
@@ -531,7 +532,7 @@ export class MetahubThemePresetsService {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const lt = qSchemaTable(schemaName, '_mhb_layouts')
         const rows = await this.exec.query<{ appearance: unknown }>(
-            `SELECT l.config->'appearance' AS appearance FROM ${lt} l WHERE l.id = $1 AND l._upl_deleted = false LIMIT 1`,
+            `SELECT l.config->'appearance' AS appearance FROM ${lt} l WHERE l.id = $1 AND l._upl_deleted = false AND l._mhb_deleted = false LIMIT 1`,
             [layoutId]
         )
         const raw = rows[0]?.appearance
@@ -638,6 +639,7 @@ export class MetahubThemePresetsService {
             WHERE l.id = $2
               AND COALESCE(l._upl_version, 1) = $5
               AND l._upl_deleted = false
+              AND l._mhb_deleted = false
             RETURNING l.id, COALESCE(l._upl_version, 1) AS version
             `,
             [metahubId, layoutId, JSON.stringify(appearance), userId, expectedVersion]

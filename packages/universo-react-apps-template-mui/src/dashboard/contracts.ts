@@ -173,7 +173,8 @@ export interface ZoneWidgets {
 }
 
 export interface DashboardProps {
-    layoutConfig?: Pick<DashboardLayoutConfig, 'sideMenu'>
+    /** Raw effective-layout config; `appearance` drives runtime theme injection on hosted surfaces. */
+    layoutConfig?: Pick<DashboardLayoutConfig, 'sideMenu' | 'appearance'>
     zoneWidgets?: ZoneWidgets
     placementScopes?: AuthenticatedRuntimePlacementScopes
     details?: DashboardDetailsSlot

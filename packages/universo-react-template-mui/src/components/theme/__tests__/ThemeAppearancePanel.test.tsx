@@ -144,15 +144,17 @@ describe('ThemeAppearancePanel contrast gate', () => {
         resolved: { hash: `sha256:${'a'.repeat(64)}`, tokens: failingTokens }
     })
 
+    // Persisted appearance is CLEAN (universo-default) — no alerts initially.
+    const cleanAppearance = themeAppearanceSchema.parse({
+        mode: 'system',
+        preset: { source: 'file', id: 'universo-default', version: 1 },
+        overrides: {},
+        resolved: { hash: `sha256:${'b'.repeat(64)}`, tokens: validTokens }
+    })
+
     it('surfaces draft-time contrast issues before saving and keeps the server gate authoritative', () => {
         const onDraftChange = jest.fn()
         // Persisted appearance is CLEAN (universo-default) — no alerts initially.
-        const cleanAppearance = themeAppearanceSchema.parse({
-            mode: 'system',
-            preset: { source: 'file', id: 'universo-default', version: 1 },
-            overrides: {},
-            resolved: { hash: `sha256:${'b'.repeat(64)}`, tokens: validTokens }
-        })
         const firstView = render(
             <ThemeAppearancePanel
                 {...baseProps}
@@ -207,6 +209,32 @@ describe('ThemeAppearancePanel contrast gate', () => {
         // The draft resolves to clean universo-default tokens, so saving would
         // repair the theme — no draft-time error, save enabled.
         expect(screen.queryByTestId('appearance-test-contrast-error')).not.toBeInTheDocument()
+        expect(screen.getByTestId('appearance-test-save')).toBeEnabled()
+    })
+
+    it('skips draft issues for an unverified DB preset base and keeps Save enabled (server gate authoritative)', () => {
+        // The draft targets a DIFFERENT metahub preset whose resolved tokens
+        // are unknown client-side, and carries an override that WOULD fail
+        // contrast if merged over the previously applied theme (#959595 on the
+        // universo-default light surface). The base is untrustworthy, so the
+        // panel must not compute draft issues from it: no draft-issues
+        // override of the persisted (clean) feedback, the preview keeps the
+        // effective tokens, and Save stays enabled — the server 422 gate
+        // remains authoritative (TZ Appendix A #7).
+        render(
+            <ThemeAppearancePanel
+                {...baseProps}
+                appearance={cleanAppearance}
+                draft={{
+                    mode: 'system',
+                    preset: { source: 'metahub', id: '0190a9b5-other-preset', version: 2 },
+                    overrides: { modes: { light: { text: { primary: '#959595' } } } }
+                }}
+            />
+        )
+
+        expect(screen.queryByTestId('appearance-test-contrast-error')).not.toBeInTheDocument()
+        expect(screen.getByTestId('appearance-test-preview-light')).toBeInTheDocument()
         expect(screen.getByTestId('appearance-test-save')).toBeEnabled()
     })
 })

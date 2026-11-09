@@ -220,8 +220,13 @@ export async function findThemePresetUsageLayoutIds(
 ): Promise<string[]> {
     if (layoutSchemas.length === 0) return []
     const schemas = layoutSchemas.map((schema) => qSchemaTable(schema, '_app_layouts'))
+    // Application rows carry two soft-delete flags: `_upl_deleted` (platform
+    // row lifecycle) and `_app_deleted` (application-scope deletion). An
+    // app-deleted layout no longer uses the preset, so it must not block
+    // preset deletion.
     const unions = schemas.map(
-        (_, index) => `SELECT l.id FROM ${schemas[index]} l WHERE l.config->'appearance'->'preset'->>'id' = $1 AND l._upl_deleted = false`
+        (_, index) =>
+            `SELECT l.id FROM ${schemas[index]} l WHERE l.config->'appearance'->'preset'->>'id' = $1 AND l._upl_deleted = false AND l._app_deleted = false`
     )
     const rows = await executor.query<{ id: string }>(`SELECT id FROM (${unions.join(' UNION ALL ')}) usages`, [presetId])
     return rows.map((row) => row.id)

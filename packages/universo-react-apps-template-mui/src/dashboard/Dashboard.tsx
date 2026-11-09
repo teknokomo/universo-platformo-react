@@ -2,7 +2,7 @@ import type {} from '@mui/material/themeCssVarsAugmentation'
 import { alpha } from '@mui/material/styles'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
-import { Children, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Children, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { type DashboardSideMenuMode, type DashboardLayoutConfig } from '@universo-react/types'
 import AppNavbar from './components/AppNavbar'
 import Header from './components/Header'
@@ -13,6 +13,8 @@ import { renderWidget } from './components/widgetRenderer'
 import { DashboardDetailsProvider } from './DashboardDetailsContext'
 import { AuthenticatedRuntimePlacementScopeProvider } from './AuthenticatedRuntimePlacementScopeContext'
 import { rootPlacements } from './runtime/widgetPlacementGraph'
+import AppMainLayout, { AppMainLayoutContext } from '../layouts/AppMainLayout'
+import RuntimeAppearanceInjector from '../layouts/RuntimeAppearanceInjector'
 import type { DashboardProps, ZoneWidgetItem } from './contracts'
 
 export type {
@@ -106,6 +108,11 @@ const removeStoredSideMenuMode = (storageKey: string): void => {
 }
 
 export default function Dashboard(props: DashboardProps) {
+    const hostLayout = useContext(AppMainLayoutContext)
+    // Persisted cross-template appearance (TZ §7). Standalone hosts strip this
+    // field from `layoutConfig` and inject it themselves; hosted surfaces pass
+    // the raw effective-layout config, so Dashboard owns the injection there.
+    const layoutAppearance = props.layoutConfig?.appearance ?? null
     const layout = useMemo(() => ({ sideMenu: readSideMenuConfig(props.layoutConfig) }), [props.layoutConfig])
     const zoneWidgets = props.zoneWidgets
     const placements = useMemo(() => Object.values(zoneWidgets ?? {}).flatMap((widgets) => widgets ?? []), [zoneWidgets])
@@ -223,7 +230,7 @@ export default function Dashboard(props: DashboardProps) {
         setOverlayOpen(true)
     }, [canToggleOverlaySideMenuMode, dockedSideMenuModes, setSideMenuMode, sideMenuMode])
 
-    return (
+    const dashboardContent = (
         <DashboardDetailsProvider value={props.details}>
             <AuthenticatedRuntimePlacementScopeProvider value={props.placementScopes}>
                 <Box sx={{ display: 'flex', minWidth: 0, width: '100%', maxWidth: '100vw', overflowX: 'hidden' }}>
@@ -319,5 +326,20 @@ export default function Dashboard(props: DashboardProps) {
                 </Box>
             </AuthenticatedRuntimePlacementScopeProvider>
         </DashboardDetailsProvider>
+    )
+
+    // Hosted surfaces (applications runtime) mount Dashboard without an
+    // AppMainLayout ancestor — provide the template theme and inject the
+    // persisted appearance there. Standalone hosts already wrap Dashboard in
+    // AppMainLayout and inject the effective layout appearance themselves.
+    if (hostLayout) {
+        return dashboardContent
+    }
+
+    return (
+        <AppMainLayout>
+            <RuntimeAppearanceInjector appearance={layoutAppearance} />
+            {dashboardContent}
+        </AppMainLayout>
     )
 }

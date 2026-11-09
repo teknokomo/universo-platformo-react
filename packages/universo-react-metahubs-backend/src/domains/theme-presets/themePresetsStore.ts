@@ -155,11 +155,7 @@ const assertPresetVersion = (current: ThemePresetRecord, expectedVersion: number
     })
 }
 
-export async function listThemePresets(
-    executor: SqlQueryable,
-    metahubId: string,
-    includeArchived = false
-): Promise<ThemePresetRecord[]> {
+export async function listThemePresets(executor: SqlQueryable, metahubId: string, includeArchived = false): Promise<ThemePresetRecord[]> {
     return executor.query<ThemePresetRecord>(
         `
         SELECT ${THEME_PRESET_COLUMNS}
@@ -220,8 +216,12 @@ export async function findThemePresetUsageLayoutIds(
 ): Promise<string[]> {
     if (layoutSchemas.length === 0) return []
     const schemas = layoutSchemas.map((schema) => qSchemaTable(schema, '_mhb_layouts'))
+    // Branch rows carry two soft-delete flags: `_upl_deleted` (platform row
+    // lifecycle) and `_mhb_deleted` (branch deletion). A branch-deleted layout
+    // no longer uses the preset, so it must not block preset deletion.
     const unions = schemas.map(
-        (_, index) => `SELECT l.id FROM ${schemas[index]} l WHERE l.config->'appearance'->'preset'->>'id' = $1 AND l._upl_deleted = false`
+        (_, index) =>
+            `SELECT l.id FROM ${schemas[index]} l WHERE l.config->'appearance'->'preset'->>'id' = $1 AND l._upl_deleted = false AND l._mhb_deleted = false`
     )
     const rows = await executor.query<{ id: string }>(`SELECT id FROM (${unions.join(' UNION ALL ')}) usages`, [presetId])
     return rows.map((row) => row.id)

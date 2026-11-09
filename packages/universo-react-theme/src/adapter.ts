@@ -23,6 +23,8 @@ export interface ThemeMuiInput {
     headingScale: number
     /** Computed h1–h6 font sizes in px from `fontSize` and `headingScale`. */
     headingFontSizes: { h1: number; h2: number; h3: number; h4: number; h5: number; h6: number }
+    /** Font weights from `shared.typography.weights`, mapped to MUI's `fontWeightRegular`/`Medium`/`Bold` typography defaults. */
+    fontWeight: { regular: number; medium: number; bold: number }
     /** MUI `theme.spacing` unit in px (density already applied). */
     spacingUnit: number
     shape: { borderRadius: number; borderWidth: number }
@@ -60,7 +62,7 @@ const SHADOW_COLOR = 'hsla(220, 30%, 5%, OPACITY)'
 const SHADOW_GEOMETRY = '0px 4px 16px 0px, hsla(220, 25%, 10%, OPACITY) 0px 8px 16px -5px'
 
 const buildShadowRow = (opacity: number): string =>
-    `${SHADOW_COLOR.replace('OPACITY', String(opacity))} ${SHADOW_GEOMETRY.replaceAll('OPACITY', String(opacity))}`
+    `${SHADOW_COLOR.replace('OPACITY', String(opacity))} ${SHADOW_GEOMETRY.replace(/OPACITY/g, String(opacity))}`
 
 const SHADOW_SCALES: Record<ThemeTokens['shared']['shadows']['scale'], number[]> = {
     none: [],
@@ -92,6 +94,11 @@ export const themeTokensToMuiInput = (tokens: ThemeTokens): ThemeMuiInput => {
         fontSize: shared.typography.baseSize,
         headingScale: shared.typography.scale,
         headingFontSizes: computeHeadingFontSizes(shared.typography.baseSize, shared.typography.scale),
+        fontWeight: {
+            regular: shared.typography.weights.regular,
+            medium: shared.typography.weights.medium,
+            bold: shared.typography.weights.bold
+        },
         spacingUnit,
         shape: { borderRadius: shared.shape.borderRadius, borderWidth: shared.shape.borderWidth },
         shadows: buildShadows(shared.shadows.scale)

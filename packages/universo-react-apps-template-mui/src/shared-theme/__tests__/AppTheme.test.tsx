@@ -76,6 +76,18 @@ describe('AppTheme', () => {
         expect(vi.mocked(createTheme)).toHaveBeenCalledTimes(2)
     })
 
+    it('applies the token font weights to the MUI typography defaults', () => {
+        renderAppTheme(buildResolvedTokens(`sha256:${'c'.repeat(64)}`))
+        expect(vi.mocked(createTheme)).toHaveBeenCalledTimes(1)
+
+        // The adapter's fontWeight passthrough must reach MUI's top-level
+        // typography keys (previously `shared.typography.weights` was dropped).
+        const typographyArg = vi.mocked(createTheme).mock.calls[0][0]?.typography as Record<string, unknown>
+        expect(typographyArg.fontWeightRegular).toBe(400)
+        expect(typographyArg.fontWeightMedium).toBe(500)
+        expect(typographyArg.fontWeightBold).toBe(700)
+    })
+
     it('applies the runtime mode when no explicit user choice is persisted', () => {
         renderAppTheme(undefined, 'dark')
         expect(setModeMock).toHaveBeenCalledWith('dark')

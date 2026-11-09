@@ -4,6 +4,8 @@ Named **theme presets** (UI: «Оформление» / "Appearance") define the
 
 ## Presets and scopes
 
+![Theme presets dialog — built-in and scoped presets with provenance, archive/delete actions and explicit Close](../.gitbook/assets/theme-presets/theme-presets-preset-manager-dialog.png)
+
 | Kind                        | Storage                                                  | Editing                                                    | Addressing                        |
 | --------------------------- | -------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------- |
 | **File preset**             | `packages/universo-react-theme/src/presets/*.theme.json` | PR + rebuild (`FR-036` build validation, unique codenames) | codename, e.g. `universo-default` |
@@ -14,10 +16,12 @@ The built-in `universo-default` file preset mirrors the platform's base appearan
 
 ## Appearance in a layout
 
+![Theme tab on the layout details page — effective Universo Default with live preview and overrides](../.gitbook/assets/theme-presets/theme-presets-appearance-tab.png)
+
 Each layout's `config.appearance` stores:
 
 -   `mode` — `system | light | dark` default color mode. A visitor's own light/dark toggle (persisted `mui-mode`) overrides it.
-    -   **Legacy note:** the Berry-based platform shell still carries an old `isDarkMode` localStorage key (`universo-react-store` customization reducer). It is a leftover dual persistence from the previous shell — it does **not** participate in the appearance model. The effective precedence is: the visitor's `mui-mode` toggle → `appearance.mode` → `system`.
+    -   **Historical note:** the Berry-based platform shell previously stored an `isDarkMode` localStorage key (`universo-react-store` customization reducer). That key is superseded by the appearance model and is not part of it. The effective precedence is: the visitor's `mui-mode` toggle → `appearance.mode` → `system`.
 -   `preset` — `{ source: file | metahub | application, id, version }`.
 -   `overrides` — sparse token overrides; absent keys keep the preset value, `null` reverts to it.
 -   `resolved` — **server-owned** snapshot `{ hash: sha256:…, tokens }` recomputed at save/apply-latest. The client never merges tokens.

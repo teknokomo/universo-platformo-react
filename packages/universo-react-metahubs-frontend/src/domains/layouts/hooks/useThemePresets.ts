@@ -11,6 +11,22 @@ import type { ApplyLayoutAppearanceInput, CopyThemePresetInput, CreateThemePrese
 const APPEARANCE_MUTATION_KEY = ['theme-presets', 'appearance'] as const
 const PRESET_MUTATION_KEY = ['theme-presets', 'presets'] as const
 
+/** Query key for the theme-presets feature flag exposed through /auth/permissions. */
+export const THEME_PRESETS_FLAG_QUERY_KEY = ['auth', 'permissions', 'themePresets'] as const
+
+/**
+ * Server-side theme-presets feature flag (GET /auth/permissions →
+ * `themePresets.themePresetsEnabled`). `undefined` while loading or when the
+ * flag endpoint fails, so callers hide theme authoring until confirmed enabled.
+ */
+export function useThemePresetsFlag() {
+    return useQuery({
+        queryKey: THEME_PRESETS_FLAG_QUERY_KEY,
+        queryFn: themePresetsApi.fetchThemePresetsFlag,
+        staleTime: Infinity
+    })
+}
+
 const isVersionConflict = (error: unknown): boolean => {
     const apiError = error as { response?: { data?: { code?: string } }; code?: string }
     const code = apiError?.response?.data?.code ?? apiError?.code

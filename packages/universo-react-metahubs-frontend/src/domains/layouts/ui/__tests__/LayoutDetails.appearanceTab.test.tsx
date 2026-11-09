@@ -32,6 +32,12 @@ const themePresetHookMocks = vi.hoisted(() => ({
     useDeleteThemePreset: vi.fn()
 }))
 
+const themePresetApiMocks = vi.hoisted(() => ({
+    exportThemePreset: vi.fn(),
+    listThemePresets: vi.fn(),
+    fetchThemePresetsFlag: vi.fn()
+}))
+
 const idleMutation = { isPending: false, mutate: vi.fn(), mutateAsync: vi.fn(async () => ({})) }
 
 vi.mock('react-i18next', () => ({
@@ -78,10 +84,7 @@ vi.mock('../../api', () => ({
     ...layoutApiMocks
 }))
 
-vi.mock('../../api/themePresets', () => ({
-    exportThemePreset: vi.fn(),
-    listThemePresets: vi.fn()
-}))
+vi.mock('../../api/themePresets', () => themePresetApiMocks)
 
 vi.mock('../hooks/useThemePresets', () => themePresetHookMocks)
 
@@ -157,6 +160,8 @@ describe('LayoutDetails appearance tab', () => {
             isError: false,
             refetch: vi.fn()
         })
+        // Default mock state: the feature flag is confirmed enabled.
+        themePresetApiMocks.fetchThemePresetsFlag.mockResolvedValue(true)
         for (const hook of [
             'useApplyLayoutAppearance',
             'useResetLayoutAppearance',
@@ -194,6 +199,26 @@ describe('LayoutDetails appearance tab', () => {
         await user.click(screen.getByRole('tab', { name: 'Main' }))
 
         expect((await screen.findAllByText('No widgets in this zone yet.')).length).toBeGreaterThan(0)
+        expect(screen.queryByTestId('metahub-appearance-section')).not.toBeInTheDocument()
+    })
+
+    it('hides the Theme tab while the feature flag has not been confirmed', async () => {
+        // Never-resolving permissions request keeps the query in the loading state.
+        themePresetApiMocks.fetchThemePresetsFlag.mockImplementation(() => new Promise<boolean>(() => {}))
+        renderPage()
+
+        await screen.findAllByText('No widgets in this zone yet.')
+        expect(screen.queryByRole('tab', { name: 'Theme' })).not.toBeInTheDocument()
+        expect(screen.queryByTestId('metahub-appearance-section')).not.toBeInTheDocument()
+    })
+
+    it('hides the Theme tab and skips the appearance section when the feature flag is disabled', async () => {
+        themePresetApiMocks.fetchThemePresetsFlag.mockResolvedValue(false)
+        renderPage()
+
+        await screen.findAllByText('No widgets in this zone yet.')
+        expect(screen.queryByRole('tab', { name: 'Theme' })).not.toBeInTheDocument()
+        expect(screen.getByRole('tab', { name: 'Main' })).toBeInTheDocument()
         expect(screen.queryByTestId('metahub-appearance-section')).not.toBeInTheDocument()
     })
 })

@@ -13,6 +13,8 @@ export type {
     LayoutZoneSettingsDialogProps
 } from './LayoutZoneSettingsDialog'
 export { LayoutWidgetPresentationDialog, MarketingWidgetConfigDialog } from './MarketingWidgetConfigDialog'
+export { MarketingActionPolicySection } from './MarketingActionPolicySection'
+export type { MarketingActionPolicySectionProps, MarketingActionPolicyValues } from './MarketingActionPolicySection'
 export type {
     LayoutAuthoringAvailableWidgetItem,
     LayoutAuthoringDetailsProps,

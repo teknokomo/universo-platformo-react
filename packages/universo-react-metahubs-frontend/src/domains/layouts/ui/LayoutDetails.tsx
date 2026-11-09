@@ -41,8 +41,10 @@ import * as layoutsApi from '../api'
 import type { Metahub, MetahubLayout, MetahubLayoutZoneWidget } from '../../../types'
 import { getVLCString } from '../../../types'
 import DashboardNestedPlacements, { canMovePlacementToNestedSlot, countNestedPlacementDescendants } from './DashboardNestedPlacements'
+import { useThemePresetsFlag } from '../hooks/useThemePresets'
 import LayoutAppearanceSection from './LayoutAppearanceSection'
 import LayoutRuntimeSettingsPanel from './LayoutRuntimeSettingsPanel'
+import { MarketingActionPolicySection } from '@universo-react/template-mui'
 import LayoutWidgetEditorDialogs from './LayoutWidgetEditorDialogs'
 import {
     buildMarketingHeaderDialogSettings,
@@ -83,6 +85,11 @@ export default function LayoutDetails() {
     const [zoneSettingsError, setZoneSettingsError] = useState<string | null>(null)
     const [zoneSettingsSaving, setZoneSettingsSaving] = useState(false)
     const [detailsTab, setDetailsTab] = useState<'main' | 'appearance'>('main')
+    // Server-gated theme authoring (TZ §15.4): hidden until /auth/permissions
+    // confirms the feature flag, so the flag-off runtime never hits 404 routes.
+    const themePresetsFlagQuery = useThemePresetsFlag()
+    const themePresetsEnabled = themePresetsFlagQuery.data === true
+    const activeDetailsTab = themePresetsEnabled ? detailsTab : 'main'
 
     const layoutQuery = useQuery({
         queryKey: metahubId && layoutId ? metahubsQueryKeys.layoutDetail(metahubId, layoutId) : ['layout-empty'],
@@ -716,7 +723,7 @@ export default function LayoutDetails() {
                             {/* Shared-resources tab idiom: main authoring vs. appearance authoring. */}
                             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                                 <Tabs
-                                    value={detailsTab}
+                                    value={activeDetailsTab}
                                     onChange={(_, next: 'main' | 'appearance') => setDetailsTab(next)}
                                     variant='scrollable'
                                     scrollButtons='auto'
@@ -726,21 +733,23 @@ export default function LayoutDetails() {
                                         label={t('layouts.details.tabs.main', 'Main')}
                                         data-testid='metahub-layout-details-tab-main'
                                     />
-                                    <Tab
-                                        value='appearance'
-                                        label={t('layouts.details.tabs.appearance', 'Theme')}
-                                        data-testid='metahub-layout-details-tab-appearance'
-                                    />
+                                    {themePresetsEnabled && (
+                                        <Tab
+                                            value='appearance'
+                                            label={t('layouts.details.tabs.appearance', 'Theme')}
+                                            data-testid='metahub-layout-details-tab-appearance'
+                                        />
+                                    )}
                                 </Tabs>
                             </Box>
-                            {detailsTab === 'appearance' ? (
+                            {activeDetailsTab === 'appearance' ? (
                                 <LayoutAppearanceSection
                                     metahubId={metahubId}
                                     layoutId={layoutId}
                                     layout={layout}
                                     canManageLayouts={canManageLayouts}
                                 />
-                            ) : (
+                            ) : layout ? (
                                 <DndContext sensors={layoutDndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                                     <LayoutAuthoringDetails
                                         dragHint={t(
@@ -758,6 +767,24 @@ export default function LayoutDetails() {
                                         externalDndContext
                                         beforeZonesContent={
                                             <Stack spacing={2}>
+                                                {layout?.templateKey === 'marketing-page' && canManageLayouts ? (
+                                                    <MarketingActionPolicySection
+                                                        t={t}
+                                                        disabled={viewSettingsSaving || !canManageLayouts}
+                                                        values={{
+                                                            allowEmailActions: Boolean(layout?.config?.allowEmailActions ?? true),
+                                                            allowTelephoneActions: Boolean(layout?.config?.allowTelephoneActions ?? true),
+                                                            externalLinkTarget:
+                                                                (layout?.config?.externalLinkTarget as 'same-tab' | 'new-tab') ?? 'new-tab'
+                                                        }}
+                                                        onChange={(patch) => {
+                                                            setViewSettingsSaving(true)
+                                                            void persistLayoutConfig({ ...(layout?.config ?? {}), ...patch })
+                                                                .catch(notifyLayoutError)
+                                                                .finally(() => setViewSettingsSaving(false))
+                                                        }}
+                                                    />
+                                                ) : null}
                                                 <LayoutRuntimeSettingsPanel
                                                     t={t}
                                                     templateKey={layout?.templateKey}
@@ -789,7 +816,7 @@ export default function LayoutDetails() {
                                         }
                                     />
                                 </DndContext>
-                            )}
+                            ) : null}
                         </Stack>
                     )}
                 </Box>

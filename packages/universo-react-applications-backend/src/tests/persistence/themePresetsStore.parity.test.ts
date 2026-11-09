@@ -24,6 +24,9 @@ const METAHUBS_STORE_PATH = path.resolve(
  * Order matters: the most specific patterns are replaced first so a single
  * chain also covers the twins' error-message wording ("this metahub scope" vs
  * "this application scope", "per metahub" vs "per application").
+ *
+ * `_mhb_deleted` / `_app_deleted` are the same second soft-delete level
+ * (branch deletion vs application-scope deletion) under each twin's naming.
  */
 const normalizeTwinIdentifiers = (source: string): string =>
     source
@@ -32,6 +35,7 @@ const normalizeTwinIdentifiers = (source: string): string =>
         .replace(/metahubId/g, 'applicationId')
         .replace(/metahub/g, 'application')
         .replace(/_mhb_layouts/g, '_app_layouts')
+        .replace(/_mhb_deleted/g, '_app_deleted')
 
 /** Removes prose comments so documentation drift cannot mask (or fake) parity. */
 const stripComments = (source: string): string => source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^[ \t]*\/\/.*$/gm, ' ')
@@ -85,13 +89,20 @@ describe('themePresetsStore twin parity (metahubs <-> applications)', () => {
         expect(metahubsStatements).toHaveLength(10)
     })
 
+    /**
+     * Prettier splits or collapses a signature's parentheses depending on the
+     * twin's identifier length (`metahubId` vs `applicationId` shifts the line
+     * across the print width), so the raw whitespace-collapsed texts differ on
+     * paren-adjacent spacing while the contract is identical. Canonicalize
+     * that spacing away: the lockstep check compares the contract, not
+     * line-wrapping luck.
+     */
+    const canonicalizeContractText = (source: string): string =>
+        source.replace(/\s+/g, ' ').trim().replace(/\(\s/g, '(').replace(/\s\)/g, ')')
+
     it('keeps the whole store contract in lockstep after identifier normalization', () => {
-        const metahubsCanonical = normalizeTwinIdentifiers(stripComments(readStore(METAHUBS_STORE_PATH)))
-            .replace(/\s+/g, ' ')
-            .trim()
-        const applicationsCanonical = normalizeTwinIdentifiers(stripComments(readStore(APPLICATIONS_STORE_PATH)))
-            .replace(/\s+/g, ' ')
-            .trim()
+        const metahubsCanonical = canonicalizeContractText(normalizeTwinIdentifiers(stripComments(readStore(METAHUBS_STORE_PATH))))
+        const applicationsCanonical = canonicalizeContractText(normalizeTwinIdentifiers(stripComments(readStore(APPLICATIONS_STORE_PATH))))
 
         if (metahubsCanonical !== applicationsCanonical) {
             const left = Array.from(metahubsCanonical)

@@ -39,8 +39,23 @@ export interface ApplyLayoutAppearanceInput {
     expectedVersion: number
 }
 
+/** Server feature flag payload from GET /auth/permissions (TZ §15.4). */
+interface AuthPermissionsFlagPayload {
+    themePresets?: { themePresetsEnabled?: boolean }
+}
+
+/** Resolve the theme-presets feature flag from GET /auth/permissions (`themePresets.themePresetsEnabled`). */
+export const fetchThemePresetsFlag = async (): Promise<boolean> => {
+    const response = await apiClient.get<AuthPermissionsFlagPayload>('/auth/permissions')
+    return response.data?.themePresets?.themePresetsEnabled === true
+}
+
 export const listThemePresets = async (metahubId: string): Promise<ThemePresetListResult> => {
-    const response = await apiClient.get<ThemePresetListResult>(`/metahub/${metahubId}/theme-presets`)
+    // Archived presets are included so the manager dialog can Delete/Export/Copy
+    // them; selection surfaces disable archived entries via `preset.archived`.
+    const response = await apiClient.get<ThemePresetListResult>(`/metahub/${metahubId}/theme-presets`, {
+        params: { includeArchived: true }
+    })
     return response.data
 }
 

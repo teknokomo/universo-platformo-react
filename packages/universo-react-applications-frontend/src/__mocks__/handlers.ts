@@ -101,6 +101,22 @@ const mockAvailablePublications = [
  * MSW request handlers
  */
 export const handlers = [
+    // Auth permissions (theme-presets feature flag, TZ §15.4): default mock
+    // state is flag enabled so layout appearance authoring stays testable.
+    http.get(`${API_BASE_URL}/auth/permissions`, async () => {
+        await delay(10)
+        return HttpResponse.json({
+            permissions: [],
+            globalRoles: [],
+            isSuperuser: false,
+            hasAdminAccess: false,
+            hasAnyGlobalRole: false,
+            rolesMetadata: {},
+            config: { adminPanelEnabled: true, globalRolesEnabled: true, superuserEnabled: true },
+            themePresets: { themePresetsEnabled: true }
+        })
+    }),
+
     http.get(`${API_BASE_URL}/locales/content`, async () => {
         await delay(10)
         return HttpResponse.json(mockContentLocales)

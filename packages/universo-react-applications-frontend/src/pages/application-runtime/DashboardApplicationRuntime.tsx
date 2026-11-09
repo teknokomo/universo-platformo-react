@@ -15,6 +15,8 @@ import {
     CrudDialogs,
     RowActionsMenu,
     RuntimeWorkspacesPage,
+    AppMainLayout,
+    RuntimeAppearanceInjector,
     MessengerRuntimeShell,
     toMessengerZoneWidgets,
     toAuthenticatedRuntimePlacementScopes as toAppsRuntimePlacementScopes,
@@ -153,6 +155,14 @@ export const DashboardApplicationRuntime = ({
             effectiveLayout.layout.templateKey === 'dashboard'
                 ? (effectiveLayout.layout.config as Partial<DashboardLayoutConfig>)
                 : undefined,
+        [effectiveLayout.layout.config, effectiveLayout.layout.templateKey]
+    )
+    // Persisted messenger appearance (TZ §7); AppsDashboard injects the dashboard one itself.
+    const messengerAppearance = useMemo(
+        () =>
+            effectiveLayout.layout.templateKey === 'messenger-app'
+                ? (effectiveLayout.layout.config as Partial<DashboardLayoutConfig>)?.appearance ?? null
+                : null,
         [effectiveLayout.layout.config, effectiveLayout.layout.templateKey]
     )
     const layoutRuntimeBehavior = useMemo(
@@ -864,7 +874,13 @@ export const DashboardApplicationRuntime = ({
     }
 
     if (messengerZoneWidgets) {
-        return <MessengerRuntimeShell zones={messengerZoneWidgets} details={details} placementScopes={authenticatedPlacementScopes} />
+        // Mirror the standalone messenger branch: template theme + persisted appearance.
+        return (
+            <AppMainLayout>
+                <RuntimeAppearanceInjector appearance={messengerAppearance} />
+                <MessengerRuntimeShell zones={messengerZoneWidgets} details={details} placementScopes={authenticatedPlacementScopes} />
+            </AppMainLayout>
+        )
     }
 
     return (

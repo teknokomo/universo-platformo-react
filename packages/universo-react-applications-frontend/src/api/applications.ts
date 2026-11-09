@@ -700,7 +700,11 @@ export interface ApplyApplicationLayoutAppearanceInput {
 }
 
 export const listApplicationThemePresets = async (applicationId: string): Promise<ApplicationThemePresetListResult> => {
-    const response = await apiClient.get<ApplicationThemePresetListResult>(`/applications/${applicationId}/theme-presets`)
+    // Archived presets are included so the manager dialog can Delete/Export/Copy
+    // them; selection surfaces disable archived entries via `preset.archived`.
+    const response = await apiClient.get<ApplicationThemePresetListResult>(`/applications/${applicationId}/theme-presets`, {
+        params: { includeArchived: true }
+    })
     return response.data
 }
 

@@ -20,7 +20,7 @@ import {
 } from '@universo-react/types'
 import { findFileThemePreset } from '@universo-react/theme'
 import { resolveThemeAppearance, ThemeAppearanceResolveError } from '@universo-react/theme/resolve'
-import { getCodenamePrimary, validateSnapshotLayoutNeutralMetadata } from '@universo-react/utils'
+import { getCodenamePrimary, serialization, validateSnapshotLayoutNeutralMetadata } from '@universo-react/utils'
 import type { DbExecutor } from '@universo-react/utils/database'
 import type { MetahubSchemaService } from '../metahubs/services/MetahubSchemaService'
 import type { MetahubSnapshot } from '../publications/services/SnapshotSerializer'
@@ -317,8 +317,11 @@ const normalizeSnapshotLayoutConfig = (
  * config is server-authored materialization. After the strict config parse
  * (inside `normalizeSnapshotLayoutConfig`) re-validate it and, when the
  * referenced preset is resolvable server-side (file registry or the
- * same-metahub DB preset), recompute the resolved hash and fail the
- * publication on a mismatch — a tampered snapshot must never publish.
+ * same-metahub DB preset), recompute the resolved hash and the resolved
+ * tokens and fail the publication on either mismatch — a tampered snapshot
+ * must never publish. The tokens deep-compare closes the gap where a caller
+ * kept a valid `resolved.hash` but swapped `resolved.tokens`: the hash check
+ * alone would pass such a forgery.
  *
  * `preset.source === 'application'` is carried as data with NO re-check
  * (Pinned Decision 14: the metahubs side cannot resolve application-scoped
@@ -379,7 +382,7 @@ const verifySnapshotLayoutAppearances = async (options: {
         for (const row of rows ?? []) dbPresetTokensById.set(row.id, row.tokens)
     }
 
-    // Stage 3 — recompute each resolved hash against the stored draft.
+    // Stage 3 — recompute each resolved hash and tokens against the stored draft.
     for (const { layoutId, appearance } of appearances) {
         const { preset } = appearance
         const rawPresetTokens = preset.source === 'file' ? findFileThemePreset(preset.id)?.tokens : dbPresetTokensById.get(preset.id)
@@ -394,6 +397,12 @@ const verifySnapshotLayoutAppearances = async (options: {
             })
             if (resolved.hash !== appearance.resolved.hash) {
                 throwThemeAppearanceResolveFailed({ layoutId, presetId: preset.id, reason: 'resolved-hash-mismatch' })
+            }
+            // Publication integrity: the hash alone is not enough — a caller
+            // holding a valid hash could swap `resolved.tokens`. Deep-compare
+            // the recomputed tokens against the stored ones canonically.
+            if (serialization.stableStringify(resolved.tokens) !== serialization.stableStringify(appearance.resolved.tokens)) {
+                throwThemeAppearanceResolveFailed({ layoutId, presetId: preset.id, reason: 'resolved-tokens-mismatch' })
             }
         } catch (error) {
             if (error instanceof MetahubDomainError) throw error

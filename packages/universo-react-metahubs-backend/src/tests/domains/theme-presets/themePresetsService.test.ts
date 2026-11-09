@@ -3,7 +3,11 @@ import { THEME_PRESET_CODENAME_REGEX, themeTokensSchema } from '@universo-react/
 import { findFileThemePreset } from '@universo-react/theme'
 
 import { MetahubThemePresetsService } from '../../../domains/theme-presets/themePresetsService'
-import { ThemePresetCodenameConflictError, ThemePresetLimitReachedError } from '../../../domains/theme-presets/themePresetsStore'
+import {
+    ThemePresetCodenameConflictError,
+    ThemePresetLimitReachedError,
+    findThemePresetUsageLayoutIds
+} from '../../../domains/theme-presets/themePresetsStore'
 import type { MetahubSchemaService } from '../../../domains/metahubs/services/MetahubSchemaService'
 
 const preset = findFileThemePreset('universo-default')!
@@ -32,6 +36,20 @@ const createMockExecutor = (handlers: Record<string, QueryHandler>): DbExecutor 
 const createSchemaServiceStub = (schemaName = 'mhb_schema_x'): MetahubSchemaService =>
     ({ ensureSchema: jest.fn(async () => schemaName) } as unknown as MetahubSchemaService)
 
+/** Mock executor variant that records every SQL string it sees (including inside transactions). */
+const createSqlCapturingExecutor = (handlers: Record<string, QueryHandler>): { executor: DbExecutor; sqls: string[] } => {
+    const sqls: string[] = []
+    const base = createMockExecutor(handlers)
+    const executor = {
+        query: <T>(sql: string, params?: unknown[]): Promise<T[]> => {
+            sqls.push(sql)
+            return base.query<T>(sql, params)
+        },
+        transaction: async <T>(work: (tx: SqlQueryable) => Promise<T>): Promise<T> => work(executor as unknown as SqlQueryable)
+    }
+    return { executor: executor as unknown as DbExecutor, sqls }
+}
+
 const makePresetRecord = (overrides: Partial<Record<string, unknown>> = {}) => ({
     id: '0190a9b5-0000-7000-8000-000000000001',
     metahubId,
@@ -54,6 +72,11 @@ const GET_BY_ID = 'AND p.id = $2'
 const COUNT = 'COUNT(*)::int AS count'
 const INSERT = 'INSERT INTO metahubs.obj_theme_presets'
 const AUDIT = 'rel_theme_preset_audits'
+
+// Layout-appearance SQL needles (themePresetsService statements on _mhb_layouts).
+const UPDATE_APPEARANCE = 'SET config = jsonb_set'
+const RESET_APPEARANCE = "SET config = l.config - 'appearance'"
+const READ_APPEARANCE = "SELECT l.config->'appearance' AS appearance"
 
 describe('MetahubThemePresetsService.createPreset', () => {
     it('creates a preset, writes the audit row, and returns the record', async () => {
@@ -181,7 +204,7 @@ describe('MetahubThemePresetsService.copyPreset', () => {
         expect(auditWrites[0]?.[2]).toBe('theme_preset_copied')
     })
 
-it('records both id and codename origin when copying a DB preset (twin parity with applications)', async () => {
+    it('records both id and codename origin when copying a DB preset (twin parity with applications)', async () => {
         const insertParams: unknown[] | undefined = []
         const source = makePresetRecord({ codename: 'source-preset', version: 2 })
         const executor = createMockExecutor({
@@ -218,5 +241,76 @@ describe('MetahubThemePresetsService.exportPreset', () => {
         const rejection = service.exportPreset(metahubId, '0190a9b5-0000-7000-8000-000000000001', 'Not a Valid Codename!', userId)
         await expect(rejection).rejects.toThrow(/codename override must match the preset codename format/)
         await expect(rejection).rejects.toMatchObject({ statusCode: 400, code: 'THEME_PRESET_INVALID' })
+    })
+})
+
+describe('MetahubThemePresetsService layout appearance SQL soft-delete guards', () => {
+    // Branch layout rows carry two soft-delete flags: `_upl_deleted` (platform
+    // row lifecycle) and `_mhb_deleted` (branch deletion). Every appearance SQL
+    // path must exclude branch-deleted layouts alongside `_upl_deleted`
+    // (precedent: snapshotLayouts.ts reads layouts with both guards).
+    const layoutId = '0190a9b5-0000-7000-8000-000000000009'
+    // Canonical branch schema names — `qSchemaTable` rejects anything else.
+    const branchSchemaA = 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1'
+    const branchSchemaB = 'mhb_a1b2c3d4e5f67890abcdef1234567890_b2'
+    const appearanceDraft = {
+        mode: 'system' as const,
+        preset: { source: 'file' as const, id: preset.id, version: preset.version },
+        overrides: {}
+    }
+
+    const expectBothDeleteGuards = (sql: string | undefined): void => {
+        expect(sql).toBeDefined()
+        expect(sql).toContain('l._upl_deleted = false')
+        expect(sql).toContain('l._mhb_deleted = false')
+    }
+
+    it('updateLayoutAppearance refuses to write appearance into a branch-deleted layout', async () => {
+        const { executor, sqls } = createSqlCapturingExecutor({
+            [UPDATE_APPEARANCE]: () => [{ id: layoutId, version: 2 }],
+            [AUDIT]: () => [{ id: 'audit-1' }]
+        })
+        const service = new MetahubThemePresetsService(executor, createSchemaServiceStub(branchSchemaA))
+
+        await service.applyLayoutAppearance(metahubId, layoutId, { appearance: appearanceDraft, expectedVersion: 1 }, userId)
+
+        expectBothDeleteGuards(sqls.find((sql) => sql.includes(UPDATE_APPEARANCE)))
+    })
+
+    it('resetLayoutAppearance refuses to reset a branch-deleted layout', async () => {
+        const { executor, sqls } = createSqlCapturingExecutor({
+            [RESET_APPEARANCE]: () => [{ id: layoutId }],
+            [AUDIT]: () => [{ id: 'audit-1' }]
+        })
+        const service = new MetahubThemePresetsService(executor, createSchemaServiceStub(branchSchemaA))
+
+        await service.resetLayoutAppearance(metahubId, layoutId, 1, userId)
+
+        expectBothDeleteGuards(sqls.find((sql) => sql.includes(RESET_APPEARANCE)))
+    })
+
+    it('readLayoutAppearance does not read appearance from a branch-deleted layout', async () => {
+        const { executor, sqls } = createSqlCapturingExecutor({
+            [READ_APPEARANCE]: () => [{ appearance: { ...appearanceDraft } }],
+            [UPDATE_APPEARANCE]: () => [{ id: layoutId, version: 2 }],
+            [AUDIT]: () => [{ id: 'audit-1' }]
+        })
+        const service = new MetahubThemePresetsService(executor, createSchemaServiceStub(branchSchemaA))
+
+        await service.applyLatestLayoutAppearance(metahubId, layoutId, 1, userId)
+
+        expectBothDeleteGuards(sqls.find((sql) => sql.includes(READ_APPEARANCE)))
+    })
+
+    it('findThemePresetUsageLayoutIds scans only live branch layouts', async () => {
+        const { executor, sqls } = createSqlCapturingExecutor({})
+
+        const ids = await findThemePresetUsageLayoutIds(executor, [branchSchemaA, branchSchemaB], '0190a9b5-0000-7000-8000-000000000001')
+
+        expect(ids).toEqual([])
+        const scanSql = sqls[0]
+        expect(scanSql).toContain('UNION ALL')
+        expect(scanSql).toContain('l._upl_deleted = false AND l._mhb_deleted = false')
+        expect(scanSql.match(/l\._mhb_deleted = false/g)).toHaveLength(2)
     })
 })

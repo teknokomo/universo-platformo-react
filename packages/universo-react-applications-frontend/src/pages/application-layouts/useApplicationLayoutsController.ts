@@ -751,6 +751,7 @@ export const useApplicationLayoutsController = () => {
         applicationId,
         layoutId,
         t,
+        confirm,
         i18n,
         tc,
         navigate,

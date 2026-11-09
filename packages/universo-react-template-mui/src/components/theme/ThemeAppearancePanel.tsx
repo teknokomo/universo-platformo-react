@@ -15,7 +15,13 @@ import TextField from '@mui/material/TextField'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { useTranslation } from 'react-i18next'
-import { themeContrastIssues, themeTokensSchema, type ThemeAppearance, type ThemeAppearanceDraft } from '@universo-react/types'
+import {
+    themeContrastIssues,
+    themeTokensSchema,
+    type ThemeAppearance,
+    type ThemeAppearanceDraft,
+    type ThemeTokens
+} from '@universo-react/types'
 import { findFileThemePreset, mergeThemeTokens, resolveEffectiveThemeTokens, themeTokensToMuiInput } from '@universo-react/theme'
 
 import { DropdownSelect as Select } from '../dropdowns/DropdownSelect'
@@ -163,9 +169,18 @@ export function ThemeAppearancePanel({
     // overrides over the best locally known base and re-check WCAG pairs
     // before saving. This is never persisted — the PATCH body stays
     // `{ mode, preset, overrides }` and the server re-resolves + re-gates.
+    // Base-selection scope: the base is ONLY trustworthy when the exact tokens
+    // are known client-side — a file preset (findFileThemePreset) or the
+    // persisted preset itself (its resolved snapshot). For any other
+    // DB/metahub preset the selected tokens are unknown here, so the memo
+    // returns null instead of merging over the previously applied theme:
+    // activeIssues falls back to the persisted resolvedIssues and Save is
+    // never disabled on a base we cannot verify (the server 422 gate stays
+    // authoritative, TZ Appendix A #7). The preview likewise keeps showing
+    // the effective tokens rather than a wrong merge.
     const draftIssues = useMemo(() => {
         if (!draft) return null
-        let base = effectiveTokens
+        let base: ThemeTokens | null = null
         if (draft.preset.source === 'file') {
             const fileTokens = findFileThemePreset(draft.preset.id)?.tokens
             const parsed = fileTokens ? themeTokensSchema.safeParse(fileTokens) : null
@@ -520,7 +535,7 @@ export function ThemeAppearancePanel({
             </Stack>
 
             {disabled && (
-                <Typography variant='caption' color='text.secondary' data-testid={`${testIdPrefix}-readonly-hint`}>
+                <Typography variant='caption' sx={{ color: 'text.secondary' }} data-testid={`${testIdPrefix}-readonly-hint`}>
                     {t('readonly.hint')}
                 </Typography>
             )}

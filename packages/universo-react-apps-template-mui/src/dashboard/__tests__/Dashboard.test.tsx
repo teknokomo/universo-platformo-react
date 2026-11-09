@@ -5,6 +5,21 @@ import { Children, type ReactNode } from 'react'
 import Dashboard from '../Dashboard'
 import type { ZoneWidgetItem } from '../contracts'
 
+// Hosted shell passthrough: keep the real AppMainLayoutContext (Dashboard's
+// hosted/standalone switch reads it) but skip the themed AppTheme wrapper whose
+// CSS-variable spacing is not computed by happy-dom (style assertions below).
+vi.mock('../../layouts/AppMainLayout', async () => {
+    const actual = await vi.importActual<typeof import('../../layouts/AppMainLayout')>('../../layouts/AppMainLayout')
+    return {
+        ...actual,
+        default: ({ children }: { children?: ReactNode }) => <div>{children}</div>
+    }
+})
+
+vi.mock('../../layouts/RuntimeAppearanceInjector', () => ({
+    default: () => null
+}))
+
 vi.mock('../components/Header', () => ({
     default: ({ leading, actions }: { leading?: ReactNode; actions?: ReactNode }) => {
         const hasLeading = Children.toArray(leading).length > 0
