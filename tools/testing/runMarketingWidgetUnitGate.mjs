@@ -74,7 +74,7 @@ export const marketingWidgetUnitGateCommands = [
             'src/domains/layouts/ui/__tests__/useMarketingWidgetBindingRecordForm.test.tsx',
             'src/domains/layouts/ui/__tests__/LayoutDetails.inheritedWidgets.test.tsx',
             'src/domains/layouts/ui/__tests__/LayoutDetails.zoneSettingsConsumer.test.tsx',
-            'src/domains/layouts/ui/__tests__/LayoutRuntimeSettingsPanel.marketing.test.tsx',
+            'src/domains/layouts/ui/__tests__/LayoutRuntimeSettingsPanel.test.tsx',
             'src/domains/layouts/ui/__tests__/LayoutList.copyFlow.test.tsx',
             'src/domains/metahubs/api/__tests__/apiWrappers.test.ts',
             'src/domains/metahubs/hooks/__tests__/useMetahubDetails.cancellation.test.tsx',

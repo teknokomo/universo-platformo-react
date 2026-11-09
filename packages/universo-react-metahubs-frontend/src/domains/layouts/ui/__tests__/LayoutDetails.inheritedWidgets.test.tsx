@@ -47,6 +47,7 @@ vi.mock('@universo-react/template-mui', () => ({
     EDITABLE_SIDE_MENU_MODES: ['wide', 'compact', 'overlay'],
     ThemeAppearancePanel: () => null,
     ThemePresetManagerDialog: () => null,
+    MarketingActionPolicySection: () => null,
     safeInvalidateQueriesInactive: vi.fn(),
     TemplateMainCard: ({ children }: { children: ReactNode }) => <div>{children}</div>,
     ViewHeaderMUI: ({ children, title }: { children?: ReactNode; title?: string }) => (
