@@ -1369,23 +1369,14 @@ test('@flow @combined @cross-template @authoring covers localized layout CRUD, r
         expect((await zoneSettingResetResponse).ok()).toBe(true)
         await expect(customizedZoneSettingsDialog).toHaveCount(0)
 
-        // Theme tab: appearance section with the reset action (mode + presets).
+        // Theme tab: appearance section renders the effective universo-default
+        // backfill (no applied appearance in this fixture), so the reset stays
+        // disabled — nothing to reset yet.
         await page.getByTestId('application-layout-details-tab-appearance').click()
         const appearanceSection = page.getByTestId('application-appearance-section')
         await expect(appearanceSection).toBeVisible()
-        const resetButton = page.getByTestId('application-appearance-reset')
-        await expect(resetButton).toBeEnabled()
-        const resetResponsePromise = page.waitForResponse(
-            (response) =>
-                response.request().method() === 'POST' &&
-                new URL(response.url()).pathname ===
-                    `/api/v1/applications/${applicationId}/layouts/${fixture.globalLayout.id}/appearance/reset`,
-            { timeout: 60_000 }
-        )
-        await resetButton.click()
-        const resetResponse = await resetResponsePromise
-        expect(resetResponse.ok()).toBe(true)
         await expect(appearanceSection.getByRole('combobox', { name: 'Color mode', exact: true })).toHaveText('System')
+        await expect(page.getByTestId('application-appearance-reset')).toBeDisabled()
 
         // Main tab: marketing action-policy controls stay editable there.
         await page.getByTestId('application-layout-details-tab-main').click()
