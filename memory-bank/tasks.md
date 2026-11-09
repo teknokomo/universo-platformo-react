@@ -2100,3 +2100,11 @@ Behavioral parity of the applicationReadPolicy extraction (roles/default/SQL ide
 - [x] G6 Q4-T4: theme routes schema lookup reuses the fail-closed runtime-schema helper.
 - [x] G7 extras: normalizeApplicationLayoutReadRoles unit test; themePresetRefSchema negative tests; visual spec usage-caption pre-assert.
 - [x] G8 gates: backend/panel/types suites + lints + tsc (E2E не требуется — изменений UI/рантайма нет).
+
+## PR #930 review-response session — interim state (2026-11-09, paused)
+
+- [x] CI mui-v9 policy fix (Typography color → sx), workflow runners pinned to ubuntu-24.04, docs checks (SUMMARY, screenshots, stale term, Prettier), provenance refresh — pushed, CI build/check/verify green on these.
+- [x] Root cause of hosted marketing regression found and fixed: FE runtimeDto parsed the authenticated runtime payload with the AUTHORING marketingPageConfigSchema (requires preset/overrides in appearance) while the server now serves the public projection — switched rendererConfigSchema to marketingRuntimePageConfigSchema; generator spec green locally (2/2), docs verification green.
+- [x] Greptile fixes pushed (commit 210567a91): hosted appearance injection (Dashboard.tsx + DashboardApplicationRuntime messenger branch, host-context-aware), THEME_PRESETS_ENABLED flag gate (useThemePresetsFlag both frontends, tab hidden while loading/off), includeArchived=true for managers, metahubs _mhb_deleted guards (+applications _app_deleted mirror + parity canonicalization), snapshot tokens deep-compare, panel draft-contrast scope fix, adapter font-weights passthrough.
+- [ ] PENDING: P1-2 action-policy controls — MarketingActionPolicySection component created and exported; wired into applications ApplicationLayouts (Main tab, marketing-page, persist via handleActionPolicyChange) and metahubs LayoutDetails (Main tab); metahubs explicit template-mui mocks extended (inheritedWidgets + cacheInvalidation + interpretationNetworkWidgetEditor); applications confirm-misuse bug fixed (window.confirm with object → controller confirm exposed).
+- [ ] PENDING: run the two patched heavy LayoutDetails suites locally (cacheInvalidation, interpretationNetworkWidgetEditor — OOM-prone, run one at a time) and the full CI; commit mock patches (currently uncommitted: 2 test files + LayoutDetails guard).
