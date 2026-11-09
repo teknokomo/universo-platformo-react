@@ -1369,29 +1369,31 @@ test('@flow @combined @cross-template @authoring covers localized layout CRUD, r
         expect((await zoneSettingResetResponse).ok()).toBe(true)
         await expect(customizedZoneSettingsDialog).toHaveCount(0)
 
-        const appearancePanel = page.getByTestId('application-marketing-appearance-panel')
-        await expect(appearancePanel).toBeVisible()
-        const resetButton = page.getByTestId('application-marketing-appearance-reset')
+        // Theme tab: appearance section with the reset action (mode + presets).
+        await page.getByTestId('application-layout-details-tab-appearance').click()
+        const appearanceSection = page.getByTestId('application-appearance-section')
+        await expect(appearanceSection).toBeVisible()
+        const resetButton = page.getByTestId('application-appearance-reset')
         await expect(resetButton).toBeEnabled()
-        await resetButton.click()
-        const resetDialog = page.getByRole('dialog', { name: 'Restore marketing page defaults?', exact: true })
-        await expect(resetDialog).toBeVisible()
         const resetResponsePromise = page.waitForResponse(
             (response) =>
                 response.request().method() === 'POST' &&
                 new URL(response.url()).pathname ===
-                    `/api/v1/applications/${applicationId}/layouts/${fixture.globalLayout.id}/config/reset`,
+                    `/api/v1/applications/${applicationId}/layouts/${fixture.globalLayout.id}/appearance/reset`,
             { timeout: 60_000 }
         )
-        await resetDialog.getByRole('button', { name: 'Restore defaults', exact: true }).click()
+        await resetButton.click()
         const resetResponse = await resetResponsePromise
         expect(resetResponse.ok()).toBe(true)
-        await expect(appearancePanel.getByRole('combobox', { name: 'Theme mode', exact: true })).toHaveText('System')
-        await expect(appearancePanel.getByLabel('Primary color', { exact: true })).toHaveValue('')
-        await expect(appearancePanel.getByLabel('Accent color', { exact: true })).toHaveValue('')
-        await expect(appearancePanel.getByRole('switch', { name: 'Allow email actions', exact: true })).toBeChecked()
-        await expect(appearancePanel.getByRole('switch', { name: 'Allow telephone actions', exact: true })).toBeChecked()
-        await expect(appearancePanel.getByRole('combobox', { name: 'External link target', exact: true })).toHaveText('New tab')
+        await expect(appearanceSection.getByRole('combobox', { name: 'Color mode', exact: true })).toHaveText('System')
+
+        // Main tab: marketing action-policy controls stay editable there.
+        await page.getByTestId('application-layout-details-tab-main').click()
+        const actionPolicy = page.getByTestId('marketing-action-policy-section')
+        await expect(actionPolicy).toBeVisible()
+        await expect(actionPolicy.getByRole('switch', { name: 'Allow email actions', exact: true })).toBeChecked()
+        await expect(actionPolicy.getByRole('switch', { name: 'Allow telephone actions', exact: true })).toBeChecked()
+        await expect(actionPolicy.getByRole('combobox', { name: 'External link target', exact: true })).toHaveText('New tab')
         await expectNoTechnicalLeakage(page.locator('body'), { label: 'Application layout detail', checkUuidSubstrings: true })
         await expectNoPageHorizontalOverflow(page, 'Application layout detail')
         await waitForLayoutFrame(page)
