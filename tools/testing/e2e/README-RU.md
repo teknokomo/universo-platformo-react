@@ -335,6 +335,22 @@ pnpm run test:e2e:interpretation-network:verify:local-supabase
 
 Gate также выполняет контракт `runtime-ux-oracles.spec.ts` в проекте `en-light`. Каждый Playwright-прогон сохраняется в `tools/testing/e2e/.artifacts/interpretation-network-verification/<run-id>/<batch>/`; корневой `manifest.json` содержит команды, проекты, время выполнения, названия и статусы тестов, пути к отчётам и скриншотам, а также итоговый статус gate.
 
+### MMOOMM Economy Journey
+
+Экономический сценарий находится в `specs/flows/snapshot-import-mmoomm-app-economy.spec.ts` (`@flow @slow`). Он импортирует канонический MMOOMM-снимок с созданной генератором моделью экономики, открывает опубликованный runtime, проверяет выданное состояние при первом входе (баланс кошелька и однократный StarterGrant), выполняет сделки продажи/покупки через UI с проверками базы через `withE2eDatabaseClient`, проверяет сохранение состояния после перезагрузки и изоляцию кошельков второго пользователя, прогоняет негативную матрицу всех девяти кодов ошибок `ECONOMY_*` и проверяет идемпотентный повтор по базе.
+
+Запускайте его под тем же prelude локального Supabase, что и остальные MMOOMM gate:
+
+```bash
+pnpm supabase:e2e:start:minimal
+pnpm env:e2e:local-supabase
+pnpm doctor:e2e:local-supabase
+pnpm run build:e2e
+node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "imported MMOOMM app snapshot economy"
+```
+
+Стандартный runtime gate MMOOMM `test:e2e:mmoomm-app-runtime:local-supabase` фильтрует по `imported MMOOMM app snapshot`, что совпадает и с этой спецификацией, поэтому gate запускает экономический сценарий вместе с PlayCanvas-проверкой runtime. Сценарий зависит от экономики, созданной генератором `metahubs-mmoomm-app-export`; перегенерируйте канонический fixture через `test:e2e:mmoomm-app-fixture-generator:local-supabase` (с промоцией через `UPDATE_MMOOMM_APP_FIXTURE=1`) и никогда не правьте fixture вручную.
+
 ### Доступные генераторы
 
 | Генератор                                    | Канонический fixture полного gate для шести файлов                 | Описание                                                                                                                                                       |

@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import type { RecordsUnionDatasource, ReportFilter, RuntimeDatasourceFilter, RuntimeDatasourceSort } from '@universo-react/types'
 import {
+    economySummarySchema,
+    economyTradeResponseSchema,
     objectRecordBehaviorSchema,
     objectCollectionRuntimeViewConfigSchema,
     effectiveLayoutResultSchema as canonicalEffectiveLayoutResultSchema,
@@ -8,7 +10,9 @@ import {
     runtimePageBlockSchema,
     reportDefinitionSchema,
     workflowActionSchema,
-    readLocalizedTextValue
+    readLocalizedTextValue,
+    type EconomySummary,
+    type EconomyTradeResponse
 } from '@universo-react/types'
 import { runtimePlacementGraphSchema, runtimePlacementSchema, runtimeWidgetDataSchema } from '../dashboard/runtime/widgetPlacementGraph'
 import type { RuntimePlacement } from '../dashboard/runtime/widgetPlacementGraph'
@@ -20,7 +24,8 @@ import {
     extractErrorMessage,
     fetchWithCsrf,
     normalizeRuntimeLayoutTarget,
-    parseRuntimeResponse
+    parseRuntimeResponse,
+    throwAppsApiError
 } from './client'
 import { authenticatedMarketingPageRuntimePayloadSchema } from '../marketing-page/runtimeDto'
 import type { AuthenticatedMarketingPageRuntimePayload } from '../marketing-page/runtimeDto'
@@ -821,4 +826,66 @@ export async function exportRuntimeReportCsv(options: {
     }
 
     return res.blob()
+}
+
+/**
+ * Trade response shape (TZ §8.2) — validated against the shared
+ * `economyTradeResponseSchema` from @universo-react/types (same contract the
+ * backend service gate parses with).
+ */
+export type RuntimeEconomyTradeResponse = EconomyTradeResponse
+
+/**
+ * GET /applications/:applicationId/runtime/economy/summary (MMOOMM plan D1).
+ * Per-user economy state computed server-side; zod-validated against the
+ * shared `economySummarySchema` before it reaches the widget.
+ */
+export async function fetchRuntimeEconomySummary(apiBaseUrl: string, applicationId: string, signal?: AbortSignal): Promise<EconomySummary> {
+    const url = buildAppApiUrl(apiBaseUrl, applicationId, '/economy/summary')
+    const res = await fetch(url.toString(), { credentials: 'include', signal })
+    if (!res.ok) {
+        return throwAppsApiError(res, 'Economy summary API request failed')
+    }
+
+    const parsed = economySummarySchema.safeParse(await res.json())
+    if (!parsed.success) {
+        throw new Error('Economy summary API response validation failed')
+    }
+    return parsed.data
+}
+
+/**
+ * POST /applications/:applicationId/runtime/economy/sell|buy (MMOOMM plan D1).
+ * `idempotencyKey` (UUID v7) travels verbatim in the `Idempotency-Key` header
+ * via `fetchWithCsrf`, so TanStack Query retries of one logical click reuse it;
+ * callers rotate the key on the next click.
+ */
+export async function postEconomyTrade(
+    apiBaseUrl: string,
+    applicationId: string,
+    kind: 'sell' | 'buy',
+    body: { stationId?: string; nomenclatureCode: string; quantity: number },
+    idempotencyKey: string
+): Promise<RuntimeEconomyTradeResponse> {
+    const url = buildAppApiUrl(apiBaseUrl, applicationId, `/economy/${kind}`)
+    const res = await fetchWithCsrf(apiBaseUrl, url.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
+        body: JSON.stringify(body)
+    })
+    if (!res.ok) {
+        return throwAppsApiError(res, 'Economy trade API request failed')
+    }
+
+    let payload: unknown
+    try {
+        payload = await res.json()
+    } catch {
+        throw new Error('Economy trade API response validation failed')
+    }
+    const parsed = economyTradeResponseSchema.safeParse(payload)
+    if (!parsed.success) {
+        throw new Error('Economy trade API response validation failed')
+    }
+    return parsed.data
 }

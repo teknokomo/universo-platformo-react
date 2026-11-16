@@ -2,7 +2,7 @@ import type { Request, Response } from 'express'
 import { z } from 'zod'
 import type { DbExecutor } from '@universo-react/utils'
 import { createQueryHelper, ensureRuntimePermission, resolveRuntimeSchema, UpdateFailure, UUID_REGEX } from '../shared/runtimeHelpers'
-import { RuntimeLedgerService, type RuntimeLedgerProjectionResult } from '../services/runtimeLedgersService'
+import { RuntimeLedgerService, type RuntimeLedgerProjectionResult, type RuntimeLedgerReadScope } from '../services/runtimeLedgersService'
 
 const ledgerListQuerySchema = z.object({
     limit: z.coerce.number().int().positive().max(1000).optional(),
@@ -47,6 +47,17 @@ export function createRuntimeLedgersController(getDbExecutor: () => DbExecutor) 
     const query = createQueryHelper(getDbExecutor)
     const service = new RuntimeLedgerService()
 
+    // Phase H (plan D8): fact reads follow the runtime read convention
+    // (membership, no content permission) but are NEVER trusted to client
+    // filters — the service injects the requester's scope itself. Owner-only
+    // ledger entities get their owner column forced to ctx.userId; undeclared
+    // ledgers fall back to creator-scoped reads; `readReports` holders
+    // (application admins/owners) keep full-fact visibility.
+    const resolveReadScope = (ctx: { userId: string | null; permissions: Record<string, boolean> }): RuntimeLedgerReadScope => ({
+        userId: ctx.userId,
+        allowCrossUserRead: ctx.permissions.readReports === true
+    })
+
     const listLedgers = async (req: Request, res: Response) => {
         const applicationId = req.params.applicationId
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
@@ -80,6 +91,7 @@ export function createRuntimeLedgersController(getDbExecutor: () => DbExecutor) 
                 schemaName: ctx.schemaName,
                 ledgerId,
                 currentWorkspaceId: ctx.currentWorkspaceId,
+                readScope: resolveReadScope(ctx),
                 limit: parsed.data.limit,
                 offset: parsed.data.offset
             })
@@ -115,6 +127,7 @@ export function createRuntimeLedgersController(getDbExecutor: () => DbExecutor) 
                 ledgerId,
                 currentWorkspaceId: ctx.currentWorkspaceId,
                 projectionCodename: parsed.data.projectionCodename,
+                readScope: resolveReadScope(ctx),
                 filters: parsed.data.filters,
                 limit: parsed.data.limit,
                 offset: parsed.data.offset

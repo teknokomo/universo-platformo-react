@@ -4,43 +4,43 @@
 
 ## Current Execution Plan
 
-- [x] TH-01 `themePreset.ts` in `@universo-react/types`: token/appearance Zod schemas, limits, contrast pair checker; index export; Vitest suite.
-- [x] TH-02 `appearance` into the three strict template schemas; remove legacy marketing appearance fields; shrink `MARKETING_ONLY_LAYOUT_CONFIG_KEYS`; types tests.
-- [x] TH-03 `@universo-react/theme` package skeleton (tsdown dual build, vitest).
-- [x] TH-04 `src/schema.ts` file-preset envelope + `universo-default.theme.json` + registry with duplicate-codename guard.
-- [x] TH-05 `resolve.ts` pollution-guarded merge + canonical SHA-256 hash.
-- [x] TH-06 `validate.ts` contrast pair checker (errors 4.5:1 text, warnings 3:1 UI).
-- [x] TH-07 `createMuiThemeInput.ts` tokens → MUI theme input adapter.
-- [x] TH-08 theme package Vitest suite (registry/merge/hash/contrast/adapter).
-- [x] TH-09 Metahubs migration `1800000000290` (`obj_theme_presets` + `rel_theme_preset_audits`, RLS) + `systemAppDefinition.ts` + parity test.
-- [x] TH-10 Applications migration `1800000000350` (same) + parity test.
-- [x] TH-11 `metahubs-backend` themePresetsStore (limit 100, optimistic versioning, audit refs).
-- [x] TH-12 `applications-backend` themePresetsStore + audit store.
-- [x] TH-13 Store PostgreSQL integration tests — DONE: `themePresets.integration.test.ts` (5 tests: round-trip+audit, unique codename+savepoint listing, optimistic version, usage count+delete, anon RLS fail-closed) green against minimal Supabase; harness `run-applications-integration-local-supabase.mjs` 12/12 suites, 59/59 tests. Migration fixes surfaced by real-DB run: metahubs version renamed to `1800000000360` (global version uniqueness), CHECK constraints via idempotent DO-block (generator owns table shape), audit index on `_upl_created_at`, INSERT RETURNING without alias.
-- [x] TH-14 Metahubs theme-presets domain (routes/controller/service, FR-048 codename checks, export) + router flag gate.
-- [x] TH-15 Applications theme-presets domain (no cross-schema reads; controller error mapping).
-- [x] TH-16 Layout appearance PATCH/reset/apply-latest endpoints (both backends) with uuidV7 param validation and per-backend error mapping.
-- [x] TH-16b rest-docs routeSources + regenerated OpenAPI catalog.
-- [x] TH-17 Hash normalization (decodeLayoutForHash + normalizeLayout strip `resolved`) + publication integrity re-validation + tests.
-- [x] TH-18 Runtime projections (`toPublicConfig` appearance + universo-default backfill; publicMessengerRuntime; runtimeDto; themeVariant→mode; themeHash logs).
-- [x] TH-19 `isThemePresetsEnabled()` env flag + `/auth/permissions` config exposure.
-- [~] TH-20 Backend Jest suites — projection suite (4 tests) + applications service suite (5 tests: audit write, limit 409, FR-048, codename conflict, contrast gate) green; route/controller suites pending.
-- [x] TH-21 `AppTheme` resolvedTokens (hash-memoized) + `AppMainLayout` appearance + `setMode` + `xThemeComponents` memo; hosts extraction.
-- [x] TH-22 `InitColorSchemeScript` in shell HTMLs.
-- [x] TH-23 Runtime consumers (MarketingRuntimeContent, DashboardApp, messenger/public hosts).
-- [x] TH-24 apps-template-mui Vitest: RuntimeAppearanceInjector suite (3 tests: inject/reset/no-host) + runtimeDto appearance-contract tests (2 tests) — all green.
-- [x] TH-25 i18n `appearance` namespace EN/RU + checker/fallbackNS registration.
-- [x] TH-26 Shared `ThemeAppearancePanel`/`ThemePresetManagerDialog` in template-mui (Jest tests). DEVIATION (recorded 2026-11-08): `ThemePreview.tsx` was NOT built as a separate primitives canvas — the panel embeds an inline light/dark swatch preview (`preview-light`/`preview-dark` Papers + Save button swatch), owner-reviewed in browser evidence. Server enforces the contrast gate (422); the client alerts are advisory.
-- [x] TH-27 Metahubs integration: `LayoutAppearanceSection.tsx` + hooks/api; marketing branch removed. DEVIATION (owner 2026-11-06): appearance moved to the dedicated Main|Theme tab pair in `LayoutDetails.tsx` instead of `beforeZonesContent`.
-- [x] TH-28 Applications integration: `AppearanceSection.tsx` (incl. copy-to-application UI); `ApplicationMarketingAppearancePanel.tsx` deleted; api/hooks extended. Note: copy drops `base_preset_codename` origin (Pinned 14 detail) — tracked in FINAL QA backlog (QA-S7).
-- [~] TH-29 Component tests: panel default-selection suite + manager close-action + metahubs tab tests + applications reset/conflict tests done; contrast-blocks-save / manager CRUD / i18n snapshots added in R4.4 remediation (2026-11-08).
-- [ ] TH-30 Browser UX evidence pass.
-- [x] TH-31 Re-tokenization: customizations backgrounds now read `(theme.vars || theme).palette.background.paper` (surfaces/navigation/datePickers/charts); dead `getDesignTokens` removed from both themePrimitives files. Shadow literals in popper slots intentionally kept (match default scale; token-driven popper shadows = follow-up with visual verification).
-- [x] TH-32 E2E flow spec — DONE: `tools/testing/e2e/specs/flows/theme-presets.spec.ts` (metahub library listing, app-scope preset create+apply with resolved-hash, 409 stale, FR-048 guard, export attachment) — **2 passed** on minimal Supabase (publication-linked application flow, `syncApplicationSchema`, `requestApi`/`sendWithCsrf` session primitives, canonical `app_` schema for layout count). Fixes surfaced by real runs: RLS JWT context does not survive nested BEGIN on the request executor → appearance apply/reset/apply-latest run authorization + mutation on the request executor without a nested transaction (UPDATE is atomic by version).
-- [~] TH-33 Visual acceptance — DEFERRED: the speculative spec was removed (it screenshotted the wrong surface); meaningful visual acceptance of the appearance panel requires a prepared metahub + layout navigation flow and baseline generation on adequate hardware. Component tests + E2E flow cover the functionality; browser-evidence screenshots are the remaining follow-up.
-- [x] TH-34 Docs EN/RU (theme-presets.md, guides, marketing/messenger templates, package README, AGENTS.md correction).
-- [x] TH-35 Full verification gate — DONE (with recorded residuals): types 344/344, theme 12/12, utils 458/458, apps-template-mui marketing+layouts 71/71, applications-frontend touched suites 62/62 (coverage-off), template-mui 8/8 incl. the DropdownImportBoundary (fixed the two pre-existing MUI Select violations in ApplicationShortLinksSections/MessengerBindingFormDialog), both parity suites green, both backends tsc clean, mui-v9-policy 12/0, i18n-coverage 7/0, integration harness 12/12 (59/59), E2E flow 2 passed, full `build:e2e` 37 packages OK. OntoIndex verify_diff run: the changed-file set matches the plan's affected areas exactly (FAIL status is the expected-files-not-provided artifact; zero unexpected symbols). Thermos/autoreview deferred to the QA session. Full `build:e2e` (37 packages) passed after all frontend edits. (unit/integration/E2E/regression/policy/autoreview/OntoIndex).
-- [x] FINAL reconciliation — progress.md entry added; TH-27/28 reconciled 2026-11-08.
+-   [x] TH-01 `themePreset.ts` in `@universo-react/types`: token/appearance Zod schemas, limits, contrast pair checker; index export; Vitest suite.
+-   [x] TH-02 `appearance` into the three strict template schemas; remove legacy marketing appearance fields; shrink `MARKETING_ONLY_LAYOUT_CONFIG_KEYS`; types tests.
+-   [x] TH-03 `@universo-react/theme` package skeleton (tsdown dual build, vitest).
+-   [x] TH-04 `src/schema.ts` file-preset envelope + `universo-default.theme.json` + registry with duplicate-codename guard.
+-   [x] TH-05 `resolve.ts` pollution-guarded merge + canonical SHA-256 hash.
+-   [x] TH-06 `validate.ts` contrast pair checker (errors 4.5:1 text, warnings 3:1 UI).
+-   [x] TH-07 `createMuiThemeInput.ts` tokens → MUI theme input adapter.
+-   [x] TH-08 theme package Vitest suite (registry/merge/hash/contrast/adapter).
+-   [x] TH-09 Metahubs migration `1800000000290` (`obj_theme_presets` + `rel_theme_preset_audits`, RLS) + `systemAppDefinition.ts` + parity test.
+-   [x] TH-10 Applications migration `1800000000350` (same) + parity test.
+-   [x] TH-11 `metahubs-backend` themePresetsStore (limit 100, optimistic versioning, audit refs).
+-   [x] TH-12 `applications-backend` themePresetsStore + audit store.
+-   [x] TH-13 Store PostgreSQL integration tests — DONE: `themePresets.integration.test.ts` (5 tests: round-trip+audit, unique codename+savepoint listing, optimistic version, usage count+delete, anon RLS fail-closed) green against minimal Supabase; harness `run-applications-integration-local-supabase.mjs` 12/12 suites, 59/59 tests. Migration fixes surfaced by real-DB run: metahubs version renamed to `1800000000360` (global version uniqueness), CHECK constraints via idempotent DO-block (generator owns table shape), audit index on `_upl_created_at`, INSERT RETURNING without alias.
+-   [x] TH-14 Metahubs theme-presets domain (routes/controller/service, FR-048 codename checks, export) + router flag gate.
+-   [x] TH-15 Applications theme-presets domain (no cross-schema reads; controller error mapping).
+-   [x] TH-16 Layout appearance PATCH/reset/apply-latest endpoints (both backends) with uuidV7 param validation and per-backend error mapping.
+-   [x] TH-16b rest-docs routeSources + regenerated OpenAPI catalog.
+-   [x] TH-17 Hash normalization (decodeLayoutForHash + normalizeLayout strip `resolved`) + publication integrity re-validation + tests.
+-   [x] TH-18 Runtime projections (`toPublicConfig` appearance + universo-default backfill; publicMessengerRuntime; runtimeDto; themeVariant→mode; themeHash logs).
+-   [x] TH-19 `isThemePresetsEnabled()` env flag + `/auth/permissions` config exposure.
+-   [~] TH-20 Backend Jest suites — projection suite (4 tests) + applications service suite (5 tests: audit write, limit 409, FR-048, codename conflict, contrast gate) green; route/controller suites pending.
+-   [x] TH-21 `AppTheme` resolvedTokens (hash-memoized) + `AppMainLayout` appearance + `setMode` + `xThemeComponents` memo; hosts extraction.
+-   [x] TH-22 `InitColorSchemeScript` in shell HTMLs.
+-   [x] TH-23 Runtime consumers (MarketingRuntimeContent, DashboardApp, messenger/public hosts).
+-   [x] TH-24 apps-template-mui Vitest: RuntimeAppearanceInjector suite (3 tests: inject/reset/no-host) + runtimeDto appearance-contract tests (2 tests) — all green.
+-   [x] TH-25 i18n `appearance` namespace EN/RU + checker/fallbackNS registration.
+-   [x] TH-26 Shared `ThemeAppearancePanel`/`ThemePresetManagerDialog` in template-mui (Jest tests). DEVIATION (recorded 2026-11-08): `ThemePreview.tsx` was NOT built as a separate primitives canvas — the panel embeds an inline light/dark swatch preview (`preview-light`/`preview-dark` Papers + Save button swatch), owner-reviewed in browser evidence. Server enforces the contrast gate (422); the client alerts are advisory.
+-   [x] TH-27 Metahubs integration: `LayoutAppearanceSection.tsx` + hooks/api; marketing branch removed. DEVIATION (owner 2026-11-06): appearance moved to the dedicated Main|Theme tab pair in `LayoutDetails.tsx` instead of `beforeZonesContent`.
+-   [x] TH-28 Applications integration: `AppearanceSection.tsx` (incl. copy-to-application UI); `ApplicationMarketingAppearancePanel.tsx` deleted; api/hooks extended. Note: copy drops `base_preset_codename` origin (Pinned 14 detail) — tracked in FINAL QA backlog (QA-S7).
+-   [~] TH-29 Component tests: panel default-selection suite + manager close-action + metahubs tab tests + applications reset/conflict tests done; contrast-blocks-save / manager CRUD / i18n snapshots added in R4.4 remediation (2026-11-08).
+-   [ ] TH-30 Browser UX evidence pass.
+-   [x] TH-31 Re-tokenization: customizations backgrounds now read `(theme.vars || theme).palette.background.paper` (surfaces/navigation/datePickers/charts); dead `getDesignTokens` removed from both themePrimitives files. Shadow literals in popper slots intentionally kept (match default scale; token-driven popper shadows = follow-up with visual verification).
+-   [x] TH-32 E2E flow spec — DONE: `tools/testing/e2e/specs/flows/theme-presets.spec.ts` (metahub library listing, app-scope preset create+apply with resolved-hash, 409 stale, FR-048 guard, export attachment) — **2 passed** on minimal Supabase (publication-linked application flow, `syncApplicationSchema`, `requestApi`/`sendWithCsrf` session primitives, canonical `app_` schema for layout count). Fixes surfaced by real runs: RLS JWT context does not survive nested BEGIN on the request executor → appearance apply/reset/apply-latest run authorization + mutation on the request executor without a nested transaction (UPDATE is atomic by version).
+-   [~] TH-33 Visual acceptance — DEFERRED: the speculative spec was removed (it screenshotted the wrong surface); meaningful visual acceptance of the appearance panel requires a prepared metahub + layout navigation flow and baseline generation on adequate hardware. Component tests + E2E flow cover the functionality; browser-evidence screenshots are the remaining follow-up.
+-   [x] TH-34 Docs EN/RU (theme-presets.md, guides, marketing/messenger templates, package README, AGENTS.md correction).
+-   [x] TH-35 Full verification gate — DONE (with recorded residuals): types 344/344, theme 12/12, utils 458/458, apps-template-mui marketing+layouts 71/71, applications-frontend touched suites 62/62 (coverage-off), template-mui 8/8 incl. the DropdownImportBoundary (fixed the two pre-existing MUI Select violations in ApplicationShortLinksSections/MessengerBindingFormDialog), both parity suites green, both backends tsc clean, mui-v9-policy 12/0, i18n-coverage 7/0, integration harness 12/12 (59/59), E2E flow 2 passed, full `build:e2e` 37 packages OK. OntoIndex verify_diff run: the changed-file set matches the plan's affected areas exactly (FAIL status is the expected-files-not-provided artifact; zero unexpected symbols). Thermos/autoreview deferred to the QA session. Full `build:e2e` (37 packages) passed after all frontend edits. (unit/integration/E2E/regression/policy/autoreview/OntoIndex).
+-   [x] FINAL reconciliation — progress.md entry added; TH-27/28 reconciled 2026-11-08.
 
 ---
 
@@ -1839,7 +1839,6 @@ All MSG-FIX-01…MSG-FIX-10 remediation items are implemented and verified. The 
 
 The final resumed gate supersedes the earlier 50-test count above: workspace build passed 36/36 tasks, PostgreSQL integration passed 11 suites / 53 tests, the Messenger runtime Playwright flow passed 2/2, fixture generator passed 2/2, fixture contract passed 15/15, management browser flow passed 2/2, and the runtime UX oracle passed 9/9. English desktop and Russian mobile visual baselines were inspected. Scoped Prettier, package lint, and `git diff --check` passed. Actual Telegram/MAX client acceptance remains INCOMPLETE; the Autoreview and dirty OntoIndex limitations are recorded as unavailable, never PASS.
 
-
 ---
 
 # Theme Presets — QA FINDINGS (2026-11-04, pre-merge gate)
@@ -1848,102 +1847,102 @@ The final resumed gate supersedes the earlier 50-test count above: workspace bui
 
 ## Must-fix before merge (HIGH) — ALL FIXED 2026-11-04, verified by second QA gate (verify agent + compliance sweep + 159/159 + 92/92 + 12/12 harness + E2E 2/2)
 
-- [x] QA-H1 Built-in `marketing-page.template.ts:923-926` still seeds `themeMode: 'system'` into layout config → strict schema now rejects it at publication/runtime (`snapshotLayouts.ts:303`, `effectiveLayoutResolverCore.ts:227`); metahubs `snapshotLayouts.test.ts` proves the rejection. Remove from the seed (fresh-DB lockstep).
-- [x] QA-H2 FIXED in BOTH stores: pre-read existence + version assert (`assertPresetVersion` → OptimisticLockError) added before UPDATE in update/archive/delete; metahubs routes wrap to `THEME_PRESET_VERSION_CONFLICT`; applications routes map `OptimisticLockError` → 409 in `toErrorBody`. (The compliance agent initially reported applications NOT FIXED — this was stale; the fix is confirmed by the verify agent's metahubs entry and by direct code inspection.)
-- [x] QA-H3 Contrast blocking errors NOT enforced on the appearance apply path — `resolveAppearanceDraft` (both services) never calls `themeContrastIssues`; PATCH can persist WCAG-failing tokens. Add the 422 gate in both services.
-- [ ] QA-M17 13 test files still use removed `themeMode` fixtures → 9+ failing tests in 4 applications suites + metahubs `snapshotLayouts.test.ts` (1) + `marketingWidgetEntityBinding.test.ts` (suite fails at module load). Update fixtures to the appearance contract.
+-   [x] QA-H1 Built-in `marketing-page.template.ts:923-926` still seeds `themeMode: 'system'` into layout config → strict schema now rejects it at publication/runtime (`snapshotLayouts.ts:303`, `effectiveLayoutResolverCore.ts:227`); metahubs `snapshotLayouts.test.ts` proves the rejection. Remove from the seed (fresh-DB lockstep).
+-   [x] QA-H2 FIXED in BOTH stores: pre-read existence + version assert (`assertPresetVersion` → OptimisticLockError) added before UPDATE in update/archive/delete; metahubs routes wrap to `THEME_PRESET_VERSION_CONFLICT`; applications routes map `OptimisticLockError` → 409 in `toErrorBody`. (The compliance agent initially reported applications NOT FIXED — this was stale; the fix is confirmed by the verify agent's metahubs entry and by direct code inspection.)
+-   [x] QA-H3 Contrast blocking errors NOT enforced on the appearance apply path — `resolveAppearanceDraft` (both services) never calls `themeContrastIssues`; PATCH can persist WCAG-failing tokens. Add the 422 gate in both services.
+-   [ ] QA-M17 13 test files still use removed `themeMode` fixtures → 9+ failing tests in 4 applications suites + metahubs `snapshotLayouts.test.ts` (1) + `marketingWidgetEntityBinding.test.ts` (suite fails at module load). Update fixtures to the appearance contract.
 
 ## Should-fix (contract-visible, MEDIUM) — M1/M2/M3/M5/M6/M8/M9/M10/M12/M13/M15/M16 FIXED 2026-11-04; M4/M7/M11/M14 deferred with rationale
 
-- [ ] QA-M1 Copy produces `name = {}` — "(copy)" naming reads `name` from tokens (never present); copy from the preset record/envelope instead.
-- [x] QA-M2 Export writes no audit row (FR-051/FR-053) — add `theme_preset_exported` in both backends.
-- [x] QA-M3 Export `?codename=` override never checked against file-preset codenames (FR-048 half-done).
-- [~] QA-M4 Panel contrast computed on the saved snapshot, not the draft; save not disabled on draft errors; `.parse` in render can crash the panel (use safeParse + error state).
-- [x] QA-M5 Delete-in-use: emit `THEME_PRESET_IN_USE` (not `RECORD_REFERENCED`) and include the usage list; frontend `useThemePresets.ts:225`/`AppearanceSection.tsx:242` already listen for it.
-- [x] QA-M6 Applications `toErrorBody` drops code/details for store-typed errors (`ThemePresetNotFoundError`/`CodenameConflict`/`LimitReached` are plain Error subclasses) — map them explicitly.
-- [~] QA-M7 Applications theme-preset reads hardcoded `['owner','admin']` instead of the layouts configurable read-policy (Pinned 13).
-- [x] QA-M8 64 KiB cap not enforced in code — `assertThemeTokensWithinLimit` has zero callers; call it in create/update (DB CHECK is the backstop).
-- [x] QA-M9 Anonymous runtime payload leaks `appearance.preset.id` — strip to `{ mode, hash, tokens }` per TH-18/TZ §11.4; also extend public messenger + dashboard projections (currently no appearance at all — FR-033/034 partial).
-- [x] QA-M10 `/auth/permissions` flag exposure NOT wired — `getThemePresetsConfig()` has zero consumers; wire into `permissionService.ts` config payload; frontend flag gate absent. (Corrects the false progress.md claim.)
-- [~] QA-M11 Public messenger lacks universo-default backfill and themeVariant→mode override.
-- [x] QA-M12 Applications migration DO-block adds duplicate CHECK constraints (names mismatch `app_theme_presets_*` vs checked `theme_presets_*`) — align names so the block is a no-op.
-- [x] QA-M13 Metahubs routes don't validate `:metahubId` with uuidV7Schema (pre-existing domain pattern; plan required it here).
-- [~] QA-M14 apply/reset/apply-latest audit rows written outside the mutation transaction (metahubs reset uses a transaction but audits outside).
-- [x] QA-M15 updatePreset audit `changedFields` omits `description`.
-- [x] QA-M16 Delete usage-check TOCTOU (count outside the delete transaction).
-- [ ] QA-M17→ covered above.
+-   [ ] QA-M1 Copy produces `name = {}` — "(copy)" naming reads `name` from tokens (never present); copy from the preset record/envelope instead.
+-   [x] QA-M2 Export writes no audit row (FR-051/FR-053) — add `theme_preset_exported` in both backends.
+-   [x] QA-M3 Export `?codename=` override never checked against file-preset codenames (FR-048 half-done).
+-   [~] QA-M4 Panel contrast computed on the saved snapshot, not the draft; save not disabled on draft errors; `.parse` in render can crash the panel (use safeParse + error state).
+-   [x] QA-M5 Delete-in-use: emit `THEME_PRESET_IN_USE` (not `RECORD_REFERENCED`) and include the usage list; frontend `useThemePresets.ts:225`/`AppearanceSection.tsx:242` already listen for it.
+-   [x] QA-M6 Applications `toErrorBody` drops code/details for store-typed errors (`ThemePresetNotFoundError`/`CodenameConflict`/`LimitReached` are plain Error subclasses) — map them explicitly.
+-   [~] QA-M7 Applications theme-preset reads hardcoded `['owner','admin']` instead of the layouts configurable read-policy (Pinned 13).
+-   [x] QA-M8 64 KiB cap not enforced in code — `assertThemeTokensWithinLimit` has zero callers; call it in create/update (DB CHECK is the backstop).
+-   [x] QA-M9 Anonymous runtime payload leaks `appearance.preset.id` — strip to `{ mode, hash, tokens }` per TH-18/TZ §11.4; also extend public messenger + dashboard projections (currently no appearance at all — FR-033/034 partial).
+-   [x] QA-M10 `/auth/permissions` flag exposure NOT wired — `getThemePresetsConfig()` has zero consumers; wire into `permissionService.ts` config payload; frontend flag gate absent. (Corrects the false progress.md claim.)
+-   [~] QA-M11 Public messenger lacks universo-default backfill and themeVariant→mode override.
+-   [x] QA-M12 Applications migration DO-block adds duplicate CHECK constraints (names mismatch `app_theme_presets_*` vs checked `theme_presets_*`) — align names so the block is a no-op.
+-   [x] QA-M13 Metahubs routes don't validate `:metahubId` with uuidV7Schema (pre-existing domain pattern; plan required it here).
+-   [~] QA-M14 apply/reset/apply-latest audit rows written outside the mutation transaction (metahubs reset uses a transaction but audits outside).
+-   [x] QA-M15 updatePreset audit `changedFields` omits `description`.
+-   [x] QA-M16 Delete usage-check TOCTOU (count outside the delete transaction).
+-   [ ] QA-M17→ covered above.
 
 ## Low / cleanup — L1/L10 fixed; L2/L3/L4/L5/L6/L8/L9 tracked
 
-- [x] QA-L1 Remove leftover `zz-import-probe.test.ts` (metahubs-frontend `__tests__`).
-- [ ] QA-L2 `mapDatabaseVersionConflict` fabricates entityType 'layout'/zero versions (both stores).
-- [ ] QA-L3 `updateLayoutAppearance` binds unused $1; `getLayoutSchemaName` silent fallback to 'applications'.
-- [~] QA-L4 Manager dialog `.description.en` only; `preset.usage` lacks pluralization; contrast pair names rendered raw.
-- [~] QA-L5 listPresets N+1 usage scans (bounded by 100/scope).
-- [~] QA-L6 Dead legacy props `primaryColor/accentColor` on AppTheme/AppMainLayout (no callers) — remove per no-legacy contract.
-- [ ] QA-L7 copyPreset accepts archived presets; delete audit `presetId: null`.
-- [ ] QA-L8 `runtimeMarketingPageController.ts:288` themeVariant cast — validate via the parsed target instead.
-- [ ] QA-L9 `ThemeModeSynchronizer` hardcodes `mui-mode` (fine today; keep in sync with MUI defaults).
-- [x] QA-L10 Docs: fix "register nothing" claim (registry is an explicit import list); add appearance sections to guides/marketing/messenger docs; FR-056 `.en`-only labels; TH-17 hash tests + publication integrity re-validation in `snapshotLayouts.ts` still absent; TH-26 `ThemePreview` component absent; TH-29 panel Jest tests absent; error-code normalization (409 code, 422 resolve-failed code).
+-   [x] QA-L1 Remove leftover `zz-import-probe.test.ts` (metahubs-frontend `__tests__`).
+-   [ ] QA-L2 `mapDatabaseVersionConflict` fabricates entityType 'layout'/zero versions (both stores).
+-   [ ] QA-L3 `updateLayoutAppearance` binds unused $1; `getLayoutSchemaName` silent fallback to 'applications'.
+-   [~] QA-L4 Manager dialog `.description.en` only; `preset.usage` lacks pluralization; contrast pair names rendered raw.
+-   [~] QA-L5 listPresets N+1 usage scans (bounded by 100/scope).
+-   [~] QA-L6 Dead legacy props `primaryColor/accentColor` on AppTheme/AppMainLayout (no callers) — remove per no-legacy contract.
+-   [ ] QA-L7 copyPreset accepts archived presets; delete audit `presetId: null`.
+-   [ ] QA-L8 `runtimeMarketingPageController.ts:288` themeVariant cast — validate via the parsed target instead.
+-   [ ] QA-L9 `ThemeModeSynchronizer` hardcodes `mui-mode` (fine today; keep in sync with MUI defaults).
+-   [x] QA-L10 Docs: fix "register nothing" claim (registry is an explicit import list); add appearance sections to guides/marketing/messenger docs; FR-056 `.en`-only labels; TH-17 hash tests + publication integrity re-validation in `snapshotLayouts.ts` still absent; TH-26 `ThemePreview` component absent; TH-29 panel Jest tests absent; error-code normalization (409 code, 422 resolve-failed code).
 
 ## Layout card grid adaptive fix — IMPLEMENT (2026-11-06)
 
-- [x] User report: layout cards on metahub "Layouts" and application "Layouts" pages split the screen in half instead of packing left. Root cause: `repeat(auto-fit, minmax(...))` collapses empty tracks, so with 2 items each remaining `1fr` track stretches to half the container while `ItemCard` (max-width 360) floats inside it, leaving a large gap.
-- [x] Fix: `auto-fit` → `auto-fill` in `LayoutAuthoringList.tsx` card grid (template-mui) — matches the existing `SkeletonGrid` default (`auto-fill`), so loading and loaded states now build the same grid and no longer jump.
-- [x] Same fix applied to `ThemePresetManagerDialog.tsx` GRID_TEMPLATE (template-mui) and `MessengerBindingsPanel.tsx` binding-card grid (applications-frontend). `ThemeAppearancePanel` override color fields keep `auto-fit` intentionally — form controls SHOULD share the row evenly.
-- [x] Test infra: added TextEncoder/TextDecoder polyfill to template-mui `src/setupTests.ts` — react-router 7.18.2 instantiates `new TextEncoder()` at module scope and jsdom does not define it, which failed every suite importing `FlowListTable`.
-- [x] Verification: template-mui jest 362/362 (one contention timeout in DynamicEntityFormDialog passes in isolation 27/27); applications-frontend vitest 436/436 (one contention failure in ApplicationList passes in isolation 30/30); MessengerBindingsPanel 15/15; both packages lint clean.
-- [ ] Browser UX evidence (screenshots at card/list modes, no page-level horizontal overflow) — pending user-run dev server.
+-   [x] User report: layout cards on metahub "Layouts" and application "Layouts" pages split the screen in half instead of packing left. Root cause: `repeat(auto-fit, minmax(...))` collapses empty tracks, so with 2 items each remaining `1fr` track stretches to half the container while `ItemCard` (max-width 360) floats inside it, leaving a large gap.
+-   [x] Fix: `auto-fit` → `auto-fill` in `LayoutAuthoringList.tsx` card grid (template-mui) — matches the existing `SkeletonGrid` default (`auto-fill`), so loading and loaded states now build the same grid and no longer jump.
+-   [x] Same fix applied to `ThemePresetManagerDialog.tsx` GRID_TEMPLATE (template-mui) and `MessengerBindingsPanel.tsx` binding-card grid (applications-frontend). `ThemeAppearancePanel` override color fields keep `auto-fit` intentionally — form controls SHOULD share the row evenly.
+-   [x] Test infra: added TextEncoder/TextDecoder polyfill to template-mui `src/setupTests.ts` — react-router 7.18.2 instantiates `new TextEncoder()` at module scope and jsdom does not define it, which failed every suite importing `FlowListTable`.
+-   [x] Verification: template-mui jest 362/362 (one contention timeout in DynamicEntityFormDialog passes in isolation 27/27); applications-frontend vitest 436/436 (one contention failure in ApplicationList passes in isolation 30/30); MessengerBindingsPanel 15/15; both packages lint clean.
+-   [ ] Browser UX evidence (screenshots at card/list modes, no page-level horizontal overflow) — pending user-run dev server.
 
 ## Layout details tabs (Main/Appearance) + preset dialog close — IMPLEMENT (2026-11-06)
 
-- [x] User report: layout authoring mixes zones/widgets with theme appearance in one scroll; "Manage presets" dialog is strict-modal (backdrop/escape blocked by app dialog policy) with only a Create action, so it cannot be closed.
-- [x] Metahubs `LayoutDetails.tsx`: added `Main`/`Appearance` tabs (shared-resources Tabs idiom, `metahub-layout-details-tab-main|appearance` testids). Appearance tab renders `LayoutAppearanceSection` standalone; Main keeps zones authoring + dashboard runtime settings + nested placements. Default tab: Main.
-- [x] Metahubs `LayoutRuntimeSettingsPanel.tsx`: appearance section removed from the panel (it moved to the tab); dropped now-unused `metahubId/layoutId/layout` props. Panel is dashboard-only behavior/side-menu settings again.
-- [x] Applications `ApplicationLayouts.tsx`: same tabs (`application-layout-details-tab-main|appearance`); `AppearanceSection` moved from `beforeZonesContent` to the Appearance tab.
-- [x] `ThemePresetManagerDialog.tsx` (template-mui): added explicit outlined Close action (`${testIdPrefix}-close`, `appearance:actions.close` — already localized en/ru) next to Create; mandatory under the strict-modal presentation policy.
-- [x] i18n: `layouts.details.tabs.main|appearance` added to metahubs en/ru and applications en/ru (Main/Основное, Appearance/Оформление).
-- [x] Tests: new template-mui jest `ThemePresetManagerDialog.test.tsx` (close action calls onClose, create intact); metahubs panel suite rewritten to `LayoutRuntimeSettingsPanel.test.tsx` (dashboard-only contract, appearance absent); new metahubs `LayoutDetails.appearanceTab.test.tsx` (tab switching, real LayoutAppearanceSection); apps `ApplicationLayouts.marketing.test.tsx` updated to click the Appearance tab before appearance assertions.
-- [x] Gates: template-mui jest 363/363; apps vitest 435/436 (single pre-existing ApplicationList contention flake, passes isolated 30/30); metahubs panel + tab suites green locally; all three package builds + lints clean.
-- [ ] Heavy metahubs `LayoutDetails.*` vitest suites remain env-blocked locally (OOM, pre-existing) — no moved-section assertions there; CI covers them.
-- [x] E2E: new `theme-appearance-tabs.spec.ts` flow (metahub + application surfaces: tab switching, appearance section, preset dialog Close) — 2/2 passed via `supabase:e2e:start:minimal` + `build:e2e` + `run-playwright-suite.mjs --grep "theme appearance tabs"`; browser screenshots captured (appearance tab, manager dialog) for both surfaces.
+-   [x] User report: layout authoring mixes zones/widgets with theme appearance in one scroll; "Manage presets" dialog is strict-modal (backdrop/escape blocked by app dialog policy) with only a Create action, so it cannot be closed.
+-   [x] Metahubs `LayoutDetails.tsx`: added `Main`/`Appearance` tabs (shared-resources Tabs idiom, `metahub-layout-details-tab-main|appearance` testids). Appearance tab renders `LayoutAppearanceSection` standalone; Main keeps zones authoring + dashboard runtime settings + nested placements. Default tab: Main.
+-   [x] Metahubs `LayoutRuntimeSettingsPanel.tsx`: appearance section removed from the panel (it moved to the tab); dropped now-unused `metahubId/layoutId/layout` props. Panel is dashboard-only behavior/side-menu settings again.
+-   [x] Applications `ApplicationLayouts.tsx`: same tabs (`application-layout-details-tab-main|appearance`); `AppearanceSection` moved from `beforeZonesContent` to the Appearance tab.
+-   [x] `ThemePresetManagerDialog.tsx` (template-mui): added explicit outlined Close action (`${testIdPrefix}-close`, `appearance:actions.close` — already localized en/ru) next to Create; mandatory under the strict-modal presentation policy.
+-   [x] i18n: `layouts.details.tabs.main|appearance` added to metahubs en/ru and applications en/ru (Main/Основное, Appearance/Оформление).
+-   [x] Tests: new template-mui jest `ThemePresetManagerDialog.test.tsx` (close action calls onClose, create intact); metahubs panel suite rewritten to `LayoutRuntimeSettingsPanel.test.tsx` (dashboard-only contract, appearance absent); new metahubs `LayoutDetails.appearanceTab.test.tsx` (tab switching, real LayoutAppearanceSection); apps `ApplicationLayouts.marketing.test.tsx` updated to click the Appearance tab before appearance assertions.
+-   [x] Gates: template-mui jest 363/363; apps vitest 435/436 (single pre-existing ApplicationList contention flake, passes isolated 30/30); metahubs panel + tab suites green locally; all three package builds + lints clean.
+-   [ ] Heavy metahubs `LayoutDetails.*` vitest suites remain env-blocked locally (OOM, pre-existing) — no moved-section assertions there; CI covers them.
+-   [x] E2E: new `theme-appearance-tabs.spec.ts` flow (metahub + application surfaces: tab switching, appearance section, preset dialog Close) — 2/2 passed via `supabase:e2e:start:minimal` + `build:e2e` + `run-playwright-suite.mjs --grep "theme appearance tabs"`; browser screenshots captured (appearance tab, manager dialog) for both surfaces.
 
 ## Appearance default selection fix — IMPLEMENT (2026-11-06, follow-up)
 
-- [x] User report: layout already renders on the universo-default basis (TZ §11.4/§15.2 fallback, `publicMarketingRuntime.getUniversoDefaultAppearance`) but the "Пресет оформления" select showed an empty placeholder on layouts without persisted appearance.
-- [x] Fix in `ThemeAppearancePanel.tsx` (shared): the select now displays the effective built-in default (`file:universo-default`, key matches the runtime fallback) while no draft exists; a MUI FormHelperText (`appearance:preset.defaultHint`, en/ru) explains the implicit default; Save stays disabled until an explicit change (no phantom draft, version pinning only on explicit save).
-- [x] Tests: new `ThemeAppearancePanel.test.tsx` (3) — default display + hint + disabled Save; picking a different preset creates a metahub-source draft (MUI Select skips onChange for the same value — the click-the-default no-op is documented); explicit draft hides the hint and enables Save. template-mui 366/366, build clean.
+-   [x] User report: layout already renders on the universo-default basis (TZ §11.4/§15.2 fallback, `publicMarketingRuntime.getUniversoDefaultAppearance`) but the "Пресет оформления" select showed an empty placeholder on layouts without persisted appearance.
+-   [x] Fix in `ThemeAppearancePanel.tsx` (shared): the select now displays the effective built-in default (`file:universo-default`, key matches the runtime fallback) while no draft exists; a MUI FormHelperText (`appearance:preset.defaultHint`, en/ru) explains the implicit default; Save stays disabled until an explicit change (no phantom draft, version pinning only on explicit save).
+-   [x] Tests: new `ThemeAppearancePanel.test.tsx` (3) — default display + hint + disabled Save; picking a different preset creates a metahub-source draft (MUI Select skips onChange for the same value — the click-the-default no-op is documented); explicit draft hides the hint and enables Save. template-mui 366/366, build clean.
 
 ## UI terminology rename: "Theme" everywhere — IMPLEMENT (2026-11-06, follow-up)
 
-- [x] Industry research (Material 3 glossary, WordPress/Shopify/Moodle/Drupal conventions, Wix/Squarespace "Site Styles", Figma styles/variables): "theme" is the dominant term for a whole design-token bundle; "styles" means per-variable panels; "preset" is a saved config inside a theming system. Chosen (user decision): «Тема» everywhere; matches the code model (`ThemePreset`, `@universo-react/theme`).
-- [x] Renamed all user-facing strings en/ru in `appearance.json` core namespace (title, preset.label/select/defaultHint, actions.reset/managePresets/create, manager.*, readonly.hint, sourceUnavailable.warning, errors.*), `layouts.appearance.*` notification blocks in metahubs.json + applications.json (save/reset/apply-latest/create/delete/copy/export/newPresetName/actionError), and the layout-details tab label "Appearance|Оформление" → "Theme|Тема" (values + code fallbacks).
-- [x] Kept: i18n key identifiers (`preset.*`, `actions.managePresets`) and the data model (`obj_theme_presets`, `ThemePreset`, THEME_PRESET_* error codes) — internal contracts, zero user-facing impact; entity-creation presets / cell-style presets / marketing wording untouched (different features).
-- [x] Tests updated: apps test-support versionConflict dictionary → "The theme was modified by someone else…"; metahubs appearanceTab test tab name → "Theme". Gates: template-mui 366/366 (pre-rename panel run), apps full suite — affected suites green in isolation (ApplicationList/ApplicationSettings/MessengerBindingsPanel timeouts are known contention flakes), metahubs light suites 5/5, `check:i18n-coverage` passed, E2E 2/2 re-run after build:e2e.
-- [x] Browser evidence: appearance tab now shows the effective default pre-selected ("Universo Default · Built-in · v1") with the default hint, disabled Save, "Reset theme"/"Manage themes" actions.
+-   [x] Industry research (Material 3 glossary, WordPress/Shopify/Moodle/Drupal conventions, Wix/Squarespace "Site Styles", Figma styles/variables): "theme" is the dominant term for a whole design-token bundle; "styles" means per-variable panels; "preset" is a saved config inside a theming system. Chosen (user decision): «Тема» everywhere; matches the code model (`ThemePreset`, `@universo-react/theme`).
+-   [x] Renamed all user-facing strings en/ru in `appearance.json` core namespace (title, preset.label/select/defaultHint, actions.reset/managePresets/create, manager._, readonly.hint, sourceUnavailable.warning, errors._), `layouts.appearance.*` notification blocks in metahubs.json + applications.json (save/reset/apply-latest/create/delete/copy/export/newPresetName/actionError), and the layout-details tab label "Appearance|Оформление" → "Theme|Тема" (values + code fallbacks).
+-   [x] Kept: i18n key identifiers (`preset.*`, `actions.managePresets`) and the data model (`obj_theme_presets`, `ThemePreset`, THEME*PRESET*\* error codes) — internal contracts, zero user-facing impact; entity-creation presets / cell-style presets / marketing wording untouched (different features).
+-   [x] Tests updated: apps test-support versionConflict dictionary → "The theme was modified by someone else…"; metahubs appearanceTab test tab name → "Theme". Gates: template-mui 366/366 (pre-rename panel run), apps full suite — affected suites green in isolation (ApplicationList/ApplicationSettings/MessengerBindingsPanel timeouts are known contention flakes), metahubs light suites 5/5, `check:i18n-coverage` passed, E2E 2/2 re-run after build:e2e.
+-   [x] Browser evidence: appearance tab now shows the effective default pre-selected ("Universo Default · Built-in · v1") with the default hint, disabled Save, "Reset theme"/"Manage themes" actions.
 
 ## Theme panel layout polish — IMPLEMENT (2026-11-06, follow-up)
 
-- [x] User report: action buttons wrapped to two lines ("Управление темами"), the color-mode helper was squeezed into a narrow side column next to the mode select.
-- [x] `ThemeAppearancePanel.tsx`: preset row stacks on xs with the "Manage themes" button `whiteSpace: nowrap` + `flexShrink: 0`, top-aligned with the select; color-mode helper moved from a cramped side caption into a full-width `FormHelperText` (same idiom as the preset default hint); light/dark preview papers stack on xs; slider rows (spacing base, corner radius, border width) and the font/density/shadows select row stack on xs; footer buttons nowrap (container already wraps whole buttons); removed redundant `gap` duplicate of `spacing`.
-- [x] `ThemePresetManagerDialog.tsx`: card action buttons (copy/archive/export/delete) nowrap — the row wraps whole buttons, never text inside them.
-- [x] E2E `theme-appearance-tabs.spec.ts` extended with the runtime-UX-gate mobile check (390px viewport, appearance tab open, `document.scrollWidth <= 390`) + mobile screenshot. Gates: template-mui 366/366, build clean, E2E 2/2 after build:e2e; desktop/mobile/dialog screenshots verified.
+-   [x] User report: action buttons wrapped to two lines ("Управление темами"), the color-mode helper was squeezed into a narrow side column next to the mode select.
+-   [x] `ThemeAppearancePanel.tsx`: preset row stacks on xs with the "Manage themes" button `whiteSpace: nowrap` + `flexShrink: 0`, top-aligned with the select; color-mode helper moved from a cramped side caption into a full-width `FormHelperText` (same idiom as the preset default hint); light/dark preview papers stack on xs; slider rows (spacing base, corner radius, border width) and the font/density/shadows select row stack on xs; footer buttons nowrap (container already wraps whole buttons); removed redundant `gap` duplicate of `spacing`.
+-   [x] `ThemePresetManagerDialog.tsx`: card action buttons (copy/archive/export/delete) nowrap — the row wraps whole buttons, never text inside them.
+-   [x] E2E `theme-appearance-tabs.spec.ts` extended with the runtime-UX-gate mobile check (390px viewport, appearance tab open, `document.scrollWidth <= 390`) + mobile screenshot. Gates: template-mui 366/366, build clean, E2E 2/2 after build:e2e; desktop/mobile/dialog screenshots verified.
 
 ## Theme panel interaction fixes + interpretation-network snapshot — IMPLEMENT (2026-11-06, follow-up 2)
 
-- [x] User reports: (1) Color mode select silently ignored changes when no theme was applied; (2) the theme's own settings were invisible — only the name row; (3) "Create theme" dead-ended with a cryptic "apply a theme first" warning; (4) a junk header "Create" button in the interpretation-network app.
-- [x] New browser-safe helper `resolveEffectiveThemeTokens(appearanceTokens)` in `@universo-react/theme` (`src/effective.ts`): applied snapshot tokens or the built-in universo-default fallback (TZ §11.4/§15.2); display-only, saving still re-resolves server-side.
-- [x] Panel: color mode change bootstraps an explicit draft seeded on the effective default theme (no more swallowed onChange); preview papers and the whole overrides editor now render from the effective theme's real token values (no hardcoded fallbacks); override edits bootstrap the draft the same way; "Reset theme" disabled while nothing is applied and nothing is drafted.
-- [x] "Create theme" (metahubs + applications sections) captures the effective tokens — no dead-end warning; removed the now-unused `layouts.appearance.createNeedsAppearance` key from all four locale files.
-- [x] Interpretation-network snapshot: the product generator now disables the dashboard-level create host action via the canonical layout behavior setting (`objectBehavior.showCreateButton: false` on the Structure-scoped dashboard layout — the same switch the layout behavior panel exposes) and the committed `tools/fixtures/metahubs-interpretation-network-app-snapshot.json` was regenerated through the real export flow; fixture contract + drift gates passed. Apps created from the fixture must be re-imported to pick the change up.
-- [x] Tests: panel suite extended (mode bootstrap seeds default-theme draft, preview + real token values visible without applied appearance, reset gating) — template-mui 367/367; apps reset tests now seed an applied appearance (23/23); metahubs light suites 5/5; i18n coverage gate passed.
+-   [x] User reports: (1) Color mode select silently ignored changes when no theme was applied; (2) the theme's own settings were invisible — only the name row; (3) "Create theme" dead-ended with a cryptic "apply a theme first" warning; (4) a junk header "Create" button in the interpretation-network app.
+-   [x] New browser-safe helper `resolveEffectiveThemeTokens(appearanceTokens)` in `@universo-react/theme` (`src/effective.ts`): applied snapshot tokens or the built-in universo-default fallback (TZ §11.4/§15.2); display-only, saving still re-resolves server-side.
+-   [x] Panel: color mode change bootstraps an explicit draft seeded on the effective default theme (no more swallowed onChange); preview papers and the whole overrides editor now render from the effective theme's real token values (no hardcoded fallbacks); override edits bootstrap the draft the same way; "Reset theme" disabled while nothing is applied and nothing is drafted.
+-   [x] "Create theme" (metahubs + applications sections) captures the effective tokens — no dead-end warning; removed the now-unused `layouts.appearance.createNeedsAppearance` key from all four locale files.
+-   [x] Interpretation-network snapshot: the product generator now disables the dashboard-level create host action via the canonical layout behavior setting (`objectBehavior.showCreateButton: false` on the Structure-scoped dashboard layout — the same switch the layout behavior panel exposes) and the committed `tools/fixtures/metahubs-interpretation-network-app-snapshot.json` was regenerated through the real export flow; fixture contract + drift gates passed. Apps created from the fixture must be re-imported to pick the change up.
+-   [x] Tests: panel suite extended (mode bootstrap seeds default-theme draft, preview + real token values visible without applied appearance, reset gating) — template-mui 367/367; apps reset tests now seed an applied appearance (23/23); metahubs light suites 5/5; i18n coverage gate passed.
 
 ## Continuation gates — VERIFY (2026-11-06)
 
-- [x] applications-frontend full vitest from its package dir: 436/436.
-- [x] apps-template-mui package failures (public-runtime viewers, DashboardApp, ~81) investigated via a clean `git worktree` at HEAD with full `pnpm build`: **reproduce at clean HEAD** — pre-existing environment issue (findBy→getBy race, structure list re-renders empty), not caused by the theme work. Diagnosed and documented; the worktree was removed afterwards.
-- [x] Final lint pass: metahubs-frontend + applications-frontend clean; generator spec eslint clean.
-- [x] build:e2e rebuilt; `theme-appearance-tabs` E2E 2/2; browser evidence verified: the Theme tab now shows the full effective theme settings without an applied theme — light/dark previews with real universo-default colors, the whole Overrides editor populated from real tokens (#027af2, Inter, Comfortable, Default shadows, sliders 8/8/1), Save/Reset correctly disabled until a change.
+-   [x] applications-frontend full vitest from its package dir: 436/436.
+-   [x] apps-template-mui package failures (public-runtime viewers, DashboardApp, ~81) investigated via a clean `git worktree` at HEAD with full `pnpm build`: **reproduce at clean HEAD** — pre-existing environment issue (findBy→getBy race, structure list re-renders empty), not caused by the theme work. Diagnosed and documented; the worktree was removed afterwards.
+-   [x] Final lint pass: metahubs-frontend + applications-frontend clean; generator spec eslint clean.
+-   [x] build:e2e rebuilt; `theme-appearance-tabs` E2E 2/2; browser evidence verified: the Theme tab now shows the full effective theme settings without an applied theme — light/dark previews with real universo-default colors, the whole Overrides editor populated from real tokens (#027af2, Inter, Comfortable, Default shadows, sliders 8/8/1), Save/Reset correctly disabled until a change.
 
 # Theme Presets — FINAL QA (2026-11-08, pre-merge gate #3)
 
@@ -1952,159 +1951,351 @@ The final resumed gate supersedes the earlier 50-test count above: workspace bui
 ## Verdict: PASS-WITH-MINOR-ISSUES (merge allowed after the 4 must-fix items below; 0 CRITICAL security/correctness)
 
 ## Fresh gate outcomes (this QA session)
-- applications-frontend vitest 436/436; template-mui jest 367/367; types 344/344; theme 12/12; integration (PostgreSQL, minimal Supabase) 59/59; E2E theme-appearance-tabs 2/2 after build:e2e; mui-v9-policy / apps-template-isolation / verify:route-sources / i18n-coverage all green; metahubs+applications lints clean.
+
+-   applications-frontend vitest 436/436; template-mui jest 367/367; types 344/344; theme 12/12; integration (PostgreSQL, minimal Supabase) 59/59; E2E theme-appearance-tabs 2/2 after build:e2e; mui-v9-policy / apps-template-isolation / verify:route-sources / i18n-coverage all green; metahubs+applications lints clean.
 
 ## Must-fix before commit (4)
-- [ ] QA-H1 `@universo-react/theme` not declared in dependencies of template-mui, metahubs-frontend, applications-frontend (works only via pnpm hoisting) — add `"@universo-react/theme": "workspace:*"` to the three package.json (maintainability HIGH, merge blocker).
-- [ ] QA-H2 TH-17 hash-discipline has NO tests: add appearance cases to applicationLayoutHash.test.ts + publicationSnapshotHash.test.ts ("preset edit keeps local_content_hash; overrides edit flips it") — the stripping code is correct by inspection but regression-unguarded.
-- [ ] QA-H3 messenger doc/code mismatch: docs/{en,ru}/platform/messenger-app-template.md claim public messenger carries appearance, but publicMessengerRuntime payload has none — either fix the docs now or implement TH-18 messenger projection (recommended: correct docs now, implement projection as backlog).
-- [ ] QA-H4 reconcile memory-bank/tasks.md checkboxes (TH-27/28/29 stale; ThemePreview marked done but the file does not exist — inline swatch preview instead).
+
+-   [ ] QA-H1 `@universo-react/theme` not declared in dependencies of template-mui, metahubs-frontend, applications-frontend (works only via pnpm hoisting) — add `"@universo-react/theme": "workspace:*"` to the three package.json (maintainability HIGH, merge blocker).
+-   [ ] QA-H2 TH-17 hash-discipline has NO tests: add appearance cases to applicationLayoutHash.test.ts + publicationSnapshotHash.test.ts ("preset edit keeps local_content_hash; overrides edit flips it") — the stripping code is correct by inspection but regression-unguarded.
+-   [ ] QA-H3 messenger doc/code mismatch: docs/{en,ru}/platform/messenger-app-template.md claim public messenger carries appearance, but publicMessengerRuntime payload has none — either fix the docs now or implement TH-18 messenger projection (recommended: correct docs now, implement projection as backlog).
+-   [ ] QA-H4 reconcile memory-bank/tasks.md checkboxes (TH-27/28/29 stale; ThemePreview marked done but the file does not exist — inline swatch preview instead).
 
 ## Should-fix backlog (prioritized)
-- QA-S1 TH-17 publication integrity: metahubs snapshot normalization never re-validates appearance/recomputes hash — a tampered `resolved` publishes unchecked (marketing runtime re-validates fail-closed; snapshot path does not).
-- QA-S2 metahubs-backend theme-presets domain has ZERO tests (store/service/routes) — port the applications-backend suites.
-- QA-S3 route/controller suites: 401/403, flag-off 404, THEME_PRESET_LIMIT_REACHED HTTP mapping, sync local_modified semantics (overrides flip / preset re-resolution doesn't), copy-from-file→DB, source-removed retention.
-- QA-S4 E2E breadth: theme-presets.spec.ts covers ~1/3 of TH-32 (missing: public payload assertion, 409 THEME_PRESET_SOURCE_UNAVAILABLE + copy-to-application, reset happy-path with re-GET, delete-in-use 409 usage list, read-only member, all three templates, RU locale, FR-048 error-code body assert). Also: extract theme helpers into api-session.mjs, record publications in run manifest, re-run theme-presets.spec.ts on the minimal chain (last-run artifacts only evidence appearance-tabs).
-- QA-S5 F1 (correctness MEDIUM): themePresetRefSchema.id not UUID-validated → PATCH appearance with garbage metahub preset id → PG 22P02 → unmapped 500; validate uuidV7Schema for DB-source preset refs.
-- QA-S6 TH-33 visual spec absent (deferred, documented); TH-30 full 1280px reviewed browser pass + a11y checklist pending.
-- QA-S7 copy-to-application drops `base_preset_codename` origin (Pinned 14 detail); themeHash/duration observability logs absent.
+
+-   QA-S1 TH-17 publication integrity: metahubs snapshot normalization never re-validates appearance/recomputes hash — a tampered `resolved` publishes unchecked (marketing runtime re-validates fail-closed; snapshot path does not).
+-   QA-S2 metahubs-backend theme-presets domain has ZERO tests (store/service/routes) — port the applications-backend suites.
+-   QA-S3 route/controller suites: 401/403, flag-off 404, THEME_PRESET_LIMIT_REACHED HTTP mapping, sync local_modified semantics (overrides flip / preset re-resolution doesn't), copy-from-file→DB, source-removed retention.
+-   QA-S4 E2E breadth: theme-presets.spec.ts covers ~1/3 of TH-32 (missing: public payload assertion, 409 THEME_PRESET_SOURCE_UNAVAILABLE + copy-to-application, reset happy-path with re-GET, delete-in-use 409 usage list, read-only member, all three templates, RU locale, FR-048 error-code body assert). Also: extract theme helpers into api-session.mjs, record publications in run manifest, re-run theme-presets.spec.ts on the minimal chain (last-run artifacts only evidence appearance-tabs).
+-   QA-S5 F1 (correctness MEDIUM): themePresetRefSchema.id not UUID-validated → PATCH appearance with garbage metahub preset id → PG 22P02 → unmapped 500; validate uuidV7Schema for DB-source preset refs.
+-   QA-S6 TH-33 visual spec absent (deferred, documented); TH-30 full 1280px reviewed browser pass + a11y checklist pending.
+-   QA-S7 copy-to-application drops `base_preset_codename` origin (Pinned 14 detail); themeHash/duration observability logs absent.
 
 ## Tracked LOWs (from Thermos agents)
-- Appearance audit rows written outside the layout mutation transaction (known QA-M14 deferral; preset CRUD audits ARE in-transaction).
-- Metahubs ThemePresetNotFoundError/CodenameConflictError lack `code` (correct 404/409 without the TZ code); zero-row post-pre-check UPDATE → 404 instead of 409; invalid ?codename override → 500 instead of 400; copy codename may exceed 64 chars on repeated copies (23514→500); applications preset list/get stricter than the layouts read-policy (owner/admin vs configurable); entityType:'layout' copy-paste in conflict mapping; duplicated store/service/codename-helper twins across backends/frontends (conscious twins — extract or parity-test later); resolve.ts >64KiB branch and effective.ts untested; ThemeAppearancePanel slider rows could be data-driven.
+
+-   Appearance audit rows written outside the layout mutation transaction (known QA-M14 deferral; preset CRUD audits ARE in-transaction).
+-   Metahubs ThemePresetNotFoundError/CodenameConflictError lack `code` (correct 404/409 without the TZ code); zero-row post-pre-check UPDATE → 404 instead of 409; invalid ?codename override → 500 instead of 400; copy codename may exceed 64 chars on repeated copies (23514→500); applications preset list/get stricter than the layouts read-policy (owner/admin vs configurable); entityType:'layout' copy-paste in conflict mapping; duplicated store/service/codename-helper twins across backends/frontends (conscious twins — extract or parity-test later); resolve.ts >64KiB branch and effective.ts untested; ThemeAppearancePanel slider rows could be data-driven.
 
 ## Explicitly verified-good
-- UUID v7 everywhere (DB defaults + uuidV7Schema input validation; zero uuid4). SQL: $n-parameterized, schema-qualified, qSchemaTable for dynamic identifiers, no knex in domain code. RLS exactly per spec (membership EXISTS / has_active_application_membership, REVOKE anon, conditional GRANT); routes match plan Pinned 13 (metahubs manageMetahub mutations+export; applications owner/admin mutations; reads stronger than spec on applications). Optimistic concurrency + RETURNING fail-closed + delete-in-use usage list inside tx; 23505→409 mapping; FR-048 enforced. Prototype pollution: strictObject at every level + explicit forbidden keys + pollution-guarded merge + re-parse before hashing. No secrets/PII in audit (refs only), error logs, or the public payload (resolved tokens only, preset/overrides stripped, re-validated). Contrast gate enforced server-side before persist (422). Fresh-DB contract: legacy themeMode/primaryColor/accentColor fully removed from schemas/writers, no backfill code. Reuse confirmed: json-stable-stringify via utils, zod everywhere, WCAG luminance generalized (marketingColorLuminance deleted, no duplicate), react-colorful pickers, MUI primitives, node:crypto sha256 — no self-written crypto/canonicalization. Workspace boundaries clean (HIGH-1 aside); theme package browser-safe (node:crypto behind ./resolve subpath). Owner-approved deviations all verified (migration 360, tabs, Тема rename, legacy removal, contrast matrix with in-code rationale, inline color-scheme script).
+
+-   UUID v7 everywhere (DB defaults + uuidV7Schema input validation; zero uuid4). SQL: $n-parameterized, schema-qualified, qSchemaTable for dynamic identifiers, no knex in domain code. RLS exactly per spec (membership EXISTS / has_active_application_membership, REVOKE anon, conditional GRANT); routes match plan Pinned 13 (metahubs manageMetahub mutations+export; applications owner/admin mutations; reads stronger than spec on applications). Optimistic concurrency + RETURNING fail-closed + delete-in-use usage list inside tx; 23505→409 mapping; FR-048 enforced. Prototype pollution: strictObject at every level + explicit forbidden keys + pollution-guarded merge + re-parse before hashing. No secrets/PII in audit (refs only), error logs, or the public payload (resolved tokens only, preset/overrides stripped, re-validated). Contrast gate enforced server-side before persist (422). Fresh-DB contract: legacy themeMode/primaryColor/accentColor fully removed from schemas/writers, no backfill code. Reuse confirmed: json-stable-stringify via utils, zod everywhere, WCAG luminance generalized (marketingColorLuminance deleted, no duplicate), react-colorful pickers, MUI primitives, node:crypto sha256 — no self-written crypto/canonicalization. Workspace boundaries clean (HIGH-1 aside); theme package browser-safe (node:crypto behind ./resolve subpath). Owner-approved deviations all verified (migration 360, tabs, Тема rename, legacy removal, contrast matrix with in-code rationale, inline color-scheme script).
 
 # Theme Presets — QA REMEDIATION IMPLEMENT (2026-11-08, gate-3 findings)
 
 > Goal: close all gate-3 must-fix items and the should-fix/backlog list (no tech debt left). Fresh-DB contract, no schema/template version bumps.
 
 ## Phase R1 — must-fix (QA-H1..H4)
-- [x] R1.1 Declare `@universo-react/theme` in dependencies of template-mui, metahubs-frontend, applications-frontend + pnpm install link check.
-- [x] R1.2 Hash-discipline tests: appearance cases in applicationLayoutHash.test.ts + publicationSnapshotHash.test.ts (preset re-resolution keeps content hash; overrides edit flips it).
-- [x] R1.3 Messenger docs: correct docs/{en,ru}/platform/messenger-app-template.md appearance claim (public messenger payload carries no appearance yet — projection is backlog); record in tasks.md.
-- [x] R1.4 Reconcile tasks.md checkboxes (TH-27/28/29; ThemePreview deviation note) + record the contrast-matrix deviation in the plan doc.
+
+-   [x] R1.1 Declare `@universo-react/theme` in dependencies of template-mui, metahubs-frontend, applications-frontend + pnpm install link check.
+-   [x] R1.2 Hash-discipline tests: appearance cases in applicationLayoutHash.test.ts + publicationSnapshotHash.test.ts (preset re-resolution keeps content hash; overrides edit flips it).
+-   [x] R1.3 Messenger docs: correct docs/{en,ru}/platform/messenger-app-template.md appearance claim (public messenger payload carries no appearance yet — projection is backlog); record in tasks.md.
+-   [x] R1.4 Reconcile tasks.md checkboxes (TH-27/28/29; ThemePreview deviation note) + record the contrast-matrix deviation in the plan doc.
 
 ## Phase R2 — correctness LOWs/MEDIUMs from gate 3
-- [x] R2.1 S5: validate DB-source preset refs with uuidV7Schema (themePresetRefSchema refinement) → garbage id = 400 THEME_PRESET_INVALID, not 500; update tests.
-- [x] R2.2 F3/F8: metahubs ThemePresetNotFoundError/CodenameConflictError carry `code`; conflict mapping uses entityType 'theme_preset' + real versions (both stores).
-- [x] R2.3 F4: zero-row UPDATE after passed pre-check → typed OptimisticLockError (409), not NotFound (both stores).
-- [x] R2.4 F5: invalid ?codename override → 400 THEME_PRESET_INVALID (regex pre-check), both services.
-- [x] R2.5 F6: copy codename length guard (truncate/suffix within 64 chars + regex-safe), both services.
-- [x] R2.6 F11/LOW-5: unified error code for appearance body schema mismatch (THEME_PRESET_INVALID in both backends).
-- [x] R2.7 LOW-3: unified limit error class in applications service (create/copy).
-- [x] R2.8 LOW-4/LOW-6: data-driven slider rows in ThemeAppearancePanel; uniform `listApplicationThemePresets` naming family in api/applications.ts.
-- [x] R2.9 MEDIUM-4: extract generatePresetCodename/toPresetOption/toManagerItem into template-mui exports; both sections consume.
+
+-   [x] R2.1 S5: validate DB-source preset refs with uuidV7Schema (themePresetRefSchema refinement) → garbage id = 400 THEME_PRESET_INVALID, not 500; update tests.
+-   [x] R2.2 F3/F8: metahubs ThemePresetNotFoundError/CodenameConflictError carry `code`; conflict mapping uses entityType 'theme_preset' + real versions (both stores).
+-   [x] R2.3 F4: zero-row UPDATE after passed pre-check → typed OptimisticLockError (409), not NotFound (both stores).
+-   [x] R2.4 F5: invalid ?codename override → 400 THEME_PRESET_INVALID (regex pre-check), both services.
+-   [x] R2.5 F6: copy codename length guard (truncate/suffix within 64 chars + regex-safe), both services.
+-   [x] R2.6 F11/LOW-5: unified error code for appearance body schema mismatch (THEME_PRESET_INVALID in both backends).
+-   [x] R2.7 LOW-3: unified limit error class in applications service (create/copy).
+-   [x] R2.8 LOW-4/LOW-6: data-driven slider rows in ThemeAppearancePanel; uniform `listApplicationThemePresets` naming family in api/applications.ts.
+-   [x] R2.9 MEDIUM-4: extract generatePresetCodename/toPresetOption/toManagerItem into template-mui exports; both sections consume.
 
 ## Phase R3 — TH-17 publication integrity (QA-S1) + observability
-- [x] R3.1 Metahubs snapshot normalization re-validates appearance: for preset.source file|metahub re-resolve tokens (file registry or same-metahub DB preset) and compare hash → publication fails THEME_APPEARANCE_RESOLVE_FAILED on mismatch; application-source carried as data (Pinned 14). Tests: tampered resolved rejected; valid passes.
-- [x] R3.2 themeHash + duration log fields on resolution paths (never raw body), both backends.
+
+-   [x] R3.1 Metahubs snapshot normalization re-validates appearance: for preset.source file|metahub re-resolve tokens (file registry or same-metahub DB preset) and compare hash → publication fails THEME_APPEARANCE_RESOLVE_FAILED on mismatch; application-source carried as data (Pinned 14). Tests: tampered resolved rejected; valid passes.
+-   [x] R3.2 themeHash + duration log fields on resolution paths (never raw body), both backends.
 
 ## Phase R4 — test breadth
-- [x] R4.1 Metahubs-backend theme service unit tests (port applications mock-executor suite: audit, limit, FR-048, codename conflict, contrast 422).
-- [x] R4.2 Applications route tests: 401/403/404, flag-off 404, THEME_PRESET_LIMIT_REACHED HTTP mapping.
-- [x] R4.3 TH-24: createTheme memoization spy + ThemeModeSynchronizer mui-mode override tests (apps-template-mui).
-- [x] R4.4 Panel: save disabled while persisted contrast errors exist (UI contract) + component test.
-- [x] R4.5 Store parity guard: normalized SQL comparison test between the two themePresetsStore files (guards the conscious twins).
-- [x] R4.6 Tests for new R2 behaviors (uuid ref rejection, 400 codename, 409 zero-row, copy-length guard).
+
+-   [x] R4.1 Metahubs-backend theme service unit tests (port applications mock-executor suite: audit, limit, FR-048, codename conflict, contrast 422).
+-   [x] R4.2 Applications route tests: 401/403/404, flag-off 404, THEME_PRESET_LIMIT_REACHED HTTP mapping.
+-   [x] R4.3 TH-24: createTheme memoization spy + ThemeModeSynchronizer mui-mode override tests (apps-template-mui).
+-   [x] R4.4 Panel: save disabled while persisted contrast errors exist (UI contract) + component test.
+-   [x] R4.5 Store parity guard: normalized SQL comparison test between the two themePresetsStore files (guards the conscious twins).
+-   [x] R4.6 Tests for new R2 behaviors (uuid ref rejection, 400 codename, 409 zero-row, copy-length guard).
 
 ## Phase R5 — E2E breadth (QA-S4) + visual (TH-33)
-- [x] R5.1 api-session.mjs: createThemePreset/updateLayoutAppearance/resetLayoutAppearance/copyThemePreset/exportThemePreset helpers; both specs use them; record publications in run manifest.
-- [x] R5.2 theme-presets.spec.ts: + FR-048 error-code body assert; + reset happy-path with re-GET; + delete-in-use 409 usage list; + public runtime payload (tokens present, no internal IDs); + 409 THEME_PRESET_SOURCE_UNAVAILABLE + copy-to-application; + edit tokens → apply-latest.
-- [x] R5.3 theme-appearance-tabs.spec.ts: strict-modal negative (Escape does not close); preset item visible before Close; keyboard path (Tab/Enter opens Theme tab).
-- [x] R5.4 TH-33 visual spec theme-presets.visual.spec.ts (authoring surface states; baselines captured + reviewed in-session).
+
+-   [x] R5.1 api-session.mjs: createThemePreset/updateLayoutAppearance/resetLayoutAppearance/copyThemePreset/exportThemePreset helpers; both specs use them; record publications in run manifest.
+-   [x] R5.2 theme-presets.spec.ts: + FR-048 error-code body assert; + reset happy-path with re-GET; + delete-in-use 409 usage list; + public runtime payload (tokens present, no internal IDs); + 409 THEME_PRESET_SOURCE_UNAVAILABLE + copy-to-application; + edit tokens → apply-latest.
+-   [x] R5.3 theme-appearance-tabs.spec.ts: strict-modal negative (Escape does not close); preset item visible before Close; keyboard path (Tab/Enter opens Theme tab).
+-   [x] R5.4 TH-33 visual spec theme-presets.visual.spec.ts (authoring surface states; baselines captured + reviewed in-session).
 
 ## Phase R6 — final verification
-- [x] R6.1 Full gate rerun (types/theme/template-mui/apps-template-mui-selected/apps-FE/backends touched suites/integration 59/E2E chains) + lints + Prettier.
-- [x] R6.2 tasks.md/progress.md final updates.
+
+-   [x] R6.1 Full gate rerun (types/theme/template-mui/apps-template-mui-selected/apps-FE/backends touched suites/integration 59/E2E chains) + lints + Prettier.
+-   [x] R6.2 tasks.md/progress.md final updates.
 
 ## Remediation outcome (2026-11-08)
 
-- R1.1 theme dep declared in all three packages (1-line diffs, pnpm relink verified via require.resolve).
-- R1.2 hash-discipline: +2 tests in publicationSnapshotHash (normalizeLayout strips resolved for layouts+scopedLayouts) and +2 in applicationLayoutHash (decodeLayoutForHash strip + the real-pipeline property "resolved-only diff → same hash; overrides diff → different hash").
-- R1.3 messenger docs corrected EN/RU (public payload carries no appearance yet; universo-default renders anonymously; projection = follow-up).
-- R1.4 tasks.md checkboxes reconciled (TH-26/27/28/29 + FINAL reconciliation); plan doc records the implemented contrast matrix and the Main|Theme tabs deviation.
-- R2: preset-ref UUID validation (400 on garbage DB ids); store error codes THEME_PRESET_NOT_FOUND/CODENAME_CONFLICT; OptimisticLockError union extended with 'theme_preset' (cast removed); zero-row guarded UPDATE → 409 lock (not 404) via throwIfPresetWriteConflict in 3 mutations ×2 stores; export codename-override 400 guard in BOTH services (twin parity restored, TWIN-DRIFT test flipped to parity assertion); copy codename truncation (deriveCopyCodename); appearance body-schema code unified to THEME_PRESET_INVALID; applications copy limit error unified to ApplicationsDomainError (+dead route branch/import removed); panel sliders data-driven; api naming documented as coherent (no churn).
-- R3.1 publication integrity: `verifySnapshotLayoutAppearances` in metahubs `attachLayoutsToSnapshotInTransaction` (strict re-parse + ONE batched DB lookup + per-layout hash recompute via resolveThemeAppearance; 422 THEME_APPEARANCE_RESOLVE_FAILED on mismatch; application-source bypasses per Pinned 14) + 5 tests (19/19 file). R3.2 observability: themeHash+durationMs on resolve, lifecycle line on reset (both backends, no raw body).
-- R4: metahubs service suite 7 tests; applications route suite 8 tests (supertest idiom, DB-untouched asserts on 401/403); store parity guard (normalized SQL skeleton + whole-source lockstep); AppTheme memoization + ThemeModeSynchronizer tests (3); panel contrast-blocks-save test. Agent also FIXED a real AppTheme bug: memo deps included the resolvedTokens object — now keyed on tokensHash via latest-ref (rebuild-only-on-hash contract holds).
-- R5: api-session theme helpers (9 exports); theme-presets.spec.ts refactored onto helpers + 4 new @flow tests (FR-048 body assert with the REAL contract 400 VALIDATION_ERROR + reason, reset happy-path w/ re-GET, delete-in-use 409 usage list + success after reset, runtime payload carries resolved tokens w/o authoring state); appearance-tabs strict-modal negative + keyboard path + preset card assert; TH-33 visual spec with 2 reviewed baselines (fixed codename 'visual-preset' for stability), re-verified green without --update-snapshots.
-- R6 gates: types 344, utils 460, theme 12, template-mui 368, applications-frontend 436 (1 contention flake green in isolation 47/47), metahubs light 5/5, metahubs-backend new tests 26/26, applications-backend new tests 21/21, integration 59/59, E2E: appearance-tabs 1/1 + theme-presets 6/6 + visual 2/2 ×2 runs, lints clean across all touched files, tsc clean on both backends + template-mui + apps-template-mui.
-- E2E contract findings encoded as actual behavior: FR-048 returns 400 VALIDATION_ERROR with reason codename-reserved-by-file-preset; DELETE is two-step (archive → delete); metahub error details spread at top level vs applications nested.
-- Public messenger appearance projection remains backlog (docs corrected); runtime workspace-required policy quirk documented in the spec comment (explicit version creation after runtimePolicy:required = 409 downgrade; the publication's auto v1 is used).
+-   R1.1 theme dep declared in all three packages (1-line diffs, pnpm relink verified via require.resolve).
+-   R1.2 hash-discipline: +2 tests in publicationSnapshotHash (normalizeLayout strips resolved for layouts+scopedLayouts) and +2 in applicationLayoutHash (decodeLayoutForHash strip + the real-pipeline property "resolved-only diff → same hash; overrides diff → different hash").
+-   R1.3 messenger docs corrected EN/RU (public payload carries no appearance yet; universo-default renders anonymously; projection = follow-up).
+-   R1.4 tasks.md checkboxes reconciled (TH-26/27/28/29 + FINAL reconciliation); plan doc records the implemented contrast matrix and the Main|Theme tabs deviation.
+-   R2: preset-ref UUID validation (400 on garbage DB ids); store error codes THEME_PRESET_NOT_FOUND/CODENAME_CONFLICT; OptimisticLockError union extended with 'theme_preset' (cast removed); zero-row guarded UPDATE → 409 lock (not 404) via throwIfPresetWriteConflict in 3 mutations ×2 stores; export codename-override 400 guard in BOTH services (twin parity restored, TWIN-DRIFT test flipped to parity assertion); copy codename truncation (deriveCopyCodename); appearance body-schema code unified to THEME_PRESET_INVALID; applications copy limit error unified to ApplicationsDomainError (+dead route branch/import removed); panel sliders data-driven; api naming documented as coherent (no churn).
+-   R3.1 publication integrity: `verifySnapshotLayoutAppearances` in metahubs `attachLayoutsToSnapshotInTransaction` (strict re-parse + ONE batched DB lookup + per-layout hash recompute via resolveThemeAppearance; 422 THEME_APPEARANCE_RESOLVE_FAILED on mismatch; application-source bypasses per Pinned 14) + 5 tests (19/19 file). R3.2 observability: themeHash+durationMs on resolve, lifecycle line on reset (both backends, no raw body).
+-   R4: metahubs service suite 7 tests; applications route suite 8 tests (supertest idiom, DB-untouched asserts on 401/403); store parity guard (normalized SQL skeleton + whole-source lockstep); AppTheme memoization + ThemeModeSynchronizer tests (3); panel contrast-blocks-save test. Agent also FIXED a real AppTheme bug: memo deps included the resolvedTokens object — now keyed on tokensHash via latest-ref (rebuild-only-on-hash contract holds).
+-   R5: api-session theme helpers (9 exports); theme-presets.spec.ts refactored onto helpers + 4 new @flow tests (FR-048 body assert with the REAL contract 400 VALIDATION_ERROR + reason, reset happy-path w/ re-GET, delete-in-use 409 usage list + success after reset, runtime payload carries resolved tokens w/o authoring state); appearance-tabs strict-modal negative + keyboard path + preset card assert; TH-33 visual spec with 2 reviewed baselines (fixed codename 'visual-preset' for stability), re-verified green without --update-snapshots.
+-   R6 gates: types 344, utils 460, theme 12, template-mui 368, applications-frontend 436 (1 contention flake green in isolation 47/47), metahubs light 5/5, metahubs-backend new tests 26/26, applications-backend new tests 21/21, integration 59/59, E2E: appearance-tabs 1/1 + theme-presets 6/6 + visual 2/2 ×2 runs, lints clean across all touched files, tsc clean on both backends + template-mui + apps-template-mui.
+-   E2E contract findings encoded as actual behavior: FR-048 returns 400 VALIDATION_ERROR with reason codename-reserved-by-file-preset; DELETE is two-step (archive → delete); metahub error details spread at top level vs applications nested.
+-   Public messenger appearance projection remains backlog (docs corrected); runtime workspace-required policy quirk documented in the spec comment (explicit version creation after runtimePolicy:required = 409 downgrade; the publication's auto v1 is used).
 
 # Backlog remediation — items 6/3/5/7/4 (IMPLEMENT 2026-11-08, owner decisions by Omisa)
 
 ## Outcome (2026-11-08) — all items closed
 
-- A6: `applicationReadPolicy.ts` (shared resolver extracted from the layouts controller — zero duplication); theme routes list/getById → `authorizeReader`, mutations stay `authorizeManager`; route suite 10/10 (reader 200 list+detail + 403 mutations with DB-untouched assert; no-read member 403 with policy-lookup-only evidence); docs rule EN/RU.
-- B3: panel `draftIssues` memo (base = file-preset tokens / persisted resolved on same preset / effectiveTokens approximation) + `activePreviewMui` (live preview reflects draft); alerts + Save gate switch to `activeIssues`; `structuredClone` → JSON clone (jsdom gap); panel suite 6/6 — including "draft on a clean preset clears persisted errors (repair path)".
-- C5: `rg` confirmed zero callers → primaryColor/accentColor seam deleted from AppTheme + AppMainLayout; legacy themeMode/primaryColor/accentColor keys removed from the test-support fixture; prod build clean.
-- D7: create input + optional `basePresetCodename` (≤64) threaded into INSERT; copyPreset DB-source now writes id AND codename; copy-to-application passes `metahub:<uuid>`; create test asserts origin params + audit; copy test asserts id/codename/copy-codename params. 7/7.
-- E4: Berry `isDarkMode` legacy caveat EN/RU in theme-presets.md (precedence: mui-mode toggle > appearance.mode > system; key not in the new model).
-- F: follow-up session notes recorded below (messenger projection turnkey; re-tokenization MVP cut).
-- V: types 344, utils 460, theme 12, template-mui 369, apps-FE 436 (2 contention flakes green isolated 77/77), metahubs-backend 26/26, applications-backend 24 mock-level (+5 integration within the 59), integration 59/59, E2E 9/9, gates + tsc clean (4 lint warnings fixed in QA gate-4 remediation).
+-   A6: `applicationReadPolicy.ts` (shared resolver extracted from the layouts controller — zero duplication); theme routes list/getById → `authorizeReader`, mutations stay `authorizeManager`; route suite 10/10 (reader 200 list+detail + 403 mutations with DB-untouched assert; no-read member 403 with policy-lookup-only evidence); docs rule EN/RU.
+-   B3: panel `draftIssues` memo (base = file-preset tokens / persisted resolved on same preset / effectiveTokens approximation) + `activePreviewMui` (live preview reflects draft); alerts + Save gate switch to `activeIssues`; `structuredClone` → JSON clone (jsdom gap); panel suite 6/6 — including "draft on a clean preset clears persisted errors (repair path)".
+-   C5: `rg` confirmed zero callers → primaryColor/accentColor seam deleted from AppTheme + AppMainLayout; legacy themeMode/primaryColor/accentColor keys removed from the test-support fixture; prod build clean.
+-   D7: create input + optional `basePresetCodename` (≤64) threaded into INSERT; copyPreset DB-source now writes id AND codename; copy-to-application passes `metahub:<uuid>`; create test asserts origin params + audit; copy test asserts id/codename/copy-codename params. 7/7.
+-   E4: Berry `isDarkMode` legacy caveat EN/RU in theme-presets.md (precedence: mui-mode toggle > appearance.mode > system; key not in the new model).
+-   F: follow-up session notes recorded below (messenger projection turnkey; re-tokenization MVP cut).
+-   V: types 344, utils 460, theme 12, template-mui 369, apps-FE 436 (2 contention flakes green isolated 77/77), metahubs-backend 26/26, applications-backend 24 mock-level (+5 integration within the 59), integration 59/59, E2E 9/9, gates + tsc clean (4 lint warnings fixed in QA gate-4 remediation).
 
 > Owner decisions: item 6 = read via the layouts read-policy ("see the layout — see its theme"), mutations stay owner/admin; items 3/5/7/4 close now; items 1 (public messenger projection — before release) and 2 (component re-tokenization) = separate sessions, turnkey notes recorded below. Order: 6 → 3/5/7/4 → notes → verification.
-- [x] A6 read-policy: authorizeReader (layouts read-policy resolver) for list/getById; mutations unchanged; tests (reader 200 list+detail, 403 mutations; no-layout-read 403; owner/admin full); docs rule EN/RU.
-- [x] B3 draft-time contrast: display-only mergeThemeTokens(base, draft.overrides) + themeContrastIssues in the panel; alerts for draft; Save gate; live preview via draft tokens; test (bad contrast → warning before save; server 422 unchanged).
-- [x] C5 remove dead primaryColor/accentColor seam from AppTheme + AppMainLayout (rg confirm first).
-- [x] D7 origin: create input + optional basePresetCodename; copyPreset DB-source writes id+codename; copy-to-application passes 'metahub:<uuid>'; audit details; regression tests.
-- [x] E4 docs: Berry isDarkMode legacy-key caveat EN/RU (priority: mui-mode toggle > appearance.mode > system; key not in the new model).
-- [x] F follow-up session notes recorded (below).
+
+-   [x] A6 read-policy: authorizeReader (layouts read-policy resolver) for list/getById; mutations unchanged; tests (reader 200 list+detail, 403 mutations; no-layout-read 403; owner/admin full); docs rule EN/RU.
+-   [x] B3 draft-time contrast: display-only mergeThemeTokens(base, draft.overrides) + themeContrastIssues in the panel; alerts for draft; Save gate; live preview via draft tokens; test (bad contrast → warning before save; server 422 unchanged).
+-   [x] C5 remove dead primaryColor/accentColor seam from AppTheme + AppMainLayout (rg confirm first).
+-   [x] D7 origin: create input + optional basePresetCodename; copyPreset DB-source writes id+codename; copy-to-application passes 'metahub:<uuid>'; audit details; regression tests.
+-   [x] E4 docs: Berry isDarkMode legacy-key caveat EN/RU (priority: mui-mode toggle > appearance.mode > system; key not in the new model).
+-   [x] F follow-up session notes recorded (below).
 
 ## Follow-up session 1 — public messenger appearance projection (PRIORITY, before release)
 
 Visible product defect: the anonymous messenger runtime renders universo-default instead of the layout theme. Turnkey change points (verified 2026-11-08):
-- Backend `publicMessengerRuntime.ts:563` — read `parsedMessengerConfig.data.appearance` (today discarded), project to `{ mode, resolved }` mirroring `toPublicConfig` (publicMarketingRuntime.ts:56-77) INCLUDING the universo-default backfill (`getUniversoDefaultAppearance`, TZ §11.4/§15.2); include into the payload build at `:635-640` (`...(appearance ? { appearance } : {})` — or always, mirroring marketing).
-- Types `packages/universo-react-types/src/common/publicMessengerRuntime.ts:692-699` — `publicMessengerAppRuntimeSchema` is `.strict()`: add `appearance: themePublicAppearanceSchema.optional()` (from ./themePreset) — WITHOUT this the payload fails safeParse → `unavailable()` → 404 for every messenger app.
-- Frontend `packages/universo-react-applications-frontend/src/pages/application-runtime/PublicMessengerApplicationRuntime.tsx:11-17` — render `<RuntimeAppearanceInjector appearance={messengerApp.appearance ?? null} />` next to `PublicMessengerRuntime` (already inside AppMainLayout); thread the field through `PublicMessengerRuntimeProps` (`PublicMessengerRuntime.tsx:18-22`, re-parses payload at :364).
-- Tests to extend: `applications-backend/src/tests/services/publicMessengerRuntime.test.ts` (createInput/messengerLayout helpers accept config), `tests/controllers/publicApplicationRuntimeController.test.ts` (`not.toContain(applicationId)`), types `messengerAppLayout.test.ts`, apps-template-mui `PublicMessengerRuntime.test.tsx`, applications-frontend `ApplicationRuntime.public.test.tsx` (asserts EXACT prop equality at :186 — update when the payload gains the field).
-- E2E: anonymous messenger journey with a custom theme applied (assert payload appearance + rendered host).
-- Pitfalls: strict schemas reject the field if missed; double client validation (fetch 502 + renderer alert) means schema + renderer ship together (old backend + new frontend is safe — field optional); privacy = `themePublicAppearanceSchema` only (no preset/overrides).
+
+-   Backend `publicMessengerRuntime.ts:563` — read `parsedMessengerConfig.data.appearance` (today discarded), project to `{ mode, resolved }` mirroring `toPublicConfig` (publicMarketingRuntime.ts:56-77) INCLUDING the universo-default backfill (`getUniversoDefaultAppearance`, TZ §11.4/§15.2); include into the payload build at `:635-640` (`...(appearance ? { appearance } : {})` — or always, mirroring marketing).
+-   Types `packages/universo-react-types/src/common/publicMessengerRuntime.ts:692-699` — `publicMessengerAppRuntimeSchema` is `.strict()`: add `appearance: themePublicAppearanceSchema.optional()` (from ./themePreset) — WITHOUT this the payload fails safeParse → `unavailable()` → 404 for every messenger app.
+-   Frontend `packages/universo-react-applications-frontend/src/pages/application-runtime/PublicMessengerApplicationRuntime.tsx:11-17` — render `<RuntimeAppearanceInjector appearance={messengerApp.appearance ?? null} />` next to `PublicMessengerRuntime` (already inside AppMainLayout); thread the field through `PublicMessengerRuntimeProps` (`PublicMessengerRuntime.tsx:18-22`, re-parses payload at :364).
+-   Tests to extend: `applications-backend/src/tests/services/publicMessengerRuntime.test.ts` (createInput/messengerLayout helpers accept config), `tests/controllers/publicApplicationRuntimeController.test.ts` (`not.toContain(applicationId)`), types `messengerAppLayout.test.ts`, apps-template-mui `PublicMessengerRuntime.test.tsx`, applications-frontend `ApplicationRuntime.public.test.tsx` (asserts EXACT prop equality at :186 — update when the payload gains the field).
+-   E2E: anonymous messenger journey with a custom theme applied (assert payload appearance + rendered host).
+-   Pitfalls: strict schemas reject the field if missed; double client validation (fetch 502 + renderer alert) means schema + renderer ship together (old backend + new frontend is safe — field optional); privacy = `themePublicAppearanceSchema` only (no preset/overrides).
 
 ## Follow-up session 2 — component re-tokenization (after session 1)
 
 MVP cut (~20 lines, 8 files, all mechanical): `pendingAnimations.ts:9,12,60` → CSS-var strings (`var(--mui-palette-primary-main/light)`); `CustomizedDataGrid.tsx:235,242` → sx function with primary.main; `FlowListTable.tsx:553` link color + `gridData.tsx:40` sparkline → var strings; `runtime-ui/index.tsx:165,172` + `ItemCard.tsx:63,70` static shadows → theme interpolation; `ErrorBoundary.tsx:100` → grey.100; 4×`color:'#fff'` dark-block stragglers in customizations navigation/inputs; 10 px borderRadius literals in customizations → `theme.shape.borderRadius` reads. Then visual dark-mode check.
 KEEP: SVG brand fills (~134 lines), 3D scene backdrops (`#020611`/`#030303` — scene lighting assumes dark), matrix cell-content palettes, `preferredColors` node-identity palette, color-picker defaults, contrast-math constants. Owner decisions still open: `RoleChip.tsx` role-color semantics under presets; ~8 `mode === 'dark'` ternaries (alpha()-based derivation); auth/marketing hsl gradients (Sitemark demo aesthetic, ~39 lines).
-- [x] V verification: backend/panel/AppTheme tests, tsc, gates, E2E regression, memory-bank finalize.
+
+-   [x] V verification: backend/panel/AppTheme tests, tsc, gates, E2E regression, memory-bank finalize.
 
 # Theme Presets — QA gate 4 (2026-11-08, backlog-remediation delta review)
 
 > QA mode: 3 agents (Thermos correctness/security delta; compliance/maintainability; E2E/test actuality). Verdicts: correctness **PASS — mergeable** (0 CRITICAL/HIGH); compliance **PASS-WITH-MINORS**; E2E actuality **NEEDS-ADDITIONS** (small, bounded). Overall: **pass-with-minor-issues**.
 
 ## Must-do before commit (4, all small)
-- [ ] Q4-1 MEDIUM twin drift: metahubs `copyPreset` DB-source writes only `basePresetId` — applications twin writes id+codename (themePresetsService.ts:250 vs applicationThemePresetsService.ts:295-296). Add `basePresetCodename = source.codename` in the metahubs else-branch + extend the metahubs service test.
-- [ ] Q4-2 P1: `basePresetCodename` is not exercised through the HTTP layer — `createThemePresetInputSchema` is `.strict()`, so dropping the field from the schema would silently 400 the copy-to-application UI with no failing test. Add one Jest route test (POST body with basePresetCodename → 201 + persisted origin) or a 6-line E2E step.
-- [ ] Q4-3 Strengthen the create-origin service test: assert `insertParams` contains `'metahub:…'` + `auditWrites` length 1 (currently asserts the canned mock row; dead vars collected but unused).
-- [ ] Q4-4 Cleanups: check the stale `[ ] C5` box in tasks.md; delete the duplicated legacy-note line 21 in docs/en/platform/theme-presets.md; fix 4 eslint warnings (service :184/:579 unused params, service test :145 `copied`, panel test :148 unused `user`); Prettier the two theme-presets docs; rephrase "applications-backend 25/25" (measured 24 mock-level).
+
+-   [ ] Q4-1 MEDIUM twin drift: metahubs `copyPreset` DB-source writes only `basePresetId` — applications twin writes id+codename (themePresetsService.ts:250 vs applicationThemePresetsService.ts:295-296). Add `basePresetCodename = source.codename` in the metahubs else-branch + extend the metahubs service test.
+-   [ ] Q4-2 P1: `basePresetCodename` is not exercised through the HTTP layer — `createThemePresetInputSchema` is `.strict()`, so dropping the field from the schema would silently 400 the copy-to-application UI with no failing test. Add one Jest route test (POST body with basePresetCodename → 201 + persisted origin) or a 6-line E2E step.
+-   [ ] Q4-3 Strengthen the create-origin service test: assert `insertParams` contains `'metahub:…'` + `auditWrites` length 1 (currently asserts the canned mock row; dead vars collected but unused).
+-   [ ] Q4-4 Cleanups: check the stale `[ ] C5` box in tasks.md; delete the duplicated legacy-note line 21 in docs/en/platform/theme-presets.md; fix 4 eslint warnings (service :184/:579 unused params, service test :145 `copied`, panel test :148 unused `user`); Prettier the two theme-presets docs; rephrase "applications-backend 25/25" (measured 24 mock-level).
 
 ## Tracked (no action now)
-- Q4-T1 (LOW, by design): draft-time contrast for a newly selected DB preset merges over previously effective tokens — client gate can false-pass; server 422 authoritative (TZ Appendix A #7).
-- Q4-T2 (LOW): metahubs bare-membership reads are intentionally different from the applications reader model (per-scope idiom); metahubs route-level authz test absent (shared factory covered generically) — P3.
-- Q4-T3 (LOW): update-path 23505 fallback hardcodes codename 'theme-preset-codename' (unreachable; update never touches codename).
-- Q4-T4 (LOW): theme routes `service()` schema lookup falls back to 'applications' without `activeAppRowCondition` (differs from the fail-closed layouts helper; no cross-tenant exposure — queries app-scoped + RLS).
-- Q4-T5 (P2/P3): E2E read-policy journey (member invite + readRoles settings) exceeds the repo norm (aliases = route-test only; messenger-bindings = the strong precedent); AppearanceSection copy-to-application component test; visual-spec usage-caption assert.
+
+-   Q4-T1 (LOW, by design): draft-time contrast for a newly selected DB preset merges over previously effective tokens — client gate can false-pass; server 422 authoritative (TZ Appendix A #7).
+-   Q4-T2 (LOW): metahubs bare-membership reads are intentionally different from the applications reader model (per-scope idiom); metahubs route-level authz test absent (shared factory covered generically) — P3.
+-   Q4-T3 (LOW): update-path 23505 fallback hardcodes codename 'theme-preset-codename' (unreachable; update never touches codename).
+-   Q4-T4 (LOW): theme routes `service()` schema lookup falls back to 'applications' without `activeAppRowCondition` (differs from the fail-closed layouts helper; no cross-tenant exposure — queries app-scoped + RLS).
+-   Q4-T5 (P2/P3): E2E read-policy journey (member invite + readRoles settings) exceeds the repo norm (aliases = route-test only; messenger-bindings = the strong precedent); AppearanceSection copy-to-application component test; visual-spec usage-caption assert.
 
 ## Verified-good in the delta
+
 Behavioral parity of the applicationReadPolicy extraction (roles/default/SQL identical + defensive copy); authorizeReader on reads only with request-scoped executor + uuidV7 params; ensureApplicationAccess verifies the applicationId itself (no cross-tenant); draft contrast display-only (PATCH body unchanged `{mode,preset,overrides}`); JSON clone semantics-preserving for schema-JSON data; seam removal complete with no dangling refs; origin strings length-capped ≤64=VARCHAR; basePresetCodename input validated (min1/max64) before SQL; audit/log hygiene unchanged; metahubs export guard parity; deriveCopyCodename edge cases executed (64-char, trailing dashes, fallback).
 
 # QA gate 4 remediation — IMPLEMENT (2026-11-08)
 
 > Close all gate-4 findings: twin drift, HTTP-layer origin contract, test-assertion strengthening, cleanups. Order: Q4-1 → Q4-2 → Q4-3 → Q4-T3/T4 → Q4-4 → extras → gates.
-- [x] G1 Q4-1: metahubs copyPreset DB-source writes basePresetCodename (twin parity) + metahubs test asserts it.
-- [x] G2 Q4-2: route test POSTs basePresetCodename through the strict schema (201 + origin in INSERT params).
-- [x] G3 Q4-3: create-origin service test asserts insertParams 'metahub:…' + auditWrites length 1 (no canned-row assertion).
-- [x] G4 Q4-4 cleanups: C5 checkbox; duplicated legacy-note line 21 (en doc); 4 eslint warnings; Prettier theme docs; "25/25" recount.
-- [x] G5 Q4-T3: update-path 23505 uses current.codename (both stores).
-- [x] G6 Q4-T4: theme routes schema lookup reuses the fail-closed runtime-schema helper.
-- [x] G7 extras: normalizeApplicationLayoutReadRoles unit test; themePresetRefSchema negative tests; visual spec usage-caption pre-assert.
-- [x] G8 gates: backend/panel/types suites + lints + tsc (E2E не требуется — изменений UI/рантайма нет).
 
-## PR #930 review-response session — interim state (2026-11-09, paused)
+-   [x] G1 Q4-1: metahubs copyPreset DB-source writes basePresetCodename (twin parity) + metahubs test asserts it.
+-   [x] G2 Q4-2: route test POSTs basePresetCodename through the strict schema (201 + origin in INSERT params).
+-   [x] G3 Q4-3: create-origin service test asserts insertParams 'metahub:…' + auditWrites length 1 (no canned-row assertion).
+-   [x] G4 Q4-4 cleanups: C5 checkbox; duplicated legacy-note line 21 (en doc); 4 eslint warnings; Prettier theme docs; "25/25" recount.
+-   [x] G5 Q4-T3: update-path 23505 uses current.codename (both stores).
+-   [x] G6 Q4-T4: theme routes schema lookup reuses the fail-closed runtime-schema helper.
+-   [x] G7 extras: normalizeApplicationLayoutReadRoles unit test; themePresetRefSchema negative tests; visual spec usage-caption pre-assert.
+-   [x] G8 gates: backend/panel/types suites + lints + tsc (E2E не требуется — изменений UI/рантайма нет).
 
-- [x] CI mui-v9 policy fix (Typography color → sx), workflow runners pinned to ubuntu-24.04, docs checks (SUMMARY, screenshots, stale term, Prettier), provenance refresh — pushed, CI build/check/verify green on these.
-- [x] Root cause of hosted marketing regression found and fixed: FE runtimeDto parsed the authenticated runtime payload with the AUTHORING marketingPageConfigSchema (requires preset/overrides in appearance) while the server now serves the public projection — switched rendererConfigSchema to marketingRuntimePageConfigSchema; generator spec green locally (2/2), docs verification green.
-- [x] Greptile fixes pushed (commit 210567a91): hosted appearance injection (Dashboard.tsx + DashboardApplicationRuntime messenger branch, host-context-aware), THEME_PRESETS_ENABLED flag gate (useThemePresetsFlag both frontends, tab hidden while loading/off), includeArchived=true for managers, metahubs _mhb_deleted guards (+applications _app_deleted mirror + parity canonicalization), snapshot tokens deep-compare, panel draft-contrast scope fix, adapter font-weights passthrough.
-- [ ] PENDING: P1-2 action-policy controls — MarketingActionPolicySection component created and exported; wired into applications ApplicationLayouts (Main tab, marketing-page, persist via handleActionPolicyChange) and metahubs LayoutDetails (Main tab); metahubs explicit template-mui mocks extended (inheritedWidgets + cacheInvalidation + interpretationNetworkWidgetEditor); applications confirm-misuse bug fixed (window.confirm with object → controller confirm exposed).
-- [ ] PENDING: run the two patched heavy LayoutDetails suites locally (cacheInvalidation, interpretationNetworkWidgetEditor — OOM-prone, run one at a time) and the full CI; commit mock patches (currently uncommitted: 2 test files + LayoutDetails guard).
+## PR #930 review-response — merged (2026-11-09)
+
+-   [x] CI mui-v9 policy fix (Typography color → sx), workflow runners pinned to ubuntu-24.04, docs checks (SUMMARY, screenshots, stale term, Prettier), provenance refresh — pushed, CI build/check/verify green on these.
+-   [x] Root cause of hosted marketing regression found and fixed: FE runtimeDto parsed the authenticated runtime payload with the AUTHORING marketingPageConfigSchema (requires preset/overrides in appearance) while the server now serves the public projection — switched rendererConfigSchema to marketingRuntimePageConfigSchema; generator spec green locally (2/2), docs verification green.
+-   [x] Greptile fixes pushed (commit 210567a91): hosted appearance injection (Dashboard.tsx + DashboardApplicationRuntime messenger branch, host-context-aware), THEME_PRESETS_ENABLED flag gate (useThemePresetsFlag both frontends, tab hidden while loading/off), includeArchived=true for managers, metahubs \_mhb_deleted guards (+applications \_app_deleted mirror + parity canonicalization), snapshot tokens deep-compare, panel draft-contrast scope fix, adapter font-weights passthrough.
+-   [x] P1-2 action-policy controls implemented — MarketingActionPolicySection created and exported; wired into applications ApplicationLayouts (Main tab, marketing-page, persist via handleActionPolicyChange) and metahubs LayoutDetails (Main tab); metahubs explicit template-mui mocks extended (inheritedWidgets + cacheInvalidation + interpretationNetworkWidgetEditor); applications confirm-misuse bug fixed (window.confirm with object → controller confirm exposed).
+-   [x] Heavy LayoutDetails suites patched (mock entries added), gate script path fixed; scoped-layout spec rewritten for the new UI (Theme tab flow, disabled reset semantics); permissions spec updated to appearance-section testids. Local execution of the two heavy suites remains pending below.
+-   [x] CI status: check pass, verify pass, build — only the pre-existing LMS snapshot-import flake remains (same click-timeout on "Регистр прогресса" reproduced on main at 2026-11-02, documented above); scoped-layout spec green after the rewrite.
+-   [ ] PENDING (next session): LMS snapshot-import flake — a `<button>` overlay intercepts pointer events on "Регистр прогресса" (pre-existing on main, unrelated to the theme work).
+-   [ ] PENDING: Run the two patched heavy LayoutDetails suites locally (cacheInvalidation, interpretationNetworkWidgetEditor — OOM-prone, run one at a time). Their mock and gate-path updates are committed in merged PR #930.
+
+# MMOOMM Metahub Economy MVP — IMPLEMENT (2026-11-12)
+
+> Plan: memory-bank/plan/mmoomm-metahub-economy-plan-2026-11-12.md (Draft v2, QA-revised) — required input.
+> Research: memory-bank/research/mmoomm-metahub-economy-research-2026-11-12.md (Reviewed).
+> Contract: fresh DB (no legacy), no schema/template version bump, serious refactoring allowed, D1 deviation (object-kind registers), D2 (REST + room bridge), D3/D7 new platform tables (owner-flagged), D11 summary-bootstrap StarterGrant. Phase H deferred per plan decision point (platform projection-permission fix = separate follow-up after LMS consumer audit; economy does not depend on it).
+
+## Phase A — types, widget registry, i18n
+
+-   [x] A1 `packages/universo-react-types/src/common/economyRuntime.ts` (economyUuidV7Schema local, 9 error codes + status map, cargo/market/operations/summary strict schemas). [agent: types tests 351 green; barrel export added; specializedPolicy per plan D4]
+-   [x] A2 `economyPanelConfigSchema` + `DASHBOARD_WIDGET_CONFIG_SCHEMAS` entry + `registerWidget('economyPanel', ['center','right'], multiInstance false, specializedPolicy)` mirroring resourcePreview zones.
+-   [x] A3 shared i18n `common.layouts.widgets.economyPanel` + `widgetPresentation.showRecentOperations.*` en+ru.
+-   [x] A4 `retainedDashboardKeys` updated + field-ownership inventory row (620 rows, 33 keys) in memory-bank/research/dashboard-complete-entity-backed-widgets-field-ownership-2026-10-02.md.
+-   [x] A5 types vitest green (351) + economyRuntime.test.ts incl. ledgerConfigSchema acceptance (registrar/appendOnly/instant/period day) + types lint clean.
+
+## Phase B — applications backend
+
+-   [x] B1 posting.ts pure-core extraction `runRecordStateCommandCore({ctx, objectCollection, attrs, rowId, command, expectedVersion, recordCommandService, postingMovementService}) → {responsePayload, afterLifecycleRequest}`; assertRuntimeEntityMutationAllowed inside core (denyRuntimeEntityMutation removed from shell — identical UpdateFailure-mapped responses); existing route contract suite green (15/15 via -t filter).
+-   [ ] B2 `_app_constants` system table (schema-ddl systemTables + generation) + sync materialization from snapshot.constants (applicationSyncContracts.ts) + fail-soft read rule.
+-   [x] B3 platform migration `src/platform/migrations/1800000000370-CreateEconomyIdempotency.sql.ts` — `applications.obj_economy_idempotency` (scoped UNIQUE(application_id,user_id,key_hash), guest hardening cloned verbatim, uuid-v7 key CHECK, status_code 200-599, FK cascade, expires_at index, down drops) + registration (migrations/index.ts export, systemAppDefinition.ts post_schema_generation, NO targetBusinessTables) + migrations-platform parity count updated (+ fixed stale HEAD list missing ThemePresets 350/360) + platform tests 27 PASS.
+-   [x] B4/B4a/B5 `services/runtimeEconomyService.ts` (681) + `services/runtimeEconomySupport.ts` (601): ONE withTransactionSavepoint in plan order ①-⑨; constants via \_app_constants loader (fail-soft → ECONOMY_MARKET_DISABLED); balances via queryProjection server-injected; D11 StarterGrant bootstrap inside advisory lock; proximity via describeFlightContext; zod-validated responses; D9 codes. [agent]
+-   [x] B6 `controllers/runtimeEconomyController.ts` + 3 routes (readLimiter/writeLimiter, editContent on trades, strict body, forbidden-field 422, D9 status map) — applicationsRoutes.test.ts 213/213 green.
+-   [x] B7 `persistence/economyIdempotencyStore.ts` (platform schema, scoped ON CONFLICT + re-select, SKIP LOCKED purge) + `services/economyIdempotencyMaintenance.ts` (15-min interval, wired in core-backend) + in-tx gate (documented).
+-   [x] B8 Jest unit (validation matrix, movements, StarterGrant once-only, POSTING_FAILED 500 shape, reverse semantics, idempotency store) + route contract suite + PG integration (posting through module, RLS, isolation, zero-row fail-closed, partial-failure rollback, double-spend, unpost revert) via test:applications-integration:local-supabase.
+
+## Phase C — realtime room bridge
+
+-   [x] C1 `FixedTickSceneRoom.describeShipForUser(userId)` — async read-only, plain JSON {position, stations[] from targetObjects}, null for absent/viewer (userShips→ships→movement.position).
+-   [x] C2 FIXED_TICK_SCENE_ROOM_NAME hoisted (module const) + `queryFixedTickRoomsForApplication` co-located in the bridge (deviation: bridge-local instead of ARR export — mockable, core-backend wiring unchanged).
+-   [x] C3 (bridge tests 6/6) `services/runtimeFlightRoomBridge.ts` (matchMaker.query + scopeId prefix + remoteRoomCall<DescribableFixedTickRoom>, try/catch race-safe, 2s timeout) + jest 6/6 green (mocked colyseus-server).
+
+## Phase D — runtime widget (apps-template-mui)
+
+-   [x] D1 api.ts fetchRuntimeEconomySummary + postEconomyTrade (Idempotency-Key, fetchWithCsrf).
+-   [x] D2 EconomyPanelWidget (useQuery/useMutation per plan D10, RuntimeWidgetStatus, LinearProgress, atStation+permission gating, testids per UI Contract).
+-   [x] D3 widgetRenderer.tsx case (lazy + dedicated suspense fallback) (lazy import).
+-   [x] D4 apps.json en/ru (18 widget keys + 9 error codes + generic; RU full mirror): dashboard.widget.economy._ + runtime.economyErrors._ (9 codes).
+-   [x] D5 vitest 17 tests green (real locales; typecheck exit 0) (real locale resources loaded, disabled states, error mapping) + widgetPlacementGraph contract.
+
+## Phase E — layout editor coverage
+
+-   [x] E1 verified: generic WidgetBehaviorEditorDialog renders registry presentationFields (no code needed) covers economyPanel in LayoutDetails; add minimal editor fields only if per-widget registration required.
+-   [x] E2 covered by parity test (types 351 green) (parity test covers).
+
+## Phase F — product-file generator (UI-first)
+
+-   [x] F1 mmoommAppGeneratorData.ts (+economyPostingModuleSource; module engine compiled + executed against mock ctx for grant/sell/buy) economy codenames/constants + economyPostingModuleSource.
+-   [x] F2 metahub-authoring.ts: createEconomyObjectsThroughBrowser, createEconomyEnumerationsThroughBrowser, createEconomyConstantsThroughBrowser, configureLedgerRegisterThroughBrowser (full TZ §7.4/7.5 field/projection lists, period day), createEconomyPostingModuleThroughBrowser (BEFORE Behavior step), configureOperationPostingThroughBrowser (targetLedgers, moduleCodename, prefix OP-, immutability 'posted', states), addFlightStationMarketComponentsThroughBrowser + createRecord API seeds (ORE/FUEL payloads, FlightStation row values).
+-   [x] F3 runtime-authoring.ts configureEconomyPanelThroughBrowser (right zone).
+-   [x] F4 generate-mmoomm-app-export.ts order wiring.
+-   [x] F5 contracts: shared constants + assertDomainModel (entities/enums/set/ledger configs/posting/module attached) + widget placement assertion; keep 2×playcanvasCanvas + primary-nav assertions.
+
+## Phase G — fixture regeneration + economy economy journey E2E + visual proof
+
+> PAUSE STATE 2026-11-12: gate run 1 FAILED at build:e2e — `apps-template-mui` tsdown build error TS2345 EconomyPanelWidget.tsx(269): `postEconomyTrade` in `src/api/api.ts` still types the trade body with REQUIRED `stationId: string` (local inline type). stationId was made optional in types economyTradeRequestSchema + placeholder removed from the widget; api.ts body param type must become `stationId?: string` (or reuse EconomyTradeRequest from @universo-react/types), then rebuild types dist if consumed from dist, then re-run `pnpm run test:e2e:mmoomm-app-fixture-generator:local-supabase` with `UPDATE_MMOOMM_APP_FIXTURE=1` (log: /tmp/g1-fixture-gate.log; fixture NOT regenerated yet — economy absent from tools/fixtures/metahubs-mmoomm-app-snapshot.json).
+
+-   [~] G1 regenerate canonical fixture (iteration log: run1 card-view row locator -> entity-menu-trigger testid; run2 MUI Select testid on hidden native input -> wrapper-root clicks (10 selects); run3 field-role Aggregate -> removed (component default 'sum'); run4 StationCode first-two-component required lock -> required:true (module always writes it); run5 pre-verification agent applied 3 more fixes (behavior-posting-module wrapper click, targetLedgers assertion scope, FlightStation first-component lock) + static cross-verified all remaining helpers; run6 reached seed rows -> NUMBER scale: VolumePerUnit 0.001 rejected (default scale 0) -> Scale field support in createObjectComponentsThroughBrowser + scale 3 on MassPerUnit/VolumePerUnit/Amount/Quantity/Cost; run7 = SIGTERM-killed by the environment mid-flow (concurrent B8 integration load slowed UI to ~65s/entity; no test failure); run8 = refused stale run.lock (killed run7 left it) -> lock cleared after verifying pid dead; run9 = Scale not found -> Precision/Scale sit inside the collapsed 'Type Settings' CollapsibleSection (role=button, aria-expanded) -> expand before fill; run10 = getByLabel('Scale') still failed -> EN locale translates components.typeSettings.number.scale as 'Decimal places' (metahubs.json:2208) -> label fixed; run11 = ENTIRE browser flow passed (entities/registers/module/posting/seeds/publication/layout/export) -> contract bug: MMOOMM_ECONOMY_PROJECTION_CODENAMES flat list checked against BOTH registers -> split into per-register wallet/inventory projection consts; G1 REGENERATION ROUND 2 (G2-driven product fixes, gate runs 17-20 + E2E runs 1-15): (1) syncSetConstants read nonexistent snapshot.constants -> envelope key is fixedValues (sync contract + prepareJsonbValue for value_json); (2) components dialog defaults STRING maxLength 10 -> helper clears Max Length (UUIDs 36 chars overflowed varchar(10)); (3) economyPanel picker misclick -> placement via assignLayoutZoneWidget PUT + api-session dedupe/import-comma cleanup; (4) contract per-register projections split (wallet/inventory); (5) idempotency scope: externally issued UUIDs (Supabase auth userId not v7) -> UUID_PATTERN any-version on applicationId/userId/workspaceId, key_hash stays sha256-strict; (6) D6 runtimeRecordAccess ownerOnly/\_upl_created_by added to Wallet/Operation via applyEconomyRecordAccessThroughApi (no UI for this knob) + contract asserts; (7) station REF fallback: scene target ids are not row ids -> loadFirstStationRow fallback; (8) buildRecentOperations explicit \_upl_created_by filter (belt-and-braces isolation); (9) E2E: adaptive spawn geometry (atStation may be true at spawn), user B pre-canvas 409 covers FR-019, quantity-aware button gating, re-open Space section after locale switch. RUN 20 GATE exit=0 (13.2m), contract PASS, ownerOnly confirmed in fixture for Wallet/Operation. E2E run 14 got through the ENTIRE functional journey (grant/trades/DB/reload/idempotency/negatives/B-isolation DB) and failed only at G3 screenshots (locale switch lands on Welcome) -> openMmoommSpaceSection added after switchRuntimeLocale; Run 15 was IN FLIGHT at pause (background exec_78eac9c3; log /tmp/g2-economy-e2e15.log — check G2 exit= and 'passed/failed' tail on resume; if it failed, debug from test-results error-context as before; RUN 15 RESULT: still failed at the SAME G3 point ('economy en must be visible' after switchRuntimeLocale('en')) DESPITE openMmoommSpaceSection after the locale navigation. Resume step (REFINED by run-15 artifacts): desktop-1920-en and laptop-1280-en screenshots CAPTURED OK (mmoomm-economy-panel/page-\*.png in test-results/) — the loop failed at mobile-390: the panel testid went hidden at the mobile viewport (right-zone collapse on narrow screens). FIX APPLIED 2026-11-14: collectEconomyScreenshots now detects viewports < MUI md (900px) — the permanent SideMenuRight is display:none there and the panel lives in the AppNavbar 'Context panel' drawer (SideMenuMobileRight) — opens the drawer via the 'Context panel'/'Контекстная панель' trigger, captures the panel inside it, closes with Escape, then captures the full page; desktop >=900px behavior unchanged. RUN 16 RESULT (log /tmp/g2-economy-e2e16.log): economy journey reached G3 at mobile-390, drawer opened OK, but the panel locator hit a STRICT-MODE violation — below `md` the permanent SideMenuRight stays MOUNTED (CSS display:none) in #root while the opened mobile drawer mounts a SECOND economy-panel in a role=dialog portal, so page.getByTestId('economy-panel') resolved to 2 elements. FIX: collectEconomyScreenshots panel locator now `.filter({ visible: true })` (Playwright 1.58) — 1 match with drawer open, 0 after Escape (toBeHidden passes on empty). Also: runtime spec flake 'must move the local ship' (passed in run 15, no runtime code changed) — rerun to confirm. RUN 17 RESULT: economy journey PASSED (49.3s) — all 12 screenshot attachments captured (panel+page x desktop/laptop/mobile x en/ru), mobile drawer flow works. BUT the runtime spec (first run of this session, grep broadened) failed: run 16 = movement-assertion flake, run 17 = syncApplicationSchema HeadersTimeoutError (>300s) — two different failure modes = environment flakiness, no runtime code changed since its last green. G3 VISUAL INSPECTION of run-17 PNGs found a UX-gate violation: Cargo/Market showed RAW enumeration value UUIDs as units (REF Unit attr stores value ids). PRODUCT FIX in loadNomenclatureRowsByCode (runtimeEconomySupport.ts): REF units batch-resolved to enumeration value codenames via existing resolveEnumValueLabels (STRING units pass through; fallbackUnits unchanged); new Jest case 'resolves REF enumeration units to labels' (25/25 pass) — docs already documented unit:'Kg', behavior now matches. RUN 18 RESULT: exit=0 — economy journey 40.3s PASS on the rebuilt backend; panel PNG verified: units now 'Kg'/'Liter', zero raw UUIDs. I3 DONE: 10 touched packages lint 0 errors (fixed unused 'within' import in EconomyPanelWidget.test.tsx), Prettier sweep clean (AGENTS.md/CLAUDE.md/fixture reformatted — drift is JSON-compare, safe). I4: types 351 + utils 460 + template-mui economy/dashboard suites 53 + DashboardApp 23 (fixed stale AppMainLayout mock — pre-existing HEAD break from theme-presets merge) + InterpretationNetworkCellStyleEditor a11y fix (double <label> concatenated accessible name) all green; full backend jest 2389 + PG integration 72 (incl. new expired-row replacement test). template-mui pre-existing failures tracked (NOT economy): favoritesWorkspace 2, InterpretationNetworkDetailsPane 2, PublicInterpretationNetworkViewer 5 (empty material-table rows / network-dependent) — full-suite bulk failures are documented OOM worker crashes (suites pass in isolation). G4 FULL GATE exit=0: generator 14.8m PASS, drift PASS, economy journey 45.5s PASS, runtime spec 9.0m PASS (runs 16/17 failures were environment flakes — did not reproduce on the sequential gate). AUTOREVIEW (39-part panel): FAIL with 9 findings -> verified: ACCEPTED+FIXED (1) idempotency fingerprint now binds trade kind (cross-endpoint key replay conflicts instead of replaying); (2) saveEconomyIdempotency ON CONFLICT DO UPDATE ... WHERE expired (fail-closed re-record, live rows immutable, +integration test); (3) ensureStarterGrantInTx moved BEFORE balance/cargo validation (first direct trade can sell granted ore); (4) loadFirstStationRow name via resolveRowText (localized JSONB). REFUTED (2 findings: grant classification matches OperationType enum id not unitPrice, once-only by type existence + LEDGER_REGISTRAR_ONLY blocks direct rows — E2E-proven; posting failures throw UpdateFailure through postOperationRow -> outer savepoint rolls back wallet/grant writes). DEFERRED (1: fixture BasePrice nonNegative:false is the explicit dialog default; BasePrice unconsumed by trade pricing (server prices from \_app_constants); TZ does not mandate; fixture-regen churn deferred). Post-fix: routes 224 + service 25 unit, jest 2389, integration 72 all green. Root turbo build exit=0 (36 tasks, 3m58s; NOTE: the earlier 'ROOT-BUILD exit=0' in /tmp/i4-root-build.log was the applications-backend package build only — cwd gotcha again). build:e2e exit=0. RUN 19 (economy E2E on post-autoreview-fix dist): exit=0, journey 39.7s PASS — idempotency kind-binding, grant-before-validation, station-name resolver all exercised live. IMPLEMENT COMPLETE: all plan phases A-I done; G1-G4 gates green; progress.md entry written 2026-11-14. Also check error-context.md in the same test-results dir for the mobile page structure. Then continue with the I-ladder: root build, Thermos autoreview, progress.md, final summary).
+    RUN 16 GATE exit=0 (13.6m) — fixture regenerated WITH economy, check:mmoomm-app-fixture-contract PASS, drift companion tests 7/7. G2 E2E then exposed 3 product bugs, fixed: (1) syncSetConstants read a nonexistent `snapshot.constants` — envelope key is `fixedValues` (added to sync contract + `fixedValues ?? constants` fallback mirror, value_json via prepareJsonbValue — raw strings break jsonb); (2) components-page dialog defaults STRING maxLength to 10 (localizedFormDefaults) — economy UUIDs (36 chars) overflowed varchar(10) -> helper clears Max Length (column TEXT); (3) economyPanel Add-widget picker misclick under transitions -> placement via the assignLayoutZoneWidget PUT (same mutation as the generic editor) + api-session duplicate/import-comma cleanup. Run 17 (fixture regen with fixed components) running) via local-supabase gate.
+-   [x] G1a pre-verification static cross-check of economy authoring helpers vs real UI components applied (metahub-authoring.ts): posting-module select click + posting-targets chip assertions moved to the visible MUI select root (hidden native input carries the testid); FlightStation MarketEnabled/MarketFeePercent specs set required:true (forced-first-component rule locks Required for a fresh object's first components); all other labels/testids/option values verified against LedgerSchemaFields/RecordBehaviorFields/EntityInstanceListContent/ComponentFormFields/i18n and module source vs ctx API — no further mismatches found.
+-   [x] G2 spec authored (mmoommEconomyProof.ts + economy journey spec; not yet executed) (@flow @slow): granted first entry (D11), sell/buy UI+DB (withE2eDatabaseClient), reload persistence, user B isolation + cross-user payload assertion, negative matrix (all 9 codes), idempotent replay DB check.
+-   [ ] G3 screenshots: viewport matrix 1920×1080/1280×800/390×844, EN/RU × light/dark; artifacts inspected; docs screenshots via dedicated capture script into docs/{en,ru}/.gitbook/assets/mmoomm-economy/; optional panel-region toHaveScreenshot baseline.
+-   [ ] G4 full gate test:e2e:mmoomm-app-gate:local-supabase.
+-   [ ] G5 manual acceptance checklist recorded (flight unchanged, no canvas overlap, EN/RU).
+
+## Phase I — docs, READMEs, gates
+
+-   [x] I1 docs/{en,ru}/guides/mmoomm-economy.md + SUMMARY.md both locales + ledgers.md cross-links + docs checks (i18n:check, gitbook-screenshot-assets:check, Prettier).
+-   [x] I2 READMEs: applications-backend, apps-template-mui, types, metahubs-backend, tools/testing/e2e (+README-RU).
+-   [ ] I3 lint touched packages + i18n coverage; Prettier on changed files.
+-   [ ] I4 verification ladder: types/utils vitest → applications-backend jest + integrations → apps-template-mui vitest+typecheck → fixture contract/drift → mmoomm-app gate → root pnpm build → Thermos autoreview.
+-   [ ] I5 memory-bank progress.md entry; verify no schema/template version changed.
+
+## Deferred (decision point, not in this PR)
+
+-   [ ] H1 platform projection-permission fix (listFacts/queryProjection/getProjection) — separate follow-up after LMS consumer audit; economy does not depend on it.
+
+## QA round 2026-11-15 (QA mode — report only, no fixes)
+
+5 read-only audit subagents (coverage, security, stack/patterns, data-lifecycle, test-reliability) + own source verification + freshness smoke (fixture contract PASS, 249 economy unit/route tests green on current worktree).
+
+-   HIGH-1 (security, pre-existing platform route, now material): generic ledger read endpoints (runtimeLedgersController listFacts/queryProjection/getProjection) pass CLIENT-supplied filters verbatim without ensureRuntimePermission — any application member can read another user's WalletLedger/InventoryLedger balance/cargo via POST .../runtime/ledgers/:id/query {filters:{WalletKey:<other-user>}}. Exactly the research RQ5 gap / plan D8 Phase H deferred fix. Economy's own endpoints are server-injected and PASS all 13 security checklist items. RECOMMENDATION: promote Phase H.
+-   HIGH-2 (integrity, latent platform interaction surfaced by economy): re-post after unpost dedups against the ORIGINAL fact (findIdempotentFactId matches active rows by keyFields; unpost keeps the original fact + adds a compensating one) => the re-posted Operation reaches 'posted' state with ZERO net ledger effect. FR-016 (no duplicate fact on repeated post) x FR-017 (unpost compensating facts) semantic hole; no test at any layer. Needs a product decision (e.g. forbid draft->posted after unpost in the state machine, or re-emit fresh facts on re-post).
+-   HIGH-3 (test staleness from the 2026-11-14 autoreview fix round): runtimeEconomy.integration.test.ts:1008/1021/1037 still call fingerprintEconomyTradeBody(body) with ONE argument (unit/routes were updated, integration missed; ts-jest isolatedModules transpiles silently) — suite passes but no longer exercises the kind-bound production fingerprint contract.
+-   MEDIUM: (1) NFR §12/D9 observability — zero structured logs (operationId/applicationId/principalId) in economy service/controller; (2) plan G3/I1 docs screenshots not committed (guide added to screenshotExemptPages instead; E2E-only artifacts); (3) double-grant via soft-delete of grant Operation or Wallet (once-only defined over active rows; deleteContent holders); (4) posting module baked literals vs \_app_constants drift (re-published constants change service prices but not module amounts); (5) economyTradeResponseSchema lives in the backend service -> client substitutes the hand-rolled isEconomyTradeResponse guard; (6) new services->controllers/routes value imports invert the established layer direction (no cycle); (7) ECONOMY_IDEMPOTENCY_KEY_INVALID missing from runtime.economyErrors.\* EN/RU and outside the schema whitelist; (8) test gaps: workspace-enabled flows, stationId supplied-but-ignored, disabled-station E2E variant, PG-integration negatives, service race-replay loser path, keyboard-path assertion, PNG content never auto-verified.
+-   LOW: raw err.message on non-UpdateFailure paths; nomenclatureCode reflection in 404; advisory-lock keys not app-scoped (contention only); E2E hand-rolled UUID v7 vs uuidv7 lib; apiBaseUrl!/applicationId! non-null assertions; quantity>0 rule triplicated instead of schema-level; stale tasks.md checkboxes (B2/G4/G5/I3-I5 marked [ ] though narrative complete); unit fixtures use 80/100 vs shipped 100/80; silent-skip integration describes without DATABASE_TEST_URL.
+-   REFUTED during QA: lifecycle agent's CONCERN-2 (no DB unique index on ledger keyFields) — ensureLedgerIdempotencyIndex (applicationWorkspacesSchema.ts:408-438, invoked applicationWorkspaces.ts:507-509 for every entity) creates the partial unique index; the brief's verified fact stands; ON CONFLICT DO NOTHING (targetless) covers it.
+-   Coverage verdicts: 30/33 FR fully satisfied + 3 documented owner-confirmed deviations (FR-001 via D1, FR-031 via D4 reading, FR-022 stationId-optional); §14.5 criteria 8/8 (criterion 7 sub-gap: committed screenshots); plan phases A-I done with H planned; research RQ1-7 goals all closed; field-ownership inventory row present. Runtime UX verdict (runtime-ux-qa skill): pass-with-minor-issues — no raw IDs, localized EN/RU, no page-level overflow at 1920/1280/390, canonical primitives, mobile drawer reachable; missing evidence: keyboard-path assertion, PNG-content verification.
+
+## IMPLEMENT round 2026-11-15 — close QA findings (zero tech debt)
+
+Plan: fix ALL QA-round findings (3 HIGH / 8 MEDIUM / 12 LOW) + promote plan Phase H. Design decisions locked by audit subagents (LMS-consumer audit: no in-repo consumer reads other users' ledger facts via HTTP; posting-flow audit: reversal is append-only, originals stay active, `_app_reversal_of_fact_id` column is index-backed on ledger tables).
+
+-   [x] H-3 fix stale 1-arg fingerprint calls (runtimeEconomy.integration.test.ts:1008/1021/1037) -> (kind, body); rerun integration.
+-   [x] H-2 fix re-post-after-unpost zero-net-effect: findIdempotentFactId gains NOT-EXISTS anti-join on active `_app_reversal_of_fact_id` (reversed facts no longer suppress re-emission; FR-016 kept while posted, FR-017 untouched); unit + integration tests for post->unpost->re-post.
+-   [x] H-1 Phase H ledger read scoping in RuntimeLedgerService: listFacts/queryProjection/getProjection inject `_upl_created_by = actorUserId` (belt-and-braces, economy mirror) + force runtimeRecordAccess ownerOnly owner-column filter when configured; `readReports` permission holders keep full visibility (admin/owner dashboards + LMS E2E fact counts stay green); controller passes ctx.userId + readReports; module-sandbox reads unchanged (authors are owner-trusted). Route-level member/cross-user tests + integration isolation test.
+-   [x] M3 close double-grant via soft-delete: StarterGrant once-only existence check must include soft-deleted rows.
+-   [x] M4 remove baked-literal price drift: economy posting module derives trade amounts from server-stamped row fields (UnitPrice x Quantity), grant amounts from stamped row fields with literal only as defensive fallback; generator data + fixture regen.
+-   [x] M5 move economyTradeResponseSchema to @universo-react/types; template-mui drops hand-rolled isEconomyTradeResponse guard.
+-   [x] M6 fix services->routes layer inversion: relocate loadApplicationRuntimeConstants out of routes/sync into services/persistence layer.
+-   [x] M7 i18n: runtime.economyErrors ECONOMY_IDEMPOTENCY_KEY_INVALID EN/RU + error-code whitelist entry.
+-   [x] M1 structured observability logs (operationId/applicationId/principalId) on economy trade/replay/purge paths, no PII.
+-   [x] M8 test gaps: workspace-enabled service flows, stationId supplied-but-ignored, disabled-station variant, PG-integration negatives, race-replay loser path, E2E keyboard-path assertion, PNG content auto-verification.
+-   [x] M2 commit docs screenshots into docs/{en,ru}/.gitbook/assets/mmoomm-economy/ + guide embeds; remove screenshotExemptPages entry.
+-   [x] LOW batch: no raw err.message/reflective 404 (nomenclatureCode), advisory-lock keys app-scoped, E2E uuidv7 via lib, no non-null assertions (apiBaseUrl/applicationId), quantity>0 single source, stale tasks.md checkboxes, unit fixtures aligned to shipped constants, integration skip warning.
+-   [x] VERIFY: lint+Prettier touched packages (0 errors); types vitest 351/351; template-mui typecheck + economy suites 81/81; backend jest 246 suites / 2519 tests green incl. PG integrations; G1 fixture regen x2 (exit=0) + contract 7/7 + drift PASS; root build via build:e2e; economy+runtime E2E gate 3 passed (11.9m) on a freshly recreated DB; docs:i18n:check + gitbook assets PASS; Thermos autoreview rounds 3-5 FAIL->all findings fixed, rounds 6-8 UNAVAILABLE (codex ENGINE_TRANSPORT_ERROR, environmental); read-only verify subagent 10/10 items VERIFIED with 5 findings, all dispositioned; subagents completed.
+
+## PAUSE marker 2026-11-15 (IMPLEMENT round — QA-fix closure) — resume here
+
+DONE this round: H-3 (2-arg fingerprints), H-2 (findIdempotentFactId NOT-EXISTS anti-join + supersede pair soft-delete path in runtimeLedgersService; unit 29/29 incl. re-emission cases, economy integration 11/11 incl. post->unpost->re-post + soft-delete-grant + Phase H readScope + PG negatives), H-1 Phase H (RuntimeLedgerReadScope: ownerOnly runtimeRecordAccess owner-column injection / \_upl_created_by creator fallback / readReports allowCrossUserRead bypass; LEDGER_FILTER_OWNER_FIELD rejection; controller resolveReadScope + economy support drops owner filters from client filters + module sandbox allowCrossUserRead:true; route tests + integration isolation test), M3 (grant once-only over ALL rows incl. soft-deleted, no wallet binding), M4 (Operation.TotalPrice component authored + service stamps TotalPrice/startingBalance; posting module derives amounts from row fields, constants are fallbacks only; guides EN/RU updated), M5 (economyTradeResponseSchema + EconomyTradeResponse moved to @universo-react/types; template-mui api.ts uses shared schema), M6 (loadApplicationRuntimeConstants + quoteSchemaName moved to services/shared layers), M7 (ECONOMY_IDEMPOTENCY_KEY_INVALID in types enum + status map + EN/RU economyErrors), M1 (logEconomyEvent: trade executed/replayed x2/grant/purge-failure/idem-conflict; economy controller opaque 500 ECONOMY_POSTING_FAILED), M8 (race-loser + stationId-ignored + workspace-enabled unit tests via sequenced idempotency router; E2E: tradeViaUiKeyboard buy leg + disabled-station leg + assertPngHasVisibleContent on all captures), M2 (MMOOMM_ECONOMY_DOCS_SCREENSHOTS=1 copies desktop PNGs into docs/{en,ru}/.gitbook/assets/mmoomm-economy/; guides embed them; exemption removed from check-i18n-docs.mjs; root script docs:mmoomm-economy:screenshots:local-supabase added), LOW batch (no client reflection in 404s, advisory locks application-scoped, quantity>0 single server gate, E2E generateUuidV7 from @universo-react/utils, apiBaseUrl/applicationId null-assertions removed, silent-skip console.warn, unit/route fixture constants aligned to shipped 100/80).
+
+IN FLIGHT when paused: `pnpm --filter @universo-react/applications-backend lint` was cancelled mid-run (first run failed with at least one lint error — rerun and fix; likely candidates: unused imports like `z`/`economyUuidV7Schema`/`economyCargoEntrySchema` in runtimeEconomyService.ts after the schema move, or unused `walletAttr`-related imports).
+
+REMAINING (in order):
+
+1. Lint applications-backend (fix findings) + Prettier on ALL touched files: packages/universo-react-applications-backend/\*\*, packages/universo-react-types/src/common/economyRuntime.ts, packages/universo-react-apps-template-mui (api.ts, EconomyPanelWidget.tsx, locales), tools/testing/e2e (mmoommEconomyProof.ts, mmoommAppFixtureContract.shared.ts, spec, mmoommAppGeneratorData.ts, metahub-authoring.ts), tools/docs/check-i18n-docs.mjs, docs guides, package.json, memory-bank.
+2. template-mui typecheck + economy/dashboard vitest suites (EconomyPanelWidget.test.tsx etc.); types package already rebuilt.
+3. Full backend jest with DATABASE_TEST_URL=postgresql://postgres:postgres@127.0.0.1:55322/postgres (Supabase minimal already running; core-backend bootstrap server was left running in background task exec_e9249fbd on port 3100 — may be dead after pause; restart via `cd packages/universo-react-core-backend && UNIVERSO_ENV_FILE=.env.e2e.local-supabase ./bin/run start` if integration needs it; jest integration uses DATABASE_TEST_URL directly and creates its own schemas).
+4. G1 fixture regen gate: `cross-env MMOOMM_APP_FIXTURE_OUTPUT_PATH=tools/testing/e2e/.artifacts/generated-metahubs-mmoomm-app-snapshot.json pnpm run test:e2e:mmoomm-app-fixture-generator:local-supabase` (regenerates fixture with TotalPrice component + new module source), then drift check `pnpm run check:mmoomm-app-fixture-drift -- tools/testing/e2e/.artifacts/generated-metahubs-mmoomm-app-snapshot.json`.
+5. Root `pnpm build` (needed for E2E dist), then E2E gate WITH docs screenshots: `MMOOMM_ECONOMY_DOCS_SCREENSHOTS=1 pnpm run test:e2e:mmoomm-app-gate:local-supabase` (produces docs/{en,ru}/.gitbook/assets/mmoomm-economy/\*.png; commit those 4 PNGs).
+6. `pnpm docs:i18n:check && pnpm docs:gitbook-screenshot-assets:check` (currently failing only on the missing PNGs — expected until step 5).
+7. Thermos autoreview (autoreview tool, .agents/skills/thermos\*), read-only QA verify subagent on the whole fix round, close finished subagents.
+8. tasks.md checkboxes (VERIFY row), progress.md entry, memory files update.
+
+## IMPLEMENT round COMPLETE 2026-11-15/16 — QA-fix closure
+
+All QA-round findings closed + Phase H promoted. Verification: backend jest 246/2519 green, types 351, template-mui economy 81, E2E gate 3 passed (fresh DB), drift/contract/docs green.
+
+-   H-1 Phase H shipped BEYOND the plan: the verifier subagent found the SAME hole on the generic rows surfaces (GET /runtime/rows/:rowId, records/union datasources, relation scopes) bypassing ledger scoping entirely -> new `isLedgerRegisterEntityConfig` + deny/assert helpers in shared/entityMutationPolicy.ts; `resolveRuntimeEntityMutationPolicyFailure` now denies ledger-register mutations FIRST (covers create/updateCell/bulkUpdate/delete/restore/copy/childRows/guest via existing deny calls; posting via assert at posting.ts:120); reads guarded in getRow/getRuntime/union targetQuery (+permissions param through resolveRuntimeUnionTargetContext)/relationScope(write scope -> mutation deny). CRITICAL lesson: the first `isLedgerRegisterEntityConfig` (ledgerSchema.enabled only) was TOO BROAD — the metahub UI stamps `capabilities.ledgerSchema.enabled=true` on ALL authored entities; registers are `ledgerSchema+dataSchema+physicalTable enabled AND config.ledger object` (LEDGER_CAPABILITY_CONDITION mirror). The too-broad guard 403'd the whole runtime page (summary polling) and both E2E specs; caught only by the E2E, not unit/integration suites.
+-   Recent operations feed now prefers server-stamped `total_price` (grant shows 1,000 not 0); docs examples updated; integration fixture gained the total_price column + component (the reviewer caught that it was silently dropped before -> TotalPrice persistence was never exercised).
+-   Authored posting module: fail-closed on Record API failures (operation/wallet/nomenclature rethrow; station stays lenient) — lifecycle dispatch propagates hook errors, so throwing rolls the posting back.
+-   E2E hardening: keyboard-path buy leg (fill('') first — the docked-at-spawn branch pre-fills), disabled-station leg (MarketEnabled resolved via _app_components cmp_ column, NOT a literal column name), assertPngHasVisibleContent (IHDR length@8/type@12/width@16/height@20 — first implementation had the offsets shifted), docs screenshot copy under MMOOMM_ECONOMY_DOCS_SCREENSHOTS=1.
+-   Thermos autoreview: rounds 3-5 FAIL with 8 findings total — ALL accepted and fixed (raw err.message in controller + purge log, workspace-asymmetry in supersede soft-delete, docs grant total, integration fixture TotalPrice, types error-code count 9->10, module fail-closed); rounds 6-8 UNAVAILABLE (codex ENGINE_TRANSPORT_ERROR even at reduced bundle-part-chars; small prompts OK — environmental). Fixing the bundle required temporarily reverting the 2.7MB single-line fixture diff (autoreview BUNDLE_TOO_LARGE; restore from .artifacts after).
+-   DB ops: repeated E2E full-resets corrupted GoTrue ("Database error finding users" persisted across stack restarts) -> recreated the e2e docker volume (supabase*db*...-e2e) for a fresh DB; doctor fully OK afterwards. The bootstrap server on :3100 BLOCKS the gate's full reset ("requires ... to be stopped") — stop it before gate runs.
+
+## IMPLEMENT round 2026-11-16 — realtime onboarding + economy UX redesign (QA 2026-11-16 closure)
+
+-   [x] R1 write-env.mjs: propagate APPLICATION_REALTIME_WS_ORIGINS to non-e2e local profiles (dev onboarding gap).
+-   [x] R1 server-side console.warn on rejected realtime upgrade (origin + env var hint, no PII) + unit test.
+-   [x] R1 README quickstart documents the required var (backend README dev section).
+-   [x] R2 economy UX: flight canvas toolbar IconButton opens StandardDialog with the economy panel body (canonical strict-modal, themed portal); remove the bare-Stack styling problem by construction.
+-   [x] R2 remove the economyPanel zone-widget kind end-to-end (registry/renderer case/config schema/editor picker labels/i18n) — no dead paths, no dual polling.
+-   [x] R2 E2E: proof helpers open the dialog (testids preserved), mobile-drawer dance retired, content contract rewritten, generator flow drops configureEconomyPanelThroughBrowser; fixture regenerated (no version bumps).
+-   [x] R2 docs guides + screenshots recaptured via MMOOMM_ECONOMY_DOCS_SCREENSHOTS=1.
+-   [x] VERIFY: lint/Prettier (0 errors); types 351 + registry parity 11; template-mui dialog tests 8/8 + api suites (82 total); backend jest 246/2519 green; G1 fixture regen (dialog layout, zero economyPanel widgets) + contract + drift PASS; economy+runtime E2E gate 3 passed twice (10.0-12.0m, docs PNGs recaptured showing the dialog); Thermos autoreview rounds 6-10 UNAVAILABLE (codex ENGINE_TRANSPORT_ERROR, environmental — rounds 3-5 findings all previously fixed); read-only verify subagent 10/10 VERIFIED, its 7 findings all fixed (stale README/inventory docs, contradictory E2E comments, visual-lab opener gate, sanitizer hardening + ESC test, openEconomyDialog race, dialog unit-test gaps).
+
+## IMPLEMENT round COMPLETE 2026-11-16 (second) — realtime onboarding + economy dialog redesign
+
+QA 2026-11-16 findings closed:
+
+-   Realtime root cause (user issue 1): the dev `.env` lacked `APPLICATION_REALTIME_WS_ORIGINS` — the fail-closed origin gate destroyed the room WS upgrade (matchmake OK, 1006 on upgrade). Fixed: write-env.mjs now defaults the allowlist to both loopback origins for ALL generated profiles; the backend warns on rejected upgrades (sanitized origin — all control chars stripped incl. terminal escapes, unit-tested incl. log-injection) instead of a silent destroy; root + core-backend READMEs document the dev-flow requirement.
+-   Economy UX (user issue 2): the economy UI moved from a bare right-zone Stack (no container padding from SideMenuRight; QuizWidget-style Card convention deviated) into a canonical strict-modal `EconomyDialog` opened from the flight canvas toolbar (member mode, not visual-lab). Summary polls only while open. The `economyPanel` zone-widget kind was removed end-to-end (types registry/schema/renderer/editor picker labels/i18n/fixture layout/content-contract negative guard) — zero dead paths. Dialog-capture docs screenshots (whole dialog incl. title/Close).
+-   Test-infrastructure debt the gate exposed: backend integration fixtures inserted `auth.users` rows with NULL `email_change`/`confirmation_token` — GoTrue's scanner 500s on NULL ("Database error finding users"), poisoning the E2E full-reset delete-auth-user phase (the "flaky" gate aborts). All six fixture inserts now write GoTrue-convention empty strings; the resets pass reliably.
+-   Verification: backend jest 246/2519; types 351 + registry parity 11; template-mui economy/dialog 82→84 (8 dialog cases incl. public-mode/closed-state/strict-modal close); E2E gate 3 passed twice; docs checks green. Two E2E retries were documented environment flakes (editor-artifact fetch timeout; movement sampling) — different modes, both resolved by sequential rerun, runtime code unchanged.
+-   Autoreview: rounds 6-10 UNAVAILABLE (codex ENGINE_TRANSPORT_ERROR at every bundle size; small prompts fine — environmental). Compensating control: a focused read-only verify subagent audited the redesign (10/10 VERIFIED) and its 7 findings were all fixed in this round.
+
+## IMPLEMENT round 2026-11-17 — runtime page polish (user session feedback)
+
+-   [x] L1 RU localization: Nomenclature names (Ore/Fuel) + Unit enumeration values (Kg/Liter/...) authored as localizedText en+ru; server already resolves via resolveRowText/resolveEnumValueLabels.
+-   [x] L2 remove the junk "+ Создать" AppNavbar button on published runtime pages (interpretation-network precedent).
+-   [x] L3 restore the standard top offset above the header toolbar (regression from removing the right-zone drawer) + kill the junk vertical scrollbar on the runtime page.
+-   [x] L4 UX oracle: no vertical page overflow assertion for the fixed-viewport MMOOMM runtime journey (why tests missed it: only horizontal was asserted).
+-   [x] VERIFY: template-mui dialog/api suites 84 (8 dialog cases); G1 regen (scoped behavior configs) + drift + contract PASS; economy+runtime E2E gate 3 passed (7.8m) with fresh dialog/page PNGs (RU content verified visually); cross-template verify gate 4 passed (contentTop=64 pin); docs checks green; Thermos autoreview rounds 9-11 UNAVAILABLE (codex transport, environmental).
+
+## IMPLEMENT round COMPLETE 2026-11-17 — runtime page polish (user dev-session feedback)
+
+Three user-reported runtime-page issues fixed with precise root causes from a layout investigation subagent:
+
+-   RU localization: the dialog vocabulary (nomenclature names, unit codenames, the mass-unit literal) now resolves through codename-keyed i18n maps — the exact proven OperationType mechanism. RU renders "Топливо — 2 л (1,6 кг)", "Руда Продать · 10 / кг"; EN display unchanged. Root cause context: the server resolves names/units with a hardcoded 'en' locale and reads enum value CODES, not presentation names — authoring RU data alone would not flow (platform locale-threading documented as a future option in the round notes).
+-   Junk "+ Создать" host action: both MMOOMM scoped layouts now persist `objectBehavior.showCreateButton: false` (the canonical interpretation-network switch) via an extended `createScopedDashboardLayout` behaviorConfig PATCH; fixture regenerated; a negative E2E assertion (`application-runtime-create-row` count 0) locks it.
+-   Layout artifacts: the desktop top offset was decoupled from right-zone widget count (`showAppNavbarOnDesktop = showAppNavbar` — the offset follows the appNavbar placement; both templates carry it); the cross-template geometry pin updated 0 -> 64 and verified by the cross-template verify gate (4 passed). The junk vertical scrollbar was a 1px document overflow: the canvas `bottomGap` (23) mismatched the runtime main `pb` (24) on sm+ — raised to 24; a new `expectNoVerticalPageOverflow` oracle (fixed-viewport pages, tolerance 1px) now guards it in the economy journey.
+-   Blank-detector calibration: the full-page flight capture is dominated by the near-uniform canvas gradient — `assertPngHasVisibleContent` gained a per-capture `minDistinctBytes` (dialog 32, full page 8; a broken capture sits at 2-4).

@@ -21,7 +21,8 @@ describe('applications system-app definition', () => {
             'BindGlobalShortLinksToAccessLinkIdentity1800000000310',
             'CreateApplicationBotBindings1800000000320',
             'AddApplicationCatalogVisibilityAndMembershipRls1800000000340',
-            'CreateThemePresets1800000000350'
+            'CreateThemePresets1800000000350',
+            'CreateEconomyIdempotency1800000000370'
         ])
     })
 

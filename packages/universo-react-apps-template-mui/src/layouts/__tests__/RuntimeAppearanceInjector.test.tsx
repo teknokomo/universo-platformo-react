@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest'
-import * as React from 'react'
 import { render, waitFor } from '@testing-library/react'
 import { themeAppearanceSchema, themeTokensSchema } from '@universo-react/types'
 import { findFileThemePreset } from '@universo-react/theme'

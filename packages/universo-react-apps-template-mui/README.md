@@ -164,6 +164,13 @@ The canvas exposes stable diagnostic markers for browser verification:
 `data-camera-yaw`. The MMOOMM fixture uses these markers to prove script loading,
 flight movement, and camera behavior without exposing internal ids in the UI.
 
+### Economy dialog
+
+-   **Toolbar dialog**: the MMOOMM flight canvas toolbar carries a wallet IconButton (member mode only) that opens the economy UI in a canonical `StandardDialog` (strict-modal, themed, with a visible Close action). The economy UI is no longer a placeable dashboard widget.
+-   **Single data source**: the dialog polls `GET /api/v1/applications/:applicationId/runtime/economy/summary` through TanStack Query while open (no background polling when closed) and never queries raw client-filtered projections. Display names are resolved server-side; balances, prices, and capacities are shown as formatted values with no raw identifiers.
+-   **Idempotent trades**: Sell/Buy actions POST to the economy trade routes with a UUID v7 `Idempotency-Key` header generated per logical click and reused until the response settles, so a retry can never double spend.
+-   **Gating and feedback**: trade buttons are disabled with a localized tooltip while the summary reports `atStation: false` and when `editContent` is denied. Server error codes render through the localized `runtime.economyErrors.*` dictionary (EN/RU) with an English fallback, and every dialog string has EN and RU entries.
+
 ## Installation
 
 ```bash

@@ -62,9 +62,13 @@ vi.mock('react-i18next', () => ({
     })
 }))
 
-vi.mock('../../layouts/AppMainLayout', () => ({
-    default: ({ children }: { children?: ReactNode }) => <div>{children}</div>
-}))
+vi.mock('../../layouts/AppMainLayout', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../../layouts/AppMainLayout')>()
+    return {
+        ...actual,
+        default: ({ children }: { children?: ReactNode }) => <div>{children}</div>
+    }
+})
 
 vi.mock('../../messenger/MessengerRuntimeShell', () => ({
     MessengerRuntimeShell: (props: Record<string, unknown>) => {

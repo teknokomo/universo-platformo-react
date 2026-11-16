@@ -153,8 +153,11 @@ export function buildBackendEnv({ statusEnv, target, existingEnv = {} }) {
         // a base profile: that can either blank the local UI or weaken the
         // credentialed local API boundary.
         CORS_ORIGINS: appOrigins,
-        APPLICATION_REALTIME_WS_ORIGINS:
-            target === 'e2e' ? existingEnv.APPLICATION_REALTIME_WS_ORIGINS || appOrigins : existingEnv.APPLICATION_REALTIME_WS_ORIGINS,
+        // The application-runtime room WS is origin-gated and fails closed when
+        // the allowlist is unset (QA 2026-11-16: a generated dev profile without
+        // this var silently broke flight control and economy trading). Mirror
+        // the editor allowlist: inherit an explicit value, default to loopback.
+        APPLICATION_REALTIME_WS_ORIGINS: existingEnv.APPLICATION_REALTIME_WS_ORIGINS || appOrigins,
         PLAYCANVAS_EDITOR_FULL_BOOT_WS_ORIGINS: existingEnv.PLAYCANVAS_EDITOR_FULL_BOOT_WS_ORIGINS || appOrigins,
         API_RATE_LIMIT_READ_MAX: target === 'e2e' ? existingEnv.API_RATE_LIMIT_READ_MAX || '5000' : existingEnv.API_RATE_LIMIT_READ_MAX,
         API_RATE_LIMIT_WRITE_MAX: target === 'e2e' ? existingEnv.API_RATE_LIMIT_WRITE_MAX || '2500' : existingEnv.API_RATE_LIMIT_WRITE_MAX,

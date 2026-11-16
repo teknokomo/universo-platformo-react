@@ -71,6 +71,17 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 -   Published runtime workspace endpoints expose paginated workspace/member lists, email-based shared-workspace member invitation for active application members, default workspace switching, and owner-only member removal.
 -   Object tables and TABLE child tables become workspace-scoped in runtime schemas, and backend routes enforce per-workspace row limits before inserts and copies.
 
+## Economy Runtime
+
+The MMOOMM economy MVP exposes three runtime routes mounted under `/applications/:applicationId/runtime/economy` (`createRuntimeEconomyController`):
+
+-   `GET .../economy/summary` — server-side aggregation of wallet balance, cargo, capacity, market prices, recent operations, and station proximity (`readLimiter`). It follows the runtime read convention (no content permission) because the payload is server-scoped to `ctx.userId` through ownerOnly projection filters. The first call also bootstraps the per-user wallet and posts the once-only StarterGrant operation (1000 CR / 10 kg ORE) under a per-(user, currency) advisory transaction lock — a documented side-effecting GET.
+-   `POST .../economy/sell` and `POST .../economy/buy` — server-authoritative trades (`writeLimiter`) requiring `editContent`. The body is a strict `{ nomenclatureCode, quantity }` schema; server-owned fields (`ownerKey`, `walletId`, `balance`, `price`, `status`) are rejected with 422 before any database work.
+-   Station proximity is resolved server-side through the read-only realtime room bridge (`describeFlightContext` → `FixedTickSceneRoom.describeShipForUser`): the ship position is never client-supplied, a missing flight session or a distance beyond `MarketRadiusMeters` fails with `ECONOMY_NOT_AT_STATION`, and a station with `MarketEnabled = false` fails with `ECONOMY_MARKET_DISABLED`.
+-   `Idempotency-Key` (UUID v7) gates trades through `applications.obj_economy_idempotency` (platform applications schema, platform migration `1800000000370-CreateEconomyIdempotency.sql.ts`): keys are sha256-hashed and scoped by `UNIQUE (application_id, user_id, key_hash)`, the fingerprint is an HMAC over the validated body, same key + same body replays the stored response, same key + different body returns 409 `ECONOMY_IDEMPOTENCY_CONFLICT`. Rows live 24 hours and are purged on request before the gate and by the 15-minute `economyIdempotencyMaintenance` interval; the response row is written inside the trade transaction.
+-   Posting contract: the trade creates the `Operation` row and posts it through the shared posting core in one transaction; ledger movements come from the application-authored posting module wired via `recordBehavior.posting.moduleCodename` with `targetLedgers` covering both registers. Without the module, posting produces zero movements.
+-   Failures use the stable `ECONOMY_*` code set mapped to 404/409/422/500 statuses; error bodies carry `{ error, code }` only, with no SQL or internal identifier leakage.
+
 ## Database Access Rules
 
 -   Application-domain reads use `_upl_deleted = false AND _app_deleted = false`.

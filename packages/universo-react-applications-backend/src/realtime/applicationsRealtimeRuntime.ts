@@ -1213,6 +1213,34 @@ const createFixedTickSceneRoom = (
         private readonly clientSessions = new Map<string, RoomClientSession>()
         private accessRevalidationTimer: NodeJS.Timeout | null = null
 
+        /**
+         * Read-only flight context for server-internal bridges (economy proximity).
+         * Returns the caller-owned ship position plus the room's station targets,
+         * or null when the user has no active flight session in this room.
+         * Plain JSON only: remoteRoomCall JSON-round-trips arguments.
+         */
+        async describeShipForUser(userId: string): Promise<{
+            position: { x: number; y: number; z: number }
+            stations: Array<{ id: string; position: { x: number; y: number; z: number } }>
+        } | null> {
+            const shipId = this.userShips.get(userId)
+            if (!shipId) {
+                return null
+            }
+            const runtime = this.ships.get(shipId)
+            if (!runtime) {
+                return null
+            }
+            const position = runtime.movement.position
+            return {
+                position: { x: position.x, y: position.y, z: position.z },
+                stations: Object.entries(this.roomOptions.targetObjects).map(([id, stationPosition]) => ({
+                    id,
+                    position: { x: stationPosition.x, y: stationPosition.y, z: stationPosition.z }
+                }))
+            }
+        }
+
         onCreate(options?: unknown) {
             this.roomOptions = parseRoomOptions(options)
             this.maxMessagesPerSecond = MAX_MESSAGES_PER_SECOND_PER_CLIENT
@@ -1798,6 +1826,8 @@ export interface ApplicationsRealtimeRuntimeUpgradeOptions {
     isOriginAllowed?: (request: IncomingMessage) => boolean
 }
 
+export const FIXED_TICK_SCENE_ROOM_NAME = 'fixed_tick_scene'
+
 export const __applicationsRealtimeRuntimeTestUtils = {
     MAX_MESSAGES_PER_SECOND_PER_CLIENT,
     createFixedTickSceneRoom,
@@ -1828,7 +1858,7 @@ export const attachApplicationsRealtimeRuntime = async (
         MapSchema: new () => MutableFixedTickSceneState['ships']
         defineTypes: (type: unknown, fields: Record<string, unknown>) => void
     }
-    const roomName = 'fixed_tick_scene'
+    const roomName = FIXED_TICK_SCENE_ROOM_NAME
     const upgradeListeners = new Map<(...args: unknown[]) => void, (...args: unknown[]) => void>()
     const rejectUpgrade = (socket: Socket | undefined) => {
         if (!socket || socket.destroyed) return
@@ -1854,6 +1884,20 @@ export const attachApplicationsRealtimeRuntime = async (
                         const incomingRequest = request as IncomingMessage
                         if (options.shouldHandleUpgrade?.(incomingRequest) === false) return
                         if (!isOriginAllowed(incomingRequest)) {
+                            // Observability (QA 2026-11-16): a silent destroy is
+                            // indistinguishable from a network failure for the
+                            // client. Warn with the denied origin so a missing
+                            // APPLICATION_REALTIME_WS_ORIGINS entry is
+                            // diagnosable; strip control characters so a
+                            // crafted header cannot forge log lines.
+                            // Strip ALL control characters (log-forging and
+                            // terminal-escape sequences) before logging.
+                            const deniedOrigin = String(incomingRequest.headers.origin ?? '')
+                                .replace(/[^\x20-\x7e]/g, '')
+                                .slice(0, 100)
+                            console.warn(
+                                `[applicationsRealtime] WebSocket upgrade rejected for origin "${deniedOrigin}" — add it to APPLICATION_REALTIME_WS_ORIGINS`
+                            )
                             rejectUpgrade(socket as Socket | undefined)
                             return
                         }

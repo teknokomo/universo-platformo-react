@@ -168,6 +168,7 @@ export const RecordBehaviorFields = ({
                             labelId='record-behavior-mode-label'
                             label={t('entities.recordBehavior.mode.label', 'Record mode')}
                             value={value.mode}
+                            inputProps={{ 'data-testid': 'behavior-record-mode-select' }}
                             onChange={(event) => patchBehavior({ mode: event.target.value as ObjectRecordBehavior['mode'] })}
                         >
                             {OBJECT_RECORD_MODES.map((mode) => (
@@ -292,6 +293,7 @@ export const RecordBehaviorFields = ({
                                                 labelId='record-date-field-label'
                                                 label={t('entities.recordBehavior.effectiveDate.field', 'Date field')}
                                                 value={toSelectValue(value.effectiveDate.fieldCodename)}
+                                                inputProps={{ 'data-testid': 'behavior-effective-date-select' }}
                                                 onChange={(event) =>
                                                     patchEffectiveDate({ fieldCodename: setEmptyToUndefined(event.target.value) })
                                                 }
@@ -421,7 +423,12 @@ export const RecordBehaviorFields = ({
                                         </Stack>
                                     </Box>
                                 ))}
-                                <Button startIcon={<AddRoundedIcon />} onClick={addState} disabled={disabled}>
+                                <Button
+                                    startIcon={<AddRoundedIcon />}
+                                    onClick={addState}
+                                    disabled={disabled}
+                                    data-testid='behavior-state-add'
+                                >
                                     {t('entities.recordBehavior.lifecycle.addState', 'Add state')}
                                 </Button>
                             </Stack>
@@ -442,6 +449,7 @@ export const RecordBehaviorFields = ({
                                 labelId='record-posting-mode-label'
                                 label={t('entities.recordBehavior.posting.mode', 'Posting mode')}
                                 value={value.posting.mode}
+                                inputProps={{ 'data-testid': 'behavior-posting-mode-select' }}
                                 onChange={(event) => patchPosting({ mode: event.target.value as ObjectRecordBehavior['posting']['mode'] })}
                             >
                                 {RECORD_POSTING_MODES.filter(
@@ -466,6 +474,7 @@ export const RecordBehaviorFields = ({
                                 multiple
                                 value={value.posting.targetLedgers}
                                 input={<OutlinedInput label={t('entities.recordBehavior.posting.targetLedgers', 'Target ledgers')} />}
+                                inputProps={{ 'data-testid': 'behavior-posting-targets' }}
                                 onChange={(event) =>
                                     patchPosting({
                                         targetLedgers:
@@ -506,6 +515,7 @@ export const RecordBehaviorFields = ({
                                 labelId='record-posting-module-label'
                                 label={t('entities.recordBehavior.posting.module', 'Posting module')}
                                 value={toSelectValue(value.posting.moduleCodename)}
+                                inputProps={{ 'data-testid': 'behavior-posting-module' }}
                                 onChange={(event) => patchPosting({ moduleCodename: setEmptyToUndefined(event.target.value) })}
                             >
                                 <MenuItem value=''>{t('entities.recordBehavior.options.none', 'Not selected')}</MenuItem>

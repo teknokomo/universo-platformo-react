@@ -41,7 +41,7 @@ The final contract uses neutral config.\_\_layout.bindings for semantic Entity b
 
 ## Completeness boundary
 
-Current DASHBOARD_LAYOUT_WIDGETS contains 32 keys. Thirteen had explicit strict config schemas in widgetConfigSchemaByKey at inventory time; Phase 1 replaces the permissive fallback with registry-aligned strict schemas. Each widget configuration field has an explicit config.\* row below. Dashboard layout renderer config is validated by the selected template's strict schema; the open transport type does not preserve undeclared renderer keys. Inventory self-check: 619 data rows, all nine required columns populated, no owner outside the allowed set, and all 32 current registry keys covered.
+Current DASHBOARD_LAYOUT_WIDGETS contains 32 keys. Thirteen had explicit strict config schemas in widgetConfigSchemaByKey at inventory time; Phase 1 replaces the permissive fallback with registry-aligned strict schemas. Each widget configuration field has an explicit config.\* row below. Dashboard layout renderer config is validated by the selected template's strict schema; the open transport type does not preserve undeclared renderer keys. Inventory self-check: 619 data rows, all nine required columns populated, no owner outside the allowed set, and all 32 current registry keys covered. The `economyPanel` row was retired on 2026-11-16 when the economy UI moved from a placeable zone widget into a flight-canvas toolbar dialog.
 
 ## Inventory
 

@@ -9,6 +9,7 @@ import {
     addApplicationCatalogVisibilityAndMembershipRlsMigrationDefinition,
     bindGlobalShortLinksToAccessLinkIdentityMigrationDefinition,
     createApplicationBotBindingsMigrationDefinition,
+    createEconomyIdempotencyMigrationDefinition,
     createGlobalShortLinksMigrationDefinition,
     createGuestSessionIdempotencyMigrationDefinition,
     createThemePresetsMigrationDefinition,
@@ -548,6 +549,11 @@ export const applicationsSystemAppDefinition: SystemAppDefinition = {
         {
             kind: 'sql',
             definition: createThemePresetsMigrationDefinition,
+            bootstrapPhase: 'post_schema_generation'
+        },
+        {
+            kind: 'sql',
+            definition: createEconomyIdempotencyMigrationDefinition,
             bootstrapPhase: 'post_schema_generation'
         }
     ],

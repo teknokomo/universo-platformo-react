@@ -16,11 +16,10 @@ import { publicMarketingPageRecordSchema } from './marketingPageRecords'
 import {
     marketingHeroWidgetDataSchema,
     marketingImageWidgetDataSchema,
-    marketingPageConfigSchema,
     marketingPageRuntimeViewModelSchema,
     marketingRuntimePageConfigSchema
 } from './marketingPageRuntimeSchemas'
-import type { MarketingPageConfig, MarketingPageRuntimeViewModel } from './marketingPageRuntimeSchemas'
+import type { MarketingPageRuntimeViewModel } from './marketingPageRuntimeSchemas'
 
 const publicMarketingWidgetInstanceKeySchema = z.union([
     z

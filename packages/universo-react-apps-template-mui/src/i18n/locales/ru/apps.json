@@ -242,7 +242,10 @@
         "targetNotFound": "Выбранная запись контента не найдена."
     },
     "validation": {
-        "languages": { "en": "английский", "ru": "русский" },
+        "languages": {
+            "en": "английский",
+            "ru": "русский"
+        },
         "vlcMinLength": "Введите не менее {{min}} символов в переводе на {{language}} язык.",
         "vlcMaxLength": "Введите не более {{max}} символов в переводе на {{language}} язык.",
         "vlcLengthBetween": "Введите от {{min}} до {{max}} символов в переводе на {{language}} язык.",
@@ -357,6 +360,44 @@
                 "up": "Рост",
                 "down": "Снижение",
                 "neutral": "Нет данных о динамике"
+            },
+            "economy": {
+                "title": "Экономика",
+                "wallet": "Баланс",
+                "cargo": "Груз",
+                "capacity": "Вместимость",
+                "capacityValue": "Занято {{used}} из {{max}} кг",
+                "market": "Рынок",
+                "atStationHint": "Вы у станции {{station}}. Рынок доступен.",
+                "outOfStationTooltip": "Подойдите к станции",
+                "noPermission": "У вас нет прав на совершение сделок.",
+                "quantityLabel": "Количество",
+                "quantityHelper": "Укажите количество для сделки.",
+                "quantityError": "Укажите количество больше нуля.",
+                "sell": "Продать",
+                "buy": "Купить",
+                "operations": "Последние операции",
+                "operationsEmpty": "Операций пока нет",
+                "tradeSuccess": "Сделка выполнена.",
+                "close": "Закрыть",
+                "operationTypes": {
+                    "starterGrant": "Стартовый грант",
+                    "sell": "Продажа",
+                    "buy": "Покупка",
+                    "mine": "Добыча",
+                    "fee": "Комиссия"
+                },
+                "nomenclature": {
+                    "ore": "Руда",
+                    "fuel": "Топливо"
+                },
+                "units": {
+                    "kg": "кг",
+                    "liter": "л",
+                    "unit": "шт",
+                    "m3": "м³"
+                },
+                "massUnit": "кг"
             }
         }
     },
@@ -587,6 +628,19 @@
             "LAYOUT_CONFLICT": "Макет приложения изменился. Обновите страницу и повторите попытку.",
             "LAYOUT_RUNTIME_QUERY_FAILED": "Сейчас не удалось загрузить макет приложения."
         },
+        "economyErrors": {
+            "ECONOMY_NOT_AT_STATION": "Прилетите к станции и оставайтесь в пределах радиуса её рынка, чтобы торговать.",
+            "ECONOMY_UNKNOWN_NOMENCLATURE": "Этот товар недоступен на рынке.",
+            "ECONOMY_INVALID_QUANTITY": "Укажите количество больше нуля.",
+            "ECONOMY_INSUFFICIENT_CARGO": "В грузовом отсеке недостаточно товара для продажи.",
+            "ECONOMY_INSUFFICIENT_FUNDS": "На кошельке недостаточно средств для этой покупки.",
+            "ECONOMY_CAPACITY_EXCEEDED": "Эта покупка превысит вместимость грузового отсека.",
+            "ECONOMY_MARKET_DISABLED": "Рынок станции сейчас недоступен.",
+            "ECONOMY_IDEMPOTENCY_CONFLICT": "Эта сделка конфликтует с предыдущей попыткой. Обновите панель и повторите попытку.",
+            "ECONOMY_IDEMPOTENCY_KEY_INVALID": "Ключ повторного запроса сделки имеет неверный формат. Повторите сделку.",
+            "ECONOMY_POSTING_FAILED": "Не удалось записать сделку. Повторите попытку чуть позже.",
+            "generic": "Не удалось завершить сделку. Попробуйте ещё раз чуть позже."
+        },
         "notifications": "Открыть уведомления",
         "search": "Поиск…",
         "breadcrumbs": {
@@ -698,6 +752,7 @@
         "scriptLoadFailed": "Не удалось загрузить опубликованные скрипт-ассеты",
         "manifestUnavailable": "Опубликованная 3D-сцена недоступна.",
         "manifestSceneUnavailable": "Опубликованная 3D-сцена не содержит runtime-сцену.",
+        "openEconomy": "Экономика",
         "moveToTarget": "Лететь к цели",
         "stop": "Остановить",
         "resetCamera": "Сбросить камеру",

@@ -54,3 +54,10 @@ Transactional Object unpost and void commands use stored posting movement metada
 Projection queries accept only declared dimensions and resources.
 The backend builds schema-qualified, parameterized SQL from metadata and rejects unknown fields.
 Dashboard widgets should consume Ledger facts or projections through generic datasource descriptors rather than LMS-specific widget code.
+
+## Economy Registers in MMOOMM
+
+The canonical MMOOMM app reuses the same ledger machinery through two object-kind
+registers, `WalletLedger` and `InventoryLedger`, fed by the `Operation` registrar and its
+authored posting module. See the [MMOOMM Economy Guide](mmoomm-economy.md) for the full
+entity model, trading API, and station proximity semantics.

@@ -33,7 +33,11 @@ import {
     resolveApplicationReleaseSnapshotHash,
     type ApplicationReleaseBundle
 } from '../../services/applicationReleaseBundle'
-import type { PublishedApplicationSnapshot, SnapshotEnumerationValueDefinition } from '../../services/applicationSyncContracts'
+import type {
+    PublishedApplicationSnapshot,
+    SnapshotConstantDefinition,
+    SnapshotEnumerationValueDefinition
+} from '../../services/applicationSyncContracts'
 import {
     type SyncableApplicationRecord,
     type RuntimeApplicationObjectRow,
@@ -379,7 +383,7 @@ export async function loadApplicationRuntimeEnumerationValues(
     return result
 }
 
-export function loadApplicationRuntimeFixedValues(entities: EntityDefinition[]): Record<string, unknown[]> {
+export function loadApplicationRuntimeFixedValues(entities: EntityDefinition[]): Record<string, SnapshotConstantDefinition[]> {
     const fixedValuesByValueGroupId = new Map<string, Map<string, Record<string, unknown>>>()
 
     const registerFieldFixedValue = (field: EntityDefinition['fields'][number]): void => {
@@ -437,8 +441,13 @@ export function loadApplicationRuntimeFixedValues(entities: EntityDefinition[]):
                 })
             ])
             .filter(([, constants]) => constants.length > 0)
-    )
+    ) as Record<string, SnapshotConstantDefinition[]>
 }
+
+// The runtime constants loader lives in the services layer
+// (applicationRuntimeConstants.ts); re-exported here so sync-side consumers
+// keep one import surface.
+export { loadApplicationRuntimeConstants, type ApplicationRuntimeConstantDefinition } from '../../services/applicationRuntimeConstants'
 
 export async function loadApplicationRuntimePackages(exec: DbExecutor, schemaName: string): Promise<ApplicationPackageDefinition[]> {
     const schemaIdent = quoteSchemaName(schemaName)

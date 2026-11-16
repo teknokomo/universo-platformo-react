@@ -2,6 +2,20 @@ import type { SnapshotEnvelope } from './mmoommAppFixtureContract.shared.ts'
 import {
     MMOOMM_APP_PACKAGES,
     MMOOMM_AUTHORING_PROJECT_NAME,
+    MMOOMM_ECONOMY_CONSTANT_CODES,
+    MMOOMM_ECONOMY_CONSTANTS_SET_CODENAME,
+    MMOOMM_ECONOMY_INVENTORY_LEDGER_CODENAME,
+    MMOOMM_ECONOMY_NOMENCLATURE_CODENAME,
+    MMOOMM_ECONOMY_OPERATION_CODENAME,
+    MMOOMM_ECONOMY_OPERATION_TYPE_ENUM_CODENAME,
+    MMOOMM_ECONOMY_OPERATION_TYPE_VALUES,
+    MMOOMM_ECONOMY_POSTING_MODULE_CODENAME,
+    MMOOMM_ECONOMY_INVENTORY_LEDGER_PROJECTIONS,
+    MMOOMM_ECONOMY_WALLET_LEDGER_PROJECTIONS,
+    MMOOMM_ECONOMY_UNIT_ENUM_CODENAME,
+    MMOOMM_ECONOMY_UNIT_VALUES,
+    MMOOMM_ECONOMY_WALLET_CODENAME,
+    MMOOMM_ECONOMY_WALLET_LEDGER_CODENAME,
     MMOOMM_SPACE_SECTION_CODENAME,
     MMOOMM_VISUAL_LINKUP_LAB_PROJECT_NAME,
     MMOOMM_VISUAL_LINKUP_LAB_SECTION_CODENAME
@@ -285,6 +299,7 @@ export const assertDomainModel = (snapshot: NonNullable<SnapshotEnvelope['snapsh
         'DecelerationMetersPerSecond2',
         'ArrivalRadiusMeters'
     ])
+    assertEconomyDomainModel(snapshot)
     const allEntities = Object.values(snapshot.entities ?? {}) as Array<{
         id?: string
         kind?: string
@@ -317,6 +332,109 @@ export const assertDomainModel = (snapshot: NonNullable<SnapshotEnvelope['snapsh
     }
 }
 
+/**
+ * Economy MVP contract (Phase F): economy entities, enumerations, constants
+ * set, both registrar-fed registers (object kind + `config.ledger`), and the
+ * Operation posting wiring toward both registers and the posting module.
+ */
+const assertEconomyDomainModel = (snapshot: NonNullable<SnapshotEnvelope['snapshot']>): void => {
+    for (const codename of [
+        MMOOMM_ECONOMY_NOMENCLATURE_CODENAME,
+        MMOOMM_ECONOMY_WALLET_CODENAME,
+        MMOOMM_ECONOMY_OPERATION_CODENAME,
+        MMOOMM_ECONOMY_WALLET_LEDGER_CODENAME,
+        MMOOMM_ECONOMY_INVENTORY_LEDGER_CODENAME
+    ]) {
+        requireEntityId(snapshot, 'object', codename)
+    }
+    for (const codename of [MMOOMM_ECONOMY_OPERATION_TYPE_ENUM_CODENAME, MMOOMM_ECONOMY_UNIT_ENUM_CODENAME]) {
+        requireEntityId(snapshot, 'enumeration', codename)
+    }
+    const operationTypeId = requireEntityId(snapshot, 'enumeration', MMOOMM_ECONOMY_OPERATION_TYPE_ENUM_CODENAME)
+    requireChildCodenames('OperationType enumeration', snapshot.optionValues?.[operationTypeId], MMOOMM_ECONOMY_OPERATION_TYPE_VALUES)
+    const unitId = requireEntityId(snapshot, 'enumeration', MMOOMM_ECONOMY_UNIT_ENUM_CODENAME)
+    requireChildCodenames('Unit enumeration', snapshot.optionValues?.[unitId], MMOOMM_ECONOMY_UNIT_VALUES)
+
+    const economyConstantsId = requireEntityId(snapshot, 'set', MMOOMM_ECONOMY_CONSTANTS_SET_CODENAME)
+    requireChildCodenames('EconomyConstants set', snapshot.fixedValues?.[economyConstantsId], MMOOMM_ECONOMY_CONSTANT_CODES)
+
+    for (const registerCodename of [MMOOMM_ECONOMY_WALLET_LEDGER_CODENAME, MMOOMM_ECONOMY_INVENTORY_LEDGER_CODENAME]) {
+        const registerId = requireEntityId(snapshot, 'object', registerCodename)
+        const entity = snapshot.entities?.[registerId]
+        const config = entity?.config && typeof entity.config === 'object' && !Array.isArray(entity.config) ? entity.config : null
+        const ledger = config?.ledger as Record<string, unknown> | undefined
+        if (!ledger || typeof ledger !== 'object') {
+            throw new Error(`MMOOMM app fixture register ${registerCodename} must carry config.ledger (object + ledgerSchema, D1)`)
+        }
+        if (ledger.sourcePolicy !== 'registrar' || ledger.mutationPolicy !== 'appendOnly') {
+            throw new Error(`MMOOMM app fixture register ${registerCodename} must use the registrar append-only ledger policy`)
+        }
+
+        const projections = Array.isArray(ledger.projections) ? (ledger.projections as Array<{ codename?: unknown }>) : []
+        const projectionCodenames = projections.map((projection) => (typeof projection.codename === 'string' ? projection.codename : ''))
+        const expectedProjections =
+            registerCodename === MMOOMM_ECONOMY_WALLET_LEDGER_CODENAME
+                ? MMOOMM_ECONOMY_WALLET_LEDGER_PROJECTIONS
+                : MMOOMM_ECONOMY_INVENTORY_LEDGER_PROJECTIONS
+        for (const expected of expectedProjections) {
+            if (!projectionCodenames.includes(expected)) {
+                throw new Error(`MMOOMM app fixture register ${registerCodename} is missing the ${expected} projection`)
+            }
+        }
+    }
+
+    const operationId = requireEntityId(snapshot, 'object', MMOOMM_ECONOMY_OPERATION_CODENAME)
+
+    const assertOwnerOnlyAccess = (entityCodename: string): void => {
+        const entityId = requireEntityId(snapshot, 'object', entityCodename)
+        const entity = snapshot.entities?.[entityId]
+        const config = entity?.config as Record<string, Record<string, unknown>> | undefined
+        const access = config?.runtimeRecordAccess
+        if (access?.mode !== 'ownerOnly' || access?.ownerColumnName !== '_upl_created_by') {
+            throw new Error(
+                `MMOOMM app fixture entity ${entityCodename} must scope runtime records to the creator (ownerOnly/_upl_created_by)`
+            )
+        }
+    }
+    assertOwnerOnlyAccess(MMOOMM_ECONOMY_WALLET_CODENAME)
+    assertOwnerOnlyAccess(MMOOMM_ECONOMY_OPERATION_CODENAME)
+    const operationEntity = snapshot.entities?.[operationId]
+    const operationConfig =
+        operationEntity?.config && typeof operationEntity.config === 'object' && !Array.isArray(operationEntity.config)
+            ? operationEntity.config
+            : null
+    const recordBehavior = operationConfig?.recordBehavior as Record<string, unknown> | undefined
+    const posting = recordBehavior?.posting as Record<string, unknown> | undefined
+    const targetLedgers = Array.isArray(posting?.targetLedgers) ? (posting.targetLedgers as unknown[]) : []
+    if (
+        !targetLedgers.includes(MMOOMM_ECONOMY_WALLET_LEDGER_CODENAME) ||
+        !targetLedgers.includes(MMOOMM_ECONOMY_INVENTORY_LEDGER_CODENAME)
+    ) {
+        throw new Error('MMOOMM app fixture Operation posting must target both economy registers')
+    }
+    if (posting?.moduleCodename !== MMOOMM_ECONOMY_POSTING_MODULE_CODENAME) {
+        throw new Error(`MMOOMM app fixture Operation posting must bind the ${MMOOMM_ECONOMY_POSTING_MODULE_CODENAME} module`)
+    }
+
+    // QA 2026-11-16 UX redesign: the economy UI lives in a canonical dialog
+    // opened from the flight canvas toolbar (platform code, not layout
+    // metadata). The fixture must NOT place an economyPanel zone widget — the
+    // zone-widget kind was removed from the widget registry entirely, so any
+    // stale placement would fail layout validation at import time.
+    const economyPanelPlacements = (snapshot.layoutZoneWidgets ?? []).filter(
+        (candidate): candidate is Record<string, unknown> =>
+            Boolean(candidate) &&
+            typeof candidate === 'object' &&
+            (candidate as Record<string, unknown>).widgetKey === 'economyPanel' &&
+            (candidate as Record<string, unknown>).isActive === true
+    )
+    if (economyPanelPlacements.length > 0) {
+        throw new Error(
+            'MMOOMM app fixture must not place an economyPanel zone widget — the economy UI opens from the flight canvas toolbar'
+        )
+    }
+}
+
 export const assertRuntimeModules = (snapshot: NonNullable<SnapshotEnvelope['snapshot']>): void => {
     const modules = snapshot.modules ?? []
     const findModule = (codename: string) =>
@@ -334,5 +452,14 @@ export const assertRuntimeModules = (snapshot: NonNullable<SnapshotEnvelope['sna
     // assets (flight-control / follow-camera / remote-ships) — it must NOT return.
     if (findModule('flight-canvas-widget')) {
         throw new Error('MMOOMM app fixture must not carry the legacy flight-canvas-widget client module')
+    }
+    // D5: the economy posting module is authored data — it must be exported as a
+    // compiled server module so `beforePost` movements work in the runtime app.
+    const economyPostingModule = findModule(MMOOMM_ECONOMY_POSTING_MODULE_CODENAME)
+    if (!economyPostingModule || economyPostingModule.moduleRole !== 'module') {
+        throw new Error('MMOOMM app fixture must include the mmoomm-economy-posting-module server module')
+    }
+    if (typeof economyPostingModule.serverBundle !== 'string' || economyPostingModule.serverBundle.trim().length === 0) {
+        throw new Error('MMOOMM app fixture economy posting module must preserve a non-empty serverBundle')
     }
 }

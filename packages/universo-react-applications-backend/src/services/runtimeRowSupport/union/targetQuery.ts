@@ -13,6 +13,7 @@ import {
     type RuntimeSchemaContext,
     type RuntimeRefOption
 } from '../../../shared/runtimeHelpers'
+import { assertRuntimeLedgerRegisterReadAllowed } from '../../../shared/entityMutationPolicy'
 import {
     RUNTIME_RECORD_SYSTEM_FIELDS,
     resolveRuntimeStandardKind,
@@ -71,6 +72,7 @@ export const resolveRuntimeUnionTargetContext = async (params: {
     currentWorkspaceId: string | null
     projectedFields: string[] | undefined
     locale: string
+    permissions: RuntimeSchemaContext['permissions']
 }): Promise<{
     objectCollection: RuntimeObjectCollectionRow
     components: RuntimeReadableComponent[]
@@ -101,6 +103,9 @@ export const resolveRuntimeUnionTargetContext = async (params: {
             target: resolveRuntimeCodenameText(objectCollection.codename)
         })
     }
+    // Phase H: ledger registers are not addressable through the union
+    // datasource without the application report privilege.
+    assertRuntimeLedgerRegisterReadAllowed(objectCollection.config, params.permissions)
 
     const components = (await loadRuntimeReadableComponents(params.manager, params.schemaIdent, objectCollection.id)).filter((cmp) =>
         IDENTIFIER_REGEX.test(cmp.column_name)

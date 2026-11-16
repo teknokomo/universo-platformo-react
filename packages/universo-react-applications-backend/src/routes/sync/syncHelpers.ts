@@ -7,7 +7,7 @@
 
 import { type Request, type Response, type RequestHandler } from 'express'
 import stableStringify from 'json-stable-stringify'
-import { assertCanonicalIdentifier, assertCanonicalSchemaName, quoteIdentifier } from '@universo-react/migrations-core'
+import { assertCanonicalIdentifier, quoteIdentifier } from '@universo-react/migrations-core'
 import type { EntityDefinition, SchemaSnapshot } from '@universo-react/schema-ddl'
 import {
     ApplicationSchemaStatus,
@@ -117,10 +117,9 @@ export function toStructuralSchemaSnapshot(snapshot: SchemaSnapshot | null): Pic
     }
 }
 
-export function quoteSchemaName(schemaName: string): string {
-    assertCanonicalSchemaName(schemaName)
-    return quoteIdentifier(schemaName)
-}
+// quoteSchemaName moved to shared/runtimeHelpers so runtime services can read
+// per-schema tables without an inverted services→routes import.
+export { quoteSchemaName } from '../../shared/runtimeHelpers'
 
 export function quoteObjectName(identifier: string): string {
     assertCanonicalIdentifier(identifier)

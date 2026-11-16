@@ -64,6 +64,19 @@ It covers identity fields, atomic numbering, effective dates, lifecycle states, 
 The code-facing kind is `ledger`; the Russian UI label is "Регистры".
 Ledgers classify ordinary field definitions through `fieldRoles` and use source policies to distinguish manual writes from registrar-owned posting writes.
 
+## Economy Runtime Contracts
+
+`common/economyRuntime` defines the MMOOMM economy contracts shared by the
+applications backend and the runtime panel: the strict summary schema
+(`wallet`, `cargo`, `capacity`, `market`, `operations`, `atStation`,
+`stationName`), the trade request body (`nomenclatureCode`, `quantity`, plus an
+optional compatibility `stationId`), and the trade response
+(`operationId`, `walletBalance`, `cargo`). It also owns the nine `ECONOMY_*`
+error codes with their HTTP status map (404/409/422/500) so the backend and the
+frontend localize and map failures identically. The module stays zod-only and
+defines its UUID v7 schema locally to avoid a circular dependency on
+`@universo-react/utils`.
+
 ## Guest Assessment Flow
 
 `common/guestAssessmentFlow` defines the shared phases (`question` and `block_intro`), timer states (`untimed`, `running`, and `paused`), and numbering modes (`global` and `block`). Public attempt DTOs expose only the current block or current question and a server-derived timer state; they do not carry answer keys or future questions.

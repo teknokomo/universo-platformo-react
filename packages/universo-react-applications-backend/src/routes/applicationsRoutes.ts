@@ -8,6 +8,7 @@ import { createApplicationBotBindingsController } from '../controllers/applicati
 import { createRuntimeRowsController } from '../controllers/runtimeRowsController'
 import { createRuntimeChildRowsController } from '../controllers/runtimeChildRowsController'
 import { createRuntimeLedgersController } from '../controllers/runtimeLedgersController'
+import { createRuntimeEconomyController } from '../controllers/runtimeEconomyController'
 import { createRuntimeReportsController } from '../controllers/runtimeReportsController'
 import { createRuntimeModulesController } from '../controllers/runtimeModulesController'
 import { createRuntimeWorkspaceController } from '../controllers/runtimeWorkspaceController'
@@ -38,6 +39,7 @@ export function createApplicationsRoutes(
     const runtime = createRuntimeRowsController(getDbExecutor)
     const childRows = createRuntimeChildRowsController(getDbExecutor)
     const ledgers = createRuntimeLedgersController(getDbExecutor)
+    const economy = createRuntimeEconomyController(getDbExecutor)
     const reports = createRuntimeReportsController(getDbExecutor)
     const runtimeModules = createRuntimeModulesController(getDbExecutor)
     const workspace = createRuntimeWorkspaceController(getDbExecutor)
@@ -240,6 +242,11 @@ export function createApplicationsRoutes(
         readLimiter,
         asyncHandler(ledgers.getProjection)
     )
+
+    // ── Runtime economy (MMOOMM) ──
+    router.get('/:applicationId/runtime/economy/summary', readLimiter, asyncHandler(economy.getSummary))
+    router.post('/:applicationId/runtime/economy/sell', writeLimiter, asyncHandler(economy.sellTrade))
+    router.post('/:applicationId/runtime/economy/buy', writeLimiter, asyncHandler(economy.buyTrade))
 
     // ── Runtime workspaces ──
     router.get('/:applicationId/runtime/workspaces', readLimiter, asyncHandler(workspace.listWorkspaces))

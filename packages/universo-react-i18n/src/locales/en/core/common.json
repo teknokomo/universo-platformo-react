@@ -626,6 +626,10 @@
                     "strict": "In order",
                     "flexible": "Flexible"
                 },
+                "showRecentOperations": {
+                    "label": "Show recent operations",
+                    "help": "Show the recent operations list in this panel."
+                },
                 "title": {
                     "label": "Title",
                     "help": "Set the title shown above this content."

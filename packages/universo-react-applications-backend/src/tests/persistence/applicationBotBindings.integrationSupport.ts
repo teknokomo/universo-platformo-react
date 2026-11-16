@@ -7,7 +7,18 @@ if (process.env.REQUIRE_DATABASE_TESTS === '1' && !DATABASE_TEST_URL) {
     throw new Error('DATABASE_TEST_URL is required for Application bot binding PostgreSQL integration tests')
 }
 
-export const describeIntegration = DATABASE_TEST_URL ? describe : describe.skip
+export const describeIntegration = DATABASE_TEST_URL
+    ? describe
+    : (() => {
+          // Skip loudly instead of silently (QA hygiene): a PostgreSQL
+          // integration suite skipped without DATABASE_TEST_URL must be visible
+          // in the run output, not just a skipped-suites count.
+          console.warn(
+              '[integration] DATABASE_TEST_URL is not set — PostgreSQL integration tests are SKIPPED. ' +
+                  'Set DATABASE_TEST_URL to run them against local Supabase, or REQUIRE_DATABASE_TESTS=1 to hard-fail instead.'
+          )
+          return describe.skip
+      })()
 const databaseTestRole = DATABASE_TEST_URL ? decodeURIComponent(new URL(DATABASE_TEST_URL).username) : undefined
 const rollbackSignal = new Error('rollback Application bot binding integration fixture')
 export const createTestShortId = (): string => createMessengerBotBindingShortId()
@@ -55,8 +66,9 @@ export const insertApplicationMember = async (
 ): Promise<void> => {
     await trx.raw(
         `INSERT INTO auth.users (
-            id, instance_id, aud, role, email, encrypted_password, confirmation_token, created_at, updated_at
-         ) VALUES (?, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ?, '', '', now(), now())`,
+            id, instance_id, aud, role, email, encrypted_password, confirmation_token, created_at, updated_at,
+            email_change, email_change_token_new, email_change_token_current, recovery_token, phone_change, phone_change_token, reauthentication_token
+         ) VALUES (?, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ?, '', '', now(), now(), '', '', '', '', '', '', '')`,
         [userId, `bot-binding-${userId}@example.test`]
     )
     await trx.raw(

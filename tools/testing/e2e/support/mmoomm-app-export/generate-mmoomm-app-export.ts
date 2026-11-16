@@ -27,7 +27,13 @@ import {
     authorMmoommSceneThroughPlayCanvasEditorAndExpectReload,
     exportMetahubSnapshotThroughBrowser
 } from '../mmoommPlaycanvasEditorAuthoring'
-import { SPACE_SECTION_CODENAME, VISUAL_LINKUP_LAB_SECTION_CODENAME, localizedText, serverModuleSource } from '../mmoommAppGeneratorData'
+import {
+    OPERATION_CODE,
+    SPACE_SECTION_CODENAME,
+    VISUAL_LINKUP_LAB_SECTION_CODENAME,
+    localizedText,
+    serverModuleSource
+} from '../mmoommAppGeneratorData'
 import {
     assertPlayCanvasBuiltinScriptCatalog,
     PLAYCANVAS_BUILTIN_SCRIPT_ASSETS,
@@ -51,7 +57,15 @@ import {
     createMovementCommandsThroughBrowser,
     createSimulationConstantsThroughBrowser,
     authorWelcomePageThroughBrowser,
-    createRuntimeModuleThroughBrowser
+    createRuntimeModuleThroughBrowser,
+    createEconomyEnumerationsThroughBrowser,
+    createEconomyConstantsThroughBrowser,
+    createEconomyObjectsThroughBrowser,
+    configureEconomyRegistersThroughBrowser,
+    createEconomyPostingModuleThroughBrowser,
+    configureOperationPostingThroughBrowser,
+    addFlightStationMarketComponentsThroughBrowser,
+    seedEconomyRowsThroughApi
 } from './metahub-authoring'
 import {
     setEditorDefaultProjectThroughBrowser,
@@ -132,6 +146,21 @@ export const generateMmoommAppExport = async (
     await createMovementCommandsThroughBrowser(page, metahubId, api)
     await createSimulationConstantsThroughBrowser(page, metahubId, api)
     await authorWelcomePageThroughBrowser(page, api, metahubId)
+
+    // MMOOMM economy MVP (Phase F). The economy objects' REF components target
+    // the OperationType/Unit enumerations, so the enumerations are authored
+    // BEFORE the economy objects — the only reorder vs the plan's F2 listing.
+    // Registers are fully configured before the posting module (target ledger
+    // selection), and the posting module exists before the Behavior step
+    // (posting.moduleCodename selection).
+    await createEconomyEnumerationsThroughBrowser(page, metahubId, api)
+    await createEconomyConstantsThroughBrowser(page, metahubId, api)
+    const economyObjectIds = await createEconomyObjectsThroughBrowser(page, api, metahubId)
+    await configureEconomyRegistersThroughBrowser(page, api, metahubId)
+    await createEconomyPostingModuleThroughBrowser(page, api, metahubId, economyObjectIds.operationId)
+    await configureOperationPostingThroughBrowser(page, api, metahubId, OPERATION_CODE)
+    await addFlightStationMarketComponentsThroughBrowser(page, api, metahubId)
+    await seedEconomyRowsThroughApi(api, metahubId)
 
     // Author the builtin gameplay scripts through the Editor ("+" → Script):
     // createScript uploads the builtin source, the editor parses it through the
@@ -341,14 +370,32 @@ export const generateMmoommAppExport = async (
     if (typeof spaceEntity?.id !== 'string' || typeof visualLabEntity?.id !== 'string') {
         throw new Error('MMOOMM scoped Dashboard layouts require the Space and Visual Linkup Lab Object entities')
     }
-    const spaceLayoutId = await createScopedDashboardLayout(api, metahubId, layout.id, spaceEntity.id, {
-        en: 'Space runtime',
-        ru: 'Runtime Космоса'
-    })
-    const visualLabLayoutId = await createScopedDashboardLayout(api, metahubId, layout.id, visualLabEntity.id, {
-        en: 'Visual Linkup Lab runtime',
-        ru: 'Runtime визуальной лаборатории'
-    })
+    // The flight canvas provides every runtime affordance, so the dashboard-level
+    // "Create" host action is disabled on both scoped layouts (interpretation
+    // network precedent — the canonical layout behavior switch).
+    const scopedBehaviorConfig = { objectBehavior: { showCreateButton: false } } as const
+    const spaceLayoutId = await createScopedDashboardLayout(
+        api,
+        metahubId,
+        layout.id,
+        spaceEntity.id,
+        {
+            en: 'Space runtime',
+            ru: 'Runtime Космоса'
+        },
+        { behaviorConfig: scopedBehaviorConfig }
+    )
+    const visualLabLayoutId = await createScopedDashboardLayout(
+        api,
+        metahubId,
+        layout.id,
+        visualLabEntity.id,
+        {
+            en: 'Visual Linkup Lab runtime',
+            ru: 'Runtime визуальной лаборатории'
+        },
+        { behaviorConfig: scopedBehaviorConfig }
+    )
     await setEditorDefaultProjectThroughBrowser(page, metahubId, 'MMOOMM Authoring')
     await configureRuntimeLayoutThroughBrowser(
         page,

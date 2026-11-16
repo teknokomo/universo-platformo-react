@@ -5,7 +5,6 @@ import {
     MARKETING_MAX_RUNTIME_RECORDS,
     layoutHashSchema,
     marketingAtomicHeaderWidgetSchema,
-    marketingPageConfigSchema,
     marketingPageDataSchema,
     marketingSemanticKeySchema,
     marketingPersistedIdSchema,

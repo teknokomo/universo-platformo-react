@@ -132,4 +132,5 @@
 -   [Snapshot Export & Import](guides/snapshot-export-import.md)
 -   [Application Template View Settings](guides/app-template-views.md)
 -   [MMOOMM Flight Simulator](guides/mmoomm-flight-simulator.md)
+-   [MMOOMM Economy Guide](guides/mmoomm-economy.md)
 -   [Interpretation Network](guides/interpretation-network.md)

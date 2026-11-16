@@ -213,6 +213,7 @@ describe('applications realtime runtime authorization', () => {
     it('rejects realtime WebSocket upgrades from disallowed origins before Colyseus handles the socket', async () => {
         const server = new EventEmitter() as HttpServer
         const socket = { destroyed: false, destroy: jest.fn() }
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
 
         await attachApplicationsRealtimeRuntime(server, {
             isOriginAllowed: (request) => request.headers.origin === 'https://allowed.example'
@@ -222,6 +223,29 @@ describe('applications realtime runtime authorization', () => {
 
         expect(socket.destroy).toHaveBeenCalledTimes(1)
         expect(mockWsTransportUpgradeHandler).not.toHaveBeenCalled()
+        // QA 2026-11-16: the rejection is observable — the denied origin is
+        // logged with the configuration hint (control characters stripped).
+        expect(warnSpy).toHaveBeenCalledTimes(1)
+        expect(String(warnSpy.mock.calls[0]?.[0])).toContain('APPLICATION_REALTIME_WS_ORIGINS')
+        expect(String(warnSpy.mock.calls[0]?.[0])).toContain('https://attacker.example')
+
+        // A crafted multi-line Origin header must not forge log lines.
+        warnSpy.mockClear()
+        server.emit(
+            'upgrade',
+            { headers: { origin: 'https://evil.example\r\nInjected-Log-Line' } } as IncomingMessage,
+            socket,
+            Buffer.alloc(0)
+        )
+        const logged = String(warnSpy.mock.calls[0]?.[0])
+        expect(logged).not.toContain('\r')
+        expect(logged).not.toContain('\n')
+
+        // Terminal-escape sequences are stripped too (comment matches behavior).
+        warnSpy.mockClear()
+        server.emit('upgrade', { headers: { origin: 'https://evil.example\u001b[31mred' } } as IncomingMessage, socket, Buffer.alloc(0))
+        expect(String(warnSpy.mock.calls[0]?.[0])).not.toContain('\u001b')
+        warnSpy.mockRestore()
     })
 
     it('rejects realtime WebSocket upgrades without an Origin header', async () => {

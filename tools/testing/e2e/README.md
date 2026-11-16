@@ -348,6 +348,22 @@ If the server is already running (e.g., from a previous E2E run), reuse it:
 E2E_FULL_RESET_MODE=off E2E_ALLOW_REUSE_SERVER=true pnpm run test:e2e:generators
 ```
 
+### MMOOMM Economy Journey
+
+The economy journey lives in `specs/flows/snapshot-import-mmoomm-app-economy.spec.ts` (`@flow @slow`). It imports the canonical MMOOMM snapshot with the generator-authored economy model, opens the published runtime, verifies the granted first entry (wallet balance and the once-only StarterGrant), performs sell/buy trades through the UI with database checks via `withE2eDatabaseClient`, verifies reload persistence and second-user wallet isolation, exercises the negative matrix for all nine `ECONOMY_*` error codes, and checks idempotent replay against the database.
+
+Run it under the same local Supabase prelude as the other MMOOMM gates:
+
+```bash
+pnpm supabase:e2e:start:minimal
+pnpm env:e2e:local-supabase
+pnpm doctor:e2e:local-supabase
+pnpm run build:e2e
+node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "imported MMOOMM app snapshot economy"
+```
+
+The standard MMOOMM runtime gate `test:e2e:mmoomm-app-runtime:local-supabase` greps `imported MMOOMM app snapshot`, which matches this spec as well, so the gate runs the economy journey alongside the PlayCanvas runtime proof. The journey depends on the economy authoring produced by the `metahubs-mmoomm-app-export` generator; regenerate the canonical fixture through `test:e2e:mmoomm-app-fixture-generator:local-supabase` (promote with `UPDATE_MMOOMM_APP_FIXTURE=1`) and never hand-edit the fixture.
+
 ### Available Generators
 
 | Generator                                    | Canonical fixture targeted by the six-fixture gate                 | Description                                                                                                                                                                                                          |

@@ -15,6 +15,7 @@ import IconButton from '@mui/material/IconButton'
 import Stack from '@mui/material/Stack'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
+import AccountBalanceWalletRoundedIcon from '@mui/icons-material/AccountBalanceWalletRounded'
 import CenterFocusStrongRoundedIcon from '@mui/icons-material/CenterFocusStrongRounded'
 import MyLocationRoundedIcon from '@mui/icons-material/MyLocationRounded'
 import PauseRoundedIcon from '@mui/icons-material/PauseRounded'
@@ -38,6 +39,7 @@ import {
     type RealtimeStatus,
     type SceneObjectConfig
 } from './playcanvasCanvasWidgetRuntime'
+import EconomyDialog from './EconomyDialog'
 import { executeClientModuleMethod } from '../runtime/browserModuleRuntime'
 import { createClientModuleContext, isClientModuleMethodTarget, useRuntimeWidgetClientModule } from './runtimeWidgetHelpers'
 
@@ -176,6 +178,7 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
     const currentWorkspaceId = details?.currentWorkspaceId ?? null
     const runtimeAccessMode = resolveRuntimeAccessMode(details?.runtimeAccessMode)
     const canControlScene = runtimeAccessMode === 'member' && details?.permissions?.editContent === true
+    const [economyDialogOpen, setEconomyDialogOpen] = useState(false)
     const apiBaseUrl = details?.apiBaseUrl ?? '/api/v1'
 
     const runtimeClientModule = useRuntimeWidgetClientModule({
@@ -401,7 +404,10 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                 window.visualViewport?.width ?? window.innerWidth,
                 document.documentElement.clientWidth || window.innerWidth
             )
-            const bottomGap = viewportWidth < 600 ? 19 : 23
+            // 24 matches the runtime main Stack bottom padding (`pb: { sm: 3 }` = 24px)
+            // so the measured canvas fills the viewport exactly without a 1px
+            // document overflow (QA 2026-11-17: junk vertical scrollbar).
+            const bottomGap = viewportWidth < 600 ? 19 : 24
             const availableHeight = Math.max(1, viewportHeight - rect.top - bottomGap)
             const nextHeight = Math.floor(Math.min(1200, availableHeight))
             setMeasuredCanvasHeight((current) => (current === nextHeight ? current : nextHeight))
@@ -724,6 +730,20 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                         {t('playcanvasCanvas.viewOnly', 'View only')}
                     </Typography>
                 ) : null}
+                {runtimeAccessMode === 'member' && !isVisualLabScene ? (
+                    <Tooltip title={t('playcanvasCanvas.openEconomy', 'Economy')}>
+                        <span>
+                            <IconButton
+                                aria-label={t('playcanvasCanvas.openEconomy', 'Economy')}
+                                data-testid='economy-open-button'
+                                onClick={() => setEconomyDialogOpen(true)}
+                                size='small'
+                            >
+                                <AccountBalanceWalletRoundedIcon fontSize='small' />
+                            </IconButton>
+                        </span>
+                    </Tooltip>
+                ) : null}
                 <Tooltip title={t('playcanvasCanvas.moveToTarget', 'Move to target')}>
                     <span>
                         <IconButton
@@ -786,6 +806,7 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                     </IconButton>
                 </Tooltip>
             </Stack>
+            <EconomyDialog open={economyDialogOpen} onClose={() => setEconomyDialogOpen(false)} />
             {runtimeModuleAlert ? <Alert severity={runtimeModuleAlert.severity}>{runtimeModuleAlert.message}</Alert> : null}
             {manifestBindingAlert ? <Alert severity={manifestBindingAlert.severity}>{manifestBindingAlert.message}</Alert> : null}
             {error ? <Alert severity='error'>{error}</Alert> : null}

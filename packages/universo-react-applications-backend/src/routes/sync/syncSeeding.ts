@@ -15,7 +15,7 @@ import {
 import { createKnexExecutor } from '@universo-react/database'
 import { ComponentDefinitionDataType } from '@universo-react/types'
 import { isUuidV7 } from '@universo-react/utils'
-import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
+import type { PublishedApplicationSnapshot, SnapshotConstantDefinition } from '../../services/applicationSyncContracts'
 import { type ApplicationSyncQueryBuilder, type ApplicationSyncTransaction, getApplicationSyncKnex } from '../../ddl'
 import {
     type EnumerationSyncRow,
@@ -593,6 +593,158 @@ export async function syncEnumerationValues(
             .whereIn('object_id', enumerationObjectIds)
             .andWhere((qb) => qb.where('_upl_deleted', false).orWhere('_app_deleted', false))
             .update(softDeletePatch)
+    }
+
+    if (trx) {
+        await applySync(trx)
+    } else {
+        await knex.transaction(applySync)
+    }
+}
+
+interface ConstantSyncRow {
+    id: string
+    group_id: string
+    codename: unknown
+    data_type: string
+    presentation: Record<string, unknown>
+    validation_rules: Record<string, unknown>
+    ui_config: Record<string, unknown>
+    value_json: unknown
+    sort_order: number
+    _upl_created_at: Date
+    _upl_created_by: string | null
+    _upl_updated_at: Date
+    _upl_updated_by: string | null
+    _upl_deleted: boolean
+    _upl_deleted_at: Date | null
+    _upl_deleted_by: string | null
+    _app_deleted: boolean
+    _app_deleted_at: Date | null
+    _app_deleted_by: string | null
+}
+
+/**
+ * Materialize Set fixed values from the publication snapshot into `_app_constants`
+ * so runtime services can read economy-style constants with a plain request-scoped
+ * executor instead of chasing baked `ui_config.setConstantRef` component refs.
+ * Mirror of `syncEnumerationValues`: upsert by id, soft-delete stale rows/groups.
+ */
+export async function syncSetConstants(
+    schemaName: string,
+    snapshot: PublishedApplicationSnapshot,
+    userId?: string | null,
+    trx?: ApplicationSyncTransaction
+): Promise<void> {
+    const knex = getApplicationSyncKnex()
+    const now = new Date()
+
+    // The metahub export envelope carries Set fixed values under `fixedValues`
+    // (grouped by Set entity id); `constants` is a legacy alias never emitted by
+    // the serializer — mirror publishedApplicationSnapshotEntities.ts:121.
+    const constantsByGroup = snapshot.fixedValues ?? snapshot.constants ?? {}
+    const rows = Object.entries(constantsByGroup).flatMap<ConstantSyncRow>(([groupId, values]) => {
+        const typedValues = Array.isArray(values) ? (values as SnapshotConstantDefinition[]) : []
+
+        return typedValues.map((value) => {
+            if (!isUuidV7(value.id)) {
+                throw new Error(`Snapshot constant id must be a UUID v7: ${String(value.id)}`)
+            }
+            const codename = normalizeSnapshotCodenameValue(value.codename, `constant "${value.id || groupId}"`)
+
+            return {
+                id: value.id,
+                group_id: groupId,
+                codename,
+                data_type: typeof value.dataType === 'string' ? value.dataType : 'string',
+                presentation: isRecord(value.presentation) ? (value.presentation as Record<string, unknown>) : {},
+                validation_rules: isRecord(value.validationRules) ? (value.validationRules as Record<string, unknown>) : {},
+                ui_config: isRecord(value.uiConfig) ? (value.uiConfig as Record<string, unknown>) : {},
+                value_json: prepareJsonbValue(value.value ?? null),
+                sort_order: typeof value.sortOrder === 'number' ? value.sortOrder : 0,
+                _upl_created_at: now,
+                _upl_created_by: userId ?? null,
+                _upl_updated_at: now,
+                _upl_updated_by: userId ?? null,
+                _upl_deleted: false,
+                _upl_deleted_at: null,
+                _upl_deleted_by: null,
+                _app_deleted: false,
+                _app_deleted_at: null,
+                _app_deleted_by: null
+            }
+        })
+    })
+
+    const seenConstantIds = new Set<string>()
+    for (const row of rows) {
+        if (!seenConstantIds.has(row.id)) {
+            seenConstantIds.add(row.id)
+            continue
+        }
+        throw new Error(`Duplicate constant id in snapshot: ${row.id}`)
+    }
+
+    const desiredGroupIds = Object.entries(constantsByGroup)
+        .filter(([, values]) => Array.isArray(values) && values.length > 0)
+        .map(([groupId]) => groupId)
+
+    const softDeletePatch = {
+        _upl_deleted: true,
+        _upl_deleted_at: now,
+        _upl_deleted_by: userId ?? null,
+        _app_deleted: true,
+        _app_deleted_at: now,
+        _app_deleted_by: userId ?? null,
+        _upl_updated_at: now,
+        _upl_updated_by: userId ?? null
+    }
+
+    const applySync = async (activeTrx: ApplicationSyncTransaction) => {
+        const tableQuery = () => activeTrx.withSchema(schemaName).table('_app_constants')
+        if (desiredGroupIds.length === 0) {
+            await tableQuery()
+                .where((qb) => qb.where('_upl_deleted', false).orWhere('_app_deleted', false))
+                .update(softDeletePatch)
+            return
+        }
+
+        await tableQuery()
+            .whereNotIn('group_id', desiredGroupIds)
+            .andWhere((qb) => qb.where('_upl_deleted', false).orWhere('_app_deleted', false))
+            .update(softDeletePatch)
+
+        if (rows.length > 0) {
+            await tableQuery()
+                .whereIn('group_id', desiredGroupIds)
+                .whereNotIn(
+                    'id',
+                    rows.map((row) => row.id)
+                )
+                .andWhere((qb) => qb.where('_upl_deleted', false).orWhere('_app_deleted', false))
+                .update(softDeletePatch)
+            await tableQuery()
+                .insert(rows)
+                .onConflict('id')
+                .merge([
+                    'group_id',
+                    'codename',
+                    'data_type',
+                    'presentation',
+                    'validation_rules',
+                    'ui_config',
+                    'value_json',
+                    'sort_order',
+                    '_upl_updated_at',
+                    '_upl_updated_by',
+                    '_upl_deleted',
+                    '_upl_deleted_at',
+                    '_upl_deleted_by',
+                    '_app_deleted',
+                    '_app_deleted_at',
+                    '_app_deleted_by'
+                ])
+        }
     }
 
     if (trx) {

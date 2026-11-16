@@ -16,6 +16,7 @@ import {
     UpdateFailure,
     type RuntimeDataType
 } from '../shared/runtimeHelpers'
+import { readRuntimeRecordAccessConfig } from './runtimeRowSupport/contracts'
 
 type RuntimeLedgerObjectRow = {
     id: string
@@ -68,6 +69,23 @@ export type RuntimeLedgerFactReverseInput = {
 
 export type RuntimeLedgerWriteOrigin = 'manual' | 'registrar'
 export type RuntimeLedgerRegistrarKind = string
+
+/**
+ * Server-side read scoping for generic ledger fact reads (plan Phase H / D8).
+ * The economy endpoints proved the pattern: ledger reads are never trusted to
+ * client filters — the service injects the requester's scope itself.
+ *
+ * - A ledger entity declaring `runtimeRecordAccess { mode: 'ownerOnly' }` gets
+ *   its owner column forced to `userId`.
+ * - Undeclared ledgers fail closed to creator-scoped reads (`_upl_created_by`),
+ *   which is stamped on every appended fact.
+ * - `allowCrossUserRead` (application admins/owners via `readReports`, and the
+ *   owner-authored module sandbox) keeps full-fact visibility.
+ */
+export type RuntimeLedgerReadScope = {
+    userId: string | null
+    allowCrossUserRead?: boolean
+}
 
 type RuntimeLedgerBinding = {
     object: RuntimeLedgerObjectRow
@@ -170,16 +188,45 @@ const findAttrByFieldKey = (attrs: RuntimeLedgerComponentRow[], fieldKey: string
     )
 }
 
-const applyReversalIdempotencyKey = (binding: RuntimeLedgerBinding, data: Record<string, unknown>, sourceFactId: string): boolean => {
+/**
+ * The STRING idempotency key field that carries the `:reversal:` marker on
+ * compensating facts (same deterministic selection as reversal time).
+ */
+const resolveReversalKeyAttr = (binding: RuntimeLedgerBinding): RuntimeLedgerComponentRow | null => {
     const keyAttrs = resolveLedgerConfig(binding.config)
         .idempotency.keyFields.map((fieldKey) => findAttrByFieldKey(binding.attrs, fieldKey))
         .filter((cmp): cmp is RuntimeLedgerComponentRow => Boolean(cmp))
 
-    if (keyAttrs.length === 0) {
-        return false
-    }
+    return [...keyAttrs].reverse().find((cmp) => cmp.data_type === 'STRING') ?? null
+}
 
-    const targetAttr = [...keyAttrs].reverse().find((cmp) => cmp.data_type === 'STRING')
+/**
+ * SQL predicate linking an active compensating reversal row (`reversalAlias`)
+ * to the source fact row exposed as `factAlias`. Ledgers with the
+ * `_app_reversal_of_fact_id` system column link exactly on it (unique-index
+ * backed); legacy tables without the column fall back to the `:reversal:`
+ * marker written into the last STRING idempotency key field by
+ * `applyReversalIdempotencyKey`. Returns null when neither shape is available,
+ * i.e. the ledger can never hold compensating facts.
+ */
+const buildReversalLinkPredicate = (binding: RuntimeLedgerBinding, factAlias: string, reversalAlias: string): string | null => {
+    if (binding.hasReversalOfFactColumn) {
+        return `${quoteIdentifier(reversalAlias)}.${quoteIdentifier('_app_reversal_of_fact_id')} = ${quoteIdentifier(
+            factAlias
+        )}.${quoteIdentifier('id')}`
+    }
+    const reversalKeyAttr = resolveReversalKeyAttr(binding)
+    if (!reversalKeyAttr) {
+        return null
+    }
+    const column = quoteIdentifier(reversalKeyAttr.column_name)
+    return `${quoteIdentifier(reversalAlias)}.${column} = COALESCE(NULLIF(${quoteIdentifier(
+        factAlias
+    )}.${column}::text, ''), 'fact') || '${REVERSAL_IDEMPOTENCY_MARKER}' || ${quoteIdentifier(factAlias)}.${quoteIdentifier('id')}::text`
+}
+
+const applyReversalIdempotencyKey = (binding: RuntimeLedgerBinding, data: Record<string, unknown>, sourceFactId: string): boolean => {
+    const targetAttr = resolveReversalKeyAttr(binding)
     if (!targetAttr) {
         return false
     }
@@ -235,6 +282,45 @@ const buildActiveCondition = (hasWorkspaceColumn: boolean, currentWorkspaceId: s
 }
 
 const replaceWorkspacePlaceholder = (sql: string, parameterIndex: number): string => sql.replace('$workspace', `$${parameterIndex}`)
+
+/** Owner column declared via `runtimeRecordAccess { mode: 'ownerOnly' }` on the ledger entity config, if any. */
+const resolveLedgerOwnerScopeColumn = (binding: RuntimeLedgerBinding): string | null => {
+    const accessConfig = readRuntimeRecordAccessConfig(binding.object.config)
+    if (!accessConfig || accessConfig.mode !== 'ownerOnly') {
+        return null
+    }
+    const ownerAttr = accessConfig.ownerFieldCodename ? findAttrByFieldKey(binding.attrs, accessConfig.ownerFieldCodename) : null
+    const ownerColumnName = ownerAttr?.column_name ?? accessConfig.ownerColumnName
+    return ownerColumnName && IDENTIFIER_REGEX.test(ownerColumnName) ? ownerColumnName : null
+}
+
+/**
+ * Phase H (plan D8): WHERE clauses that scope generic ledger fact reads to the
+ * requesting user. Pushes its bind parameters onto `values` in call order —
+ * callers must invoke this AFTER building their own clauses.
+ */
+const buildLedgerReadScopeClauses = (
+    binding: RuntimeLedgerBinding,
+    readScope: RuntimeLedgerReadScope,
+    values: unknown[]
+): { clauses: string[]; ownerColumnName: string | null } => {
+    if (readScope.allowCrossUserRead) {
+        return { clauses: [], ownerColumnName: null }
+    }
+    if (!readScope.userId) {
+        // Fail closed: an anonymous caller never sees ledger facts.
+        return { clauses: ['FALSE'], ownerColumnName: null }
+    }
+    const ownerColumnName = resolveLedgerOwnerScopeColumn(binding)
+    if (ownerColumnName) {
+        values.push(readScope.userId)
+        return { clauses: [`${quoteIdentifier(ownerColumnName)} = $${values.length}`], ownerColumnName }
+    }
+    // Belt-and-braces fallback (economy mirror): every appended fact stamps the
+    // acting principal, so creator scoping always has a populated column.
+    values.push(readScope.userId)
+    return { clauses: [`${quoteIdentifier('_upl_created_by')} = $${values.length}`], ownerColumnName: null }
+}
 
 const ledgerValidationFailure = (error: unknown, body: Record<string, unknown>): UpdateFailure => {
     if (error instanceof UpdateFailure) {
@@ -315,6 +401,7 @@ export class RuntimeLedgerService {
         schemaName: string
         ledgerId: string
         currentWorkspaceId: string | null
+        readScope: RuntimeLedgerReadScope
         limit?: number
         offset?: number
     }): Promise<{ rows: Array<Record<string, unknown>>; limit: number; offset: number }> {
@@ -332,6 +419,7 @@ export class RuntimeLedgerService {
             values.push(params.currentWorkspaceId)
             activeCondition = replaceWorkspacePlaceholder(activeCondition, values.length)
         }
+        const { clauses: scopeClauses } = buildLedgerReadScopeClauses(binding, params.readScope, values)
         const limit = normalizeLimit(params.limit)
         const offset = normalizeOffset(params.offset)
         values.push(limit, offset)
@@ -340,7 +428,7 @@ export class RuntimeLedgerService {
             `
         SELECT ${selectColumns.join(', ')}
         FROM ${binding.tableIdent}
-        WHERE ${activeCondition}
+        WHERE ${[activeCondition, ...scopeClauses].join(' AND ')}
         ORDER BY _upl_created_at DESC, id DESC
         LIMIT $${values.length - 1}
         OFFSET $${values.length}
@@ -365,6 +453,7 @@ export class RuntimeLedgerService {
         ledgerId: string
         currentWorkspaceId: string | null
         projectionCodename: string
+        readScope: RuntimeLedgerReadScope
         filters?: Record<string, unknown>
         limit?: number
         offset?: number
@@ -399,6 +488,24 @@ export class RuntimeLedgerService {
             whereClauses[0] = replaceWorkspacePlaceholder(whereClauses[0], values.length)
         }
 
+        // Phase H: the owner dimension is server-scoped. When the ledger
+        // declares an ownerOnly record access column and the caller is not
+        // cross-user-read privileged, client filters may not even reference it
+        // — the injected owner clause below is the only source of truth.
+        const ownerScopeActive = !params.readScope.allowCrossUserRead
+        const ownerColumnName = ownerScopeActive ? resolveLedgerOwnerScopeColumn(binding) : null
+        if (ownerColumnName) {
+            for (const key of Object.keys(params.filters ?? {})) {
+                if (findAttrByFieldKey(binding.attrs, key)?.column_name === ownerColumnName) {
+                    throw new UpdateFailure(400, {
+                        error: 'Ledger filters cannot override the server-scoped owner field',
+                        code: 'LEDGER_FILTER_OWNER_FIELD',
+                        field: key
+                    })
+                }
+            }
+        }
+
         for (const [key, rawValue] of Object.entries(params.filters ?? {})) {
             const cmp = findAttrByFieldKey(binding.attrs, key)
             if (!cmp || !IDENTIFIER_REGEX.test(cmp.column_name) || cmp.data_type === 'TABLE') {
@@ -419,6 +526,9 @@ export class RuntimeLedgerService {
             }
             whereClauses.push(`${quoteIdentifier(cmp.column_name)} = $${values.length}`)
         }
+
+        const { clauses: scopeClauses } = buildLedgerReadScopeClauses(binding, params.readScope, values)
+        whereClauses.push(...scopeClauses)
 
         const dimensionAliases = dimensionAttrs.map((_, index) => `d${index}`)
         const resourceAliases = resourceAttrs.map((_, index) => `r${index}`)
@@ -493,6 +603,7 @@ export class RuntimeLedgerService {
                 code: 'LEDGER_ACTOR_REQUIRED'
             })
         }
+        const currentUserId: string = params.currentUserId
 
         return params.executor.transaction(async (tx) => {
             const binding = await this.resolveLedgerBinding({ ...params, executor: tx, ledgerId: params.ledgerId ?? null })
@@ -501,49 +612,74 @@ export class RuntimeLedgerService {
 
             for (const fact of params.facts) {
                 const columnValues = this.buildFactColumnValues(binding, fact.data)
-                const existingFactId = await this.findIdempotentFactId(tx, binding, columnValues, params.currentWorkspaceId)
-                if (existingFactId) {
-                    results.push({ id: existingFactId, idempotent: true })
-                    continue
-                }
-                const columns = columnValues.map((item) => quoteIdentifier(item.column))
-                const values = columnValues.map((item) => item.value)
+                results.push(await this.appendFactRow(tx, binding, columnValues, currentUserId, params.currentWorkspaceId))
+            }
 
-                columns.push(quoteIdentifier('_upl_created_by'), quoteIdentifier('_upl_updated_by'))
-                values.push(params.currentUserId, params.currentUserId)
+            return results
+        })
+    }
 
-                if (binding.hasWorkspaceColumn && params.currentWorkspaceId) {
-                    columns.push(quoteIdentifier('workspace_id'))
-                    values.push(params.currentWorkspaceId)
-                }
+    /**
+     * Appends one fact with the full idempotency ladder:
+     * 1. FR-016 — an active, uncompensated fact with the same key tuple IS the
+     *    posted document: replay it instead of duplicating.
+     * 2. BUG-1 — an active fact whose compensating reversal is also active is an
+     *    unposted document: supersede the stale pair (soft-delete both rows,
+     *    freeing the partial unique idempotency index tuple) so the re-post can
+     *    re-emit fresh facts with a real net effect.
+     * 3. Plain insert with the ON CONFLICT safety net and its idempotent
+     *    fallback for concurrent writers.
+     */
+    private async appendFactRow(
+        executor: DbExecutor,
+        binding: RuntimeLedgerBinding,
+        columnValues: Array<{ column: string; value: unknown }>,
+        currentUserId: string,
+        currentWorkspaceId: string | null
+    ): Promise<{ id: string; idempotent?: boolean }> {
+        const existingFactId = await this.findIdempotentFactId(executor, binding, columnValues, currentWorkspaceId)
+        if (existingFactId) {
+            return { id: existingFactId, idempotent: true }
+        }
 
-                const placeholders = values.map((_, index) => `$${index + 1}`)
-                const inserted = (await tx.query(
-                    `
+        const supersededPair = await this.findSupersededFactPair(executor, binding, columnValues, currentWorkspaceId)
+        if (supersededPair) {
+            await this.softDeleteSupersededFacts(executor, binding, supersededPair, currentUserId)
+        }
+
+        const columns = columnValues.map((item) => quoteIdentifier(item.column))
+        const values = columnValues.map((item) => item.value)
+
+        columns.push(quoteIdentifier('_upl_created_by'), quoteIdentifier('_upl_updated_by'))
+        values.push(currentUserId, currentUserId)
+
+        if (binding.hasWorkspaceColumn && currentWorkspaceId) {
+            columns.push(quoteIdentifier('workspace_id'))
+            values.push(currentWorkspaceId)
+        }
+
+        const placeholders = values.map((_, index) => `$${index + 1}`)
+        const inserted = (await executor.query(
+            `
             INSERT INTO ${binding.tableIdent} (${columns.join(', ')})
             VALUES (${placeholders.join(', ')})
             ON CONFLICT DO NOTHING
             RETURNING id
           `,
-                    values
-                )) as Array<{ id: string }>
+            values
+        )) as Array<{ id: string }>
 
-                const id = inserted[0]?.id
-                if (!id) {
-                    const conflictingFactId = await this.findIdempotentFactId(tx, binding, columnValues, params.currentWorkspaceId)
-                    if (conflictingFactId) {
-                        results.push({ id: conflictingFactId, idempotent: true })
-                        continue
-                    }
-                }
-                if (!id) {
-                    throw new Error('Ledger append failed')
-                }
-                results.push({ id })
+        const id = inserted[0]?.id
+        if (!id) {
+            const conflictingFactId = await this.findIdempotentFactId(executor, binding, columnValues, currentWorkspaceId)
+            if (conflictingFactId) {
+                return { id: conflictingFactId, idempotent: true }
             }
-
-            return results
-        })
+        }
+        if (!id) {
+            throw new Error('Ledger append failed')
+        }
+        return { id }
     }
 
     async reverseFacts(params: {
@@ -960,19 +1096,159 @@ export class RuntimeLedgerService {
             activeCondition = replaceWorkspacePlaceholder(activeCondition, values.length)
         }
 
+        // FR-016 x FR-017 (BUG-1): an active fact whose compensating reversal is
+        // ALSO active represents an unposted document (net effect zero). It must
+        // not suppress a fresh posting — only an uncompensated ("effectively
+        // posted") fact may dedup. Without this guard a re-post after unpost
+        // replays the original fact and reaches 'posted' with zero net effect.
+        const reversalLinkPredicate = buildReversalLinkPredicate(binding, 'fact', 'reversal')
+        const reversalGuardClause = reversalLinkPredicate
+            ? `
+          AND NOT EXISTS (
+            SELECT 1
+            FROM ${binding.tableIdent} AS reversal
+            WHERE ${reversalLinkPredicate}
+              AND reversal.${quoteIdentifier('_upl_deleted')} = false
+              AND reversal.${quoteIdentifier('_app_deleted')} = false
+          )`
+            : ''
+
         const existing = (await executor.query(
             `
-        SELECT id
-        FROM ${binding.tableIdent}
+        SELECT fact.id
+        FROM ${binding.tableIdent} AS fact
         WHERE ${activeCondition}
-          AND ${whereClauses.join(' AND ')}
-        ORDER BY _upl_created_at ASC NULLS LAST, id ASC
+          AND ${whereClauses.join(' AND ')}${reversalGuardClause}
+        ORDER BY fact._upl_created_at ASC NULLS LAST, fact.id ASC
         LIMIT 1
       `,
             values
         )) as Array<{ id: string }>
 
         return existing[0]?.id ?? null
+    }
+
+    /**
+     * BUG-1 companion lookup for `appendFactRow`: finds the stale pair
+     * (active source fact + its active compensating reversal) occupying the
+     * key tuple of a re-posted document. Both rows are locked FOR UPDATE so
+     * concurrent re-posts serialize: the loser re-evaluates after the winner
+     * commits and either finds nothing to supersede (plain insert + idempotent
+     * fallback) or dedups against the winner's fresh fact. The reversal side
+     * deliberately carries no workspace filter — the compensating fact is
+     * linked to its source regardless of the workspace context it was written
+     * in, mirroring the non-workspace-scoped reversal unique index.
+     */
+    private async findSupersededFactPair(
+        executor: DbExecutor,
+        binding: RuntimeLedgerBinding,
+        columnValues: Array<{ column: string; value: unknown }>,
+        currentWorkspaceId: string | null
+    ): Promise<{ factId: string; reversalId: string | null } | null> {
+        const reversalLinkPredicate = buildReversalLinkPredicate(binding, 'fact', 'reversal')
+        if (!reversalLinkPredicate) {
+            return null
+        }
+
+        const keyFields = resolveLedgerConfig(binding.config).idempotency.keyFields
+        if (keyFields.length === 0) {
+            return null
+        }
+
+        const valueByColumn = new Map(columnValues.map((item) => [normalizeFieldKey(item.column), item.value]))
+        const whereClauses: string[] = []
+        const values: unknown[] = []
+
+        for (const keyField of keyFields) {
+            const cmp = findAttrByFieldKey(binding.attrs, keyField)
+            if (!cmp || !IDENTIFIER_REGEX.test(cmp.column_name)) {
+                return null
+            }
+            const value = valueByColumn.get(normalizeFieldKey(cmp.column_name))
+            if (value === undefined || value === null) {
+                return null
+            }
+            values.push(value)
+            whereClauses.push(`fact.${quoteIdentifier(cmp.column_name)} = $${values.length}`)
+        }
+
+        if (whereClauses.length === 0) {
+            return null
+        }
+
+        const factActiveClauses = [`fact.${quoteIdentifier('_upl_deleted')} = false`, `fact.${quoteIdentifier('_app_deleted')} = false`]
+        const reversalActiveClauses = [
+            `reversal.${quoteIdentifier('_upl_deleted')} = false`,
+            `reversal.${quoteIdentifier('_app_deleted')} = false`
+        ]
+        if (binding.hasWorkspaceColumn && currentWorkspaceId) {
+            values.push(currentWorkspaceId)
+            factActiveClauses.push(`fact.workspace_id = $${values.length}`)
+        }
+
+        const rows = (await executor.query(
+            `
+        SELECT fact.id AS "factId", reversal.id AS "reversalId"
+        FROM ${binding.tableIdent} AS fact
+        JOIN ${binding.tableIdent} AS reversal
+          ON ${reversalLinkPredicate}
+         AND ${reversalActiveClauses.join(' AND ')}
+        WHERE ${factActiveClauses.join(' AND ')}
+          AND ${whereClauses.join(' AND ')}
+        ORDER BY fact._upl_created_at ASC NULLS LAST, fact.id ASC
+        LIMIT 1
+        FOR UPDATE OF fact, reversal
+      `,
+            values
+        )) as Array<{ factId: string; reversalId: string }>
+
+        const row = rows[0]
+        if (!row?.factId) {
+            return null
+        }
+        return { factId: row.factId, reversalId: row.reversalId ?? null }
+    }
+
+    /**
+     * Soft-deletes the superseded fact+reversal pair so the partial unique
+     * idempotency index frees the tuple for the fresh posting. Mirrors the
+     * `deleteFact` soft-delete convention (both delete flags, version bump)
+     * and fails closed on a partial update — under the FOR UPDATE lock from
+     * `findSupersededFactPair` a short update means an unexpected writer and
+     * the whole append transaction must roll back.
+     */
+    private async softDeleteSupersededFacts(
+        executor: DbExecutor,
+        binding: RuntimeLedgerBinding,
+        pair: { factId: string; reversalId: string | null },
+        currentUserId: string
+    ): Promise<void> {
+        const ids = [pair.factId, ...(pair.reversalId ? [pair.reversalId] : [])]
+        const values: unknown[] = [ids, currentUserId]
+
+        // Flags-only predicate mirrors the pair finder's reversal-side matching
+        // (no workspace filter): both ids were just locked by
+        // `findSupersededFactPair`, and a compensating fact may legitimately live
+        // in a different workspace context than the re-post's current one.
+        const rows = (await executor.query(
+            `
+        UPDATE ${binding.tableIdent}
+        SET _upl_deleted = true,
+            _app_deleted = true,
+            _upl_updated_at = NOW(),
+            _upl_updated_by = $2,
+            _upl_version = COALESCE(_upl_version, 1) + 1
+        WHERE id = ANY($1::uuid[])
+          AND _upl_deleted = false
+          AND _app_deleted = false
+        RETURNING id
+      `,
+            values
+        )) as Array<{ id: string }>
+
+        if (rows.length !== ids.length) {
+            throw new Error('Ledger append failed to supersede the reversed fact pair')
+        }
     }
 
     private async findReversalFactId(
