@@ -119,7 +119,7 @@ function CargoSection({ entries, locale }: { entries: EconomyCargoEntry[]; local
         <Stack spacing={0.5} data-testid='economy-cargo-list'>
             <Typography variant='subtitle2'>{t('dashboard.widget.economy.cargo')}</Typography>
             {entries.length === 0 ? (
-                <Typography variant='body2' color='text.secondary'>
+                <Typography variant='body2' sx={{ color: 'text.secondary' }}>
                     {t('dashboard.widget.emptyValue')}
                 </Typography>
             ) : (
@@ -161,7 +161,7 @@ function OperationsSection({ operations, locale }: { operations: EconomyOperatio
         <Stack spacing={0.5} data-testid='economy-operations-list'>
             <Typography variant='subtitle2'>{t('dashboard.widget.economy.operations')}</Typography>
             {operations.length === 0 ? (
-                <Typography variant='body2' color='text.secondary'>
+                <Typography variant='body2' sx={{ color: 'text.secondary' }}>
                     {t('dashboard.widget.economy.operationsEmpty')}
                 </Typography>
             ) : (
@@ -213,7 +213,7 @@ function MarketRow({
                 <Typography variant='body2' sx={{ fontWeight: 500, minWidth: 0, overflowWrap: 'anywhere' }}>
                     {formatNomenclatureLabel(entry.nomenclatureCode, entry.nomenclatureName, t)}
                 </Typography>
-                <Typography variant='caption' color='text.secondary'>
+                <Typography variant='caption' sx={{ color: 'text.secondary' }}>
                     {`${sideLabel} · ${formatAmount(entry.price, locale)} / ${formatUnitLabel(entry.unit, t)}`}
                 </Typography>
             </Stack>
@@ -400,7 +400,7 @@ export default function EconomyDialog({ open, onClose }: EconomyDialogProps) {
                 <Stack spacing={1.5} data-testid='economy-market-list'>
                     <Typography variant='subtitle2'>{t('dashboard.widget.economy.market')}</Typography>
                     {summary.atStation && summary.stationName ? (
-                        <Typography variant='body2' color='text.secondary'>
+                        <Typography variant='body2' sx={{ color: 'text.secondary' }}>
                             {t('dashboard.widget.economy.atStationHint', { station: summary.stationName })}
                         </Typography>
                     ) : null}
