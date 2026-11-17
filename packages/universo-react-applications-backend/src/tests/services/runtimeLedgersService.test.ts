@@ -132,7 +132,8 @@ describe('RuntimeLedgersService', () => {
                 executor,
                 schemaName: 'app_runtime_test',
                 ledgerId: ledgerObject.id,
-                currentWorkspaceId: null
+                currentWorkspaceId: null,
+                readScope: { userId: null }
             })
         ).rejects.toMatchObject({
             statusCode: 404,
@@ -174,7 +175,8 @@ describe('RuntimeLedgersService', () => {
                 schemaName: 'app_runtime_test',
                 ledgerId: ledgerObject.id,
                 currentWorkspaceId: null,
-                projectionCodename: 'BrokenProjection'
+                projectionCodename: 'BrokenProjection',
+                readScope: { userId: '019e0000-0000-7000-8000-000000000999' }
             })
         ).rejects.toMatchObject({
             statusCode: 409,
@@ -355,7 +357,7 @@ describe('RuntimeLedgersService', () => {
         })
 
         expect(result).toEqual([{ id: existingFactId, idempotent: true }])
-        const idempotencyCall = txExecutor.query.mock.calls.find((call) => String(call[0]).includes('ORDER BY _upl_created_at ASC'))
+        const idempotencyCall = txExecutor.query.mock.calls.find((call) => String(call[0]).includes('ORDER BY fact._upl_created_at ASC'))
         expect(String(idempotencyCall?.[0])).toContain('workspace_id = $2')
         expect(idempotencyCall?.[1]).toEqual(['student-1', '019e0000-0000-7000-8000-000000000901'])
         expect(txExecutor.query.mock.calls.find((call) => String(call[0]).includes('INSERT INTO'))).toBeUndefined()
@@ -404,7 +406,7 @@ describe('RuntimeLedgersService', () => {
         })
 
         expect(result).toEqual([{ id: existingFactId, idempotent: true }])
-        const idempotencyCall = txExecutor.query.mock.calls.find((call) => String(call[0]).includes('ORDER BY _upl_created_at ASC'))
+        const idempotencyCall = txExecutor.query.mock.calls.find((call) => String(call[0]).includes('ORDER BY fact._upl_created_at ASC'))
         expect(idempotencyCall?.[1]).toEqual([
             'Enrollments',
             '019e0000-0000-7000-8000-000000000111',
@@ -435,6 +437,7 @@ describe('RuntimeLedgersService', () => {
             .mockResolvedValueOnce(ledgerAttrs.map(({ object_id: _objectId, ...attr }) => attr))
             .mockResolvedValueOnce([])
             .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([])
             .mockResolvedValueOnce([{ id: existingFactId }])
 
         const result = await service.appendFacts({
@@ -451,6 +454,138 @@ describe('RuntimeLedgersService', () => {
         expect(result).toEqual([{ id: existingFactId, idempotent: true }])
         const insertCall = txExecutor.query.mock.calls.find((call) => String(call[0]).includes('INSERT INTO'))
         expect(String(insertCall?.[0])).toContain('ON CONFLICT DO NOTHING')
+    })
+
+    it('keeps FR-016 dedup for an uncompensated active fact even when the reversal column exists', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+        const service = new RuntimeLedgerService()
+        const existingFactId = '019e0000-0000-7000-8000-000000000782'
+
+        txExecutor.query
+            .mockResolvedValueOnce([
+                {
+                    ...ledgerObject,
+                    config: {
+                        ledger: {
+                            ...ledgerObject.config.ledger,
+                            idempotency: { keyFields: ['Learner'] }
+                        }
+                    }
+                }
+            ])
+            .mockResolvedValueOnce([{ column_name: 'workspace_id' }, { column_name: '_app_reversal_of_fact_id' }])
+            .mockResolvedValueOnce(ledgerAttrs.map(({ object_id: _objectId, ...attr }) => attr))
+            .mockResolvedValueOnce([{ id: existingFactId }])
+
+        const result = await service.appendFacts({
+            executor,
+            schemaName: 'app_runtime_test',
+            ledgerId: ledgerObject.id,
+            currentWorkspaceId: '019e0000-0000-7000-8000-000000000901',
+            currentUserId: '019e0000-0000-7000-8000-000000000999',
+            facts: [{ data: { Learner: 'student-1', ProgressDelta: 10 } }],
+            writeOrigin: 'registrar',
+            registrarKind: 'object'
+        })
+
+        expect(result).toEqual([{ id: existingFactId, idempotent: true }])
+        const idempotencyCall = txExecutor.query.mock.calls.find((call) => String(call[0]).includes('ORDER BY fact._upl_created_at ASC'))
+        expect(String(idempotencyCall?.[0])).toContain('NOT EXISTS')
+        expect(String(idempotencyCall?.[0])).toContain('_app_reversal_of_fact_id')
+        expect(txExecutor.query.mock.calls.find((call) => String(call[0]).includes('INSERT INTO'))).toBeUndefined()
+        expect(txExecutor.query.mock.calls.find((call) => String(call[0]).includes('FOR UPDATE OF'))).toBeUndefined()
+    })
+
+    it('re-emits a fresh fact when the key tuple is held by an active fact with an active reversal (system column)', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+        const service = new RuntimeLedgerService()
+        const supersededFactId = '019e0000-0000-7000-8000-000000000783'
+        const reversalFactId = '019e0000-0000-7000-8000-000000000784'
+        const freshFactId = '019e0000-0000-7000-8000-000000000785'
+
+        txExecutor.query
+            .mockResolvedValueOnce([
+                {
+                    ...ledgerObject,
+                    config: {
+                        ledger: {
+                            ...ledgerObject.config.ledger,
+                            idempotency: { keyFields: ['Learner'] }
+                        }
+                    }
+                }
+            ])
+            .mockResolvedValueOnce([{ column_name: 'workspace_id' }, { column_name: '_app_reversal_of_fact_id' }])
+            .mockResolvedValueOnce(ledgerAttrs.map(({ object_id: _objectId, ...attr }) => attr))
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([{ factId: supersededFactId, reversalId: reversalFactId }])
+            .mockResolvedValueOnce([{ id: supersededFactId }, { id: reversalFactId }])
+            .mockResolvedValueOnce([{ id: freshFactId }])
+
+        const result = await service.appendFacts({
+            executor,
+            schemaName: 'app_runtime_test',
+            ledgerId: ledgerObject.id,
+            currentWorkspaceId: '019e0000-0000-7000-8000-000000000901',
+            currentUserId: '019e0000-0000-7000-8000-000000000999',
+            facts: [{ data: { Learner: 'student-1', ProgressDelta: 10 } }],
+            writeOrigin: 'registrar',
+            registrarKind: 'object'
+        })
+
+        expect(result).toEqual([{ id: freshFactId }])
+        const pairCall = txExecutor.query.mock.calls.find((call) => String(call[0]).includes('FOR UPDATE OF'))
+        expect(String(pairCall?.[0])).toContain('_app_reversal_of_fact_id')
+        const supersedeCall = txExecutor.query.mock.calls.find((call) => String(call[0]).includes('_upl_deleted = true'))
+        expect(String(supersedeCall?.[0])).toContain('UPDATE')
+        // Flags-only soft-delete (no workspace filter): both ids were locked by
+        // the pair finder, and the reversal may live in another workspace.
+        expect(supersedeCall?.[1]).toEqual([[supersededFactId, reversalFactId], '019e0000-0000-7000-8000-000000000999'])
+        const insertCall = txExecutor.query.mock.calls.find((call) => String(call[0]).includes('INSERT INTO'))
+        expect(insertCall).toBeDefined()
+    })
+
+    it('re-emits a fresh fact via the :reversal: marker link when the ledger has no system reversal column', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+        const service = new RuntimeLedgerService()
+        const supersededFactId = '019e0000-0000-7000-8000-000000000786'
+        const reversalFactId = '019e0000-0000-7000-8000-000000000787'
+        const freshFactId = '019e0000-0000-7000-8000-000000000788'
+
+        txExecutor.query
+            .mockResolvedValueOnce([
+                {
+                    ...ledgerObject,
+                    config: {
+                        ledger: {
+                            ...ledgerObject.config.ledger,
+                            idempotency: { keyFields: ['SourceLineId'] }
+                        }
+                    }
+                }
+            ])
+            .mockResolvedValueOnce([{ column_name: 'workspace_id' }])
+            .mockResolvedValueOnce(ledgerAttrs.map(({ object_id: _objectId, ...attr }) => attr))
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([{ factId: supersededFactId, reversalId: reversalFactId }])
+            .mockResolvedValueOnce([{ id: supersededFactId }, { id: reversalFactId }])
+            .mockResolvedValueOnce([{ id: freshFactId }])
+
+        const result = await service.appendFacts({
+            executor,
+            schemaName: 'app_runtime_test',
+            ledgerId: ledgerObject.id,
+            currentWorkspaceId: null,
+            currentUserId: '019e0000-0000-7000-8000-000000000999',
+            facts: [{ data: { SourceLineId: 'enrollment-progress', Learner: 'student-1', ProgressDelta: 10 } }],
+            writeOrigin: 'registrar',
+            registrarKind: 'object'
+        })
+
+        expect(result).toEqual([{ id: freshFactId }])
+        const pairCall = txExecutor.query.mock.calls.find((call) => String(call[0]).includes('FOR UPDATE OF'))
+        expect(String(pairCall?.[0])).toContain("':reversal:'")
+        expect(String(pairCall?.[0])).toContain('source_line_id')
     })
 
     it('keeps list queries isolated to the active workspace when the ledger table supports workspaces', async () => {
@@ -475,6 +610,7 @@ describe('RuntimeLedgersService', () => {
             schemaName: 'app_runtime_test',
             ledgerId: ledgerObject.id,
             currentWorkspaceId: '019e0000-0000-7000-8000-000000000901',
+            readScope: { userId: '019e0000-0000-7000-8000-000000000999' },
             limit: 10,
             offset: 5
         })
@@ -485,7 +621,9 @@ describe('RuntimeLedgersService', () => {
         })
         const factsCall = executor.query.mock.calls.find((call) => String(call[0]).includes('ORDER BY _upl_created_at DESC'))
         expect(String(factsCall?.[0])).toContain('workspace_id = $1')
-        expect(factsCall?.[1]).toEqual(['019e0000-0000-7000-8000-000000000901', 10, 5])
+        // Phase H: undeclared ledgers fall back to creator-scoped reads.
+        expect(String(factsCall?.[0])).toContain('"_upl_created_by" = $2')
+        expect(factsCall?.[1]).toEqual(['019e0000-0000-7000-8000-000000000901', '019e0000-0000-7000-8000-000000000999', 10, 5])
     })
 
     it('aggregates projection resources with declared dimensions only', async () => {
@@ -504,6 +642,7 @@ describe('RuntimeLedgersService', () => {
             ledgerId: ledgerObject.id,
             currentWorkspaceId: null,
             projectionCodename: 'ProgressByLearner',
+            readScope: { userId: '019e0000-0000-7000-8000-000000000999' },
             filters: { Learner: 'student-1' },
             limit: 25,
             offset: 0
@@ -512,7 +651,136 @@ describe('RuntimeLedgersService', () => {
         expect(result.rows).toEqual([{ Learner: 'student-1', ProgressDelta: 42 }])
         const projectionCall = executor.query.mock.calls.find((call) => String(call[0]).includes('SUM("progress_delta")'))
         expect(String(projectionCall?.[0])).toContain('"learner" = $1')
+        expect(String(projectionCall?.[0])).toContain('"_upl_created_by" = $2')
+        expect(projectionCall?.[1]).toEqual(['student-1', '019e0000-0000-7000-8000-000000000999', 25, 0])
+    })
+
+    it('scopes ledger facts to the runtimeRecordAccess owner column for non-privileged callers', async () => {
+        const { executor } = createMockDbExecutor()
+        const service = new RuntimeLedgerService()
+
+        executor.query
+            .mockResolvedValueOnce([
+                {
+                    ...ledgerObject,
+                    config: {
+                        ...ledgerObject.config,
+                        runtimeRecordAccess: { mode: 'ownerOnly', ownerFieldCodename: 'Learner' }
+                    }
+                }
+            ])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce(ledgerAttrs.map(({ object_id: _objectId, ...attr }) => attr))
+            .mockResolvedValueOnce([])
+
+        await service.listFacts({
+            executor,
+            schemaName: 'app_runtime_test',
+            ledgerId: ledgerObject.id,
+            currentWorkspaceId: null,
+            readScope: { userId: '019e0000-0000-7000-8000-000000000999' },
+            limit: 10,
+            offset: 0
+        })
+
+        const factsCall = executor.query.mock.calls.find((call) => String(call[0]).includes('ORDER BY _upl_created_at DESC'))
+        expect(String(factsCall?.[0])).toContain('"learner" = $1')
+        expect(String(factsCall?.[0])).not.toContain('_upl_created_by = ')
+        expect(factsCall?.[1]).toEqual(['019e0000-0000-7000-8000-000000000999', 10, 0])
+    })
+
+    it('rejects client filters that target the server-scoped owner field', async () => {
+        const { executor } = createMockDbExecutor()
+        const service = new RuntimeLedgerService()
+
+        executor.query
+            .mockResolvedValueOnce([
+                {
+                    ...ledgerObject,
+                    config: {
+                        ...ledgerObject.config,
+                        runtimeRecordAccess: { mode: 'ownerOnly', ownerFieldCodename: 'Learner' }
+                    }
+                }
+            ])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce(ledgerAttrs.map(({ object_id: _objectId, ...attr }) => attr))
+
+        await expect(
+            service.queryProjection({
+                executor,
+                schemaName: 'app_runtime_test',
+                ledgerId: ledgerObject.id,
+                currentWorkspaceId: null,
+                projectionCodename: 'ProgressByLearner',
+                readScope: { userId: '019e0000-0000-7000-8000-000000000999' },
+                filters: { Learner: '019e0000-0000-7000-8000-000000000888' }
+            })
+        ).rejects.toMatchObject({
+            statusCode: 400,
+            body: {
+                code: 'LEDGER_FILTER_OWNER_FIELD',
+                field: 'Learner'
+            }
+        })
+    })
+
+    it('lets cross-user-read privileged scopes see all facts and filter the owner field freely', async () => {
+        const { executor } = createMockDbExecutor()
+        const service = new RuntimeLedgerService()
+
+        executor.query
+            .mockResolvedValueOnce([
+                {
+                    ...ledgerObject,
+                    config: {
+                        ...ledgerObject.config,
+                        runtimeRecordAccess: { mode: 'ownerOnly', ownerFieldCodename: 'Learner' }
+                    }
+                }
+            ])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce(ledgerAttrs.map(({ object_id: _objectId, ...attr }) => attr))
+            .mockResolvedValueOnce([{ d0: 'student-1', r0: '42' }])
+
+        const result = await service.queryProjection({
+            executor,
+            schemaName: 'app_runtime_test',
+            ledgerId: ledgerObject.id,
+            currentWorkspaceId: null,
+            projectionCodename: 'ProgressByLearner',
+            readScope: { userId: '019e0000-0000-7000-8000-000000000777', allowCrossUserRead: true },
+            filters: { Learner: 'student-1' },
+            limit: 25,
+            offset: 0
+        })
+
+        expect(result.rows).toEqual([{ Learner: 'student-1', ProgressDelta: 42 }])
+        const projectionCall = executor.query.mock.calls.find((call) => String(call[0]).includes('SUM("progress_delta")'))
+        expect(String(projectionCall?.[0])).not.toContain('_upl_created_by = ')
         expect(projectionCall?.[1]).toEqual(['student-1', 25, 0])
+    })
+
+    it('fails ledger reads closed when the scope has no user and no cross-user privilege', async () => {
+        const { executor } = createMockDbExecutor()
+        const service = new RuntimeLedgerService()
+
+        executor.query
+            .mockResolvedValueOnce([ledgerObject])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce(ledgerAttrs.map(({ object_id: _objectId, ...attr }) => attr))
+            .mockResolvedValueOnce([])
+
+        await service.listFacts({
+            executor,
+            schemaName: 'app_runtime_test',
+            ledgerId: ledgerObject.id,
+            currentWorkspaceId: null,
+            readScope: { userId: null }
+        })
+
+        const factsCall = executor.query.mock.calls.find((call) => String(call[0]).includes('ORDER BY _upl_created_at DESC'))
+        expect(String(factsCall?.[0])).toContain('AND FALSE')
     })
 
     it('rejects projection filters that are not declared ledger fields', async () => {
@@ -531,6 +799,7 @@ describe('RuntimeLedgersService', () => {
                 ledgerId: ledgerObject.id,
                 currentWorkspaceId: null,
                 projectionCodename: 'ProgressByLearner',
+                readScope: { userId: null },
                 filters: { Unexpected: 'student-1' }
             })
         ).rejects.toMatchObject({
@@ -558,6 +827,7 @@ describe('RuntimeLedgersService', () => {
                 ledgerId: ledgerObject.id,
                 currentWorkspaceId: null,
                 projectionCodename: 'ProgressByLearner',
+                readScope: { userId: null },
                 filters: { ProgressDelta: 'not-a-number' }
             })
         ).rejects.toMatchObject({
@@ -781,7 +1051,7 @@ describe('RuntimeLedgersService', () => {
         })
 
         expect(result).toEqual([{ id: reversedFactId }])
-        const idempotencyCall = txExecutor.query.mock.calls.find((call) => String(call[0]).includes('ORDER BY _upl_created_at ASC'))
+        const idempotencyCall = txExecutor.query.mock.calls.find((call) => String(call[0]).includes('ORDER BY fact._upl_created_at ASC'))
         expect(idempotencyCall?.[1]).toEqual(['Enrollments', sourceRowId, reversalLineId, workspaceId])
 
         const insertCall = txExecutor.query.mock.calls.find((call) => String(call[0]).includes('INSERT INTO'))

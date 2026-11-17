@@ -304,8 +304,8 @@ describeIntegration('Interpretation Network workspace settings PostgreSQL invari
             await knex.raw(`INSERT INTO applications.obj_applications (id, name) VALUES (?, ?::jsonb)`, [testApplicationId, displayName])
             for (const userId of [firstUserId, secondUserId]) {
                 await knex.raw(
-                    `INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, confirmation_token, created_at, updated_at)
-                     VALUES (?, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ?, '', '', NOW(), NOW())`,
+                    `INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, confirmation_token, created_at, updated_at, email_change, email_change_token_new, email_change_token_current, recovery_token, phone_change, phone_change_token, reauthentication_token)
+                     VALUES (?, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ?, '', '', NOW(), NOW(), '', '', '', '', '', '', '')`,
                     [userId, emailFor(userId)]
                 )
             }

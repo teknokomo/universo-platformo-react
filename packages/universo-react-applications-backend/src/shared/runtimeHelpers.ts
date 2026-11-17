@@ -31,6 +31,7 @@ import {
 } from '../services/runtimeWorkspaceContext'
 import { resolveEffectiveApplicationSettingsForWorkspace } from '../services/workspaceSettingsApplicationService'
 import { getRequestDbExecutor, getRequestDbSession } from '../utils'
+import { assertCanonicalSchemaName } from '@universo-react/migrations-core'
 import { UpdateFailure } from './updateFailure'
 import { IDENTIFIER_REGEX, quoteIdentifier } from './runtimeSqlIdentifiers'
 import { resolveRuntimeCodenameText } from './runtimeCodenameText'
@@ -63,6 +64,15 @@ export const toRuntimeInputFormatErrorBody = (error: unknown): { error: string; 
 // ---------------------------------------------------------------------------
 
 export const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Quote a canonical application schema name after validating it. Shared by the
+ * sync data loaders and runtime services that read per-schema tables.
+ */
+export const quoteSchemaName = (schemaName: string): string => {
+    assertCanonicalSchemaName(schemaName)
+    return quoteIdentifier(schemaName)
+}
 
 // ---------------------------------------------------------------------------
 // Locale helpers

@@ -54,3 +54,10 @@ Runtime создаёт компенсирующий факт вместо изм
 Projection queries принимают только объявленные dimensions и resources.
 Backend строит schema-qualified, parameterized SQL на основе metadata и отклоняет неизвестные поля.
 Dashboard widgets должны читать Ledger facts или projections через generic datasource descriptors, а не через LMS-specific widget code.
+
+## Экономические регистры MMOOMM
+
+Каноническое приложение MMOOMM переиспользует ту же механику регистров через два
+регистра типа object, `WalletLedger` и `InventoryLedger`, питаемых регистратором `Operation` и его
+авторским posting-модулем. Полная модель сущностей, торговый API и семантика близости к станции —
+в [Руководстве по экономике MMOOMM](mmoomm-economy.md).

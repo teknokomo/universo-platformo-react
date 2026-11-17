@@ -11,7 +11,6 @@ const fields = [
 ]
 
 import type { ReportDefinition } from '@universo-react/types'
-import type { RuntimeReportRecordsListResult } from '../../services/runtimeReportsService'
 
 const definition: ReportDefinition = {
     codename: 'LearnerProgress',

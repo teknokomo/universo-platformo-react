@@ -62,8 +62,8 @@ describeIntegration('Application public catalog visibility PostgreSQL behavior',
                 [ownerId, 'catalog-owner']
             ] as const) {
                 await trx.raw(
-                    `INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, created_at, updated_at)
-                     VALUES (?, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ?, '', now(), now())`,
+                    `INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, confirmation_token, created_at, updated_at, email_change, email_change_token_new, email_change_token_current, recovery_token, phone_change, phone_change_token, reauthentication_token)
+                     VALUES (?, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ?, '', '', now(), now(), '', '', '', '', '', '', '')`,
                     [id, `${emailPrefix}-${id.slice(0, 8)}@example.test`]
                 )
             }
@@ -143,8 +143,8 @@ describeIntegration('Application public catalog visibility PostgreSQL behavior',
             const publicJoinTargetApplicationId = generateUuidV7()
 
             await trx.raw(
-                `INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, created_at, updated_at)
-                 VALUES (?, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ?, '', now(), now())`,
+                `INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, confirmation_token, created_at, updated_at, email_change, email_change_token_new, email_change_token_current, recovery_token, phone_change, phone_change_token, reauthentication_token)
+                 VALUES (?, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ?, '', '', now(), now(), '', '', '', '', '', '', '')`,
                 [memberId, `catalog-member-${memberId.slice(0, 8)}@example.test`]
             )
             await trx.raw(

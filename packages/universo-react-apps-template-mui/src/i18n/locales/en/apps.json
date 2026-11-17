@@ -242,7 +242,10 @@
         "targetNotFound": "The selected content record was not found."
     },
     "validation": {
-        "languages": { "en": "English", "ru": "Russian" },
+        "languages": {
+            "en": "English",
+            "ru": "Russian"
+        },
         "vlcMinLength": "Enter at least {{min}} characters in {{language}}.",
         "vlcMaxLength": "Enter no more than {{max}} characters in {{language}}.",
         "vlcLengthBetween": "Enter between {{min}} and {{max}} characters in {{language}}.",
@@ -357,6 +360,44 @@
                 "up": "Upward trend",
                 "down": "Downward trend",
                 "neutral": "No trend data"
+            },
+            "economy": {
+                "title": "Economy",
+                "wallet": "Wallet",
+                "cargo": "Cargo",
+                "capacity": "Capacity",
+                "capacityValue": "Used {{used}} of {{max}} kg",
+                "market": "Market",
+                "atStationHint": "Docked at {{station}}. Market is available.",
+                "outOfStationTooltip": "Approach a station to trade.",
+                "noPermission": "You do not have permission to trade.",
+                "quantityLabel": "Quantity",
+                "quantityHelper": "Enter the amount to trade.",
+                "quantityError": "Enter a quantity greater than zero.",
+                "sell": "Sell",
+                "buy": "Buy",
+                "operations": "Recent operations",
+                "operationsEmpty": "No operations yet",
+                "tradeSuccess": "Trade completed.",
+                "close": "Close",
+                "operationTypes": {
+                    "starterGrant": "Starter grant",
+                    "sell": "Sale",
+                    "buy": "Purchase",
+                    "mine": "Mining",
+                    "fee": "Fee"
+                },
+                "nomenclature": {
+                    "ore": "Ore",
+                    "fuel": "Fuel"
+                },
+                "units": {
+                    "kg": "Kg",
+                    "liter": "Liter",
+                    "unit": "Unit",
+                    "m3": "M3"
+                },
+                "massUnit": "kg"
             }
         }
     },
@@ -587,6 +628,19 @@
             "LAYOUT_CONFLICT": "The application layout changed. Reload and try again.",
             "LAYOUT_RUNTIME_QUERY_FAILED": "The application layout could not be loaded right now."
         },
+        "economyErrors": {
+            "ECONOMY_NOT_AT_STATION": "Fly to a station and stay within its market radius to trade.",
+            "ECONOMY_UNKNOWN_NOMENCLATURE": "This goods item is not available on the market.",
+            "ECONOMY_INVALID_QUANTITY": "Enter a quantity greater than zero.",
+            "ECONOMY_INSUFFICIENT_CARGO": "Not enough cargo in the hold for this sale.",
+            "ECONOMY_INSUFFICIENT_FUNDS": "Not enough funds in the wallet for this purchase.",
+            "ECONOMY_CAPACITY_EXCEEDED": "This purchase would exceed the hold capacity.",
+            "ECONOMY_MARKET_DISABLED": "The station market is currently unavailable.",
+            "ECONOMY_IDEMPOTENCY_CONFLICT": "This trade conflicts with a previous attempt. Reload the panel and try again.",
+            "ECONOMY_IDEMPOTENCY_KEY_INVALID": "The trade replay key has an invalid format. Retry the trade.",
+            "ECONOMY_POSTING_FAILED": "The trade could not be recorded. Try again in a moment.",
+            "generic": "The trade could not be completed. Try again in a moment."
+        },
         "notifications": "Open notifications",
         "search": "Search…",
         "breadcrumbs": {
@@ -698,6 +752,7 @@
         "scriptLoadFailed": "Published script assets failed to load",
         "manifestUnavailable": "The published 3D scene is unavailable.",
         "manifestSceneUnavailable": "The published 3D scene does not contain a runtime scene.",
+        "openEconomy": "Economy",
         "moveToTarget": "Move to target",
         "stop": "Stop",
         "resetCamera": "Reset camera",

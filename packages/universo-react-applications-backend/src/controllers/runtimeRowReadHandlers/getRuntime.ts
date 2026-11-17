@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express'
 import { normalizeLocale, resolveRuntimeSchema } from '../../shared/runtimeHelpers'
 import { runtimeQuerySchema } from '../../services/runtimeRowSupport/contracts'
+import { denyRuntimeLedgerRegisterRead } from '../../shared/entityMutationPolicy'
 
 import type { RuntimeRowReadHandlerDeps } from './types'
 import {
@@ -61,6 +62,10 @@ export const createGetRuntimeHandler = ({ getDbExecutor, query }: RuntimeRowRead
             activeWorkflowActions,
             includeRuntimeRowVersion
         } = activeResult
+
+        // Phase H: ledger register rows are readable only via the ledger API by
+        // report-privileged members — never through the generic rows surface.
+        if (denyRuntimeLedgerRegisterRead(res, activeObjectCollection.config, runtimeContext.permissions)) return
 
         const { safeComponents, physicalComponents, tableAttrs, childAttrsByTableId, allChildComponents } = await loadRuntimeReadComponents(
             {

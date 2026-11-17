@@ -141,7 +141,11 @@ export default function Dashboard(props: DashboardProps) {
     const showHeader = hasActiveTopWidget('header')
     const dockedSideMenuModes = availableSideMenuModes.filter((mode): mode is 'wide' | 'compact' => mode === 'wide' || mode === 'compact')
     const canToggleDockedSideMenuMode = sideMenuEnabled && dockedSideMenuModes.length > 1
-    const showAppNavbarOnDesktop = showAppNavbar && (sideMenuMode === 'overlay' || rightWidgets.length > 0)
+    // QA 2026-11-17: the standard desktop top offset follows the appNavbar
+    // placement itself, not right-zone content — a runtime page without
+    // right-zone widgets still renders its header row below the navbar frame
+    // instead of flush against the viewport top.
+    const showAppNavbarOnDesktop = showAppNavbar
     const canOpenOverlaySideMenu = sideMenuEnabled && availableSideMenuModes.includes('overlay')
     const canToggleOverlaySideMenuMode = canOpenOverlaySideMenu && dockedSideMenuModes.length > 0
     const headerLeadingWidgets = showHeader ? activeTopWidgets.filter((widget) => HEADER_LEADING_WIDGET_KEYS.has(widget.widgetKey)) : []

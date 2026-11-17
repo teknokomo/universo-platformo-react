@@ -215,6 +215,14 @@ Each implementation shares the same strategic direction, and the high-level abst
 
 6. Open [http://localhost:3000](http://localhost:3000).
 
+    > **Realtime apps (MMOOMM flight scene, ship movement):** application runtime
+    > WebSocket upgrades are rejected unless the browser origin is allowlisted.
+    > Make sure `packages/universo-react-core-backend/.env` contains
+    > `APPLICATION_REALTIME_WS_ORIGINS=http://127.0.0.1:3000,http://localhost:3000`
+    > and restart the server. Without it the flight scene renders but shows
+    > "Movement control is unavailable without a connection" and economy trading
+    > is rejected.
+
 ### Supabase Options
 
 The default `pnpm start` and `pnpm start:allclean` commands use the normal `.env` files. They can point to a hosted Supabase project or to a local Supabase instance if you write local Supabase values directly into `packages/universo-react-core-backend/.env`.

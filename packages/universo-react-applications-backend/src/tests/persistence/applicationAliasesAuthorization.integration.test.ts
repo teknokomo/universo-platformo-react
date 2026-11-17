@@ -108,8 +108,8 @@ describeIntegration('application alias SECURITY DEFINER authorization (requires 
         // Fixture actors must exist because rel_user_roles references auth.users.
         for (const id of [actorId, otherActorId, nonMemberId]) {
             await knex.raw(
-                `INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, created_at, updated_at)
-                 VALUES (?, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ?, '', now(), now())
+                `INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, confirmation_token, created_at, updated_at, email_change, email_change_token_new, email_change_token_current, recovery_token, phone_change, phone_change_token, reauthentication_token)
+                 VALUES (?, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ?, '', '', now(), now(), '', '', '', '', '', '', '')
                  ON CONFLICT (id) DO NOTHING`,
                 [id, `alias-auth-${id.slice(0, 8)}@example.test`]
             )
@@ -234,8 +234,8 @@ describeIntegration('application alias SECURITY DEFINER authorization (requires 
 
             for (const { userId } of actors) {
                 await trx.raw(
-                    `INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, created_at, updated_at)
-                     VALUES (?, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ?, '', now(), now())`,
+                    `INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, confirmation_token, created_at, updated_at, email_change, email_change_token_new, email_change_token_current, recovery_token, phone_change, phone_change_token, reauthentication_token)
+                     VALUES (?, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ?, '', '', NOW(), NOW(), '', '', '', '', '', '', '')`,
                     [userId, `alias-auth-${userId.slice(0, 8)}@example.test`]
                 )
             }

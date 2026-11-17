@@ -1315,6 +1315,60 @@ export class SchemaGenerator {
             `)
         }
 
+        const hasConstants = await knex.schema.withSchema(schemaName).hasTable('_app_constants')
+        console.log(`[SchemaGenerator] _app_constants exists: ${hasConstants}`)
+        if (!hasConstants) {
+            console.log(`[SchemaGenerator] Creating _app_constants...`)
+            await knex.schema.withSchema(schemaName).createTable('_app_constants', (table) => {
+                table.uuid('id').primary().defaultTo(knex.raw('public.uuid_generate_v7()'))
+                table.uuid('group_id').notNullable()
+                table.jsonb('codename').notNullable()
+                table.string('data_type', 40).notNullable()
+                table.jsonb('presentation').notNullable().defaultTo('{}')
+                table.jsonb('validation_rules').notNullable().defaultTo('{}')
+                table.jsonb('ui_config').notNullable().defaultTo('{}')
+                table.jsonb('value_json').nullable()
+                table.integer('sort_order').notNullable().defaultTo(0)
+
+                table.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_created_by').nullable()
+                table.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_updated_by').nullable()
+                table.integer('_upl_version').notNullable().defaultTo(1)
+                table.boolean('_upl_archived').notNullable().defaultTo(false)
+                table.timestamp('_upl_archived_at', { useTz: true }).nullable()
+                table.uuid('_upl_archived_by').nullable()
+                table.boolean('_upl_deleted').notNullable().defaultTo(false)
+                table.timestamp('_upl_deleted_at', { useTz: true }).nullable()
+                table.uuid('_upl_deleted_by').nullable()
+                table.timestamp('_upl_purge_after', { useTz: true }).nullable()
+                table.boolean('_upl_locked').notNullable().defaultTo(false)
+                table.timestamp('_upl_locked_at', { useTz: true }).nullable()
+                table.uuid('_upl_locked_by').nullable()
+                table.text('_upl_locked_reason').nullable()
+
+                table.boolean('_app_published').notNullable().defaultTo(true)
+                table.timestamp('_app_published_at', { useTz: true }).nullable()
+                table.uuid('_app_published_by').nullable()
+                table.boolean('_app_archived').notNullable().defaultTo(false)
+                table.timestamp('_app_archived_at', { useTz: true }).nullable()
+                table.uuid('_app_archived_by').nullable()
+                table.boolean('_app_deleted').notNullable().defaultTo(false)
+                table.timestamp('_app_deleted_at', { useTz: true }).nullable()
+                table.uuid('_app_deleted_by').nullable()
+
+                table.index(['group_id'], 'idx_app_constants_group_id')
+                table.index(['group_id', 'sort_order'], 'idx_app_constants_group_sort')
+            })
+            console.log(`[SchemaGenerator] _app_constants created`)
+        }
+
+        await knex.raw(`
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_app_constants_group_codename_active
+            ON "${schemaName}"._app_constants (group_id, ${SchemaGenerator.runtimeCodenameTextSql('codename')})
+            WHERE _upl_deleted = false AND _app_deleted = false
+        `)
+
         const hasModules = await knex.schema.withSchema(schemaName).hasTable('_app_modules')
         console.log(`[SchemaGenerator] _app_modules exists: ${hasModules}`)
 

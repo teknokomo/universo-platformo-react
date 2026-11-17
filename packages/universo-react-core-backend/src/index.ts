@@ -32,7 +32,9 @@ import { getKnex, destroyKnex, checkDatabaseHealth, registerGracefulShutdown, ge
 import {
     attachApplicationsRealtimeRuntime,
     initializeRateLimiters as initializeApplicationsRateLimiters,
+    startEconomyIdempotencyCleanup,
     startGuestSessionIdempotencyCleanup,
+    type EconomyIdempotencyCleanupHandle,
     type GuestSessionIdempotencyCleanupHandle
 } from '@universo-react/applications-backend'
 import { assertIsolatedVmRuntimeAvailable } from '@universo-react/modules-engine'
@@ -254,6 +256,7 @@ export class App {
     app: express.Application
     realtimeMatchmakeMiddleware?: RequestHandler
     private guestSessionIdempotencyCleanup?: GuestSessionIdempotencyCleanupHandle
+    private economyIdempotencyCleanup?: EconomyIdempotencyCleanupHandle
 
     constructor() {
         this.app = express()
@@ -380,6 +383,16 @@ export class App {
             },
             onError: (error) => {
                 logger.warn('[server]: Failed to clean expired guest-session replay records', {
+                    errorName: error instanceof Error ? error.name : 'UnknownError'
+                })
+            }
+        })
+        this.economyIdempotencyCleanup = startEconomyIdempotencyCleanup(getPoolExecutor, {
+            onCleanup: (deletedCount) => {
+                if (deletedCount > 0) logger.info('[server]: Expired economy replay records removed', { deletedCount })
+            },
+            onError: (error) => {
+                logger.warn('[server]: Failed to clean expired economy replay records', {
                     errorName: error instanceof Error ? error.name : 'UnknownError'
                 })
             }
@@ -620,6 +633,8 @@ export class App {
     async stopApp() {
         await this.guestSessionIdempotencyCleanup?.stop()
         this.guestSessionIdempotencyCleanup = undefined
+        await this.economyIdempotencyCleanup?.stop()
+        this.economyIdempotencyCleanup = undefined
     }
 }
 

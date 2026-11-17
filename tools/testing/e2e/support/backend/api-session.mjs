@@ -542,6 +542,27 @@ export async function listMetahubEntityTypes(api, metahubId, params = {}) {
     return response.json()
 }
 
+export async function getMetahubEntity(api, metahubId, entityId) {
+    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/entity/${entityId}`, { method: 'GET' })
+    if (!response.ok) {
+        throw await buildError(response, `Fetching entity ${entityId} for metahub ${metahubId}`)
+    }
+
+    return response.json()
+}
+
+export async function updateMetahubEntityConfig(api, metahubId, entityId, config, expectedVersion) {
+    const response = await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahubId}/entity/${entityId}`, {
+        config,
+        expectedVersion
+    })
+    if (!response.ok) {
+        throw await buildError(response, `Updating config of entity ${entityId} for metahub ${metahubId}`)
+    }
+
+    return response.json()
+}
+
 export async function getMetahubEntityType(api, metahubId, entityTypeId) {
     const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/entity-type/${entityTypeId}`, {
         method: 'GET'
@@ -1059,6 +1080,20 @@ export async function getComponent(api, metahubId, objectId, componentId) {
     return response.json()
 }
 
+export async function updateComponent(api, metahubId, objectId, componentId, payload) {
+    const response = await sendWithCsrf(
+        api,
+        'PATCH',
+        buildManagedEntityChildItemApiPath(metahubId, objectId, 'object', 'component', componentId),
+        payload
+    )
+    if (!response.ok) {
+        throw await buildError(response, `Updating component ${componentId} in metahub ${metahubId} object ${objectId}`)
+    }
+
+    return response.json()
+}
+
 export async function listRecords(api, metahubId, objectId, params = {}) {
     const query = new URLSearchParams()
 
@@ -1427,6 +1462,15 @@ export async function listLayoutZoneWidgets(api, metahubId, layoutId) {
     const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widgets`, { method: 'GET' })
     if (!response.ok) {
         throw await buildError(response, `Listing layout widgets for layout ${layoutId} in metahub ${metahubId}`)
+    }
+
+    return response.json()
+}
+
+export async function getMetahubLayout(api, metahubId, layoutId) {
+    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/layout/${layoutId}`, { method: 'GET' })
+    if (!response.ok) {
+        throw await buildError(response, `Fetching layout ${layoutId} for metahub ${metahubId}`)
     }
 
     return response.json()

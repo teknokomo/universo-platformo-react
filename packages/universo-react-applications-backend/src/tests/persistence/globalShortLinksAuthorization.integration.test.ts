@@ -1,5 +1,5 @@
 import type { Knex } from 'knex'
-import { generateUuidV7, type DbExecutor, type SqlQueryable } from '@universo-react/utils'
+import { generateUuidV7, type DbExecutor } from '@universo-react/utils'
 import { qSchemaTable } from '@universo-react/database'
 import {
     createGlobalShortLink,
@@ -94,8 +94,8 @@ describeIntegration('global short-link application RLS (requires PostgreSQL)', (
 
     const insertUser = (id: string) =>
         knex.raw(
-            `INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, confirmation_token, created_at, updated_at)
-             VALUES (?, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ?, '', '', now(), now())
+            `INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, confirmation_token, created_at, updated_at, email_change, email_change_token_new, email_change_token_current, recovery_token, phone_change, phone_change_token, reauthentication_token)
+             VALUES (?, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ?, '', '', now(), now(), '', '', '', '', '', '', '')
              ON CONFLICT (id) DO NOTHING`,
             [id, `short-link-rls-${id}@example.test`]
         )

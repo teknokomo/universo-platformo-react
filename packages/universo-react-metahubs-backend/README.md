@@ -54,6 +54,12 @@ It combines SQL-first domain services with isolated DDL boundaries, template see
 -   The change is configuration-only: the schema version, template version, and minimum structure version are not increased.
 -   User-facing setup and authoring documentation is maintained in `docs/en/interpretation-network/` and `docs/ru/interpretation-network/`; localized screenshots must be regenerated from the imported snapshot before accepting template-facing documentation changes.
 
+## MMOOMM Economy Template Contract
+
+-   The canonical MMOOMM application carries its economy model as generator-authored metadata created through the standard metahub surfaces, not as template presets: `Nomenclature`, `Wallet`, and `Operation` objects, the `OperationType` and `Unit` enumerations, the `EconomyConstants` set, and the `WalletLedger`/`InventoryLedger` registers authored as object-kind entities with `config.ledger` (registrar-only, append-only, `day`-period projections).
+-   The posting brain is authored data, not platform code: the `mmoomm-economy-posting-module` server module is created through the Modules tab and attached to the `Operation` object, and its `@OnEvent('beforePost')` handler composes the WalletLedger/InventoryLedger movements for the StarterGrant, Sell, and Buy operations. The platform stays kind-agnostic about registers.
+-   Snapshot export retains the entities, the module source, and the ledger configurations together with the rest of the MMOOMM model; the fixture contract asserts their presence (posting target ledgers, posting-module attachment, projection codenames) so contract and drift checks fail loudly on regression.
+
 ## Layout Zone Settings
 
 -   Layout config carries neutral metadata through the shared `__layout` envelope;

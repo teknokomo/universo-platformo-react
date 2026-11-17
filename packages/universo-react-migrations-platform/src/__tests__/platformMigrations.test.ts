@@ -484,7 +484,10 @@ describe('platformMigrations', () => {
             'CreateGuestSessionIdempotency1800000000300',
             'BindGlobalShortLinksToAccessLinkIdentity1800000000310',
             'CreateApplicationBotBindings1800000000320',
-            'AddApplicationCatalogVisibilityAndMembershipRls1800000000340'
+            'AddApplicationCatalogVisibilityAndMembershipRls1800000000340',
+            'CreateThemePresets1800000000350',
+            'CreateThemePresets1800000000360',
+            'CreateEconomyIdempotency1800000000370'
         ])
     })
 

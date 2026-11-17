@@ -946,6 +946,9 @@ export class RuntimeModulesService {
                               schemaName: params.schemaName,
                               ledgerId: ledger.id,
                               currentWorkspaceId: params.currentWorkspaceId,
+                              // Module code is authored by application owners, so the
+                              // sandbox keeps full-fact visibility (Phase H readScope).
+                              readScope: { userId: params.currentUserId, allowCrossUserRead: true },
                               limit: options?.limit,
                               offset: options?.offset
                           })
@@ -964,6 +967,9 @@ export class RuntimeModulesService {
                               ledgerId: ledger.id,
                               currentWorkspaceId: params.currentWorkspaceId,
                               projectionCodename,
+                              // Module code is authored by application owners, so the
+                              // sandbox keeps full-fact visibility (Phase H readScope).
+                              readScope: { userId: params.currentUserId, allowCrossUserRead: true },
                               filters: options?.filters,
                               limit: options?.limit,
                               offset: options?.offset

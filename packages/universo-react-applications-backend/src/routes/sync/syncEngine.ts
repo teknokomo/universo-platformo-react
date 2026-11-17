@@ -41,7 +41,7 @@ import {
     remapSnapshotLayoutScopeEntityIds,
     toStructuralSchemaSnapshot
 } from './syncHelpers'
-import { seedPredefinedElements, syncEnumerationValues } from './syncSeeding'
+import { seedPredefinedElements, syncEnumerationValues, syncSetConstants } from './syncSeeding'
 import {
     persistPublishedLayouts,
     persistPublishedWidgets,
@@ -836,6 +836,7 @@ export async function runPublishedApplicationRuntimeSync(options: {
     await runSchemaSyncStep(`runtimeSync:${applicationId}:enumerations`, async () =>
         syncEnumerationValues(schemaName, runtimeSnapshot, userId, trx)
     )
+    await runSchemaSyncStep(`runtimeSync:${applicationId}:constants`, async () => syncSetConstants(schemaName, snapshot, userId, trx))
 
     if (options.workspacesEnabled) {
         await runSchemaSyncStep(`runtimeSync:${applicationId}:workspaceTemplate`, async () =>

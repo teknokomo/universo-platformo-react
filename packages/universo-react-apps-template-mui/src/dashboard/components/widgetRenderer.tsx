@@ -149,6 +149,20 @@ function PlayCanvasWidgetSuspenseFallback({ minHeight = 240 }: PlayCanvasWidgetS
     )
 }
 
+function RuntimeWidgetSuspenseFallback({ minHeight = 240 }: PlayCanvasWidgetSuspenseFallbackProps) {
+    const { t } = useTranslation('apps')
+    return (
+        <Box
+            role='status'
+            aria-busy='true'
+            aria-label={t('dashboard.widget.loading', 'Loading widget content')}
+            sx={{ width: '100%', minHeight, p: 1 }}
+        >
+            <Skeleton variant='rectangular' width='100%' height={minHeight} sx={{ borderRadius: 1 }} />
+        </Box>
+    )
+}
+
 function UserProfileWidget({ widget }: { widget: ZoneWidgetItem }): ReactNode {
     const details = useDashboardDetails()
     const displayName = details?.currentUser?.displayName.trim()

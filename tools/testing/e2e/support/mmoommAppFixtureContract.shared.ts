@@ -47,6 +47,50 @@ export const MMOOMM_SPACE_SECTION_CODENAME = 'FlightWorld'
 
 export const MMOOMM_VISUAL_LINKUP_LAB_SECTION_CODENAME = 'VisualLinkupLab'
 
+// ---------------------------------------------------------------------------
+// MMOOMM economy MVP (Phase F) codenames. These mirror the generator constants
+// in support/mmoommAppGeneratorData.ts (the contract must stay standalone so it
+// can validate any fixture without loading Playwright support modules).
+// ---------------------------------------------------------------------------
+
+export const MMOOMM_ECONOMY_NOMENCLATURE_CODENAME = 'Nomenclature'
+
+export const MMOOMM_ECONOMY_WALLET_CODENAME = 'Wallet'
+
+export const MMOOMM_ECONOMY_OPERATION_CODENAME = 'Operation'
+
+export const MMOOMM_ECONOMY_STATION_CODENAME = 'FlightStation'
+
+export const MMOOMM_ECONOMY_OPERATION_TYPE_ENUM_CODENAME = 'OperationType'
+
+export const MMOOMM_ECONOMY_UNIT_ENUM_CODENAME = 'Unit'
+
+export const MMOOMM_ECONOMY_CONSTANTS_SET_CODENAME = 'EconomyConstants'
+
+export const MMOOMM_ECONOMY_WALLET_LEDGER_CODENAME = 'WalletLedger'
+
+export const MMOOMM_ECONOMY_INVENTORY_LEDGER_CODENAME = 'InventoryLedger'
+
+// Module codenames are kebab-case identifiers (backend validation).
+export const MMOOMM_ECONOMY_POSTING_MODULE_CODENAME = 'mmoomm-economy-posting-module'
+
+export const MMOOMM_ECONOMY_OPERATION_TYPE_VALUES = ['StarterGrant', 'Sell', 'Buy', 'Mine', 'Fee'] as const
+
+export const MMOOMM_ECONOMY_UNIT_VALUES = ['Kg', 'Liter', 'Unit', 'M3'] as const
+
+export const MMOOMM_ECONOMY_CONSTANT_CODES = [
+    'CurrencyCode',
+    'StartingBalance',
+    'StartingOreKg',
+    'OrePricePerKg',
+    'FuelPricePerLiter',
+    'MaxCargoMassKg',
+    'MarketRadiusMeters'
+] as const
+
+export const MMOOMM_ECONOMY_WALLET_LEDGER_PROJECTIONS = ['walletBalance', 'walletTurnover'] as const
+export const MMOOMM_ECONOMY_INVENTORY_LEDGER_PROJECTIONS = ['stockBalance', 'stockTurnover'] as const
+
 export type SnapshotEnvelope = Record<string, unknown> & {
     metahub?: { name?: unknown; description?: unknown; codename?: unknown }
     snapshot?: {

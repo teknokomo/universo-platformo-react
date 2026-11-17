@@ -22,6 +22,7 @@ import {
 } from '../../services/runtimeRowSupport/list'
 import { getRuntimeRelationAuthorityProjection } from '../../services/runtimeRowSupport/runtimeRelationAuthority'
 import { resolveRuntimeRecordReference } from '../../services/runtimeRecordHandle'
+import { assertRuntimeLedgerRegisterMutationAllowed } from '../../shared/entityMutationPolicy'
 import { resolveRuntimeEffectiveLayout } from './menu'
 
 export type RuntimeRelationScope = {
@@ -113,6 +114,9 @@ export const resolveRuntimeRelationWriteScope = async (params: {
     const parentResult = await resolveRuntimeObjectCollection(params.manager, params.schemaIdent, parentFieldAttr.target_object_id)
     const parentCollection = parentResult.objectCollection
     if (!parentCollection || parentCollection.id !== parentFieldAttr.target_object_id) return null
+    // Phase H: ledger register facts must never become relation parents —
+    // child-row mutations would bypass the ledger registrar machinery.
+    assertRuntimeLedgerRegisterMutationAllowed(parentCollection.config)
     const parentEntityCodename = resolveRuntimeCodenameText(parentCollection.codename)
     const parentReference = resolveRuntimeRecordReference(params.request.parentRecordId, {
         applicationId: params.applicationId,

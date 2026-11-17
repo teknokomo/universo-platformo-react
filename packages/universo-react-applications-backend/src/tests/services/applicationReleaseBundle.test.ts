@@ -10,7 +10,6 @@ import {
 import { createLoadPublishedApplicationSyncContext } from '../../services/applicationSyncContracts'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 import type { VersionedLocalizedContent } from '@universo-react/types'
-import type { SnapshotEnumerationValueDefinition, SnapshotEntityDefinition } from '../../services/applicationSyncContracts'
 import type { PublishedApplicationSyncContext } from '../../services/applicationSyncContracts'
 
 const createCodenameVlc = (primary: string, secondary?: string): VersionedLocalizedContent<string> => ({

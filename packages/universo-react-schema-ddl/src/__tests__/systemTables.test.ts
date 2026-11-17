@@ -32,6 +32,7 @@ describe('systemTables helpers', () => {
             '_app_settings',
             '_app_objects',
             '_app_record_counters',
+            '_app_constants',
             '_app_modules',
             '_app_packages',
             '_app_playcanvas_manifests'
@@ -53,6 +54,7 @@ describe('systemTables helpers', () => {
             '_app_record_counters',
             '_app_components',
             '_app_values',
+            '_app_constants',
             '_app_modules',
             '_app_packages',
             '_app_playcanvas_manifests',

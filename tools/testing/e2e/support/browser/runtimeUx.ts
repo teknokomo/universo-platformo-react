@@ -420,6 +420,23 @@ export async function expectStrictRuntimeUxSurface(surface: Locator, options: St
     await expectNoPageHorizontalOverflow(surface.page(), label)
 }
 
+/**
+ * Fixed-viewport pages (e.g. the MMOOMM flight runtime with a viewport-bounded
+ * canvas) must fit the viewport vertically too — a persistent document
+ * scrollbar is a layout defect, not a scroll affordance. Tolerance of 1px
+ * absorbs browser rounding.
+ */
+export async function expectNoVerticalPageOverflow(page: Page, label: string): Promise<void> {
+    const overflow = await page.evaluate(() => {
+        const element = document.documentElement
+        return element.scrollHeight - element.clientHeight
+    })
+    expect(
+        overflow,
+        `${label} must not overflow the viewport vertically (scrollHeight - clientHeight = ${overflow}px)`
+    ).toBeLessThanOrEqual(1)
+}
+
 export async function expectNoPageHorizontalOverflow(page: Page, label: string): Promise<void> {
     const overflowDiagnostics = await page.evaluate(() => {
         const documentWidth = Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0)

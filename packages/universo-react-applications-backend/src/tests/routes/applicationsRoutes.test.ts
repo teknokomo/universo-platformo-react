@@ -35,6 +35,15 @@ jest.mock('../../persistence/effectiveLayoutStore', () => ({
     listEffectiveLayoutWidgets: (...args: unknown[]) => mockListEffectiveLayoutWidgets(...args)
 }))
 
+// The runtime economy routes read the authoritative ship position from the live
+// Colyseus flight room; route tests stub the bridge (no matchMaker available).
+const mockDescribeFlightContext = jest.fn<Promise<unknown>, [string, string]>()
+jest.mock('../../services/runtimeFlightRoomBridge', () => ({
+    __esModule: true,
+    describeFlightContext: (applicationId: string, userId: string, workspaceId: string | null) =>
+        mockDescribeFlightContext(applicationId, userId, workspaceId)
+}))
+
 import type { Request, Response, NextFunction } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { getGlobalRoleCodename, hasSubjectPermission, isSuperuser } from '@universo-react/admin-backend'
@@ -46,7 +55,10 @@ import { createMockDbExecutor, createMockDataStore } from '../utils/dbMocks'
 import { createApplicationsRoutes } from '../../routes/applicationsRoutes'
 import { ROLE_PERMISSIONS } from '../../routes/guards'
 import { RuntimeModulesService } from '../../services/runtimeModulesService'
+import { RuntimeLedgerService } from '../../services/runtimeLedgersService'
+import { UpdateFailure } from '../../shared/runtimeHelpers'
 import { issueRuntimeRecordHandle } from '../../services/runtimeRecordHandle'
+import { fingerprintEconomyTradeBody } from '../../services/runtimeEconomyService'
 import { buildRuntimeRecordAccessClause, type RuntimeObjectCollectionAttr } from '../../controllers/runtimeRowsController'
 import { computePlayCanvasRuntimeManifestChecksum } from '../../controllers/runtimePlayCanvasController'
 import {
@@ -12400,6 +12412,212 @@ describe('Applications Routes', () => {
                 )
             ).toBeUndefined()
         })
+
+        it('blocks generic rows reads of ledger registers for members without readReports', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'member')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
+                    return [
+                        {
+                            id: runtimeLedgerId,
+                            kind: 'ledger',
+                            codename: { _primary: 'en', locales: { en: { content: 'WalletLedger' } } },
+                            table_name: 'led_wallet',
+                            config: {
+                                capabilities: {
+                                    ledgerSchema: { enabled: true },
+                                    dataSchema: { enabled: true },
+                                    physicalTable: { enabled: true }
+                                },
+                                ledger: {
+                                    sourcePolicy: 'registrar',
+                                    mutationPolicy: 'appendOnly',
+                                    fieldRoles: [],
+                                    projections: [],
+                                    registrarKinds: ['object'],
+                                    idempotency: { keyFields: [] }
+                                }
+                            }
+                        }
+                    ]
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .get(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeFactId}`)
+                .query({ objectCollectionId: runtimeLedgerId })
+                .expect(403)
+
+            expect(response.body).toMatchObject({ code: 'LEDGER_ROWS_API_FORBIDDEN' })
+        })
+
+        it('blocks generic rows reads of ledger registers for report-privileged members only via the ledger API scope rules', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'admin')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
+                    return [
+                        {
+                            id: runtimeLedgerId,
+                            kind: 'ledger',
+                            codename: { _primary: 'en', locales: { en: { content: 'WalletLedger' } } },
+                            table_name: 'led_wallet',
+                            config: {
+                                capabilities: {
+                                    ledgerSchema: { enabled: true },
+                                    dataSchema: { enabled: true },
+                                    physicalTable: { enabled: true }
+                                },
+                                ledger: {
+                                    sourcePolicy: 'registrar',
+                                    mutationPolicy: 'appendOnly',
+                                    fieldRoles: [],
+                                    projections: [],
+                                    registrarKinds: ['object'],
+                                    idempotency: { keyFields: [] }
+                                }
+                            }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
+                    return []
+                }
+                // The read proceeds past the guard (report-privileged) and the row
+                // lookup finds nothing — the guard must NOT have fired.
+                if (sql.includes('FROM "app_deadbeef"."led_wallet"')) {
+                    return []
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .get(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeFactId}`)
+                .query({ objectCollectionId: runtimeLedgerId })
+
+            // readReports holders pass the guard; the row itself is absent.
+            expect([404, 200]).toContain(response.status)
+            expect(response.body.code).not.toBe('LEDGER_ROWS_API_FORBIDDEN')
+        })
+
+        it('blocks generic row mutations of ledger registers even for owners', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
+                    return [
+                        {
+                            id: runtimeLedgerId,
+                            kind: 'ledger',
+                            codename: { _primary: 'en', locales: { en: { content: 'WalletLedger' } } },
+                            table_name: 'led_wallet',
+                            config: {
+                                capabilities: {
+                                    ledgerSchema: { enabled: true },
+                                    dataSchema: { enabled: true },
+                                    physicalTable: { enabled: true }
+                                },
+                                ledger: {
+                                    sourcePolicy: 'registrar',
+                                    mutationPolicy: 'appendOnly',
+                                    fieldRoles: [],
+                                    projections: [],
+                                    registrarKinds: ['object'],
+                                    idempotency: { keyFields: [] }
+                                }
+                            }
+                        }
+                    ]
+                }
+                if (sql.includes('UPDATE "app_deadbeef"."led_wallet"') || sql.includes('DELETE FROM "app_deadbeef"."led_wallet"')) {
+                    throw new Error('ledger register rows must never be mutated through the generic rows API')
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeFactId}/compensate-create`)
+                .query({ objectCollectionId: runtimeLedgerId })
+                .send({ expectedVersion: 1 })
+                .expect(403)
+
+            expect(response.body).toMatchObject({ code: 'LEDGER_ROWS_API_FORBIDDEN' })
+        })
+
+        it('injects the requesting-user read scope into ledger fact reads for regular members', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'member')
+
+            const listFactsSpy = jest
+                .spyOn(RuntimeLedgerService.prototype, 'listFacts')
+                .mockResolvedValue({ rows: [], limit: 10, offset: 0 })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .get(`/applications/${runtimeApplicationId}/runtime/ledgers/${runtimeLedgerId}/facts`)
+                .expect(200)
+
+            expect(listFactsSpy).toHaveBeenCalledTimes(1)
+            expect(listFactsSpy.mock.calls[0][0]).toMatchObject({
+                ledgerId: runtimeLedgerId,
+                readScope: { userId: 'test-user-id', allowCrossUserRead: false }
+            })
+            expect(response.body).toEqual({ rows: [], limit: 10, offset: 0 })
+        })
+
+        it('lifts the ledger read scope for readReports holders (admins/owners)', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'admin')
+
+            const listFactsSpy = jest
+                .spyOn(RuntimeLedgerService.prototype, 'listFacts')
+                .mockResolvedValue({ rows: [], limit: 10, offset: 0 })
+
+            const app = buildApp(dataSource)
+            await request(app).get(`/applications/${runtimeApplicationId}/runtime/ledgers/${runtimeLedgerId}/facts`).expect(200)
+
+            expect(listFactsSpy.mock.calls[0][0]).toMatchObject({
+                readScope: { userId: 'test-user-id', allowCrossUserRead: true }
+            })
+        })
+
+        it('surfaces the server-scoped owner field rejection through the projection query route', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'member')
+
+            const queryProjectionSpy = jest.spyOn(RuntimeLedgerService.prototype, 'queryProjection').mockRejectedValue(
+                new UpdateFailure(400, {
+                    error: 'Ledger filters cannot override the server-scoped owner field',
+                    code: 'LEDGER_FILTER_OWNER_FIELD',
+                    field: 'WalletKey'
+                })
+            )
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/ledgers/${runtimeLedgerId}/query`)
+                .send({ projectionCodename: 'walletBalance', filters: { WalletKey: '018f8a78-7b8f-7c1d-a111-222233334599' } })
+                .expect(400)
+
+            expect(queryProjectionSpy).toHaveBeenCalledTimes(1)
+            expect(queryProjectionSpy.mock.calls[0][0]).toMatchObject({
+                ledgerId: runtimeLedgerId,
+                projectionCodename: 'walletBalance',
+                readScope: { userId: 'test-user-id', allowCrossUserRead: false }
+            })
+            expect(response.body).toMatchObject({ code: 'LEDGER_FILTER_OWNER_FIELD', field: 'WalletKey' })
+        })
     })
 
     describe('Runtime reports route contract', () => {
@@ -16163,5 +16381,863 @@ describe('Applications Routes', () => {
         expect(collectionResetIndex).toBeGreaterThanOrEqual(0)
         expect(dynamicResetIndex).toBeGreaterThanOrEqual(0)
         expect(collectionResetIndex).toBeLessThan(dynamicResetIndex)
+    })
+
+    describe('Runtime economy contract', () => {
+        const economyApplicationId = '018f8a78-7b8f-7c1d-a111-2222333346c0'
+        // Trade requests run the idempotency store, which requires UUID v7 user ids.
+        const economyUserId = '018f8a78-7b8f-7c1d-a111-2222333346c1'
+        const economySchemaName = 'app_ec0ffee'
+        const economySetId = '018f8a78-7b8f-7c1d-a111-2222333346c2'
+        const economyNomenclatureObjectId = '018f8a78-7b8f-7c1d-a111-2222333346c3'
+        const economyWalletObjectId = '018f8a78-7b8f-7c1d-a111-2222333346c4'
+        const economyOperationObjectId = '018f8a78-7b8f-7c1d-a111-2222333346c5'
+        const economyStationObjectId = '018f8a78-7b8f-7c1d-a111-2222333346c6'
+        const economyOperationTypeEnumId = '018f8a78-7b8f-7c1d-a111-2222333346c7'
+        const economyStatusEnumId = '018f8a78-7b8f-7c1d-a111-2222333346c8'
+        const economyStarterTypeId = '018f8a78-7b8f-7c1d-a111-2222333346c9'
+        const economySellTypeId = '018f8a78-7b8f-7c1d-a111-2222333346ca'
+        const economyBuyTypeId = '018f8a78-7b8f-7c1d-a111-2222333346cb'
+        const economyActiveStatusId = '018f8a78-7b8f-7c1d-a111-2222333346cc'
+        const economyOreRowId = '018f8a78-7b8f-7c1d-a111-2222333346cd'
+        const economyFuelRowId = '018f8a78-7b8f-7c1d-a111-2222333346ce'
+        const economyStationRowId = '018f8a78-7b8f-7c1d-a111-2222333346cf'
+        const economyWalletRowId = '018f8a78-7b8f-7c1d-a111-2222333346d0'
+        const economyGrantRowId = '018f8a78-7b8f-7c1d-a111-2222333346d1'
+        const economyOperationRowId = '018f8a78-7b8f-7c1d-a111-2222333346d2'
+        const economyWalletLedgerId = '018f8a78-7b8f-7c1d-a111-2222333346d3'
+        const economyInventoryLedgerId = '018f8a78-7b8f-7c1d-a111-2222333346d4'
+
+        const economyBehaviorConfig = {
+            recordBehavior: {
+                mode: 'transactional',
+                numbering: { enabled: false, scope: 'workspace', periodicity: 'none' },
+                effectiveDate: { enabled: true, defaultToNow: true },
+                lifecycle: { enabled: true, states: [] },
+                posting: { mode: 'manual', targetLedgers: ['WalletLedger', 'InventoryLedger'] },
+                immutability: 'posted'
+            }
+        }
+
+        const economyAttr = (overrides: Record<string, unknown>) => ({
+            id: '018f8a78-7b8f-7c1d-a111-2222333346e0',
+            codename: 'Field',
+            column_name: 'field',
+            data_type: 'STRING',
+            is_required: false,
+            validation_rules: {},
+            target_object_id: null,
+            target_object_kind: null,
+            ui_config: {},
+            ...overrides
+        })
+
+        const economyAttrsByObjectId: Record<string, Array<Record<string, unknown>>> = {
+            [economyNomenclatureObjectId]: [
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346e1',
+                    codename: 'Code',
+                    column_name: 'code',
+                    data_type: 'STRING',
+                    is_required: true
+                }),
+                economyAttr({ id: '018f8a78-7b8f-7c1d-a111-2222333346e2', codename: 'Name', column_name: 'name', data_type: 'STRING' }),
+                economyAttr({ id: '018f8a78-7b8f-7c1d-a111-2222333346e3', codename: 'Unit', column_name: 'unit', data_type: 'STRING' }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346e4',
+                    codename: 'MassPerUnit',
+                    column_name: 'mass_per_unit',
+                    data_type: 'NUMBER'
+                })
+            ],
+            [economyWalletObjectId]: [
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346e5',
+                    codename: 'OwnerKey',
+                    column_name: 'owner_key',
+                    data_type: 'STRING',
+                    is_required: true
+                }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346e6',
+                    codename: 'Currency',
+                    column_name: 'currency',
+                    data_type: 'STRING',
+                    is_required: true
+                }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346e7',
+                    codename: 'Status',
+                    column_name: 'status_id',
+                    data_type: 'REF',
+                    target_object_id: economyStatusEnumId,
+                    target_object_kind: 'enumeration'
+                })
+            ],
+            [economyOperationObjectId]: [
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346e8',
+                    codename: 'OperationType',
+                    column_name: 'operation_type_id',
+                    data_type: 'REF',
+                    is_required: true,
+                    target_object_id: economyOperationTypeEnumId,
+                    target_object_kind: 'enumeration'
+                }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346e9',
+                    codename: 'Wallet',
+                    column_name: 'wallet_id',
+                    data_type: 'REF',
+                    is_required: true,
+                    target_object_id: economyWalletObjectId,
+                    target_object_kind: 'object'
+                }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346ea',
+                    codename: 'Station',
+                    column_name: 'station_id',
+                    data_type: 'REF',
+                    is_required: true,
+                    target_object_id: economyStationObjectId,
+                    target_object_kind: 'object'
+                }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346eb',
+                    codename: 'Nomenclature',
+                    column_name: 'nomenclature_id',
+                    data_type: 'REF',
+                    is_required: true,
+                    target_object_id: economyNomenclatureObjectId,
+                    target_object_kind: 'object'
+                }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346ec',
+                    codename: 'Quantity',
+                    column_name: 'quantity',
+                    data_type: 'NUMBER',
+                    is_required: true
+                }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346ed',
+                    codename: 'UnitPrice',
+                    column_name: 'unit_price',
+                    data_type: 'NUMBER'
+                }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346ee',
+                    codename: 'OccurredAt',
+                    column_name: 'occurred_at',
+                    data_type: 'DATE'
+                })
+            ],
+            [economyStationObjectId]: [
+                economyAttr({ id: '018f8a78-7b8f-7c1d-a111-2222333346ef', codename: 'Name', column_name: 'name', data_type: 'STRING' }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346f0',
+                    codename: 'MarketEnabled',
+                    column_name: 'market_enabled',
+                    data_type: 'BOOLEAN'
+                })
+            ]
+        }
+
+        const economyLedgerAttrs: Record<string, Array<Record<string, unknown>>> = {
+            [economyWalletLedgerId]: [
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346f1',
+                    codename: 'WalletKey',
+                    column_name: 'wallet_key',
+                    data_type: 'STRING',
+                    is_required: true
+                }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346f2',
+                    codename: 'Currency',
+                    column_name: 'currency',
+                    data_type: 'STRING',
+                    is_required: true
+                }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346f3',
+                    codename: 'OperationType',
+                    column_name: 'operation_type',
+                    data_type: 'STRING'
+                }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346f4',
+                    codename: 'Amount',
+                    column_name: 'amount',
+                    data_type: 'NUMBER',
+                    is_required: true
+                }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346f5',
+                    codename: 'OccurredAt',
+                    column_name: 'occurred_at',
+                    data_type: 'DATE'
+                }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346f6',
+                    codename: 'SourceObjectId',
+                    column_name: 'source_object_id',
+                    data_type: 'STRING'
+                }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346f7',
+                    codename: 'SourceRowId',
+                    column_name: 'source_row_id',
+                    data_type: 'STRING'
+                }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346f8',
+                    codename: 'SourceLineId',
+                    column_name: 'source_line_id',
+                    data_type: 'STRING'
+                })
+            ],
+            [economyInventoryLedgerId]: [
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346f9',
+                    codename: 'OwnerKey',
+                    column_name: 'owner_key',
+                    data_type: 'STRING',
+                    is_required: true
+                }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346fa',
+                    codename: 'StationCode',
+                    column_name: 'station_code',
+                    data_type: 'STRING'
+                }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346fb',
+                    codename: 'NomenclatureCode',
+                    column_name: 'nomenclature_code',
+                    data_type: 'STRING',
+                    is_required: true
+                }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346fc',
+                    codename: 'Quantity',
+                    column_name: 'quantity',
+                    data_type: 'NUMBER',
+                    is_required: true
+                }),
+                economyAttr({ id: '018f8a78-7b8f-7c1d-a111-2222333346fd', codename: 'Cost', column_name: 'cost', data_type: 'NUMBER' }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346fe',
+                    codename: 'OccurredAt',
+                    column_name: 'occurred_at',
+                    data_type: 'DATE'
+                }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333346ff',
+                    codename: 'SourceObjectId',
+                    column_name: 'source_object_id',
+                    data_type: 'STRING'
+                }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-22223333470a',
+                    codename: 'SourceRowId',
+                    column_name: 'source_row_id',
+                    data_type: 'STRING'
+                }),
+                economyAttr({
+                    id: '018f8a78-7b8f-7c1d-a111-22223333470b',
+                    codename: 'SourceLineId',
+                    column_name: 'source_line_id',
+                    data_type: 'STRING'
+                })
+            ]
+        }
+
+        const economyObjectRows: Record<string, Record<string, unknown>> = {
+            Nomenclature: {
+                id: economyNomenclatureObjectId,
+                kind: 'object',
+                codename: 'Nomenclature',
+                table_name: 'nomenclature',
+                config: null
+            },
+            Wallet: { id: economyWalletObjectId, kind: 'object', codename: 'Wallet', table_name: 'wallet', config: null },
+            Operation: {
+                id: economyOperationObjectId,
+                kind: 'object',
+                codename: 'Operation',
+                table_name: 'operation',
+                config: economyBehaviorConfig
+            },
+            FlightStation: { id: economyStationObjectId, kind: 'object', codename: 'FlightStation', table_name: 'station', config: null }
+        }
+
+        const economyEnumValues: Record<string, Array<Record<string, unknown>>> = {
+            [economyOperationTypeEnumId]: [
+                { id: economyStarterTypeId, codename: 'StarterGrant' },
+                { id: economySellTypeId, codename: 'Sell' },
+                { id: economyBuyTypeId, codename: 'Buy' }
+            ],
+            [economyStatusEnumId]: [{ id: economyActiveStatusId, codename: 'Active' }]
+        }
+
+        const economyConstants = [
+            {
+                id: '018f8a78-7b8f-7c1d-a111-22223333470c',
+                group_id: economySetId,
+                codename: 'CurrencyCode',
+                data_type: 'string',
+                value_json: 'CR',
+                sort_order: 1
+            },
+            {
+                id: '018f8a78-7b8f-7c1d-a111-22223333470d',
+                group_id: economySetId,
+                codename: 'StartingBalance',
+                data_type: 'number',
+                value_json: 1000,
+                sort_order: 2
+            },
+            {
+                id: '018f8a78-7b8f-7c1d-a111-22223333470e',
+                group_id: economySetId,
+                codename: 'StartingOreKg',
+                data_type: 'number',
+                value_json: 10,
+                sort_order: 3
+            },
+            {
+                id: '018f8a78-7b8f-7c1d-a111-22223333470f',
+                group_id: economySetId,
+                codename: 'OrePricePerKg',
+                data_type: 'number',
+                value_json: 10,
+                sort_order: 4
+            },
+            {
+                id: '018f8a78-7b8f-7c1d-a111-22223333471a',
+                group_id: economySetId,
+                codename: 'FuelPricePerLiter',
+                data_type: 'number',
+                value_json: 5,
+                sort_order: 5
+            },
+            {
+                id: '018f8a78-7b8f-7c1d-a111-22223333471b',
+                group_id: economySetId,
+                codename: 'MaxCargoMassKg',
+                // Aligned with the shipped generator constants (mmoommAppGeneratorData).
+                data_type: 'number',
+                value_json: 100,
+                sort_order: 6
+            },
+            {
+                id: '018f8a78-7b8f-7c1d-a111-22223333471c',
+                group_id: economySetId,
+                codename: 'MarketRadiusMeters',
+                data_type: 'number',
+                value_json: 80,
+                sort_order: 7
+            }
+        ]
+
+        const economyWalletLedgerRow = {
+            id: economyWalletLedgerId,
+            kind: 'ledger',
+            codename: 'WalletLedger',
+            table_name: 'led_wallet',
+            config: {
+                capabilities: { dataSchema: { enabled: true }, physicalTable: { enabled: true }, ledgerSchema: { enabled: true } },
+                ledger: {
+                    sourcePolicy: 'registrar',
+                    registrarKinds: ['object'],
+                    mutationPolicy: 'appendOnly',
+                    fieldRoles: [
+                        { fieldCodename: 'WalletKey', role: 'dimension' },
+                        { fieldCodename: 'Currency', role: 'dimension' },
+                        { fieldCodename: 'OperationType', role: 'dimension' },
+                        { fieldCodename: 'Amount', role: 'resource', aggregate: 'sum', required: true },
+                        { fieldCodename: 'OccurredAt', role: 'dimension' },
+                        { fieldCodename: 'SourceObjectId', role: 'dimension' },
+                        { fieldCodename: 'SourceRowId', role: 'dimension' },
+                        { fieldCodename: 'SourceLineId', role: 'dimension' }
+                    ],
+                    projections: [
+                        { codename: 'walletBalance', kind: 'balance', dimensions: ['WalletKey', 'Currency'], resources: ['Amount'] }
+                    ],
+                    idempotency: { keyFields: ['SourceObjectId', 'SourceRowId', 'SourceLineId'] }
+                }
+            }
+        }
+        const economyInventoryLedgerRow = {
+            id: economyInventoryLedgerId,
+            kind: 'ledger',
+            codename: 'InventoryLedger',
+            table_name: 'led_inventory',
+            config: {
+                capabilities: { dataSchema: { enabled: true }, physicalTable: { enabled: true }, ledgerSchema: { enabled: true } },
+                ledger: {
+                    sourcePolicy: 'registrar',
+                    registrarKinds: ['object'],
+                    mutationPolicy: 'appendOnly',
+                    fieldRoles: [
+                        { fieldCodename: 'OwnerKey', role: 'dimension' },
+                        { fieldCodename: 'StationCode', role: 'dimension' },
+                        { fieldCodename: 'NomenclatureCode', role: 'dimension' },
+                        { fieldCodename: 'Quantity', role: 'resource', aggregate: 'sum', required: true },
+                        { fieldCodename: 'Cost', role: 'resource', aggregate: 'sum' },
+                        { fieldCodename: 'OccurredAt', role: 'dimension' },
+                        { fieldCodename: 'SourceObjectId', role: 'dimension' },
+                        { fieldCodename: 'SourceRowId', role: 'dimension' },
+                        { fieldCodename: 'SourceLineId', role: 'dimension' }
+                    ],
+                    projections: [
+                        {
+                            codename: 'stockBalance',
+                            kind: 'balance',
+                            dimensions: ['OwnerKey', 'NomenclatureCode'],
+                            resources: ['Quantity', 'Cost']
+                        }
+                    ],
+                    idempotency: { keyFields: ['SourceObjectId', 'SourceRowId', 'SourceLineId'] }
+                }
+            }
+        }
+
+        interface EconomyRouteState {
+            walletRows: Array<Record<string, unknown>>
+            grantRows: Array<Record<string, unknown>>
+            nomenclatureRows: Array<Record<string, unknown>>
+            stationRows: Array<Record<string, unknown>>
+            recentOperationRows: Array<Record<string, unknown>>
+            postSourceRow: Record<string, unknown> | null
+            postUpdatedRow: Record<string, unknown> | null
+            walletProjectionRows: Array<Record<string, unknown>>
+            inventoryProjectionRows: Array<Record<string, unknown>>
+            idempotencyStored: Array<Record<string, unknown>> | null
+        }
+
+        const buildEconomyRouteState = (overrides: Partial<EconomyRouteState> = {}): EconomyRouteState => ({
+            walletRows: [{ id: economyWalletRowId }],
+            grantRows: [{ id: economyGrantRowId }],
+            nomenclatureRows: [
+                { id: economyOreRowId, code: 'ORE', name_value: 'Ore', unit_value: 'Kg', mass_per_unit: 1 },
+                { id: economyFuelRowId, code: 'FUEL', name_value: 'Fuel', unit_value: 'Liter', mass_per_unit: 0.8 }
+            ],
+            stationRows: [{ id: economyStationRowId, name_value: 'Hub station', market_enabled: true }],
+            recentOperationRows: [],
+            postSourceRow: null,
+            postUpdatedRow: null,
+            walletProjectionRows: [{ d0: economyUserId, d1: 'CR', r0: '1000' }],
+            inventoryProjectionRows: [{ d0: economyUserId, d1: 'ORE', r0: '10', r1: '0' }],
+            idempotencyStored: null,
+            ...overrides
+        })
+
+        const routeEconomyQueries =
+            (state: EconomyRouteState) =>
+            async (sql: string, params?: unknown[]): Promise<unknown[]> => {
+                const statement = String(sql)
+
+                if (statement.includes('pg_advisory_xact_lock')) return []
+
+                if (statement.includes('INSERT INTO')) {
+                    if (statement.includes('obj_economy_idempotency')) return [{ id: '018f8a78-7b8f-7c1d-a111-22223333471d' }]
+                    if (statement.includes(`."wallet"`)) return [{ id: economyWalletRowId }]
+                    if (statement.includes(`."operation"`)) return [{ id: economyOperationRowId }]
+                    if (statement.includes('."led_')) return [{ id: '018f8a78-7b8f-7c1d-a111-22223333471e' }]
+                    return []
+                }
+
+                if (statement.includes('._app_constants')) return economyConstants
+
+                if (statement.includes('._app_objects')) {
+                    if (statement.includes("kind = 'set'")) return [{ id: economySetId }]
+                    if (statement.includes('ledgerSchema')) {
+                        if (statement.includes('id = $1')) {
+                            if (params?.[0] === economyWalletLedgerId) return [economyWalletLedgerRow]
+                            if (params?.[0] === economyInventoryLedgerId) return [economyInventoryLedgerRow]
+                            return []
+                        }
+                        return [economyWalletLedgerRow, economyInventoryLedgerRow]
+                    }
+                    if (statement.includes('LOWER(') && statement.includes("kind = 'object'")) {
+                        const row = economyObjectRows[String(params?.[0])]
+                        return row ? [row] : []
+                    }
+                    return []
+                }
+
+                if (statement.includes('._app_components')) {
+                    const componentObjectId = String(params?.[0] ?? '')
+                    if (economyLedgerAttrs[componentObjectId]) return economyLedgerAttrs[componentObjectId]
+                    if (statement.includes('object_id = ANY')) {
+                        const requested = (params?.[0] as string[]) ?? []
+                        return [
+                            ...(economyLedgerAttrs[economyWalletLedgerId] ?? []).map((cmp) => ({
+                                ...cmp,
+                                object_id: economyWalletLedgerId
+                            })),
+                            ...(economyLedgerAttrs[economyInventoryLedgerId] ?? []).map((cmp) => ({
+                                ...cmp,
+                                object_id: economyInventoryLedgerId
+                            }))
+                        ].filter((cmp) => requested.includes(String(cmp.object_id)))
+                    }
+                    return economyAttrsByObjectId[componentObjectId] ?? []
+                }
+
+                if (statement.includes('._app_values')) {
+                    if (statement.includes('id = $1') && statement.includes('object_id = $2')) return [{ id: String(params?.[0]) }]
+                    if (statement.includes('object_id = $1')) {
+                        const requestedCodename = String(params?.[1] ?? '').toLowerCase()
+                        return (economyEnumValues[String(params?.[0])] ?? []).filter(
+                            (value) => String(value.codename).toLowerCase() === requestedCodename
+                        )
+                    }
+                    if (statement.includes('id = ANY')) {
+                        const requested = (params?.[0] as string[]) ?? []
+                        return Object.values(economyEnumValues)
+                            .flat()
+                            .filter((value) => requested.includes(String(value.id)))
+                    }
+                    return []
+                }
+
+                if (statement.includes('information_schema.columns')) return []
+
+                if (statement.includes(`FROM "${economySchemaName}"."led_wallet"`)) return state.walletProjectionRows
+                if (statement.includes(`FROM "${economySchemaName}"."led_inventory"`)) return state.inventoryProjectionRows
+
+                if (statement.includes(`UPDATE "${economySchemaName}"."operation"`))
+                    return state.postUpdatedRow ? [state.postUpdatedRow] : []
+
+                if (statement.includes(`FROM "${economySchemaName}"."wallet"`)) return state.walletRows
+
+                if (statement.includes(`FROM "${economySchemaName}"."nomenclature"`)) {
+                    const requestedCodes = (params?.[0] as string[]) ?? []
+                    return state.nomenclatureRows.filter((row) => requestedCodes.includes(String(row.code)))
+                }
+
+                if (statement.includes(`FROM "${economySchemaName}"."station"`)) return state.stationRows
+
+                if (statement.includes(`FROM "${economySchemaName}"."operation"`)) {
+                    if (statement.includes('FOR UPDATE')) return state.postSourceRow ? [state.postSourceRow] : []
+                    if (statement.includes('SELECT *')) return state.postSourceRow ? [state.postSourceRow] : []
+                    if (statement.includes('AS operation_type')) return state.recentOperationRows
+                    return state.grantRows
+                }
+
+                if (statement.includes('obj_economy_idempotency')) {
+                    if (statement.includes('DELETE FROM')) return []
+                    return state.idempotencyStored ?? []
+                }
+
+                return []
+            }
+
+        const buildEconomyApp = (dataSource: ReturnType<typeof buildDataSource>['dataSource'], userId = economyUserId) => {
+            const app = express()
+            app.use(express.json())
+            const economyAuth: RequestHandler = (req, _res, next) => {
+                if (userId) {
+                    ;(req as Request & { user?: { id: string } }).user = { id: userId }
+                }
+                next()
+            }
+            app.use(
+                '/applications',
+                createApplicationsRoutes(economyAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
+            )
+            app.use(errorHandler)
+            return app
+        }
+
+        const buildEconomyHarness = (
+            state: EconomyRouteState,
+            role: 'owner' | 'member' = 'owner',
+            settings: Record<string, unknown> = {}
+        ) => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: economyUserId,
+                applicationId: economyApplicationId,
+                role
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: economyApplicationId,
+                schemaName: economySchemaName,
+                workspacesEnabled: false,
+                settings
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) =>
+                routeEconomyQueries(state)(sql, params)
+            )
+            const dispatchSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue([])
+            return { dataSource, applicationRepo, applicationUserRepo, dispatchSpy }
+        }
+
+        afterEach(() => {
+            mockDescribeFlightContext.mockReset()
+        })
+
+        it('returns the server-scoped economy summary with wallet, cargo, market, operations and station', async () => {
+            mockDescribeFlightContext.mockResolvedValue({
+                position: { x: 0, y: 0, z: 0 },
+                stations: [{ id: economyStationRowId, position: { x: 5, y: 0, z: 0 } }]
+            })
+            const state = buildEconomyRouteState({
+                recentOperationRows: [
+                    {
+                        id: economyOperationRowId,
+                        operation_type: economySellTypeId,
+                        quantity: 5,
+                        unit_price: 10,
+                        occurred_at: new Date('2026-05-08T00:00:00.000Z'),
+                        _upl_created_at: new Date('2026-05-08T00:00:00.000Z')
+                    }
+                ]
+            })
+            const { dataSource, dispatchSpy } = buildEconomyHarness(state)
+            const app = buildEconomyApp(dataSource)
+
+            const response = await request(app).get(`/applications/${economyApplicationId}/runtime/economy/summary`).expect(200)
+
+            expect(response.body).toMatchObject({
+                wallet: { currency: 'CR', balance: 1000 },
+                cargo: [{ nomenclatureCode: 'ORE', nomenclatureName: 'Ore', quantity: 10, unit: 'Kg', massKg: 10 }],
+                capacity: { usedKg: 10, maxKg: 100 },
+                market: [
+                    { nomenclatureCode: 'ORE', nomenclatureName: 'Ore', side: 'sell', price: 10, unit: 'Kg' },
+                    { nomenclatureCode: 'FUEL', nomenclatureName: 'Fuel', side: 'buy', price: 5, unit: 'Liter' }
+                ],
+                operations: [{ id: economyOperationRowId, type: 'Sell', quantity: 5, total: 50 }],
+                atStation: true,
+                stationName: 'Hub station'
+            })
+            // The D11 bootstrap probed for the existing grant instead of creating one.
+            expect(dispatchSpy).not.toHaveBeenCalled()
+        })
+
+        it('executes a sell through the shared posting core and returns the TZ §8.2 trade response', async () => {
+            mockDescribeFlightContext.mockResolvedValue({
+                position: { x: 0, y: 0, z: 0 },
+                stations: [{ id: economyStationRowId, position: { x: 5, y: 0, z: 0 } }]
+            })
+            const state = buildEconomyRouteState({
+                postSourceRow: { id: economyOperationRowId, _app_record_state: 'draft', _upl_locked: false, _upl_version: 1 },
+                postUpdatedRow: { id: economyOperationRowId, _app_record_state: 'posted', _upl_version: 1 }
+            })
+            const { dataSource, dispatchSpy } = buildEconomyHarness(state)
+            const app = buildEconomyApp(dataSource)
+
+            const response = await request(app)
+                .post(`/applications/${economyApplicationId}/runtime/economy/sell`)
+                .send({ nomenclatureCode: 'ORE', quantity: 5 })
+                .expect(200)
+
+            expect(response.body).toMatchObject({
+                operationId: economyOperationRowId,
+                walletBalance: 1000,
+                cargo: [{ nomenclatureCode: 'ORE', quantity: 10, unit: 'Kg', massKg: 10, nomenclatureName: 'Ore' }]
+            })
+            const insertCall = (dataSource.manager.query as jest.Mock).mock.calls.find(([sql]) =>
+                String(sql).includes(`INSERT INTO "${economySchemaName}"."operation"`)
+            )
+            expect(insertCall).toBeDefined()
+            expect(insertCall?.[1]).toContain(economySellTypeId)
+            expect(insertCall?.[1]).toContain(10) // server-side OrePricePerKg
+            expect(dispatchSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    attachmentId: economyOperationObjectId,
+                    payload: expect.objectContaining({ eventName: 'beforePost' })
+                })
+            )
+        })
+
+        it('rejects trade bodies that fail the strict schema with 400', async () => {
+            const { dataSource } = buildEconomyHarness(buildEconomyRouteState())
+            const app = buildEconomyApp(dataSource)
+
+            const response = await request(app)
+                .post(`/applications/${economyApplicationId}/runtime/economy/sell`)
+                .send({ nomenclatureCode: 'ORE' })
+                .expect(400)
+
+            expect(response.body.error).toBe('Invalid trade payload')
+            expect(response.body.details).toBeDefined()
+        })
+
+        it('rejects client-supplied server-owned economic fields with 422 before any DB work', async () => {
+            const { dataSource } = buildEconomyHarness(buildEconomyRouteState())
+            const app = buildEconomyApp(dataSource)
+
+            const response = await request(app)
+                .post(`/applications/${economyApplicationId}/runtime/economy/sell`)
+                .send({ nomenclatureCode: 'ORE', quantity: 5, ownerKey: economyUserId, price: 1 })
+                .expect(422)
+
+            expect(response.body).toMatchObject({
+                error: 'Trade payload contains server-owned fields',
+                code: 'ECONOMY_INVALID_QUANTITY'
+            })
+            expect(dataSource.manager.query).not.toHaveBeenCalled()
+        })
+
+        it('requires an authenticated user for economy trades', async () => {
+            const { dataSource } = buildEconomyHarness(buildEconomyRouteState())
+            const app = buildEconomyApp(dataSource, '')
+            await request(app)
+                .post(`/applications/${economyApplicationId}/runtime/economy/sell`)
+                .send({ nomenclatureCode: 'ORE', quantity: 5 })
+                .expect(401, { error: 'Unauthorized' })
+        })
+
+        it('rejects economy trades without the editContent permission', async () => {
+            mockDescribeFlightContext.mockResolvedValue({
+                position: { x: 0, y: 0, z: 0 },
+                stations: [{ id: economyStationRowId, position: { x: 5, y: 0, z: 0 } }]
+            })
+            const { dataSource } = buildEconomyHarness(buildEconomyRouteState(), 'member')
+            const app = buildEconomyApp(dataSource)
+
+            await request(app)
+                .post(`/applications/${economyApplicationId}/runtime/economy/sell`)
+                .send({ nomenclatureCode: 'ORE', quantity: 5 })
+                .expect(403, { error: 'Insufficient permissions for this action' })
+        })
+
+        it('rejects trades away from any station with 409 ECONOMY_NOT_AT_STATION', async () => {
+            mockDescribeFlightContext.mockResolvedValue(null)
+            const { dataSource } = buildEconomyHarness(buildEconomyRouteState())
+            const app = buildEconomyApp(dataSource)
+
+            const response = await request(app)
+                .post(`/applications/${economyApplicationId}/runtime/economy/sell`)
+                .send({ nomenclatureCode: 'ORE', quantity: 5 })
+                .expect(409)
+
+            expect(response.body).toMatchObject({ code: 'ECONOMY_NOT_AT_STATION' })
+            expect((dataSource.manager.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('INSERT INTO'))).toBe(false)
+        })
+
+        it('rejects trades at a station whose market is disabled with 409 ECONOMY_MARKET_DISABLED', async () => {
+            mockDescribeFlightContext.mockResolvedValue({
+                position: { x: 0, y: 0, z: 0 },
+                stations: [{ id: economyStationRowId, position: { x: 5, y: 0, z: 0 } }]
+            })
+            const state = buildEconomyRouteState({
+                stationRows: [{ id: economyStationRowId, name_value: 'Closed hub', market_enabled: false }]
+            })
+            const { dataSource } = buildEconomyHarness(state)
+            const app = buildEconomyApp(dataSource)
+
+            const response = await request(app)
+                .post(`/applications/${economyApplicationId}/runtime/economy/sell`)
+                .send({ nomenclatureCode: 'ORE', quantity: 5 })
+                .expect(409)
+
+            expect(response.body).toMatchObject({ code: 'ECONOMY_MARKET_DISABLED' })
+            expect((dataSource.manager.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('INSERT INTO'))).toBe(false)
+        })
+
+        it('rejects a reused Idempotency-Key with a different payload as 409 ECONOMY_IDEMPOTENCY_CONFLICT', async () => {
+            mockDescribeFlightContext.mockResolvedValue({
+                position: { x: 0, y: 0, z: 0 },
+                stations: [{ id: economyStationRowId, position: { x: 5, y: 0, z: 0 } }]
+            })
+            const replayState = buildEconomyRouteState({
+                idempotencyStored: [
+                    {
+                        bodyFingerprint: fingerprintEconomyTradeBody('sell', { nomenclatureCode: 'ORE', quantity: 5 }),
+                        response: { operationId: economyOperationRowId, walletBalance: 1000, cargo: [] },
+                        statusCode: 200,
+                        expiresAt: new Date(Date.now() + 60_000).toISOString()
+                    }
+                ]
+            })
+            const { dataSource } = buildEconomyHarness(replayState)
+            const app = buildEconomyApp(dataSource)
+
+            const response = await request(app)
+                .post(`/applications/${economyApplicationId}/runtime/economy/sell`)
+                .set('Idempotency-Key', '018f8a78-7b8f-7c1d-a111-2222333346d5')
+                .send({ nomenclatureCode: 'ORE', quantity: 6 })
+                .expect(409)
+
+            expect(response.body).toMatchObject({ code: 'ECONOMY_IDEMPOTENCY_CONFLICT' })
+            expect(
+                (dataSource.manager.query as jest.Mock).mock.calls.some(([sql]) =>
+                    String(sql).includes(`INSERT INTO "${economySchemaName}"."operation"`)
+                )
+            ).toBe(false)
+        })
+
+        it('replays a stored response for the same Idempotency-Key without re-executing the trade', async () => {
+            mockDescribeFlightContext.mockResolvedValue({
+                position: { x: 0, y: 0, z: 0 },
+                stations: [{ id: economyStationRowId, position: { x: 5, y: 0, z: 0 } }]
+            })
+            const tradeBody = { nomenclatureCode: 'ORE', quantity: 5 }
+            const storedResponse = { operationId: economyOperationRowId, walletBalance: 1000, cargo: [] }
+            const idempotencyKey = '018f8a78-7b8f-7c1d-a111-2222333346d5'
+
+            const firstState = buildEconomyRouteState({
+                postSourceRow: { id: economyOperationRowId, _app_record_state: 'draft', _upl_locked: false, _upl_version: 1 },
+                postUpdatedRow: { id: economyOperationRowId, _app_record_state: 'posted', _upl_version: 1 }
+            })
+            const first = buildEconomyHarness(firstState)
+            const firstApp = buildEconomyApp(first.dataSource)
+
+            const firstResponse = await request(firstApp)
+                .post(`/applications/${economyApplicationId}/runtime/economy/sell`)
+                .set('Idempotency-Key', idempotencyKey)
+                .send(tradeBody)
+                .expect(200)
+            expect(firstResponse.body).toMatchObject({ operationId: economyOperationRowId })
+            expect(
+                (first.dataSource.manager.query as jest.Mock).mock.calls.filter(
+                    ([sql]) => String(sql).includes('INSERT INTO') && String(sql).includes('obj_economy_idempotency')
+                )
+            ).toHaveLength(1)
+
+            const replayState = buildEconomyRouteState({
+                idempotencyStored: [
+                    {
+                        bodyFingerprint: fingerprintEconomyTradeBody('sell', tradeBody),
+                        response: storedResponse,
+                        statusCode: 200,
+                        expiresAt: new Date(Date.now() + 60_000).toISOString()
+                    }
+                ]
+            })
+            const replay = buildEconomyHarness(replayState)
+            const replayApp = buildEconomyApp(replay.dataSource)
+
+            const replayResponse = await request(replayApp)
+                .post(`/applications/${economyApplicationId}/runtime/economy/sell`)
+                .set('Idempotency-Key', idempotencyKey)
+                .send(tradeBody)
+                .expect(200)
+
+            expect(replayResponse.body).toEqual(storedResponse)
+            expect(
+                (replay.dataSource.manager.query as jest.Mock).mock.calls.filter(([sql]) =>
+                    String(sql).includes(`INSERT INTO "${economySchemaName}"."operation"`)
+                )
+            ).toHaveLength(0)
+        })
+
+        it('rejects a malformed Idempotency-Key header with 400', async () => {
+            const { dataSource } = buildEconomyHarness(buildEconomyRouteState())
+            const app = buildEconomyApp(dataSource)
+
+            const response = await request(app)
+                .post(`/applications/${economyApplicationId}/runtime/economy/sell`)
+                .set('Idempotency-Key', 'not-a-uuid')
+                .send({ nomenclatureCode: 'ORE', quantity: 5 })
+                .expect(400)
+
+            expect(response.body).toMatchObject({ error: 'Invalid Idempotency-Key header format', code: 'ECONOMY_IDEMPOTENCY_KEY_INVALID' })
+        })
     })
 })

@@ -9,7 +9,9 @@ import {
     listLayoutZoneWidgets,
     createLayout,
     listObjectCollections,
-    listPublicationApplications
+    listPublicationApplications,
+    getMetahubLayout,
+    sendWithCsrf
 } from '../backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedPublication } from '../backend/run-manifest.mjs'
 import { applyBrowserPreferences } from '../browser/preferences'
@@ -505,7 +507,8 @@ export const createScopedDashboardLayout = async (
     metahubId: string,
     baseLayoutId: string,
     scopeEntityId: string,
-    label: { en: string; ru: string }
+    label: { en: string; ru: string },
+    options: { behaviorConfig?: Record<string, unknown> } = {}
 ): Promise<string> => {
     const response = await createLayout(api, metahubId, {
         scopeEntityId,
@@ -522,6 +525,24 @@ export const createScopedDashboardLayout = async (
     }
     expect(response?.scopeEntityId ?? response?.data?.scopeEntityId).toBe(scopeEntityId)
     expect(response?.baseLayoutId ?? response?.data?.baseLayoutId).toBe(baseLayoutId)
+
+    // Layout behavior config (interpretation-network precedent): persisted
+    // through the canonical layout PATCH with the expected version.
+    if (options.behaviorConfig) {
+        const layout = (await getMetahubLayout(api, metahubId, layoutId)) as {
+            version?: number
+            config?: Record<string, unknown> | null
+        }
+        const layoutResponse = await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahubId}/layout/${layoutId}`, {
+            config: {
+                ...(layout.config && typeof layout.config === 'object' ? layout.config : {}),
+                ...options.behaviorConfig
+            },
+            expectedVersion: layout.version
+        })
+        expect(layoutResponse.ok).toBe(true)
+    }
+
     return layoutId
 }
 

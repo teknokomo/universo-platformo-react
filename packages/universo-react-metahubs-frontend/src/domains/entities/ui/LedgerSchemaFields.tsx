@@ -145,6 +145,7 @@ export const LedgerSchemaFields = ({
                             labelId='ledger-mode-label'
                             label={t('entities.ledgerSchema.mode.label', 'Ledger mode')}
                             value={value.mode}
+                            inputProps={{ 'data-testid': 'ledger-mode-select' }}
                             onChange={(event) => patchConfig({ mode: event.target.value as LedgerConfig['mode'] })}
                         >
                             {modeOptions.map((mode) => (
@@ -162,6 +163,7 @@ export const LedgerSchemaFields = ({
                             labelId='ledger-mutation-policy-label'
                             label={t('entities.ledgerSchema.mutationPolicy.label', 'Mutation policy')}
                             value={value.mutationPolicy}
+                            inputProps={{ 'data-testid': 'ledger-mutation-policy-select' }}
                             onChange={(event) => patchConfig({ mutationPolicy: event.target.value as LedgerConfig['mutationPolicy'] })}
                         >
                             {LEDGER_MUTATION_POLICIES.map((policy) => (
@@ -179,6 +181,7 @@ export const LedgerSchemaFields = ({
                             labelId='ledger-source-policy-label'
                             label={t('entities.ledgerSchema.sourcePolicy.label', 'Source policy')}
                             value={value.sourcePolicy}
+                            inputProps={{ 'data-testid': 'ledger-source-policy-select' }}
                             onChange={(event) => patchConfig({ sourcePolicy: event.target.value as LedgerConfig['sourcePolicy'] })}
                         >
                             {LEDGER_SOURCE_POLICIES.filter((policy) => allowManualFacts || policy !== 'manual').map((policy) => (
@@ -200,6 +203,7 @@ export const LedgerSchemaFields = ({
                             labelId='ledger-periodicity-label'
                             label={t('entities.ledgerSchema.periodicity.label', 'Periodicity')}
                             value={value.periodicity}
+                            inputProps={{ 'data-testid': 'ledger-periodicity-select' }}
                             onChange={(event) => patchConfig({ periodicity: event.target.value as LedgerConfig['periodicity'] })}
                         >
                             {LEDGER_PERIODICITIES.map((periodicity) => (
@@ -217,6 +221,7 @@ export const LedgerSchemaFields = ({
                             labelId='ledger-effective-date-label'
                             label={t('entities.ledgerSchema.effectiveDateField.label', 'Effective date field')}
                             value={value.effectiveDateField ?? ''}
+                            inputProps={{ 'data-testid': 'ledger-effective-date-select' }}
                             onChange={(event) =>
                                 patchConfig({ effectiveDateField: event.target.value ? String(event.target.value) : undefined })
                             }
@@ -245,6 +250,7 @@ export const LedgerSchemaFields = ({
                             label={t('entities.ledgerSchema.registrars.label', 'Registrar kinds')}
                             value={value.registrarKinds}
                             input={<OutlinedInput label={t('entities.ledgerSchema.registrars.label', 'Registrar kinds')} />}
+                            inputProps={{ 'data-testid': 'ledger-registrar-kinds' }}
                             onChange={(event) => patchConfig({ registrarKinds: selectValues(event.target.value) })}
                             renderValue={(selected) => (
                                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
@@ -277,6 +283,7 @@ export const LedgerSchemaFields = ({
                         <Chip
                             icon={<AddRoundedIcon fontSize='small' />}
                             label={t('entities.ledgerSchema.fieldRoles.add', 'Add role')}
+                            data-testid='ledger-field-role-add'
                             onClick={disabled ? undefined : addRole}
                             size='small'
                             variant='outlined'
@@ -392,6 +399,7 @@ export const LedgerSchemaFields = ({
                             <Chip
                                 icon={<AddRoundedIcon fontSize='small' />}
                                 label={t('entities.ledgerSchema.projections.add', 'Add projection')}
+                                data-testid='ledger-projection-add'
                                 onClick={disabled ? undefined : addProjection}
                                 size='small'
                                 variant='outlined'
@@ -415,6 +423,7 @@ export const LedgerSchemaFields = ({
                                         value={projection.codename}
                                         disabled={disabled}
                                         onChange={(event) => updateProjection(index, { codename: event.target.value })}
+                                        slotProps={{ htmlInput: { 'data-testid': 'ledger-projection-codename' } }}
                                         fullWidth
                                     />
                                     <FormControl fullWidth disabled={disabled}>
@@ -443,6 +452,7 @@ export const LedgerSchemaFields = ({
                                     disabled={disabled}
                                     onChange={(event) => updateProjection(index, { dimensions: normalizeCsvValue(event.target.value) })}
                                     helperText={t('entities.ledgerSchema.projections.csvHelper', 'Comma-separated field codenames')}
+                                    slotProps={{ htmlInput: { 'data-testid': 'ledger-projection-dimensions' } }}
                                     fullWidth
                                 />
                                 <TextField
@@ -451,6 +461,7 @@ export const LedgerSchemaFields = ({
                                     disabled={disabled}
                                     onChange={(event) => updateProjection(index, { resources: normalizeCsvValue(event.target.value) })}
                                     helperText={t('entities.ledgerSchema.projections.csvHelper', 'Comma-separated field codenames')}
+                                    slotProps={{ htmlInput: { 'data-testid': 'ledger-projection-resources' } }}
                                     fullWidth
                                 />
                                 <Chip
@@ -480,6 +491,7 @@ export const LedgerSchemaFields = ({
                             errors.ledgerIdempotency || t('entities.ledgerSchema.projections.csvHelper', 'Comma-separated field codenames')
                         }
                         error={Boolean(errors.ledgerIdempotency)}
+                        slotProps={{ htmlInput: { 'data-testid': 'ledger-idempotency-keyfields' } }}
                         fullWidth
                     />
                     {fieldSelectOptions.length === 0 ? (

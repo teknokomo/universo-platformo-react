@@ -41,7 +41,9 @@ const child = spawn(
         'src/tests/persistence/applicationBotBindings.constraints.integration.test.ts',
         'src/tests/persistence/applicationCopyConsistency.integration.test.ts',
         'src/tests/persistence/applicationsShowInAppList.integration.test.ts',
-        'src/tests/persistence/themePresets.integration.test.ts'
+        'src/tests/persistence/themePresets.integration.test.ts',
+        'src/tests/persistence/economyIdempotencyStore.integration.test.ts',
+        'src/tests/persistence/runtimeEconomy.integration.test.ts'
     ],
     {
         stdio: 'inherit',

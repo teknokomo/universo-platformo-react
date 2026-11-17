@@ -228,9 +228,10 @@ export function InterpretationNetworkCellStyleEditor({
         const fieldDisabled = disabled || !policy.editable[category]
         return (
             <Stack spacing={0.75} key={field.id}>
-                <Typography component='label' htmlFor={`${field.id}-hex`} variant='subtitle2'>
-                    {label}
-                </Typography>
+                {/* Plain caption: the HexColorField TextField already owns the
+                    input's label — a second <label for> would concatenate into
+                    the accessible name ("Fill Fill Hex color"). */}
+                <Typography variant='subtitle2'>{label}</Typography>
                 <Stack direction='row' spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                     {policy.allowCustomColors ? (
                         <HexColorField

@@ -135,7 +135,8 @@ export const executeRuntimeRecordsUnionQuery = async (params: {
             filters,
             currentWorkspaceId: runtimeContext.currentWorkspaceId,
             projectedFields: datasource.projectedFields,
-            locale
+            locale,
+            permissions: runtimeContext.permissions
         })
         const targetQuery = await buildRuntimeUnionTargetQuery({
             manager,

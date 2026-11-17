@@ -13,6 +13,8 @@ export { runPublishedApplicationRuntimeSync, seedPredefinedElements } from './ro
 export { initializeRateLimiters, getRateLimiters, createApplicationsServiceRoutes } from './routes/index'
 export { runGuestSessionIdempotencyCleanup, startGuestSessionIdempotencyCleanup } from './services/guestSessionIdempotencyMaintenance'
 export type { GuestSessionIdempotencyCleanupHandle } from './services/guestSessionIdempotencyMaintenance'
+export { runEconomyIdempotencyCleanup, startEconomyIdempotencyCleanup } from './services/economyIdempotencyMaintenance'
+export type { EconomyIdempotencyCleanupHandle } from './services/economyIdempotencyMaintenance'
 export { attachApplicationsRealtimeRuntime } from './realtime/applicationsRealtimeRuntime'
 export type { ApplicationsRealtimeRuntimeHandle } from './realtime/applicationsRealtimeRuntime'
 

@@ -867,7 +867,7 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
         await page.screenshot({ path: testInfo.outputPath('cross-template-scoped-dashboard.png'), fullPage: true, animations: 'disabled' })
 
         for (const viewport of [
-            { name: 'desktop', width: 1920, height: 1080, expectedMainLeft: 240, expectedContentTop: 0, expectedPadding: 24 },
+            { name: 'desktop', width: 1920, height: 1080, expectedMainLeft: 240, expectedContentTop: 64, expectedPadding: 24 },
             { name: 'tablet', width: 768, height: 1024, expectedMainLeft: 0, expectedContentTop: 64, expectedPadding: 24 },
             { name: 'mobile', width: 390, height: 844, expectedMainLeft: 0, expectedContentTop: 64, expectedPadding: 16 }
         ]) {

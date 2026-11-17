@@ -39,7 +39,8 @@ describeIntegration('Application theme presets PostgreSQL invariants', () => {
                 id UUID PRIMARY KEY,
                 template_key VARCHAR(40) NOT NULL,
                 config JSONB NOT NULL DEFAULT '{}'::jsonb,
-                _upl_deleted BOOLEAN NOT NULL DEFAULT false
+                _upl_deleted BOOLEAN NOT NULL DEFAULT false,
+                _app_deleted BOOLEAN NOT NULL DEFAULT false
             )
         `)
     })

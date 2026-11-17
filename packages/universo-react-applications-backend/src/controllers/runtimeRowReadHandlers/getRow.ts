@@ -9,6 +9,7 @@ import {
     resolveRuntimeSchema
 } from '../../shared/runtimeHelpers'
 import { isRuntimeRecordBehaviorEnabled, normalizeRuntimeRecordBehavior } from '../../services/runtimeRecordBehavior'
+import { denyRuntimeLedgerRegisterRead } from '../../shared/entityMutationPolicy'
 import { RUNTIME_RECORD_SYSTEM_FIELDS } from '../../services/runtimeRowSupport/contracts'
 import { resolveRuntimeObjectCollection } from '../runtimeRowSupport/objects'
 import { isRuntimeComponentHidden } from './componentVisibility'
@@ -32,6 +33,9 @@ export const createGetRowHandler = ({ getDbExecutor, query }: RuntimeRowReadHand
             error: objectCollectionError
         } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, objectCollectionId)
         if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
+        // Phase H: ledger register rows are readable only via the ledger API by
+        // report-privileged members — never through the generic rows surface.
+        if (denyRuntimeLedgerRegisterRead(res, objectCollection.config, ctx.permissions)) return
         const resolvedReference = resolveRuntimeRecordReference(rowReference, {
             applicationId,
             workspaceId: ctx.currentWorkspaceId,

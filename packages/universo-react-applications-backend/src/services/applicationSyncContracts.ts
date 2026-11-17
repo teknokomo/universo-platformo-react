@@ -61,6 +61,7 @@ export interface PublishedApplicationSnapshot {
     elements?: Record<string, unknown[]>
     optionValues?: Record<string, SnapshotEnumerationValueDefinition[]>
     constants?: Record<string, unknown[]>
+    fixedValues?: Record<string, SnapshotConstantDefinition[]>
     sharedComponents?: SnapshotComponent[]
     sharedFixedValues?: SnapshotConstantDefinition[]
     sharedOptionValues?: SnapshotEnumerationValueDefinition[]
