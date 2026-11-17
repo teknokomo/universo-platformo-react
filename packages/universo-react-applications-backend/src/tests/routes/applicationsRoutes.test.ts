@@ -40,7 +40,8 @@ jest.mock('../../persistence/effectiveLayoutStore', () => ({
 const mockDescribeFlightContext = jest.fn<Promise<unknown>, [string, string]>()
 jest.mock('../../services/runtimeFlightRoomBridge', () => ({
     __esModule: true,
-    describeFlightContext: (applicationId: string, userId: string) => mockDescribeFlightContext(applicationId, userId)
+    describeFlightContext: (applicationId: string, userId: string, workspaceId: string | null) =>
+        mockDescribeFlightContext(applicationId, userId, workspaceId)
 }))
 
 import type { Request, Response, NextFunction } from 'express'

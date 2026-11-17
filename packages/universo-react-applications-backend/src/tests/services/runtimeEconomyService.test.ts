@@ -11,7 +11,8 @@ const mockDescribeFlightContext = jest.fn<Promise<unknown>, [string, string]>()
 
 jest.mock('../../services/runtimeFlightRoomBridge', () => ({
     __esModule: true,
-    describeFlightContext: (applicationId: string, userId: string) => mockDescribeFlightContext(applicationId, userId)
+    describeFlightContext: (applicationId: string, userId: string, workspaceId: string | null) =>
+        mockDescribeFlightContext(applicationId, userId, workspaceId)
 }))
 
 import type { DbExecutor } from '@universo-react/utils'

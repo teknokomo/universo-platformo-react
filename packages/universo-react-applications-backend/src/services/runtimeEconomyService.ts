@@ -16,7 +16,6 @@ import {
     UpdateFailure,
     type RuntimeSchemaContext
 } from '../shared/runtimeHelpers'
-import { isRuntimeServerOwnedAttr } from './runtimeRowSupport/contracts'
 import { findRuntimeAttrByFieldKey, resolveRuntimeRecordOwnerColumnName } from './runtimeRowSupport/objectMetadata'
 import { RuntimeLedgerService } from './runtimeLedgersService'
 import { RuntimePostingMovementService } from './runtimePostingMovements'
@@ -343,12 +342,13 @@ export function createRuntimeEconomyService({ getDbExecutor, query }: RuntimeEco
     ): Promise<{ rowId: string; afterCreateLifecycleRequest: RuntimeLifecycleDispatchRequest }> => {
         const runtimeRowCondition = buildEconomyActiveCondition(ctx, collection)
         const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(collection.table_name)}`
+        // The economy service is the trusted writer of server-owned economy
+        // fields (Quantity/UnitPrice/TotalPrice are flagged server-owned so the
+        // generic rows API cannot supply caller-chosen amounts): unlike the
+        // generic rows API, this trusted flow writes exactly the fields it
+        // names in `data`, including server-owned ones.
         const safeAttrs = collection.attrs.filter(
-            (attr) =>
-                IDENTIFIER_REGEX.test(attr.column_name) &&
-                RUNTIME_WRITABLE_TYPES.has(attr.data_type) &&
-                attr.data_type !== 'TABLE' &&
-                !isRuntimeServerOwnedAttr(attr)
+            (attr) => IDENTIFIER_REGEX.test(attr.column_name) && RUNTIME_WRITABLE_TYPES.has(attr.data_type) && attr.data_type !== 'TABLE'
         )
         const scalarResult = await buildCreateScalarColumnValues({
             manager: executor,

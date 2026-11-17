@@ -1245,7 +1245,10 @@ const createFixedTickSceneRoom = (
             this.roomOptions = parseRoomOptions(options)
             this.maxMessagesPerSecond = MAX_MESSAGES_PER_SECOND_PER_CLIENT
             this.setPatchRate(50)
-            this.setMetadata({ scopeId: this.roomOptions.scopeId })
+            // Publish the room's workspace so economy lookups can scope the
+            // ship probe to the requesting workspace (Greptile P1: without it,
+            // a docked ship in one workspace enabled trades in another).
+            this.setMetadata({ scopeId: this.roomOptions.scopeId, workspaceId: this.roomOptions.workspaceId ?? null })
             this.setState(new FixedTickSceneState())
 
             this.onMessage('intent', (client, payload) => {

@@ -558,7 +558,7 @@ export const resolveStationProximity = async (
     applicationId: string,
     economy: EconomyResolvedConfig
 ): Promise<StationProximity> => {
-    const flight = await describeFlightContext(applicationId, ctx.userId)
+    const flight = await describeFlightContext(applicationId, ctx.userId, ctx.currentWorkspaceId)
     if (!flight) return { atStation: false, stationName: null, stationId: null, marketEnabled: null }
 
     const withinRadius = flight.stations

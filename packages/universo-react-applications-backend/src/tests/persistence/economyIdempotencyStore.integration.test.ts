@@ -40,6 +40,18 @@ const buildRecord = (overrides: Partial<NewEconomyIdempotencyRecord> = {}): NewE
     expiresAt: overrides.expiresAt ?? new Date(Date.now() + 60 * 60 * 1000).toISOString()
 })
 
+const countScopedRows = async (
+    executor: { query: (sql: string, params?: unknown[]) => Promise<Array<Record<string, unknown>>> },
+    scope: { applicationId: string; userId: string; keyHash: string }
+): Promise<number> => {
+    const rows = await executor.query(
+        `SELECT COUNT(*)::int AS count FROM applications.obj_economy_idempotency
+         WHERE application_id = $1 AND user_id = $2 AND key_hash = $3`,
+        [scope.applicationId, scope.userId, scope.keyHash]
+    )
+    return Number(rows[0]?.count ?? 0)
+}
+
 describeIntegration('Economy idempotency store PostgreSQL invariants', () => {
     let knex: Knex
 
@@ -100,11 +112,16 @@ describeIntegration('Economy idempotency store PostgreSQL invariants', () => {
 
             // The stale row still occupies the scoped-unique slot: the retry's save
             // must REPLACE it (not silently drop the record and commit unrecorded).
-            const retry = buildRecord({ applicationId, keyHash, response: { retried: true } })
+            // The retry reuses the SAME (application, user, key) scope — a fresh
+            // userId would insert a separate row and exercise nothing.
+            const retry = buildRecord({ applicationId, userId: expired.userId, keyHash, response: { retried: true } })
             expect(await saveEconomyIdempotency(executor, retry)).toBe(true)
             const stored = await findEconomyIdempotency(executor, { applicationId, userId: retry.userId, keyHash })
             expect(stored).not.toBeNull()
             expect(stored?.response).toEqual({ retried: true })
+
+            // Exactly one row remains for the replaced scope.
+            expect(await countScopedRows(executor, { applicationId, userId: expired.userId, keyHash })).toBe(1)
 
             // A LIVE row is still immutable for race losers (no overwrite).
             const loser = await saveEconomyIdempotency(executor, {

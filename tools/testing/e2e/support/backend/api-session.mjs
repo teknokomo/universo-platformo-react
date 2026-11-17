@@ -1080,6 +1080,20 @@ export async function getComponent(api, metahubId, objectId, componentId) {
     return response.json()
 }
 
+export async function updateComponent(api, metahubId, objectId, componentId, payload) {
+    const response = await sendWithCsrf(
+        api,
+        'PATCH',
+        buildManagedEntityChildItemApiPath(metahubId, objectId, 'object', 'component', componentId),
+        payload
+    )
+    if (!response.ok) {
+        throw await buildError(response, `Updating component ${componentId} in metahub ${metahubId} object ${objectId}`)
+    }
+
+    return response.json()
+}
+
 export async function listRecords(api, metahubId, objectId, params = {}) {
     const query = new URLSearchParams()
 

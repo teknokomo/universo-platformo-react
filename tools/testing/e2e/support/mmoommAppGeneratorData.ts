@@ -102,7 +102,6 @@ import { ExtensionModule, OnEvent } from '@universo-react/extension-sdk'
 // so re-publishing the constants changes service prices AND ledger amounts in
 // lockstep without touching this module source.
 const CURRENCY_CODE = '${CURRENCY_CODE}'
-const STARTING_BALANCE = ${STARTING_BALANCE}
 const SELL_NOMENCLATURE_CODE = 'ORE'
 const BUY_NOMENCLATURE_CODE = 'FUEL'
 const WALLET_LEDGER_CODE = '${WALLET_LEDGER_CODE}'
@@ -227,11 +226,25 @@ export default class MmoommEconomyPostingModule extends ExtensionModule {
         // enumeration value id passthrough for server-side label resolution.
         const kind = unitPrice === 0 ? 'starterGrant' : nomenclatureCode === SELL_NOMENCLATURE_CODE ? 'sell' : 'buy'
 
+        // Fail closed (Thermos P1): the economy service stamps Quantity,
+        // UnitPrice and TotalPrice on every row it creates. A row missing them
+        // was not authored by the service (generic rows API strips server-owned
+        // fields) — deriving movements from zero fallbacks would mint valueless
+        // or attacker-chosen facts, so the posting is rejected instead.
+        if (operation.TotalPrice === undefined || operation.TotalPrice === null || operation.TotalPrice === '') {
+            throw new Error('Economy operation is missing the server-stamped TotalPrice')
+        }
+        if (operation.Quantity === undefined || operation.Quantity === null || operation.Quantity === '') {
+            throw new Error('Economy operation is missing the server-stamped Quantity')
+        }
+        if (operation.UnitPrice === undefined || operation.UnitPrice === null || operation.UnitPrice === '') {
+            throw new Error('Economy operation is missing the server-stamped UnitPrice')
+        }
+
         // TotalPrice is stamped by the economy service from the EconomyConstants
         // set: the positive monetary magnitude of the operation (trades: quantity
-        // x server-resolved unit price; StarterGrant: StartingBalance). The baked
-        // constants only cover rows posted before the field existed.
-        const totalPrice = toNumber(operation.TotalPrice, kind === 'starterGrant' ? STARTING_BALANCE : quantity * unitPrice)
+        // x server-resolved unit price; StarterGrant: StartingBalance).
+        const totalPrice = toNumber(operation.TotalPrice, 0)
 
         const walletAmount = kind === 'buy' ? -totalPrice : totalPrice
         const inventoryQuantity = kind === 'starterGrant' ? quantity : kind === 'sell' ? -quantity : quantity

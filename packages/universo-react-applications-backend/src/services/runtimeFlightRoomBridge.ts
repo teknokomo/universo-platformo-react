@@ -24,10 +24,14 @@ type DescribableFixedTickRoom = {
  * read from the live room that owns the user's flight session. A missing or
  * disposed room yields null, which callers map to ECONOMY_NOT_AT_STATION.
  */
-export async function describeFlightContext(applicationId: string, userId: string): Promise<FlightContext | null> {
+export async function describeFlightContext(
+    applicationId: string,
+    userId: string,
+    workspaceId: string | null
+): Promise<FlightContext | null> {
     let rooms: Array<{ roomId: string; scopeId: string }>
     try {
-        rooms = await queryFixedTickRoomsForApplication(applicationId)
+        rooms = await queryFixedTickRoomsForApplication(applicationId, workspaceId)
     } catch {
         return null
     }
@@ -52,10 +56,29 @@ export async function describeFlightContext(applicationId: string, userId: strin
     return null
 }
 
-/** Enumerate live fixed-tick rooms belonging to one application (scopeId prefix match). */
-export async function queryFixedTickRoomsForApplication(applicationId: string): Promise<Array<{ roomId: string; scopeId: string }>> {
+/**
+ * Enumerate live fixed-tick rooms belonging to one application, scoped to the
+ * requesting workspace (scopeId prefix match + room metadata workspace
+ * equality). Rooms joined without a workspace (`'global'` / metadata null) only
+ * match workspace-less requests, so a docked ship in one workspace can never
+ * enable trades in another (Greptile P1, QA 2026-11-17).
+ */
+export async function queryFixedTickRoomsForApplication(
+    applicationId: string,
+    workspaceId: string | null
+): Promise<Array<{ roomId: string; scopeId: string }>> {
     const rooms = await matchMaker.query({ name: FIXED_TICK_SCENE_ROOM_NAME })
     return rooms
-        .map((room) => ({ roomId: String(room.roomId), scopeId: String(room.metadata?.scopeId ?? '') }))
-        .filter((room) => room.scopeId.startsWith(`${applicationId}:`))
+        .map((room) => ({
+            roomId: String(room.roomId),
+            scopeId: String(room.metadata?.scopeId ?? ''),
+            roomWorkspaceId:
+                room.metadata?.workspaceId === null || room.metadata?.workspaceId === undefined ? null : String(room.metadata.workspaceId)
+        }))
+        .filter(
+            (room) =>
+                room.scopeId.startsWith(`${applicationId}:`) &&
+                room.roomWorkspaceId === (workspaceId && workspaceId.trim() !== '' ? workspaceId : null)
+        )
+        .map((room) => ({ roomId: room.roomId, scopeId: room.scopeId }))
 }

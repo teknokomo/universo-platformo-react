@@ -14,7 +14,8 @@ import {
     listOptionLists,
     listOptionValues,
     listValueGroups,
-    updateMetahubEntityConfig
+    updateMetahubEntityConfig,
+    updateComponent
 } from '../backend/api-session.mjs'
 import { recordCreatedMetahub } from '../backend/run-manifest.mjs'
 import { waitForSettledMutationResponse } from '../browser/network'
@@ -1182,6 +1183,17 @@ export type EconomyObjectIds = {
     operationId: string
 }
 
+const readCodenameTextForAuthoring = (value: unknown): string => {
+    if (typeof value === 'string') return value.trim()
+    if (value && typeof value === 'object') {
+        const record = value as { _primary?: unknown; locales?: Record<string, { content?: unknown }> }
+        const primary = typeof record._primary === 'string' ? record._primary : 'en'
+        const content = record.locales?.[primary]?.content ?? record.locales?.en?.content
+        return typeof content === 'string' ? content.trim() : ''
+    }
+    return ''
+}
+
 export const createEconomyObjectsThroughBrowser = async (page: Page, api: ApiContext, metahubId: string): Promise<EconomyObjectIds> => {
     const nomenclatureId = await createStandardEntityThroughBrowser(page, metahubId, 'object', {
         name: NOMENCLATURE_CODE,
@@ -1229,6 +1241,24 @@ export const createEconomyObjectsThroughBrowser = async (page: Page, api: ApiCon
         // without it and a required missing field fails row creation.
         { codename: 'Status', dataType: 'STRING' }
     ])
+
+    // Greptile P1 fix: the economy amount fields are server-owned — the generic
+    // rows API strips client-supplied values (and 400s explicit ones), so only
+    // the economy service can stamp amounts. Without this an editor could mint
+    // credits by creating and posting an operation with arbitrary amounts.
+    const operationComponents = (await listComponentsQuiet(api, metahubId, operationId)) as {
+        items?: Array<{ id?: unknown; codename?: unknown }>
+    }
+    const componentIdByCodename = new Map<string, string>()
+    for (const component of operationComponents.items ?? []) {
+        const codenameText = readCodenameTextForAuthoring(component.codename)
+        if (codenameText) componentIdByCodename.set(codenameText, String(component.id))
+    }
+    for (const amountCodename of ['Quantity', 'UnitPrice', 'TotalPrice']) {
+        const componentId = componentIdByCodename.get(amountCodename)
+        expect(componentId, `Operation component ${amountCodename} must exist`).toBeTruthy()
+        await updateComponent(api, metahubId, operationId, String(componentId), { uiConfig: { serverOwned: true } })
+    }
 
     await applyEconomyRecordAccessThroughApi(api, metahubId, walletId)
     await applyEconomyRecordAccessThroughApi(api, metahubId, operationId)
