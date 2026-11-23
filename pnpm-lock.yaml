@@ -414,8 +414,8 @@ catalogs:
       specifier: ^1.1.0
       version: 1.1.0
     vite:
-      specifier: ^7.3.2
-      version: 7.3.2
+      specifier: ^7.3.7
+      version: 7.3.8
     vitest:
       specifier: ^4.1.6
       version: 4.1.11
@@ -627,7 +627,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
 
   packages/universo-react-admin-backend:
     dependencies:
@@ -770,7 +770,7 @@ importers:
         version: 0.15.7(supports-color@8.1.1)(typescript@5.9.3)
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
 
   packages/universo-react-api-client:
     dependencies:
@@ -1073,7 +1073,7 @@ importers:
         version: 10.1.0(react@18.3.1)
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
       zod:
         specifier: 3.25.76
         version: 3.25.76
@@ -1188,7 +1188,7 @@ importers:
         version: 14.6.1(@testing-library/dom@9.3.4)
       '@vitejs/plugin-react':
         specifier: 'catalog:'
-        version: 5.2.0(supports-color@8.1.1)(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
+        version: 5.2.0(supports-color@8.1.1)(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
       eslint:
         specifier: 'catalog:'
         version: 8.57.1(supports-color@8.1.1)
@@ -1197,10 +1197,10 @@ importers:
         version: 5.9.3
       vite:
         specifier: 'catalog:'
-        version: 7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3)
+        version: 7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3)
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
 
   packages/universo-react-auth-backend:
     dependencies:
@@ -1383,7 +1383,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
 
   packages/universo-react-colyseus-client:
     dependencies:
@@ -1408,7 +1408,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
 
   packages/universo-react-colyseus-server:
     dependencies:
@@ -1433,7 +1433,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
 
   packages/universo-react-core-backend:
     dependencies:
@@ -1714,7 +1714,7 @@ importers:
         version: 14.6.1(@testing-library/dom@9.3.4)
       '@vitejs/plugin-react':
         specifier: 'catalog:'
-        version: 5.2.0(supports-color@8.1.1)(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
+        version: 5.2.0(supports-color@8.1.1)(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
@@ -1726,7 +1726,7 @@ importers:
         version: 5.9.3
       vite:
         specifier: 'catalog:'
-        version: 7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3)
+        version: 7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3)
 
   packages/universo-react-database:
     dependencies:
@@ -2088,7 +2088,7 @@ importers:
         version: 0.15.7(supports-color@8.1.1)(typescript@5.9.3)
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
       zod:
         specifier: 3.25.76
         version: 3.25.76
@@ -2161,7 +2161,7 @@ importers:
         version: 0.15.7(supports-color@8.1.1)(typescript@5.9.3)
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
 
   packages/universo-react-migration-guard-shared:
     dependencies:
@@ -2416,7 +2416,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
 
   packages/universo-react-playcanvas-editor-frontend:
     dependencies:
@@ -2537,10 +2537,10 @@ importers:
         version: 5.9.3
       vite:
         specifier: 'catalog:'
-        version: 7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3)
+        version: 7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3)
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
 
   packages/universo-react-playcanvas-engine:
     dependencies:
@@ -2565,7 +2565,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
 
   packages/universo-react-profile-backend:
     dependencies:
@@ -2669,7 +2669,7 @@ importers:
         version: 0.15.7(supports-color@8.1.1)(typescript@5.9.3)
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
 
   packages/universo-react-rest-docs:
     dependencies:
@@ -2889,7 +2889,7 @@ importers:
         version: 0.15.7(supports-color@8.1.1)(typescript@5.9.3)
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
 
   packages/universo-react-store:
     dependencies:
@@ -3087,7 +3087,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
 
   packages/universo-react-types:
     dependencies:
@@ -3112,7 +3112,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
 
   packages/universo-react-utils:
     dependencies:
@@ -3179,7 +3179,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
 
 packages:
 
@@ -6264,6 +6264,9 @@ packages:
   '@smithy/smithy-client@4.12.1':
     resolution: {integrity: sha512-Xf9UFHlAihewfkmLNZ6I/Ek6kcYBKoU3cbRS9Z4q++9GWoW0YFbAHs7wMbuXm+nGuKHZ5OKheZMuDdaWPv8DJw==}
     engines: {node: '>=18.0.0'}
+    deprecated: |-
+      Deprecated due to a bug in custom logger data redaction. Upgrade to the latest version. If you used a custom logger with
+        this version, review your logs and rotate any credentials or other secrets. See https://github.com/aws/aws-sdk-js-v3/issues/8393.
 
   '@smithy/types@4.13.0':
     resolution: {integrity: sha512-COuLsZILbbQsdrwKQpkkpyep7lCsByxwj7m0Mg5v66/ZTyenlfBc40/QFQ5chO0YN/PNEH1Bi3fGtfXPnYNeDw==}
@@ -9310,6 +9313,7 @@ packages:
   http-call@5.3.0:
     resolution: {integrity: sha512-ahwimsC23ICE4kPl9xTBjKB4inbRaeLyZeRunC/1Jy/Z6X8tv22MEAjK+KBOMSVLaqXPTTmd8638waVIKLGx2w==}
     engines: {node: '>=8.0.0'}
+    deprecated: Renamed to @heroku/http-call — please install @heroku/http-call instead.
 
   http-errors@2.0.1:
     resolution: {integrity: sha512-4FbRdAX+bSdmo4AUFuS0WNiPz8NgFt+r8ThgNWmlrjQjt1Q7ZR9+zTlce2859x4KSXrwIsaeTqDoKQmtP8pLmQ==}
@@ -12721,8 +12725,8 @@ packages:
     resolution: {integrity: sha512-LII3bXRFBZLlezoG5FfZVcXflZgWP/4dCwKtxd5ky9+LOtM4CS3bIRQsmR1KMnMW07jpE8fqR2lcxPZ+8sJIcw==}
     engines: {node: '>= 0.10'}
 
-  vite@7.3.2:
-    resolution: {integrity: sha512-Bby3NOsna2jsjfLVOHKes8sGwgl4TT0E6vvpYgnAYDIF/tie7MRaFthmKuHx1NSXjiTueXH3do80FMQgvEktRg==}
+  vite@7.3.8:
+    resolution: {integrity: sha512-3tTi78MAKhVk9h+YZVXMQ8POmneJuE97QUPAWtJghHzhH7BAyiqQOC2KZh1DWOsu/USB2cRXhznPByaabvYXfw==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
     peerDependencies:
@@ -17981,7 +17985,7 @@ snapshots:
 
   '@ungap/structured-clone@1.3.0': {}
 
-  '@vitejs/plugin-react@5.2.0(supports-color@8.1.1)(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))':
+  '@vitejs/plugin-react@5.2.0(supports-color@8.1.1)(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))':
     dependencies:
       '@babel/core': 7.29.0(supports-color@8.1.1)
       '@babel/plugin-transform-react-jsx-self': 7.27.1(@babel/core@7.29.0(supports-color@8.1.1))
@@ -17989,7 +17993,7 @@ snapshots:
       '@rolldown/pluginutils': 1.0.0-rc.3
       '@types/babel__core': 7.20.5
       react-refresh: 0.18.0
-      vite: 7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3)
+      vite: 7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3)
     transitivePeerDependencies:
       - supports-color
 
@@ -18005,7 +18009,7 @@ snapshots:
       obug: 2.2.1
       std-env: 4.2.0
       tinyrainbow: 3.1.1
-      vitest: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
+      vitest: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
 
   '@vitest/expect@4.1.11':
     dependencies:
@@ -18016,14 +18020,14 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.1
 
-  '@vitest/mocker@4.1.11(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))':
+  '@vitest/mocker@4.1.11(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))':
     dependencies:
       '@vitest/spy': 4.1.11
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
       msw: 2.12.10(@types/node@22.19.18)(typescript@5.9.3)
-      vite: 7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3)
+      vite: 7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3)
 
   '@vitest/pretty-format@4.1.11':
     dependencies:
@@ -24613,14 +24617,14 @@ snapshots:
       remove-trailing-separator: 1.1.0
       replace-ext: 1.0.1
 
-  vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3):
+  vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3):
     dependencies:
       esbuild: 0.27.4
       fdir: 6.5.0(picomatch@4.0.4)
       picomatch: 4.0.4
       postcss: 8.5.23
       rollup: 4.59.0
-      tinyglobby: 0.2.15
+      tinyglobby: 0.2.17
     optionalDependencies:
       '@types/node': 22.19.18
       fsevents: 2.3.3
@@ -24630,10 +24634,10 @@ snapshots:
       terser: 5.46.0
       yaml: 2.8.3
 
-  vitest@4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3)):
+  vitest@4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.18)(@vitest/coverage-v8@4.1.11)(happy-dom@20.8.9)(jsdom@20.0.3(supports-color@8.1.1))(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3)):
     dependencies:
       '@vitest/expect': 4.1.11
-      '@vitest/mocker': 4.1.11(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
+      '@vitest/mocker': 4.1.11(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(vite@7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3))
       '@vitest/pretty-format': 4.1.11
       '@vitest/runner': 4.1.11
       '@vitest/snapshot': 4.1.11
@@ -24650,7 +24654,7 @@ snapshots:
       tinyexec: 1.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.1.1
-      vite: 7.3.2(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3)
+      vite: 7.3.8(@types/node@22.19.18)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)(yaml@2.8.3)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.0

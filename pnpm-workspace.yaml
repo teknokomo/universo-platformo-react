@@ -156,7 +156,7 @@ catalog:
     # broken CJS code with __esm() wrappers that fail on circular dependencies
     # See: circular deps issue in some packages (storageUtils <-> utils)
     tsdown: 0.15.7
-    vite: ^7.3.2
+    vite: ^7.3.7
     '@vitejs/plugin-react': ^5.1.4
     vitest: ^4.1.6
     '@vitest/coverage-v8': ^4.1.6
