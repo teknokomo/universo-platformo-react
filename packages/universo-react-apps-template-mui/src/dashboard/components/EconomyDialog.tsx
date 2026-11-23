@@ -281,7 +281,7 @@ export default function EconomyDialog({ open, onClose }: EconomyDialogProps) {
             applicationId,
             { locale, workspaceId: details?.currentWorkspaceId ?? null }
         ],
-        queryFn: ({ signal }) => fetchRuntimeEconomySummary(apiBaseUrl, applicationId, signal),
+        queryFn: ({ signal }) => fetchRuntimeEconomySummary(apiBaseUrl, applicationId, details?.currentWorkspaceId ?? null, signal),
         // Poll only while the dialog is visible — a closed dialog must not keep
         // issuing summary requests in the background.
         enabled: canFetch && open,
@@ -299,7 +299,8 @@ export default function EconomyDialog({ open, onClose }: EconomyDialogProps) {
                 applicationId,
                 input.kind,
                 { nomenclatureCode: input.nomenclatureCode, quantity: input.quantity },
-                input.idempotencyKey
+                input.idempotencyKey,
+                details?.currentWorkspaceId ?? null
             ),
         onSuccess: async () => {
             // Invalidate the whole summary family (D10) so the balance, cargo

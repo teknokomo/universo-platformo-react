@@ -30,6 +30,9 @@ widget are described in the [MMOOMM Flight Simulator](mmoomm-flight-simulator.md
 -   `AsteroidStatus` enumeration — `Active`, `Depleted`. A depleted asteroid
     stops accepting fire and stays depleted after reload; there is no respawn
     in the MVP.
+
+![Depleted asteroid rendered dimmed in the belt](../.gitbook/assets/mmoomm-mining/mmoomm-mining-depleted-en.png)
+
 -   `MiningConstants` — a Set with nine fixed values (see the constants table
     below).
 
@@ -50,11 +53,13 @@ the Operation entity (the fixture contract check fails without it).
 The client renders the belt from the state API and selects a target with a
 click/tap (a drag keeps rotating the camera — the click threshold is ~6 px).
 Hovering an asteroid faintly lights it up; the **selected** target keeps the
-full glow, and the Fire button carries its code (`Fire: AST-04`) — the button
-stays disabled until an asteroid is explicitly selected. `Fire` in the
-toolbar, or the `F` key while the canvas is focused, sends the fire request;
-the client runs no shot queue and applies a local cooldown after every own
-shot.
+full glow, and the Fire control stays disabled until an asteroid is
+explicitly selected. Clicking the selected asteroid again clears the target.
+The `Fire` toolbar button, or the `F` key while the canvas is focused, sends
+the request; the client runs no shot queue and applies a local cooldown after
+every own shot.
+
+![Mining fire with the chunk burst](../.gitbook/assets/mmoomm-mining/mmoomm-mining-fire-en.png)
 
 Ships collide with the belt: the authored flight module reads the Asteroid
 records into the room's `occupiedSpheres`, the fixed-tick movement stops the
@@ -106,7 +111,7 @@ protected by the cooldown and the asteroid row lock instead.
 ## Targeting & Controls
 
 -   Click/tap an asteroid — select the fire target (the glow shell highlights
-    it; hover shows the same highlight + distance).
+    the selection; hover only shows a faint highlight; click again to clear).
 -   `Fire` toolbar button or `F` — fire at the selected target; disabled
     without a target, during the cooldown, or while a shot is in flight.
 -   Drag — camera orbit, unchanged; `Space` is intentionally unbound.
@@ -139,6 +144,8 @@ and the selected target with its distance and availability. The operations
 list in the [economy dialog](mmoomm-economy.md) renders `Mine` rows through the
 pre-wired localized label. When the hold is full, the error offers a
 "Sell ore" shortcut that opens the economy dialog — it never auto-sells.
+
+![Mining HUD with the live target and cargo readout](../.gitbook/assets/mmoomm-mining/mmoomm-mining-hud-en.png)
 
 ## Configuration Constants
 

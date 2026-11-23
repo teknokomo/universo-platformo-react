@@ -807,6 +807,10 @@ const assertMiningConstantsSane = (constants: MiningConstants): void => {
     if (!(constants.miningCooldownMs >= 0)) violations.push('MiningCooldownMs must be >= 0')
     if (!(constants.chunksPerHitMin >= 1)) violations.push('ChunksPerHitMin must be >= 1')
     if (constants.chunksPerHitMax < constants.chunksPerHitMin) violations.push('ChunksPerHitMax must be >= ChunksPerHitMin')
+    // TZ §7.4 caps a hit at 1-3 chunks and the fire response schema enforces
+    // `chunks.max(3)` — a larger configured bound would emit a response the
+    // client schema rejects (CodeRabbit, PR #934).
+    if (!(constants.chunksPerHitMax <= 3)) violations.push('ChunksPerHitMax must be <= 3')
     if (!(constants.chunkMassMinKg > 0)) violations.push('ChunkMassMinKg must be > 0')
     if (constants.chunkMassMaxKg < constants.chunkMassMinKg) violations.push('ChunkMassMaxKg must be >= ChunkMassMinKg')
     if (!(constants.chunkMassSkew > 0)) violations.push('ChunkMassSkew must be > 0')

@@ -845,8 +845,16 @@ export type RuntimeEconomyTradeResponse = EconomyTradeResponse
  * Per-user economy state computed server-side; zod-validated against the
  * shared `economySummarySchema` before it reaches the widget.
  */
-export async function fetchRuntimeEconomySummary(apiBaseUrl: string, applicationId: string, signal?: AbortSignal): Promise<EconomySummary> {
-    const url = buildAppApiUrl(apiBaseUrl, applicationId, '/economy/summary')
+export async function fetchRuntimeEconomySummary(
+    apiBaseUrl: string,
+    applicationId: string,
+    workspaceId: string | null | undefined,
+    signal?: AbortSignal
+): Promise<EconomySummary> {
+    const url = new URL(buildAppApiUrl(apiBaseUrl, applicationId, '/economy/summary'))
+    // Same workspace as the joined room (CodeRabbit, PR #934 — the mining
+    // fetchers shared the gap the summary and trade calls have too).
+    if (workspaceId?.trim()) url.searchParams.set('workspaceId', workspaceId.trim())
     const res = await fetch(url.toString(), { credentials: 'include', signal })
     if (!res.ok) {
         return throwAppsApiError(res, 'Economy summary API request failed')
@@ -870,9 +878,12 @@ export async function postEconomyTrade(
     applicationId: string,
     kind: 'sell' | 'buy',
     body: { stationId?: string; nomenclatureCode: string; quantity: number },
-    idempotencyKey: string
+    idempotencyKey: string,
+    workspaceId?: string | null
 ): Promise<RuntimeEconomyTradeResponse> {
-    const url = buildAppApiUrl(apiBaseUrl, applicationId, `/economy/${kind}`)
+    const url = new URL(buildAppApiUrl(apiBaseUrl, applicationId, `/economy/${kind}`))
+    // Station-gated trades resolve the same workspace as the joined room.
+    if (workspaceId?.trim()) url.searchParams.set('workspaceId', workspaceId.trim())
     const res = await fetchWithCsrf(apiBaseUrl, url.toString(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
@@ -900,8 +911,17 @@ export async function postEconomyTrade(
  * §8.1). Belt snapshot + constants for the 2 s poll; zod-validated against the
  * shared `economyMiningStateSchema`.
  */
-export async function fetchMiningState(apiBaseUrl: string, applicationId: string, signal?: AbortSignal): Promise<EconomyMiningState> {
-    const url = buildAppApiUrl(apiBaseUrl, applicationId, '/economy/mining/state')
+export async function fetchMiningState(
+    apiBaseUrl: string,
+    applicationId: string,
+    workspaceId: string | null | undefined,
+    signal?: AbortSignal
+): Promise<EconomyMiningState> {
+    const url = new URL(buildAppApiUrl(apiBaseUrl, applicationId, '/economy/mining/state'))
+    // The mining REST surface must resolve the SAME workspace the realtime room
+    // was joined with — without it the backend falls back to the default
+    // workspace and the flight-session lookup misses (CodeRabbit, PR #934).
+    if (workspaceId?.trim()) url.searchParams.set('workspaceId', workspaceId.trim())
     const res = await fetch(url.toString(), { credentials: 'include', signal })
     if (!res.ok) {
         return throwAppsApiError(res, 'Mining state API request failed')
@@ -925,13 +945,16 @@ export async function postMiningFire(
     apiBaseUrl: string,
     applicationId: string,
     body: { asteroidCode: string },
+    workspaceId: string | null | undefined,
     idempotencyKey?: string
 ): Promise<EconomyMineResponse> {
     const bodyParse = economyMineRequestSchema.safeParse(body)
     if (!bodyParse.success) {
         throw new Error('Mining fire request validation failed')
     }
-    const url = buildAppApiUrl(apiBaseUrl, applicationId, '/economy/mining/fire')
+    const url = new URL(buildAppApiUrl(apiBaseUrl, applicationId, '/economy/mining/fire'))
+    // Same workspace as the joined room (CodeRabbit, PR #934).
+    if (workspaceId?.trim()) url.searchParams.set('workspaceId', workspaceId.trim())
     const res = await fetchWithCsrf(apiBaseUrl, url.toString(), {
         method: 'POST',
         headers: {

@@ -657,10 +657,17 @@ const loadRoomOptionsFromApplicationSchema = async (
     const moduleTargetObjects = toTargetObjects(moduleRoomOptions.targetObjects)
     const moduleGuardBoxes = toGuardBoxes(moduleRoomOptions.guardBoxes)
     const moduleOccupiedSpheres = toOccupiedSpheres(moduleRoomOptions.occupiedSpheres)
+    // Belt colliders are volatile gameplay state (their radii shrink as mining
+    // progresses) and must NOT be part of the room identity: hashing them split
+    // players into different rooms after the first mine (Greptile P1, PR #934).
+    // The colliders are still signed into the room auth and cached for the room
+    // lifetime — stale radii only stay LARGER than the rendered rocks, which is
+    // the safe stop-early direction for the movement clamp.
+    const { occupiedSpheres: _volatileOccupiedSpheres, ...roomIdentityServerOptions } = moduleRoomOptions as Record<string, unknown>
     const roomConfigHash = hashRoomConfig({
         applicationSettings: application.settings ?? null,
         widgetConfig: parsed.data as Record<string, unknown>,
-        serverRoomOptions: moduleRoomOptions
+        serverRoomOptions: roomIdentityServerOptions
     })
     const moduleKey = runtimeModuleId
         ? `${runtimeModuleId}:${runtimeModuleChecksum ?? 'runtime'}:${roomConfigHash}`
@@ -1350,6 +1357,12 @@ const createFixedTickSceneRoom = (
                     )
                 }
 
+                // Reserved-for-reconnect ships (owner offline, reconnect window
+                // open) keep ticking for state decay but must NOT act as
+                // physical obstacles: a ghost parked on a corridor pinned every
+                // other ship until the window expired (CI, PR #934 — a docked
+                // ship could never depart after its wingman dropped).
+                const collidableRuntimes = activeRuntimes.filter((runtime) => !runtime.reconnectingUntil)
                 const collisionContactStates = new Map<string, { state: FixedTickMovementState; contactTime: number }>()
                 const registerCollisionContact = (shipId: string, state: FixedTickMovementState, contactTime: number): void => {
                     const current = collisionContactStates.get(shipId)
@@ -1357,10 +1370,10 @@ const createFixedTickSceneRoom = (
                         collisionContactStates.set(shipId, { state, contactTime })
                     }
                 }
-                for (let leftIndex = 0; leftIndex < activeRuntimes.length; leftIndex += 1) {
-                    for (let rightIndex = leftIndex + 1; rightIndex < activeRuntimes.length; rightIndex += 1) {
-                        const left = activeRuntimes[leftIndex]
-                        const right = activeRuntimes[rightIndex]
+                for (let leftIndex = 0; leftIndex < collidableRuntimes.length; leftIndex += 1) {
+                    for (let rightIndex = leftIndex + 1; rightIndex < collidableRuntimes.length; rightIndex += 1) {
+                        const left = collidableRuntimes[leftIndex]
+                        const right = collidableRuntimes[rightIndex]
                         const leftResult = movementResults.get(left.shipId)
                         const rightResult = movementResults.get(right.shipId)
                         const leftBefore = movementSnapshot.get(left.shipId)
@@ -1415,9 +1428,11 @@ const createFixedTickSceneRoom = (
                     const resolvedResult = collisionState ? { state: collisionState, arrived: false, blocked: true } : result
                     runtime.movement = resolvedResult.state
                     runtime.heading = resolveMovementHeading(runtime.movement, runtime.heading)
+
                     if (resolvedResult.arrived || resolvedResult.blocked || !runtime.movement.target) {
                         runtime.currentCommand = createStoppedCommandState()
                     }
+
                     const shipState = currentState.ships.get(runtime.shipId)
                     if (shipState) {
                         assignMovementState(shipState, runtime.movement)
@@ -1634,12 +1649,14 @@ const createFixedTickSceneRoom = (
             const spawn = findFreeSpawnPosition({
                 origin: this.roomOptions.initialPosition,
                 blockers: this.roomOptions.guardBoxes,
-                occupiedEntities: Array.from(this.ships.values()).map((runtime) => ({
-                    position: runtime.movement.position,
-                    radius: resolveBodyRadius(this.roomOptions.controlledHalfExtents),
-                    halfExtents: this.roomOptions.controlledHalfExtents,
-                    heading: runtime.heading
-                })),
+                occupiedEntities: Array.from(this.ships.values())
+                    .filter((runtime) => !runtime.reconnectingUntil)
+                    .map((runtime) => ({
+                        position: runtime.movement.position,
+                        radius: resolveBodyRadius(this.roomOptions.controlledHalfExtents),
+                        halfExtents: this.roomOptions.controlledHalfExtents,
+                        heading: runtime.heading
+                    })),
                 bodyRadius: resolveBodyRadius(this.roomOptions.controlledHalfExtents),
                 safetyMargin: this.roomOptions.spawnSafetyMargin,
                 maxAttempts: this.roomOptions.spawnMaxAttempts,
@@ -1793,7 +1810,7 @@ const createFixedTickSceneRoom = (
         private applyIntent(runtime: ShipRuntime, intent: MovementIntent): void {
             const occupiedEntities: OccupiedEntityLike[] = [
                 ...Array.from(this.ships.values())
-                    .filter((candidate) => candidate.shipId !== runtime.shipId)
+                    .filter((candidate) => candidate.shipId !== runtime.shipId && !candidate.reconnectingUntil)
                     .map((candidate) => ({
                         position: candidate.movement.position,
                         radius: resolveBodyRadius(this.roomOptions.controlledHalfExtents),
@@ -1837,7 +1854,8 @@ const createFixedTickSceneRoom = (
             if (intent.type === 'move_to_object') {
                 const objectTarget = this.roomOptions.targetObjects[intent.objectId ?? '']
                 if (objectTarget) {
-                    runtime.movement = applyMoveToPointIntent(runtime.movement, resolveSafeIntentTarget(objectTarget))
+                    const resolvedTarget = resolveSafeIntentTarget(objectTarget)
+                    runtime.movement = applyMoveToPointIntent(runtime.movement, resolvedTarget)
                     runtime.currentCommand = { type: 'move_to_object', objectId: intent.objectId ?? '' }
                 }
             }

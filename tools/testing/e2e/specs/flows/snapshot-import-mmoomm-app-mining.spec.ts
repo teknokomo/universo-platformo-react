@@ -355,8 +355,24 @@ test.describe('MMOOMM PlayCanvas Editor snapshot import mining', () => {
         // click-targeting sweep, and every fire leg below happens from the
         // belt vicinity point.
         const dockAtStation = async (legLabel: string): Promise<void> => {
+            // Clear the intent oracle first: 'move_to_object' persists from the
+            // previous dock, so a swallowed click would pass the assertion and
+            // then hang the 240 s arrival poll (PR #934 feedback round).
+            await canvas.evaluate((element) => {
+                delete (element as HTMLCanvasElement).dataset.lastIntentKind
+            })
+            const processedSeqBefore = Number((await canvas.getAttribute('data-last-processed-input-seq')) ?? 0)
             await page.getByTestId('playcanvas-canvas-widget').getByRole('button', { name: MMOOMM_MOVE_TO_TARGET_BUTTON_NAME }).click()
             await expect(canvas).toHaveAttribute('data-last-intent-kind', 'move_to_object', { timeout: 15_000 })
+            // The room must consume the intent: a stationary processed sequence
+            // means the fixed-tick intake dropped it (canControl gate, access
+            // validator or the seq window) and the ship will never move.
+            await expect
+                .poll(async () => Number((await canvas.getAttribute('data-last-processed-input-seq')) ?? 0), {
+                    timeout: 20_000,
+                    message: `${legLabel} room must process the dock intent`
+                })
+                .toBeGreaterThan(processedSeqBefore)
             await expectEconomyArrivalViaApi(api, applicationId, { label: `${legLabel} arrival at the station` })
         }
         const flyToBeltVicinity = async (legLabel: string): Promise<void> => {
@@ -464,6 +480,77 @@ test.describe('MMOOMM PlayCanvas Editor snapshot import mining', () => {
         minedAst01Kg += spaced.totalKg
         totalMinedKg += spaced.totalKg
         ast01Remaining = spacedRemainder
+
+        // ── j. Negative matrix via direct API (TZ §8.2) + idempotency ──
+        // Runs while the ship is parked at the belt right after the first-fire
+        // series: the hold still holds the starter stock plus a few chunks, so
+        // the keyed success fire can never hit the capacity gate. (A later
+        // position raced the fuel fill's residual headroom — CI, PR #934.)
+        const mineOperationsBeforeMatrix = await withE2eDatabaseClient(
+            async (dbClient: MiningDatabaseClient) =>
+                (
+                    await readMiningDbState(dbClient, { schemaName, userId: runManifest.testUser.userId })
+                ).mineOperations
+        )
+
+        const emptyBodyFire = await fireViaApi(api, applicationId, {})
+        expect(emptyBodyFire.status, `${label} missing body must fail with 400`).toBe(400)
+        expect(emptyBodyFire.payload?.code, `${label} missing body error code`).toBe('MINING_INVALID_TARGET')
+
+        // An OVERLONG target code is an invalid target (TZ §8.2 row 1), not a
+        // payload-shape error — it must map to 400, not 422 (CodeRabbit, PR #934).
+        const overlongTargetFire = await fireViaApi(api, applicationId, { asteroidCode: 'X'.repeat(65) })
+        expect(overlongTargetFire.status, `${label} overlong target code must fail with 400`).toBe(400)
+        expect(overlongTargetFire.payload?.code, `${label} overlong target error code`).toBe('MINING_INVALID_TARGET')
+
+        const unknownFieldFire = await fireViaApi(api, applicationId, { asteroidCode: 'AST-01', target: 'e2e-unknown-key' })
+        expect(unknownFieldFire.status, `${label} unknown body field must fail with 422`).toBe(422)
+        expect(unknownFieldFire.payload?.code, `${label} unknown body field error code`).toBe('MINING_INVALID_PAYLOAD')
+
+        const serverOwnedFire = await fireViaApi(api, applicationId, { asteroidCode: 'AST-01', quantity: 5 })
+        expect(serverOwnedFire.status, `${label} server-owned field must fail with 422`).toBe(422)
+        expect(serverOwnedFire.payload?.code, `${label} server-owned field error code`).toBe('MINING_INVALID_PAYLOAD')
+
+        const malformedKeyFire = await fireViaApi(api, applicationId, { asteroidCode: 'AST-01' }, 'not-a-uuid-v7')
+        expect(malformedKeyFire.status, `${label} malformed Idempotency-Key must fail with 400`).toBe(400)
+        expect(malformedKeyFire.payload?.code, `${label} malformed key error code`).toBe('ECONOMY_IDEMPOTENCY_KEY_INVALID')
+
+        const unknownAsteroidFire = await fireViaApi(api, applicationId, { asteroidCode: 'E2E-UNKNOWN-AST' })
+        expect(unknownAsteroidFire.status, `${label} unknown asteroid must fail with 404`).toBe(404)
+        expect(unknownAsteroidFire.payload?.code, `${label} unknown asteroid error code`).toBe('MINING_TARGET_NOT_FOUND')
+
+        // Idempotency: same key replays the stored response, same key with a
+        // different asteroid conflicts. The block sits right after the spaced
+        // series (PR #934 relocation), so wait out the shot cooldown first.
+        await delay(MINING_COOLDOWN_MS + 100)
+        const miningIdempotencyKey = createEconomyIdempotencyKey()
+        const firstKeyedFire = await fireViaApi(api, applicationId, { asteroidCode: 'AST-05' }, miningIdempotencyKey)
+        expect(firstKeyedFire.status, `${label} keyed fire must execute`).toBe(200)
+        const keyedShot = readChunkShot(readFirePayload(firstKeyedFire.payload))
+        // The relocated block runs before the cargo accounting legs — the keyed
+        // chunks must join the mined total (PR #934).
+        totalMinedKg += keyedShot.totalKg
+        expect(readFirePayload(firstKeyedFire.payload).asteroid?.code, `${label} keyed fire asteroid`).toBe('AST-05')
+        const replayedFire = await fireViaApi(api, applicationId, { asteroidCode: 'AST-05' }, miningIdempotencyKey)
+        expect(replayedFire.status, `${label} idempotent replay must return the stored status`).toBe(firstKeyedFire.status)
+        expect(replayedFire.payload, `${label} idempotent replay must return the stored response body`).toEqual(firstKeyedFire.payload)
+        const conflictingFire = await fireViaApi(api, applicationId, { asteroidCode: 'AST-04' }, miningIdempotencyKey)
+        expect(conflictingFire.status, `${label} same key with a different asteroid must conflict`).toBe(409)
+        expect(conflictingFire.payload?.code, `${label} idempotency conflict error code`).toBe('ECONOMY_IDEMPOTENCY_CONFLICT')
+
+        await withE2eDatabaseClient(async (dbClient: MiningDatabaseClient) =>
+            assertMiningDbState(dbClient, {
+                schemaName,
+                userId: runManifest.testUser.userId,
+                expected: {
+                    // Exactly one new Mine row: the keyed fire. Replays, conflicts
+                    // and the negative matrix must not touch the store.
+                    mineOperations: mineOperationsBeforeMatrix + 1,
+                    mineQuantityByAsteroid: { 'AST-05': keyedShot.totalKg }
+                },
+                label: `${label} negative matrix must not change the store (user A)`
+            })
+        )
 
         // ── e. Out of range: fly far from the belt through a move_to_point
         // intent, then fire ── the ship is parked at the belt vicinity (inside
@@ -669,7 +756,12 @@ test.describe('MMOOMM PlayCanvas Editor snapshot import mining', () => {
         let userBId: string | null = null
         try {
             const memberPassword = process.env.E2E_TEST_USER_PASSWORD || 'ChangeMe_E2E-123456!'
-            const memberEmail = `e2e+${runManifest.runId}.mmoomm-mining-user-b@${process.env.E2E_TEST_USER_EMAIL_DOMAIN || 'example.test'}`
+            // The attempt suffix keeps retries collision-proof: a Playwright retry
+            // reuses the runId and would otherwise hit "already registered"
+            // (CI, PR #934).
+            const memberEmail = `e2e+${runManifest.runId}.${Date.now()}.mmoomm-mining-user-b@${
+                process.env.E2E_TEST_USER_EMAIL_DOMAIN || 'example.test'
+            }`
             const defaultRoleCodenames = String(process.env.E2E_TEST_USER_ROLE_CODENAMES || 'User')
                 .split(',')
                 .map((entry) => entry.trim())
@@ -780,69 +872,6 @@ test.describe('MMOOMM PlayCanvas Editor snapshot import mining', () => {
         } finally {
             await disposeApiContext(apiB)
         }
-
-        // ── j. Negative matrix via direct API (TZ §8.2) + idempotency ──
-        // Free the hold first so the keyed success fire cannot hit the capacity
-        // gate (the fuel fill from leg f stays in the cargo). The sell is
-        // station-gated and the keyed fire needs the belt — dock, sell, fly
-        // back.
-        await dockAtStation(`${label} pre-matrix capacity dock`)
-        await sellAllOreViaApi(`${label} pre-matrix capacity sell`)
-        await flyToBeltVicinity(`${label} pre-matrix return`)
-        const mineOperationsBeforeMatrix = await withE2eDatabaseClient(
-            async (dbClient: MiningDatabaseClient) =>
-                (
-                    await readMiningDbState(dbClient, { schemaName, userId: runManifest.testUser.userId })
-                ).mineOperations
-        )
-
-        const emptyBodyFire = await fireViaApi(api, applicationId, {})
-        expect(emptyBodyFire.status, `${label} missing body must fail with 400`).toBe(400)
-        expect(emptyBodyFire.payload?.code, `${label} missing body error code`).toBe('MINING_INVALID_TARGET')
-
-        const unknownFieldFire = await fireViaApi(api, applicationId, { asteroidCode: 'AST-01', target: 'e2e-unknown-key' })
-        expect(unknownFieldFire.status, `${label} unknown body field must fail with 422`).toBe(422)
-        expect(unknownFieldFire.payload?.code, `${label} unknown body field error code`).toBe('MINING_INVALID_PAYLOAD')
-
-        const serverOwnedFire = await fireViaApi(api, applicationId, { asteroidCode: 'AST-01', quantity: 5 })
-        expect(serverOwnedFire.status, `${label} server-owned field must fail with 422`).toBe(422)
-        expect(serverOwnedFire.payload?.code, `${label} server-owned field error code`).toBe('MINING_INVALID_PAYLOAD')
-
-        const malformedKeyFire = await fireViaApi(api, applicationId, { asteroidCode: 'AST-01' }, 'not-a-uuid-v7')
-        expect(malformedKeyFire.status, `${label} malformed Idempotency-Key must fail with 400`).toBe(400)
-        expect(malformedKeyFire.payload?.code, `${label} malformed key error code`).toBe('ECONOMY_IDEMPOTENCY_KEY_INVALID')
-
-        const unknownAsteroidFire = await fireViaApi(api, applicationId, { asteroidCode: 'E2E-UNKNOWN-AST' })
-        expect(unknownAsteroidFire.status, `${label} unknown asteroid must fail with 404`).toBe(404)
-        expect(unknownAsteroidFire.payload?.code, `${label} unknown asteroid error code`).toBe('MINING_TARGET_NOT_FOUND')
-
-        // Idempotency: same key replays the stored response, same key with a
-        // different asteroid conflicts.
-        const miningIdempotencyKey = createEconomyIdempotencyKey()
-        const firstKeyedFire = await fireViaApi(api, applicationId, { asteroidCode: 'AST-05' }, miningIdempotencyKey)
-        expect(firstKeyedFire.status, `${label} keyed fire must execute`).toBe(200)
-        const keyedShot = readChunkShot(readFirePayload(firstKeyedFire.payload))
-        expect(readFirePayload(firstKeyedFire.payload).asteroid?.code, `${label} keyed fire asteroid`).toBe('AST-05')
-        const replayedFire = await fireViaApi(api, applicationId, { asteroidCode: 'AST-05' }, miningIdempotencyKey)
-        expect(replayedFire.status, `${label} idempotent replay must return the stored status`).toBe(firstKeyedFire.status)
-        expect(replayedFire.payload, `${label} idempotent replay must return the stored response body`).toEqual(firstKeyedFire.payload)
-        const conflictingFire = await fireViaApi(api, applicationId, { asteroidCode: 'AST-04' }, miningIdempotencyKey)
-        expect(conflictingFire.status, `${label} same key with a different asteroid must conflict`).toBe(409)
-        expect(conflictingFire.payload?.code, `${label} idempotency conflict error code`).toBe('ECONOMY_IDEMPOTENCY_CONFLICT')
-
-        await withE2eDatabaseClient(async (dbClient: MiningDatabaseClient) =>
-            assertMiningDbState(dbClient, {
-                schemaName,
-                userId: runManifest.testUser.userId,
-                expected: {
-                    // Exactly one new Mine row: the keyed fire. Replays, conflicts
-                    // and the negative matrix must not touch the store.
-                    mineOperations: mineOperationsBeforeMatrix + 1,
-                    mineQuantityByAsteroid: { 'AST-05': keyedShot.totalKg }
-                },
-                label: `${label} negative matrix must not change the store (user A)`
-            })
-        )
 
         // ── k. G3 screenshots: viewport matrix x EN/RU behind MMOOMM_MINING_DOCS_SCREENSHOTS ──
         const captureMiningDocsStage = async (stage: 'belt' | 'fire' | 'hud' | 'depleted', locale: 'en' | 'ru') => {

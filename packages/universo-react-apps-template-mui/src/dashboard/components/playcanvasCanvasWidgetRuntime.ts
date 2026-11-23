@@ -1227,6 +1227,18 @@ export const usePlayCanvasCanvasRuntime = ({
                                 ? { x: localShip.velocity.x, y: localShip.velocity.y, z: localShip.velocity.z }
                                 : null
                         const authoritativePosition = readAuthoritativePosition(state, primaryShipId)
+                        // E2E oracle: the ROOM's ship position (the client
+                        // entity may be a prediction running ahead of the
+                        // server — range checks and arrivals must use this one).
+                        if (authoritativePosition) {
+                            canvas.dataset.authoritativeShipX = authoritativePosition.x.toFixed(2)
+                            canvas.dataset.authoritativeShipY = authoritativePosition.y.toFixed(2)
+                            canvas.dataset.authoritativeShipZ = authoritativePosition.z.toFixed(2)
+                        } else {
+                            delete canvas.dataset.authoritativeShipX
+                            delete canvas.dataset.authoritativeShipY
+                            delete canvas.dataset.authoritativeShipZ
+                        }
                         const flightControl = resolveFlightControl()
                         flightControl?.setAuthoritativeState(authoritativePosition, authoritativeVelocity)
                         if (!flightControl && authoritativePosition) {

@@ -3248,10 +3248,13 @@ describe('PlayCanvasCanvasWidget', () => {
             })
 
             await waitFor(() => expect(apiMocks.postMiningFire).toHaveBeenCalledTimes(1))
-            const [firedApiBaseUrl, firedApplicationId, firedBody, idempotencyKey] = apiMocks.postMiningFire.mock.calls[0]
+            const [firedApiBaseUrl, firedApplicationId, firedBody, firedWorkspaceId, idempotencyKey] = apiMocks.postMiningFire.mock.calls[0]
             expect(firedApiBaseUrl).toBe('/api/v1')
             expect(firedApplicationId).toBe('app-1')
             expect(firedBody).toEqual({ asteroidCode: 'AST-01' })
+            // The request carries the same workspace the realtime room was
+            // joined with (CodeRabbit, PR #934) — null in the test harness.
+            expect(firedWorkspaceId).toBeNull()
             // UUID v7 idempotency key (version nibble 7) travels with the shot.
             expect(idempotencyKey).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
 

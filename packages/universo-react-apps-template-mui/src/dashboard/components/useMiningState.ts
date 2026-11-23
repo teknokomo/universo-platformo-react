@@ -10,6 +10,8 @@ const DEFAULT_MINING_STATE_POLL_MS = 2000
 export interface UseMiningStateOptions {
     apiBaseUrl: string
     applicationId: string
+    /** The workspace the realtime room was joined with (CodeRabbit, PR #934). */
+    workspaceId: string | null | undefined
     /** ready && realtime connected/restored && member mode (TZ §11.5 gating). */
     enabled: boolean
 }
@@ -27,10 +29,10 @@ export interface UseMiningStateResult {
  * default `refetchIntervalInBackground: false` pauses the poll while the tab is
  * hidden, satisfying the visibilitychange requirement without manual listeners.
  */
-export function useMiningState({ apiBaseUrl, applicationId, enabled }: UseMiningStateOptions): UseMiningStateResult {
+export function useMiningState({ apiBaseUrl, applicationId, workspaceId, enabled }: UseMiningStateOptions): UseMiningStateResult {
     const query = useQuery({
-        queryKey: [MINING_STATE_QUERY_KEY_PREFIX, apiBaseUrl, applicationId],
-        queryFn: ({ signal }) => fetchMiningState(apiBaseUrl, applicationId, signal),
+        queryKey: [MINING_STATE_QUERY_KEY_PREFIX, apiBaseUrl, applicationId, workspaceId ?? null],
+        queryFn: ({ signal }) => fetchMiningState(apiBaseUrl, applicationId, workspaceId, signal),
         enabled,
         refetchInterval: (query) =>
             (query.state.data as EconomyMiningState | undefined)?.constants.statePollMs ?? DEFAULT_MINING_STATE_POLL_MS

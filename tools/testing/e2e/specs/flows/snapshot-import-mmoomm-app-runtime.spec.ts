@@ -50,9 +50,20 @@ const isIgnoredBrowserRegressionIssue = (issue: BrowserRegressionIssue) => {
     if (issue.source === 'requestfailed' && issue.text === 'net::ERR_ABORTED') {
         return true
     }
+    // The deliberate offline legs make every in-flight REST poll fail — the
+    // mining state poll (PR #934) is the first REST poller on this page, so
+    // its disconnect errors are expected noise, like the WebSocket ones.
+    if (
+        issue.source === 'requestfailed' &&
+        issue.text === 'net::ERR_INTERNET_DISCONNECTED' &&
+        /\/runtime\/economy\/mining\/state(?:\?|$)/.test(issue.url ?? '')
+    ) {
+        return true
+    }
     return (
         issue.source === 'console' &&
         ((issue.text.includes('WebSocket connection to') && issue.text.includes('net::ERR_INTERNET_DISCONNECTED')) ||
+            issue.text === 'Failed to load resource: net::ERR_INTERNET_DISCONNECTED' ||
             issue.text === 'Permissions policy violation: xr-spatial-tracking is not allowed in this document.')
     )
 }
@@ -242,7 +253,12 @@ test.describe('MMOOMM PlayCanvas Editor snapshot import runtime', () => {
         let secondClientCredentials: { email: string; password: string } | null = null
         try {
             const memberPassword = process.env.E2E_TEST_USER_PASSWORD || 'ChangeMe_E2E-123456!'
-            const memberEmail = `e2e+${runManifest.runId}.mmoomm-non-member@${process.env.E2E_TEST_USER_EMAIL_DOMAIN || 'example.test'}`
+            // The attempt suffix keeps retries collision-proof: Playwright retry #1
+            // reused the same runId and the second create-user call failed with
+            // "already registered" (CI, PR #934).
+            const memberEmail = `e2e+${runManifest.runId}.${Date.now()}.mmoomm-non-member@${
+                process.env.E2E_TEST_USER_EMAIL_DOMAIN || 'example.test'
+            }`
             const defaultRoleCodenames = String(process.env.E2E_TEST_USER_ROLE_CODENAMES || 'User')
                 .split(',')
                 .map((entry) => entry.trim())

@@ -490,7 +490,12 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
     const [miningCooldownUntilMs, setMiningCooldownUntilMs] = useState(0)
     const [hudCargoOverrideKg, setHudCargoOverrideKg] = useState<number | null>(null)
     const miningEnabled = Boolean(applicationId) && ready && !isVisualLabScene && runtimeAccessMode === 'member'
-    const miningQuery = useMiningState({ apiBaseUrl, applicationId: applicationId ?? '', enabled: miningEnabled })
+    const miningQuery = useMiningState({
+        apiBaseUrl,
+        applicationId: applicationId ?? '',
+        workspaceId: currentWorkspaceId,
+        enabled: miningEnabled
+    })
     const miningAsteroids = miningQuery.data?.asteroids ?? null
     const miningConstants = miningQuery.data?.constants ?? null
     const miningReducedMotion = useMemo(() => {
@@ -502,15 +507,27 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
     }, [])
 
     // The cargo HUD (used/max) backs onto the economy summary with a slow poll;
-    // own-fire responses patch the used value locally (TZ §11.4/§11.5).
+    // own-fire responses patch the used value locally (TZ §11.4/§11.5). The key
+    // lives INSIDE the `economy-summary` family so firing (which invalidates
+    // the family) refreshes it immediately — previously a separate family was
+    // only refreshed by the 15 s poll.
     const economySummaryHudQuery = useQuery({
-        queryKey: [queryKeyPrefix, 'economy-summary-hud', apiBaseUrl, applicationId],
+        queryKey: [queryKeyPrefix, 'economy-summary', 'hud', apiBaseUrl, applicationId],
         enabled: Boolean(applicationId) && ready && runtimeAccessMode === 'member',
         refetchInterval: 15_000,
-        queryFn: ({ signal }) => fetchRuntimeEconomySummary(apiBaseUrl, applicationId ?? '', signal)
+        queryFn: ({ signal }) => fetchRuntimeEconomySummary(apiBaseUrl, applicationId ?? '', currentWorkspaceId, signal)
     })
     const hudCapacityKg = economySummaryHudQuery.data?.capacity.maxKg ?? null
     const hudCargoUsedKg = hudCargoOverrideKg ?? economySummaryHudQuery.data?.capacity.usedKg ?? null
+
+    // A fresher summary supersedes the optimistic own-fire value: without this
+    // the HUD cargo (and the near-full warning) stayed frozen at the last
+    // shot's number after sells/buys even once the poll succeeded (Greptile
+    // P2, PR #934).
+    const hudSummaryUpdatedAt = economySummaryHudQuery.dataUpdatedAt
+    useEffect(() => {
+        setHudCargoOverrideKg(null)
+    }, [hudSummaryUpdatedAt])
 
     // Push the belt payload into the canvas layer. The events are identity-keyed
     // so poll updates rebuild ONLY the asteroid layer — the canvas never tears
@@ -553,7 +570,10 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
         }
         canvas.addEventListener('playcanvas-mining-target-state', handler)
         return () => canvas.removeEventListener('playcanvas-mining-target-state', handler)
-    }, [])
+        // The canvas node mounts only once the scene is ready — attaching on
+        // the first render left the listener detached forever and the HUD
+        // never received distances (Greptile P2, PR #934).
+    }, [ready, sceneReady])
 
     const miningCooldownActive = Date.now() < miningCooldownUntilMs
 
@@ -565,7 +585,7 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
 
     const miningFireMutation = useMutation({
         mutationFn: (vars: { asteroidCode: string; idempotencyKey: string }) =>
-            postMiningFire(apiBaseUrl, applicationId ?? '', { asteroidCode: vars.asteroidCode }, vars.idempotencyKey),
+            postMiningFire(apiBaseUrl, applicationId ?? '', { asteroidCode: vars.asteroidCode }, currentWorkspaceId, vars.idempotencyKey),
         onSuccess: async (response) => {
             setMiningAlert(null)
             // A fire changes cargo/balance server-side — invalidate the economy
@@ -580,7 +600,7 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
             if (miningQuery.data) {
                 // Own-shot local update (TZ §11.5): patch the belt payload so the
                 // HUD/target info reflects the fire without waiting for a poll.
-                queryClient.setQueryData([MINING_STATE_QUERY_KEY_PREFIX, apiBaseUrl, applicationId], {
+                queryClient.setQueryData([MINING_STATE_QUERY_KEY_PREFIX, apiBaseUrl, applicationId, currentWorkspaceId ?? null], {
                     ...miningQuery.data,
                     asteroids: applyFireResult(miningQuery.data.asteroids, response)
                 })

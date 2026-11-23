@@ -685,12 +685,6 @@ export function createRuntimeEconomyService({ getDbExecutor, query }: RuntimeEco
             const economy = await resolveEconomyConfig(tx, ctx)
             const mining = await resolveMiningConfig(tx, ctx)
 
-            // ③ Flight session via the read-only room bridge (never the client).
-            const flightContext = await describeFlightContext(applicationId, ctx.userId, ctx.currentWorkspaceId)
-            if (!flightContext?.position) {
-                throwEconomyFailure('MINING_NO_FLIGHT_SESSION', 'Mining requires an active flight session')
-            }
-
             // ④ Target: FOR UPDATE row + re-check under the lock (TZ §9.4
             // steps 1-2 — the TOCTOU guard). Unknown code ⇒ 404.
             const asteroid = await loadAsteroidByCodeForUpdate(tx, ctx, mining, body.asteroidCode)
@@ -699,6 +693,16 @@ export function createRuntimeEconomyService({ getDbExecutor, query }: RuntimeEco
             }
             if (asteroid.status !== 'Active' || asteroid.remainingQuantityKg <= 0) {
                 throwEconomyFailure('MINING_DEPLETED', 'Asteroid is depleted')
+            }
+
+            // ③ Flight session via the read-only room bridge (never the client).
+            // Read AFTER the asteroid lock so the range check below uses the
+            // freshest authoritative ship position (CodeRabbit, PR #934): a
+            // pre-lock read lets a ship that already flew out of range still
+            // land a shot.
+            const flightContext = await describeFlightContext(applicationId, ctx.userId, ctx.currentWorkspaceId)
+            if (!flightContext?.position) {
+                throwEconomyFailure('MINING_NO_FLIGHT_SESSION', 'Mining requires an active flight session')
             }
 
             // ⑤ Distance vs the TZ §9.2 effective radius (same formula as the
@@ -712,8 +716,12 @@ export function createRuntimeEconomyService({ getDbExecutor, query }: RuntimeEco
             await assertMiningCooldown(tx, ctx, applicationId, economy, mining)
 
             // ⑦ Capacity read from the ledger projection (server-injected).
+            // Free space rounds DOWN to the tenth: trades accept fractional
+            // quantities (fuel weighs 0.8 kg/L), so the true headroom can sit
+            // between tenths and a round-to-nearest shot could overfill the
+            // hold by up to 0.05 kg (Greptile P1, PR #934).
             const cargo = await computeCargo(ledgerService, tx, ctx, economy)
-            const capacityLeftKg = roundToTenth(economy.maxCargoMassKg - cargo.usedKg)
+            const capacityLeftKg = Math.floor((economy.maxCargoMassKg - cargo.usedKg) * 10) / 10
 
             // ⑧ Chunk computation (TZ §9.3) — per-asteroid bounds override the
             // constants; rejections happen BEFORE any Operation is created.

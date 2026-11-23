@@ -1545,8 +1545,12 @@ describe('runtimeEconomyService', () => {
         })
 
         it('flips the asteroid to Depleted when the remainder is exhausted', async () => {
+            // The remainder sits BELOW the minimum chunk (0.8 kg): the last-chunk
+            // clamp then always consumes it exactly, so this assertion is
+            // deterministic (a 1 kg remainder left 0.2 kg ~half the time when a
+            // single small chunk < 1 was drawn — residual duration flake).
             const { state, harness } = buildFireService({
-                asteroidRows: [buildAsteroidRow({ remaining_quantity: 1 })]
+                asteroidRows: [buildAsteroidRow({ remaining_quantity: 0.5 })]
             })
             const outcome = await harness.service.executeMiningFire(harness.ctx, APPLICATION_ID, { asteroidCode: 'AST-01' })
             expect(outcome.kind).toBe('executed')
@@ -1596,6 +1600,10 @@ describe('runtimeEconomyService', () => {
                 ['MiningCooldownMs', -1, 'MiningCooldownMs must be >= 0'],
                 ['ChunksPerHitMin', 0, 'ChunksPerHitMin must be >= 1'],
                 ['ChunksPerHitMax', 0, 'ChunksPerHitMax must be >= ChunksPerHitMin'],
+                // TZ §7.4 caps a hit at 1-3 chunks and the response schema
+                // enforces chunks.max(3) — a larger bound must fail closed
+                // (CodeRabbit, PR #934).
+                ['ChunksPerHitMax', 4, 'ChunksPerHitMax must be <= 3'],
                 ['ChunkMassMinKg', 0, 'ChunkMassMinKg must be > 0'],
                 ['ChunkMassMaxKg', 0.1, 'ChunkMassMaxKg must be >= ChunkMassMinKg'],
                 ['ChunkMassSkew', 0, 'ChunkMassSkew must be > 0'],

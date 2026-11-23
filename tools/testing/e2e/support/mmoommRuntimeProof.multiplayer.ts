@@ -11,6 +11,7 @@ import {
     type MmoommRuntimeParityTrace
 } from './mmoommScriptAssetsProof'
 import { expectMmoommCanvasContained, expectMmoommRuntimeNoTechnicalLeakage, readCanvasNumberDataset } from './mmoommRuntimeProof.canvas'
+import { flyMiningShipToPoint, waitUntilMiningShipNear } from './mmoommMiningProof'
 import {
     MMOOMM_MOVE_TO_TARGET_BUTTON_NAME,
     MMOOMM_RECONNECT_TIMEOUT,
@@ -88,14 +89,6 @@ export const expectMmoommSecondClientAndReconnect = async (
                 .toBe(true)
         }
 
-        // Park the ship mid-route before the offline dance: the room keeps
-        // ticking while the client is offline, so an unparked ship can already
-        // sit at the station when the client restores — the post-reconnect
-        // move intent would then be a no-op and the movement trace empty
-        // (observed in the collision-era runtime journey, 2026-11-22).
-        await primaryWidget.getByRole('button', { name: MMOOMM_STOP_BUTTON_NAME }).click()
-        await expect(primaryCanvas).toHaveAttribute('data-last-intent-kind', 'stop', { timeout: 15_000 })
-
         await primaryPage.context().setOffline(true)
         await expect(primaryCanvas).toHaveAttribute('data-realtime-status', 'reconnecting', { timeout: 15_000 })
         await expect(primaryWidget.getByTestId('playcanvas-realtime-status')).toContainText(/reconnecting/i)
@@ -108,16 +101,26 @@ export const expectMmoommSecondClientAndReconnect = async (
         await expect(primaryCanvas).toHaveAttribute('data-remote-ship-count', '1', { timeout: 30_000 })
         await expectNoPageHorizontalOverflow(primaryPage, 'MMOOMM runtime after reconnect')
 
+        // Deterministically reposition the ship BEFORE the traced control
+        // intent: the room keeps ticking while the client is offline, so the
+        // first intent may already have parked the ship at the station, which
+        // made a repeated move-to-target a no-op and left the movement trace
+        // empty (flaked in CI, PR #934). Flying to a known retreat point and
+        // waiting for arrival guarantees the return flight has distance to
+        // cover — this also proves post-reconnect movement control itself.
+        const reconnectRetreatPoint = { x: 18, y: 3, z: -9 }
+        await flyMiningShipToPoint(primaryPage, reconnectRetreatPoint, 'MMOOMM post-reconnect retreat')
+        await waitUntilMiningShipNear(primaryPage, reconnectRetreatPoint, 'MMOOMM post-reconnect retreat arrival', 30)
+
         await primaryWidget.getByRole('button', { name: MMOOMM_MOVE_TO_TARGET_BUTTON_NAME }).click()
         await expect(primaryCanvas).toHaveAttribute('data-last-intent-kind', 'move_to_object', { timeout: 15_000 })
         // Capture the movement while the second post-reconnect intent is still
         // connected. The window is generous (3 s): the reconnect bookkeeping
         // (state re-sync, intent-sequence rebind) can delay the first visible
-        // step for a few hundred milliseconds, and a 1.4 s window occasionally
-        // raced it (2026-11-22 collision-era journeys). The next step
-        // deliberately takes the client offline to verify the failed-reconnect
-        // state, where controls are disabled and no new movement should be
-        // expected from the browser oracle.
+        // step for a few hundred milliseconds. The next step deliberately
+        // takes the client offline to verify the failed-reconnect state, where
+        // controls are disabled and no new movement should be expected from the
+        // browser oracle.
         const movementTrace = await captureMmoommRuntimeParityTrace(primaryPage, primaryCanvas, {
             samples: 20,
             intervalMs: 150

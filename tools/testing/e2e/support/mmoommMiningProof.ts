@@ -327,6 +327,11 @@ export const waitUntilMiningShipNear = async (
                 const ship = await page.evaluate(() => {
                     const canvas = document.querySelector('[data-testid="playcanvas-canvas"]') as HTMLCanvasElement | null
                     const read = (key: string): number => Number(canvas?.dataset[key as 'shipX'])
+                    // The AUTHORITATIVE room position first — the rendered ship
+                    // may be a solo prediction running ahead of the server
+                    // (fires and arrivals are validated server-side).
+                    const authoritative = [read('authoritativeShipX'), read('authoritativeShipY'), read('authoritativeShipZ')]
+                    if (authoritative.every((value) => Number.isFinite(value))) return authoritative
                     const values = [read('shipX'), read('shipY'), read('shipZ')]
                     return values.every((value) => Number.isFinite(value)) ? values : null
                 })
@@ -350,6 +355,14 @@ export const flyMiningShipToPoint = async (
 ): Promise<void> => {
     await page.evaluate((point) => {
         const canvas = document.querySelector('[data-testid="playcanvas-canvas"]') as MiningControlCanvas | null
+        // The intent oracles persist across legs — clear them so the
+        // assertions below prove THIS dispatch, not a stale value from an
+        // earlier intent (a swallowed dispatch then fails fast instead of
+        // hanging an arrival poll downstream).
+        if (canvas) {
+            delete canvas.dataset.lastIntentKind
+            delete canvas.dataset.lastIntentTargetX
+        }
         canvas?.__playcanvasMoveToTarget?.({ x: point.x, y: point.y, z: point.z })
     }, target)
     const canvas = getMiningCanvas(page)

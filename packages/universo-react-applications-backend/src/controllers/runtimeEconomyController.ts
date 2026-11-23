@@ -178,7 +178,11 @@ export function createRuntimeEconomyController(getDbExecutor: () => DbExecutor) 
         // ZodError from escaping as an unmapped 500 (trade uses a codeless 400
         // here; mining maps it deliberately per the documented codes).
         const rawAsteroidCode = typeof req.body?.asteroidCode === 'string' ? req.body.asteroidCode.trim() : ''
-        if (!rawAsteroidCode) {
+        // TZ §8.2 row 1 covers an INVALID code too: an overlong value is a bad
+        // target (400 MINING_INVALID_TARGET), not a payload-shape error — the
+        // schema's max(64) would otherwise surface it as 422 (CodeRabbit,
+        // PR #934).
+        if (!rawAsteroidCode || rawAsteroidCode.length > 64) {
             return res.status(400).json({ error: 'Choose an asteroid', code: 'MINING_INVALID_TARGET' })
         }
         if (hasForbiddenBodyKey(req.body, FORBIDDEN_MINING_BODY_KEYS)) {
