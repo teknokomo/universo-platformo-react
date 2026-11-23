@@ -34,6 +34,7 @@ const SCHEMA_NAME = 'app_019a0000000070008000000000e0c0'
 const SCHEMA_IDENT = `"${SCHEMA_NAME}"`
 
 const USER_A = '019a0000-0000-7000-8000-0000000000a1'
+const USER_B = '019a0000-0000-7000-8000-0000000000a2'
 const APPLICATION_ID = '019a0000-0000-7000-8000-0000000000b1'
 const SET_ID = '019a0000-0000-7000-8000-0000000000c1'
 const NOMENCLATURE_OBJECT_ID = '019a0000-0000-7000-8000-0000000000c2'
@@ -160,6 +161,10 @@ const OPERATION_ATTRS = [
         is_required: true
     }),
     attr({ id: '019a0000-0000-7000-8000-000000000136', codename: 'UnitPrice', column_name: 'unit_price', data_type: 'NUMBER' }),
+    attr({ id: '019a0000-0000-7000-8000-000000000138', codename: 'TotalPrice', column_name: 'total_price', data_type: 'NUMBER' }),
+    // Mining TZ §10.2/§10.3: server-stamped STRING discriminators (physical TEXT).
+    attr({ id: '019a0000-0000-7000-8000-000000000139', codename: 'OperationKind', column_name: 'operation_kind', data_type: 'STRING' }),
+    attr({ id: '019a0000-0000-7000-8000-00000000013a', codename: 'AsteroidCode', column_name: 'asteroid_code', data_type: 'STRING' }),
     attr({ id: '019a0000-0000-7000-8000-000000000137', codename: 'OccurredAt', column_name: 'occurred_at', data_type: 'DATE' })
 ]
 
@@ -168,11 +173,55 @@ const STATION_ATTRS = [
     attr({ id: '019a0000-0000-7000-8000-000000000142', codename: 'MarketEnabled', column_name: 'market_enabled', data_type: 'BOOLEAN' })
 ]
 
+// ── Mining belt stubs (mining TZ §7.2/§7.4) ──
+const ASTEROID_OBJECT_ID = '019a0000-0000-7000-8000-0000000000c8'
+const MINING_SET_ID = '019a0000-0000-7000-8000-0000000000c9'
+const DEPLETED_STATUS_VALUE_ID = '019a0000-0000-7000-8000-0000000000d8'
+const MINE_TYPE_VALUE_ID = '019a0000-0000-7000-8000-0000000000d9'
+const ASTEROID_ROW_A_ID = '019a0000-0000-7000-8000-0000000000e8'
+const ASTEROID_ROW_B_ID = '019a0000-0000-7000-8000-0000000000e9'
+
+const ASTEROID_ATTRS = [
+    attr({ id: '019a0000-0000-7000-8000-000000000151', codename: 'Code', column_name: 'code', data_type: 'STRING', is_required: true }),
+    attr({ id: '019a0000-0000-7000-8000-000000000152', codename: 'Name', column_name: 'name', data_type: 'STRING' }),
+    attr({ id: '019a0000-0000-7000-8000-000000000153', codename: 'ResourceCode', column_name: 'resource_code', data_type: 'STRING' }),
+    attr({ id: '019a0000-0000-7000-8000-000000000154', codename: 'PositionX', column_name: 'position_x', data_type: 'NUMBER' }),
+    attr({ id: '019a0000-0000-7000-8000-000000000155', codename: 'PositionY', column_name: 'position_y', data_type: 'NUMBER' }),
+    attr({ id: '019a0000-0000-7000-8000-000000000156', codename: 'PositionZ', column_name: 'position_z', data_type: 'NUMBER' }),
+    attr({ id: '019a0000-0000-7000-8000-000000000157', codename: 'Scale', column_name: 'scale', data_type: 'NUMBER' }),
+    attr({
+        id: '019a0000-0000-7000-8000-000000000158',
+        codename: 'TotalQuantityKg',
+        column_name: 'total_quantity_kg',
+        data_type: 'NUMBER'
+    }),
+    attr({
+        id: '019a0000-0000-7000-8000-000000000159',
+        codename: 'RemainingQuantityKg',
+        column_name: 'remaining_quantity_kg',
+        data_type: 'NUMBER',
+        ui_config: { serverOwned: true }
+    }),
+    attr({
+        id: '019a0000-0000-7000-8000-00000000015a',
+        codename: 'Status',
+        column_name: 'status_id',
+        data_type: 'REF',
+        target_object_id: STATUS_ENUM_ID,
+        target_object_kind: 'enumeration'
+    }),
+    attr({ id: '019a0000-0000-7000-8000-00000000015b', codename: 'VisualVariant', column_name: 'visual_variant', data_type: 'NUMBER' }),
+    attr({ id: '019a0000-0000-7000-8000-00000000015c', codename: 'ChunkMinKg', column_name: 'chunk_min_kg', data_type: 'NUMBER' }),
+    attr({ id: '019a0000-0000-7000-8000-00000000015d', codename: 'ChunkMaxKg', column_name: 'chunk_max_kg', data_type: 'NUMBER' }),
+    attr({ id: '019a0000-0000-7000-8000-00000000015e', codename: 'LastMinedAt', column_name: 'last_mined_at', data_type: 'DATE' })
+]
+
 const ATTRS_BY_OBJECT_ID: Record<string, Array<Record<string, unknown>>> = {
     [NOMENCLATURE_OBJECT_ID]: NOMENCLATURE_ATTRS,
     [WALLET_OBJECT_ID]: WALLET_ATTRS,
     [OPERATION_OBJECT_ID]: OPERATION_ATTRS,
-    [STATION_OBJECT_ID]: STATION_ATTRS
+    [STATION_OBJECT_ID]: STATION_ATTRS,
+    [ASTEROID_OBJECT_ID]: ASTEROID_ATTRS
 }
 
 const OBJECT_ROWS: Record<string, Record<string, unknown>> = {
@@ -191,16 +240,21 @@ const OBJECT_ROWS: Record<string, Record<string, unknown>> = {
         table_name: 'operation',
         config: OPERATION_BEHAVIOR_CONFIG
     },
-    FlightStation: { id: STATION_OBJECT_ID, kind: 'object', codename: 'FlightStation', table_name: 'station', config: null }
+    FlightStation: { id: STATION_OBJECT_ID, kind: 'object', codename: 'FlightStation', table_name: 'station', config: null },
+    Asteroid: { id: ASTEROID_OBJECT_ID, kind: 'object', codename: 'Asteroid', table_name: 'asteroid', config: null }
 }
 
 const ENUM_VALUES_BY_OBJECT_ID: Record<string, Array<Record<string, unknown>>> = {
     [OPERATION_TYPE_ENUM_ID]: [
         { id: STARTER_TYPE_VALUE_ID, codename: 'StarterGrant' },
         { id: SELL_TYPE_VALUE_ID, codename: 'Sell' },
-        { id: BUY_TYPE_VALUE_ID, codename: 'Buy' }
+        { id: BUY_TYPE_VALUE_ID, codename: 'Buy' },
+        { id: MINE_TYPE_VALUE_ID, codename: 'Mine' }
     ],
-    [STATUS_ENUM_ID]: [{ id: ACTIVE_STATUS_VALUE_ID, codename: 'Active' }],
+    [STATUS_ENUM_ID]: [
+        { id: ACTIVE_STATUS_VALUE_ID, codename: 'Active' },
+        { id: DEPLETED_STATUS_VALUE_ID, codename: 'Depleted' }
+    ],
     [UNIT_ENUM_ID]: [
         { id: KG_UNIT_VALUE_ID, codename: 'Kg' },
         { id: LITER_UNIT_VALUE_ID, codename: 'Liter' }
@@ -282,6 +336,125 @@ const FUEL_NOMENCLATURE_ROW = {
     mass_per_unit: 0.8
 }
 
+// Mining TZ §7.4 constants — aligned with the shipped generator values.
+const MINING_CONSTANTS = [
+    {
+        id: '019a0000-0000-7000-8000-000000000210',
+        group_id: MINING_SET_ID,
+        codename: 'MiningRadiusMeters',
+        data_type: 'number',
+        value_json: 80,
+        sort_order: 1
+    },
+    {
+        id: '019a0000-0000-7000-8000-000000000211',
+        group_id: MINING_SET_ID,
+        codename: 'MiningCooldownMs',
+        data_type: 'number',
+        value_json: 350,
+        sort_order: 2
+    },
+    {
+        id: '019a0000-0000-7000-8000-000000000212',
+        group_id: MINING_SET_ID,
+        codename: 'ChunksPerHitMin',
+        data_type: 'number',
+        value_json: 1,
+        sort_order: 3
+    },
+    {
+        id: '019a0000-0000-7000-8000-000000000213',
+        group_id: MINING_SET_ID,
+        codename: 'ChunksPerHitMax',
+        data_type: 'number',
+        value_json: 3,
+        sort_order: 4
+    },
+    {
+        id: '019a0000-0000-7000-8000-000000000214',
+        group_id: MINING_SET_ID,
+        codename: 'ChunkMassMinKg',
+        data_type: 'number',
+        value_json: 0.8,
+        sort_order: 5
+    },
+    {
+        id: '019a0000-0000-7000-8000-000000000215',
+        group_id: MINING_SET_ID,
+        codename: 'ChunkMassMaxKg',
+        data_type: 'number',
+        value_json: 3.2,
+        sort_order: 6
+    },
+    {
+        id: '019a0000-0000-7000-8000-000000000216',
+        group_id: MINING_SET_ID,
+        codename: 'ChunkMassSkew',
+        data_type: 'number',
+        value_json: 1.6,
+        sort_order: 7
+    },
+    {
+        id: '019a0000-0000-7000-8000-000000000217',
+        group_id: MINING_SET_ID,
+        codename: 'ChunkVisualLifetimeMs',
+        data_type: 'number',
+        value_json: 900,
+        sort_order: 8
+    },
+    {
+        id: '019a0000-0000-7000-8000-000000000218',
+        group_id: MINING_SET_ID,
+        codename: 'MiningStatePollMs',
+        data_type: 'number',
+        value_json: 2000,
+        sort_order: 9
+    }
+]
+
+const buildAsteroidRow = (overrides: Record<string, unknown> = {}) => ({
+    id: ASTEROID_ROW_A_ID,
+    code_value: 'AST-01',
+    name_value: 'Asteroid A-01',
+    resource_code_value: 'ORE',
+    position_x: -249,
+    position_y: 7,
+    position_z: 274,
+    scale_value: 7,
+    total_quantity: 120,
+    remaining_quantity: 120,
+    status_value: ACTIVE_STATUS_VALUE_ID,
+    visual_variant: 1,
+    chunk_min_kg: 0.8,
+    chunk_max_kg: 3.2,
+    ...overrides
+})
+
+const ASTEROID_ROWS_DEFAULT = [
+    buildAsteroidRow(),
+    buildAsteroidRow({
+        id: ASTEROID_ROW_B_ID,
+        code_value: 'AST-02',
+        name_value: 'Asteroid A-02',
+        position_x: 50,
+        position_y: -3,
+        position_z: -18,
+        scale_value: 9,
+        total_quantity: 160,
+        remaining_quantity: 160,
+        visual_variant: 2
+    })
+]
+
+// Ship parked at the belt vicinity point (UX round 2026-11-23: the belt lives
+// 450-465 m from the station, so mining fires happen from a dedicated vantage
+// ~27 m off AST-01), far from the station — the trade legs of the suite see
+// the station proximity context instead.
+const MINING_FLIGHT_CONTEXT = {
+    position: { x: -230, y: 3, z: 255 },
+    stations: [{ id: STATION_ROW_ID, position: { x: 72, y: 0, z: -48 } }]
+}
+
 const STATION_PROXIMITY_CONTEXT = {
     position: { x: 0, y: 0, z: 0 },
     stations: [{ id: STATION_ROW_ID, position: { x: 10, y: 0, z: 0 } }]
@@ -294,11 +467,11 @@ let queryProjectionSpy: jest.Spied<typeof RuntimeLedgerService.prototype.queryPr
 let dispatchLifecycleEventSpy: jest.Spied<typeof RuntimeModulesService.prototype.dispatchLifecycleEvent>
 let appendMovementsSpy: jest.Spied<typeof RuntimePostingMovementService.prototype.appendMovements>
 
-const buildCtx = (executor: DbExecutor): RuntimeSchemaContext => ({
+const buildCtx = (executor: DbExecutor, userId: string = USER_A): RuntimeSchemaContext => ({
     schemaName: SCHEMA_NAME,
     schemaIdent: SCHEMA_IDENT,
     manager: executor,
-    userId: USER_A,
+    userId,
     role: 'owner',
     permissions: { ...ROLE_PERMISSIONS.owner } as RuntimeSchemaContext['permissions'],
     workflowCapabilities: {},
@@ -324,6 +497,17 @@ interface EconomyStubState {
     idempotencyPostSaveStored: Array<Record<string, unknown>> | null
     walletBalance: number
     cargoRows: Array<Record<string, unknown>>
+    /** Mining belt rows (mutated by the fire UPDATE handler). */
+    asteroidRows: Array<Record<string, unknown>>
+    /** Rows served to the per-user cooldown probe (`SELECT 1 … LIMIT 1`); the
+     * function form receives the probe params so tests can key rows by the
+     * `_upl_created_by` bind ($1) like the real query does. */
+    miningCooldownRows: Array<Record<string, unknown>> | ((params: unknown[]) => Array<Record<string, unknown>>)
+    /** Runtime constant rows (`_app_constants`) — overridable to drive the
+     * sanity-check failure paths without touching the shared module stubs. */
+    constantsRows: Array<Record<string, unknown>>
+    /** Capture of the fire remainder UPDATE parameters (assertion helper). */
+    lastAsteroidUpdate: { totalKg: number; depletedValueId: string; rowId: string } | null
 }
 
 const buildStubState = (overrides: Partial<EconomyStubState> = {}): EconomyStubState => ({
@@ -340,6 +524,10 @@ const buildStubState = (overrides: Partial<EconomyStubState> = {}): EconomyStubS
     idempotencyPostSaveStored: null,
     walletBalance: 1000,
     cargoRows: [{ NomenclatureCode: 'ORE', Quantity: 10 }],
+    asteroidRows: ASTEROID_ROWS_DEFAULT,
+    miningCooldownRows: [],
+    constantsRows: [...ECONOMY_CONSTANTS, ...MINING_CONSTANTS],
+    lastAsteroidUpdate: null,
     ...overrides
 })
 
@@ -365,10 +553,12 @@ const routeEconomyQueries = (state: EconomyStubState) => {
             return []
         }
 
-        if (statement.includes('._app_constants')) return ECONOMY_CONSTANTS
+        if (statement.includes('._app_constants')) return state.constantsRows
 
         if (statement.includes('._app_objects')) {
-            if (statement.includes("kind = 'set'")) return [{ id: SET_ID }]
+            if (statement.includes("kind = 'set'")) {
+                return [{ id: String(params?.[0]) === 'MiningConstants' ? MINING_SET_ID : SET_ID }]
+            }
             if (statement.includes('ledgerSchema')) {
                 if (statement.includes('id = $1')) {
                     const ledgerRow =
@@ -426,6 +616,31 @@ const routeEconomyQueries = (state: EconomyStubState) => {
 
         if (statement.includes(`FROM ${SCHEMA_IDENT}."station"`)) return state.stationRows
 
+        // Mining belt: FOR UPDATE fire loader filters by code; the plain SELECT
+        // serves the state snapshot; the fire UPDATE mutates the stub rows with
+        // the TZ §9.4 conditional semantics (remaining >= total else zero rows).
+        if (statement.includes(`UPDATE ${SCHEMA_IDENT}."asteroid"`)) {
+            const totalKg = Number(params?.[0])
+            const depletedValueId = String(params?.[1])
+            const rowId = String(params?.[2])
+            state.lastAsteroidUpdate = { totalKg, depletedValueId, rowId }
+            const row = state.asteroidRows.find((item) => String(item.id) === rowId)
+            if (!row) return []
+            const remaining = Number(row.remaining_quantity)
+            if (!(remaining >= totalKg)) return []
+            row.remaining_quantity = Math.round((remaining - totalKg) * 10) / 10
+            if (row.remaining_quantity <= 0) row.status_value = depletedValueId
+            return [{ id: rowId, remaining_quantity: row.remaining_quantity }]
+        }
+
+        if (statement.includes(`FROM ${SCHEMA_IDENT}."asteroid"`)) {
+            if (statement.includes('FOR UPDATE')) {
+                const requestedCode = String(params?.[0] ?? '')
+                return state.asteroidRows.filter((row) => String(row.code_value) === requestedCode)
+            }
+            return state.asteroidRows
+        }
+
         if (statement.includes(`UPDATE ${SCHEMA_IDENT}."operation"`)) return state.postUpdatedRow ? [state.postUpdatedRow] : []
 
         if (statement.includes(`FROM ${SCHEMA_IDENT}."operation"`)) {
@@ -433,6 +648,12 @@ const routeEconomyQueries = (state: EconomyStubState) => {
             if (statement.includes('SELECT *')) {
                 // loadRuntimeRowById after the create insert.
                 return state.postSourceRow ? [state.postSourceRow] : []
+            }
+            // Per-user mining cooldown probe (SELECT 1 … LIMIT 1). The
+            // function form keys rows by the owner bind ($1) like the real
+            // query, enabling cross-user isolation tests.
+            if (statement.includes('SELECT 1')) {
+                return typeof state.miningCooldownRows === 'function' ? state.miningCooldownRows(params ?? []) : state.miningCooldownRows
             }
             // StarterGrant existence probe (SELECT id ... LIMIT 1).
             return state.grantRows
@@ -1206,6 +1427,300 @@ describe('runtimeEconomyService', () => {
             })
             const insert = harness.executor.query.mock.calls.find(([sql]) => String(sql).includes(`INSERT INTO ${SCHEMA_IDENT}."wallet"`))
             expect(insert?.[1] as unknown[]).toContain('CR')
+        })
+    })
+
+    describe('mining belt flows (mining TZ DOC-2026-006)', () => {
+        const MINE_IDEMPOTENCY_KEY = '019a0000-0000-7000-8000-0000000000ab'
+        const postedMineRow = { id: CREATED_OPERATION_ID, _app_record_state: 'posted', _upl_locked: false, _upl_version: 1 }
+
+        const buildFireService = (overrides: Partial<EconomyStubState> = {}) => {
+            const state = buildStubState({
+                postSourceRow: { id: CREATED_OPERATION_ID, _app_record_state: 'draft', _upl_locked: false, _upl_version: 1 },
+                postUpdatedRow: postedMineRow,
+                ...overrides
+            })
+            const harness = buildService(state)
+            // The authored posting module (InventoryLedger-only Mine branch) is
+            // represented by the lifecycle spy returning a single ledger group.
+            dispatchLifecycleEventSpy.mockImplementation(async (params) =>
+                params.payload.eventName === 'beforePost'
+                    ? [
+                          {
+                              movements: [
+                                  {
+                                      ledgerCodename: 'InventoryLedger',
+                                      facts: [
+                                          {
+                                              data: {
+                                                  OwnerKey: USER_A,
+                                                  StationCode: STATION_ROW_ID,
+                                                  NomenclatureCode: 'ORE',
+                                                  Quantity: 2.1,
+                                                  Cost: 0
+                                              }
+                                          }
+                                      ]
+                                  }
+                              ]
+                          }
+                      ]
+                    : []
+            )
+            appendMovementsSpy.mockResolvedValue([
+                { ledgerCodename: 'InventoryLedger', facts: [{ id: '019a0000-0000-7000-8000-0000000000fb' }] }
+            ])
+            return { state, harness }
+        }
+
+        beforeEach(() => {
+            mockDescribeFlightContext.mockResolvedValue(MINING_FLIGHT_CONTEXT)
+        })
+
+        it('returns the belt snapshot with rounded remainders and constants', async () => {
+            const { harness } = buildFireService({
+                asteroidRows: [
+                    buildAsteroidRow({ remaining_quantity: 117.90000000000001 }),
+                    buildAsteroidRow({
+                        id: ASTEROID_ROW_B_ID,
+                        code_value: 'AST-02',
+                        remaining_quantity: 0,
+                        status_value: DEPLETED_STATUS_VALUE_ID,
+                        visual_variant: 2
+                    })
+                ]
+            })
+            const state = await harness.service.getMiningState(harness.ctx)
+            expect(state.asteroids).toHaveLength(2)
+            expect(state.asteroids[0]).toMatchObject({
+                code: 'AST-01',
+                resourceCode: 'ORE',
+                remainingQuantityKg: 117.9, // rounded to 0.1 kg (TZ §8.1)
+                status: 'Active',
+                visualVariant: 1
+            })
+            expect(state.asteroids[1]).toMatchObject({ code: 'AST-02', status: 'Depleted' })
+            expect(state.constants).toMatchObject({
+                miningRadiusMeters: 80,
+                miningCooldownMs: 350,
+                chunkVisualLifetimeMs: 900,
+                statePollMs: 2000
+            })
+        })
+
+        it('executes a fire: posts Mine with an InventoryLedger-only movement and updates the remainder', async () => {
+            const { state, harness } = buildFireService()
+            const outcome = await harness.service.executeMiningFire(harness.ctx, APPLICATION_ID, { asteroidCode: 'AST-01' })
+
+            expect(outcome.kind).toBe('executed')
+            if (outcome.kind !== 'executed') return
+            expect(outcome.status).toBe(200)
+            expect(outcome.body.asteroid).toMatchObject({ code: 'AST-01', status: 'Active' })
+            expect(outcome.body.chunks.length).toBeGreaterThanOrEqual(1)
+            expect(outcome.body.chunks.length).toBeLessThanOrEqual(3)
+            const chunkSum = Math.round(outcome.body.chunks.reduce((acc, chunk) => acc + chunk.massKg, 0) * 10) / 10
+            expect(outcome.body.asteroid.remainingQuantityKg).toBeCloseTo(120 - chunkSum, 5)
+            // The response re-reads the ledger projections; the unit harness's
+            // static projection does not reflect the spy-mocked movement (the
+            // movement→projection reflection is covered by the PG integration
+            // suite), so the fresh read observes the pre-fire projection.
+            expect(outcome.body.cargo.usedKg).toBe(10)
+            expect(outcome.body.wallet).toEqual({ balance: 1000, currency: 'CR' }) // Mine never touches the wallet
+
+            // Posting fired once with the InventoryLedger-only movement group.
+            expect(dispatchLifecycleEventSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ entityCodename: 'Operation', payload: expect.objectContaining({ eventName: 'beforePost' }) })
+            )
+            const movementCall = appendMovementsSpy.mock.calls.at(-1)?.[0]
+            expect(movementCall).toMatchObject({ registrarKind: 'object' })
+
+            // TZ §9.4 step 5: the remainder UPDATE ran with the chunk total and
+            // the resolved Depleted REF value id.
+            expect(state.lastAsteroidUpdate).toMatchObject({
+                totalKg: chunkSum,
+                depletedValueId: DEPLETED_STATUS_VALUE_ID,
+                rowId: ASTEROID_ROW_A_ID
+            })
+            expect(state.asteroidRows[0].remaining_quantity).toBeCloseTo(120 - chunkSum, 5)
+        })
+
+        it('flips the asteroid to Depleted when the remainder is exhausted', async () => {
+            const { state, harness } = buildFireService({
+                asteroidRows: [buildAsteroidRow({ remaining_quantity: 1 })]
+            })
+            const outcome = await harness.service.executeMiningFire(harness.ctx, APPLICATION_ID, { asteroidCode: 'AST-01' })
+            expect(outcome.kind).toBe('executed')
+            if (outcome.kind !== 'executed') return
+            expect(outcome.body.asteroid.status).toBe('Depleted')
+            expect(outcome.body.asteroid.remainingQuantityKg).toBe(0)
+            expect(state.lastAsteroidUpdate?.depletedValueId).toBe(DEPLETED_STATUS_VALUE_ID)
+        })
+
+        it('rejects a second fire inside the cooldown window (per-user, TZ §9.5)', async () => {
+            const { harness } = buildFireService({ miningCooldownRows: [{ ok: 1 }] })
+            await expect(harness.service.executeMiningFire(harness.ctx, APPLICATION_ID, { asteroidCode: 'AST-01' })).rejects.toMatchObject({
+                statusCode: 409,
+                body: { code: 'MINING_COOLDOWN' }
+            })
+        })
+
+        it('keeps cooldowns isolated per user: user B fires inside user A cooldown window (QA MEDIUM backlog)', async () => {
+            // The probe filters by _upl_created_by = $1 — emulate that in the
+            // stub so only user A's probe observes a Mine row inside the window.
+            const { harness } = buildFireService({
+                miningCooldownRows: (params) => (String(params?.[0]) === USER_A ? [{ ok: 1 }] : [])
+            })
+
+            await expect(harness.service.executeMiningFire(harness.ctx, APPLICATION_ID, { asteroidCode: 'AST-01' })).rejects.toMatchObject({
+                statusCode: 409,
+                body: { code: 'MINING_COOLDOWN' }
+            })
+
+            const outcome = await harness.service.executeMiningFire({ ...harness.ctx, userId: USER_B }, APPLICATION_ID, {
+                asteroidCode: 'AST-01'
+            })
+            expect(outcome.kind).toBe('executed')
+
+            // The advisory lock key carries the firing user — user B never
+            // serializes behind user A's cooldown lock.
+            const lockKeys = harness.executor.query.mock.calls
+                .filter(([sql]) => String(sql).includes('pg_advisory_xact_lock'))
+                .map(([, params]) => String((params as unknown[] | undefined)?.[0]))
+            expect(lockKeys).toContain(`mining:${APPLICATION_ID}:${USER_A}`)
+            expect(lockKeys).toContain(`mining:${APPLICATION_ID}:${USER_B}`)
+        })
+
+        it('fails closed on semantically broken mining constants (QA MEDIUM backlog: sanity checks)', async () => {
+            const violations: Array<[string, number, string]> = [
+                ['MiningRadiusMeters', 0, 'MiningRadiusMeters must be > 0'],
+                ['MiningCooldownMs', -1, 'MiningCooldownMs must be >= 0'],
+                ['ChunksPerHitMin', 0, 'ChunksPerHitMin must be >= 1'],
+                ['ChunksPerHitMax', 0, 'ChunksPerHitMax must be >= ChunksPerHitMin'],
+                ['ChunkMassMinKg', 0, 'ChunkMassMinKg must be > 0'],
+                ['ChunkMassMaxKg', 0.1, 'ChunkMassMaxKg must be >= ChunkMassMinKg'],
+                ['ChunkMassSkew', 0, 'ChunkMassSkew must be > 0'],
+                ['ChunkVisualLifetimeMs', 0, 'ChunkVisualLifetimeMs must be > 0'],
+                ['MiningStatePollMs', 0, 'MiningStatePollMs must be > 0']
+            ]
+            for (const [codename, value, message] of violations) {
+                const { harness } = buildFireService({
+                    constantsRows: [
+                        ...ECONOMY_CONSTANTS,
+                        ...MINING_CONSTANTS.map((row) => (row.codename === codename ? { ...row, value_json: value } : row))
+                    ]
+                })
+                await expect(
+                    harness.service.executeMiningFire(harness.ctx, APPLICATION_ID, { asteroidCode: 'AST-01' })
+                ).rejects.toMatchObject({
+                    statusCode: 500,
+                    body: { code: 'MINING_POSTING_FAILED', error: expect.stringContaining(message) }
+                })
+            }
+        })
+
+        it('rejects an unknown asteroid code with 404 MINING_TARGET_NOT_FOUND', async () => {
+            const { harness } = buildFireService({ asteroidRows: [] })
+            await expect(harness.service.executeMiningFire(harness.ctx, APPLICATION_ID, { asteroidCode: 'AST-99' })).rejects.toMatchObject({
+                statusCode: 404,
+                body: { code: 'MINING_TARGET_NOT_FOUND' }
+            })
+        })
+
+        it('rejects a depleted asteroid with 409 MINING_DEPLETED', async () => {
+            const { harness } = buildFireService({
+                asteroidRows: [buildAsteroidRow({ remaining_quantity: 0, status_value: DEPLETED_STATUS_VALUE_ID })]
+            })
+            await expect(harness.service.executeMiningFire(harness.ctx, APPLICATION_ID, { asteroidCode: 'AST-01' })).rejects.toMatchObject({
+                statusCode: 409,
+                body: { code: 'MINING_DEPLETED' }
+            })
+        })
+
+        it('rejects an out-of-range asteroid with 409 MINING_OUT_OF_RANGE', async () => {
+            mockDescribeFlightContext.mockResolvedValue({
+                position: { x: 500, y: 500, z: 500 },
+                stations: [{ id: STATION_ROW_ID, position: { x: 72, y: 0, z: -48 } }]
+            })
+            const { harness } = buildFireService()
+            await expect(harness.service.executeMiningFire(harness.ctx, APPLICATION_ID, { asteroidCode: 'AST-01' })).rejects.toMatchObject({
+                statusCode: 409,
+                body: { code: 'MINING_OUT_OF_RANGE' }
+            })
+        })
+
+        it('rejects a fire without a flight session with 409 MINING_NO_FLIGHT_SESSION', async () => {
+            mockDescribeFlightContext.mockResolvedValue(null)
+            const { harness } = buildFireService()
+            await expect(harness.service.executeMiningFire(harness.ctx, APPLICATION_ID, { asteroidCode: 'AST-01' })).rejects.toMatchObject({
+                statusCode: 409,
+                body: { code: 'MINING_NO_FLIGHT_SESSION' }
+            })
+        })
+
+        it('rejects a fire with a full cargo before any operation (ECONOMY_CAPACITY_EXCEEDED)', async () => {
+            const { harness } = buildFireService({ cargoRows: [{ NomenclatureCode: 'ORE', Quantity: 100 }] })
+            await expect(harness.service.executeMiningFire(harness.ctx, APPLICATION_ID, { asteroidCode: 'AST-01' })).rejects.toMatchObject({
+                statusCode: 409,
+                body: { code: 'ECONOMY_CAPACITY_EXCEEDED' }
+            })
+        })
+
+        it('replays the stored mine response for a scoped key hit', async () => {
+            const fingerprint = fingerprintEconomyTradeBody('mine', { asteroidCode: 'AST-01' })
+            const { harness } = buildFireService({
+                idempotencyStored: [
+                    {
+                        bodyFingerprint: fingerprint,
+                        response: { operationId: CREATED_OPERATION_ID, replayed: true },
+                        statusCode: 200,
+                        expiresAt: new Date(Date.now() + 60_000).toISOString()
+                    }
+                ]
+            })
+            const outcome = await harness.service.executeMiningFire(
+                harness.ctx,
+                APPLICATION_ID,
+                { asteroidCode: 'AST-01' },
+                {
+                    applicationId: APPLICATION_ID,
+                    userId: USER_A,
+                    workspaceId: null,
+                    keyHash: hashEconomyIdempotencyKey(MINE_IDEMPOTENCY_KEY),
+                    fingerprint
+                }
+            )
+            expect(outcome).toEqual({ kind: 'replayed', status: 200, body: { operationId: CREATED_OPERATION_ID, replayed: true } })
+            expect(appendMovementsSpy).not.toHaveBeenCalled()
+        })
+
+        it('conflicts on key reuse with a different asteroid', async () => {
+            // The controller fingerprints the ACTUAL request body, so the scope
+            // carries the AST-02 fingerprint while the stored row was saved for
+            // AST-01 → the gate must conflict instead of replaying.
+            const { harness } = buildFireService({
+                idempotencyStored: [
+                    {
+                        bodyFingerprint: fingerprintEconomyTradeBody('mine', { asteroidCode: 'AST-01' }),
+                        response: { operationId: CREATED_OPERATION_ID },
+                        statusCode: 200,
+                        expiresAt: new Date(Date.now() + 60_000).toISOString()
+                    }
+                ]
+            })
+            await expect(
+                harness.service.executeMiningFire(
+                    harness.ctx,
+                    APPLICATION_ID,
+                    { asteroidCode: 'AST-02' },
+                    {
+                        applicationId: APPLICATION_ID,
+                        userId: USER_A,
+                        workspaceId: null,
+                        keyHash: hashEconomyIdempotencyKey(MINE_IDEMPOTENCY_KEY),
+                        fingerprint: fingerprintEconomyTradeBody('mine', { asteroidCode: 'AST-02' })
+                    }
+                )
+            ).rejects.toMatchObject({ statusCode: 409, body: { code: 'ECONOMY_IDEMPOTENCY_CONFLICT' } })
         })
     })
 })

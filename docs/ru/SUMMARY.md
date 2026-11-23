@@ -133,4 +133,5 @@
 -   [Настройки отображения шаблона приложения](guides/app-template-views.md)
 -   [MMOOMM Flight Simulator](guides/mmoomm-flight-simulator.md)
 -   [Руководство по экономике MMOOMM](guides/mmoomm-economy.md)
+-   [Руководство по добыче MMOOMM](guides/mmoomm-mining.md)
 -   [Трактовочная сеть](guides/interpretation-network.md)

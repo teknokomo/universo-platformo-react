@@ -14,6 +14,7 @@ import { generateUuidV7 } from '@universo-react/utils'
 import { fetchRuntimeEconomySummary, postEconomyTrade } from '../../api/api'
 import { useDashboardDetails } from '../DashboardDetailsContext'
 import { RuntimeWidgetStatus } from './RuntimeWidgetStatus'
+import { localizeRuntimeError } from './runtimeErrorLocalization'
 import StandardDialog from '../../components/dialogs/StandardDialog'
 
 type EconomyTradeSide = 'sell' | 'buy'
@@ -93,14 +94,8 @@ const formatOperationTimestamp = (value: string, locale: string): string => {
     }
 }
 
-/** Known `ECONOMY_*` codes resolve through `runtime.economyErrors.*`; anything else stays generic (no internals leak). */
-const localizeEconomyError = (error: unknown, t: TFunction<'apps'>): string => {
-    const candidate = error && typeof error === 'object' && 'code' in error ? (error as { code?: unknown }).code : null
-    const code = typeof candidate === 'string' && candidate.startsWith('ECONOMY_') ? candidate : null
-    if (!code) return t('runtime.economyErrors.generic')
-    const serverMessage = error instanceof Error && error.message.trim().length > 0 ? error.message : undefined
-    return t(`runtime.economyErrors.${code}`, { defaultValue: serverMessage })
-}
+/** Known `ECONOMY_*`/`MINING_*` codes resolve through `runtime.economyErrors.*`; anything else stays generic (no internals leak). */
+const localizeEconomyError = localizeRuntimeError
 
 const parseTradeQuantity = (value: string): number | null => {
     if (value.trim() === '') return null

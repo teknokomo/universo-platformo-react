@@ -95,6 +95,9 @@ export class FlightControl extends Script {
         this.controlledEntity =
             this.entity?.name === this.controlledEntityId ? this.entity : this.app.root.findByName(this.controlledEntityId)
         this.guardObstacleBoxes = (this.guardBoxes ?? []).map((box) => createAabbObstacleBox(box))
+        // Asteroid belt colliders arrive at runtime from the widget (the belt
+        // shrinks as mining progresses) — empty until the first belt update.
+        this.asteroidObstacleBoxes = []
         this.predictedTarget = null
         this.predictionSpeed = 0
         this.pendingPredictionCount = 0
@@ -110,6 +113,37 @@ export class FlightControl extends Script {
 
     setPredictionTarget(target) {
         this.predictedTarget = target
+    }
+
+    /**
+     * Publish the asteroid belt colliders (UX report 2026-11-22): the server
+     * stops ships at the rock surface through its occupiedSpheres; prediction
+     * and reconciliation must use the same geometry so a solo ship does not
+     * overshoot into a rock and rubber-band back out. Spheres are proxied as
+     * axis-aligned cubes — contacts line up with the sphere poles, the cube
+     * corners block slightly early.
+     */
+    setAsteroidObstacles(spheres) {
+        if (!Array.isArray(spheres)) {
+            this.asteroidObstacleBoxes = []
+            return
+        }
+        this.asteroidObstacleBoxes = spheres
+            .map((sphere) => {
+                const center = sphere && typeof sphere === 'object' ? sphere.position : null
+                const radius = Number(sphere?.radius)
+                if (!center || ![center.x, center.y, center.z].every((value) => typeof value === 'number' && Number.isFinite(value))) {
+                    return null
+                }
+                if (!Number.isFinite(radius) || radius <= 0) {
+                    return null
+                }
+                return createAabbObstacleBox({
+                    center: { x: center.x, y: center.y, z: center.z },
+                    halfExtents: { x: radius, y: radius, z: radius }
+                })
+            })
+            .filter((box) => box !== null)
     }
 
     setPendingPredictionCount(count) {
@@ -159,6 +193,7 @@ export class FlightControl extends Script {
         const direction = normalizeForward({ x: target.x - from.x, y: target.y - from.y, z: target.z - from.z }, this.shipForward)
         const clamped = clampSegmentBeforeObstacleContact(from, target, this.shipHalfExtents ?? { x: 6, y: 2, z: 2 }, direction, [
             ...(this.guardObstacleBoxes ?? []),
+            ...this.asteroidObstacleBoxes,
             ...this.resolveRemoteObstacleBoxes()
         ])
         return clamped ?? { x: target.x, y: target.y, z: target.z }
@@ -251,7 +286,7 @@ export class FlightControl extends Script {
                 },
                 this.shipForward
             )
-            const obstacleBoxes = [...this.guardObstacleBoxes, ...this.resolveRemoteObstacleBoxes()]
+            const obstacleBoxes = [...this.guardObstacleBoxes, ...this.asteroidObstacleBoxes, ...this.resolveRemoteObstacleBoxes()]
             const clampedPosition = clampSegmentBeforeObstacleContact(
                 currentPosition,
                 predictedPosition,
@@ -313,6 +348,7 @@ export class FlightControl extends Script {
             if (
                 !clampSegmentBeforeObstacleContact(currentPosition, next, halfExtents, reconciliationDirection, [
                     ...this.guardObstacleBoxes,
+                    ...this.asteroidObstacleBoxes,
                     ...this.resolveRemoteObstacleBoxes()
                 ])
             ) {

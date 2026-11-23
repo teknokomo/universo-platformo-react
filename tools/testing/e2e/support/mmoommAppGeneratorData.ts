@@ -29,6 +29,21 @@ export const INVENTORY_LEDGER_CODE = 'InventoryLedger'
 export const ECONOMY_POSTING_MODULE_CODE = 'mmoomm-economy-posting-module'
 export const ECONOMY_POSTING_MODULE_NAME = 'Mmoomm Economy Posting Module'
 
+// ── MMOOMM mining MVP (TZ DOC-2026-006): codenames + baked constants ──
+export const ASTEROID_CODE = 'Asteroid'
+export const ASTEROID_STATUS_ENUM = 'AsteroidStatus'
+export const MINING_CONSTANTS_CODE = 'MiningConstants'
+
+export const MINING_RADIUS_METERS = 80
+export const MINING_COOLDOWN_MS = 350
+export const CHUNKS_PER_HIT_MIN = 1
+export const CHUNKS_PER_HIT_MAX = 3
+export const CHUNK_MASS_MIN_KG = 0.8
+export const CHUNK_MASS_MAX_KG = 3.2
+export const CHUNK_MASS_SKEW = 1.6
+export const CHUNK_VISUAL_LIFETIME_MS = 900
+export const MINING_STATE_POLL_MS = 2000
+
 export const CURRENCY_CODE = 'CR'
 export const STARTING_BALANCE = 1000
 export const STARTING_ORE_KG = 10
@@ -70,6 +85,43 @@ export default class MmoommAuthoritativeFlightRuntime extends ExtensionModule {
         const targetPosition = station?.position ?? { x: 72, y: 0, z: -48 }
         const shipScale = ship?.scale ?? { x: 12, y: 4, z: 4 }
         const stationScale = station?.scale ?? { x: 48, y: 16, z: 16 }
+        // Asteroid belt colliders (UX report 2026-11-22): the room feeds them
+        // into the movement engine's occupiedEntities so ships stop at the rock
+        // surface instead of flying through it. The radius shares the mining
+        // effective-scale formula baked as a literal (effectiveScale = 0.55 +
+        // 0.45 * remaining / total, then scale * effectiveScale * 0.5) — keep
+        // it in lockstep with the platform's asteroidEffectiveRadius.
+        let occupiedSpheres = []
+        try {
+            const asteroids = await this.ctx.records.list('Asteroid')
+            if (Array.isArray(asteroids)) {
+                occupiedSpheres = asteroids
+                    .map((asteroid) => {
+                        const toNumber = (value, fallback = 0) => {
+                            const numeric = typeof value === 'number' ? value : Number(value)
+                            return Number.isFinite(numeric) ? numeric : fallback
+                        }
+                        const position = {
+                            x: toNumber(asteroid && asteroid.PositionX),
+                            y: toNumber(asteroid && asteroid.PositionY),
+                            z: toNumber(asteroid && asteroid.PositionZ)
+                        }
+                        const scale = Math.max(0, toNumber(asteroid && asteroid.Scale))
+                        const total = Math.max(0, toNumber(asteroid && asteroid.TotalQuantityKg))
+                        const remaining = Math.min(Math.max(0, toNumber(asteroid && asteroid.RemainingQuantityKg)), total)
+                        const effectiveScale = total > 0 ? 0.55 + 0.45 * (remaining / total) : 1
+                        const radius = scale * effectiveScale * 0.5
+                        if (!(radius > 0)) return null
+                        return { code: String((asteroid && asteroid.Code) || ''), position, radius }
+                    })
+                    .filter((sphere) => sphere !== null)
+                    .slice(0, 64)
+            }
+        } catch (error) {
+            // Missing records capability or belt data must keep the room
+            // flyable — no colliders instead of a failed room creation.
+            occupiedSpheres = []
+        }
         return {
             initialPosition,
             targetObjects: { [scene?.targetObjectId ?? 'station']: targetPosition },
@@ -80,6 +132,7 @@ export default class MmoommAuthoritativeFlightRuntime extends ExtensionModule {
                     halfExtents: { x: Math.abs(stationScale.x) / 2, y: Math.abs(stationScale.y) / 2, z: Math.abs(stationScale.z) / 2 }
                 }
             ],
+            occupiedSpheres,
             cruiseSpeed: scene?.cruiseSpeed ?? 36,
             acceleration: 48,
             deceleration: 48,
@@ -180,6 +233,9 @@ export default class MmoommEconomyPostingModule extends ExtensionModule {
         const operationTypeRefId = readText(operation, 'OperationType')
         const quantity = toNumber(operation.Quantity, 0)
         const unitPrice = toNumber(operation.UnitPrice, 0)
+        // Normalized early: the Mine branch (declared below) validates the
+        // zero-price contract before the fail-closed stamps section runs.
+        const totalPrice = toNumber(operation.TotalPrice, 0)
         const occurredAt = readOccurredAt(operation, 'OccurredAt') ?? new Date().toISOString()
 
         let wallet = null
@@ -216,6 +272,54 @@ export default class MmoommEconomyPostingModule extends ExtensionModule {
         // dimension records the resolved Code when present, otherwise the REF id
         // (the economy summary resolves station identity server-side).
         const stationCode = station ? (readText(station, 'Code') ?? stationRefId) : stationRefId
+        const operationKind = readText(operation, 'OperationKind')
+        const asteroidCode = readText(operation, 'AsteroidCode')
+
+        // TZ §10.2: the server-stamped OperationKind is the primary
+        // discriminator. Mine posts an InventoryLedger-ONLY movement group
+        // (TZ FR-012: the wallet is untouched — mining is neither a purchase
+        // nor a sale) and fails closed unless every server-stamped field is
+        // consistent: Quantity > 0, zero prices, an AsteroidCode, the ORE
+        // nomenclature, and a resolvable station dimension (never null).
+        if (operationKind === 'Mine') {
+            if (!(quantity > 0)) {
+                throw new Error('Mine operation has a non-positive server-stamped Quantity')
+            }
+            if (unitPrice !== 0 || totalPrice !== 0) {
+                throw new Error('Mine operation must post at zero price')
+            }
+            if (!asteroidCode) {
+                throw new Error('Mine operation is missing the server-stamped AsteroidCode')
+            }
+            if (nomenclatureCode !== SELL_NOMENCLATURE_CODE) {
+                throw new Error('Mine operation must target the ORE nomenclature')
+            }
+            if (!stationCode) {
+                throw new Error('Mine operation could not resolve a station for the inventory dimension')
+            }
+            return {
+                movements: [
+                    {
+                        ledgerCodename: INVENTORY_LEDGER_CODE,
+                        facts: [
+                            {
+                                data: {
+                                    OwnerKey: ownerKey,
+                                    StationCode: stationCode,
+                                    NomenclatureCode: nomenclatureCode,
+                                    Quantity: quantity,
+                                    Cost: 0,
+                                    OccurredAt: occurredAt,
+                                    SourceObjectId: entityCodename,
+                                    SourceRowId: rowId,
+                                    SourceLineId: 'mmoomm-economy-inventory'
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
 
         // The OperationType enumeration value codename is not readable through the
         // Record API (enumeration values carry no components), so the semantic kind
@@ -224,6 +328,8 @@ export default class MmoommEconomyPostingModule extends ExtensionModule {
         // otherwise the market side mirrors runtimeEconomySupport MARKET_SIDE_CONFIGS
         // (ORE -> sell, FUEL -> buy). The ledger OperationType dimension carries the
         // enumeration value id passthrough for server-side label resolution.
+        // TZ §10.3: rows authored before the OperationKind field keep this
+        // heuristic; new StarterGrant/Sell/Buy/Mine rows are stamped server-side.
         const kind = unitPrice === 0 ? 'starterGrant' : nomenclatureCode === SELL_NOMENCLATURE_CODE ? 'sell' : 'buy'
 
         // Fail closed (Thermos P1): the economy service stamps Quantity,
@@ -244,7 +350,7 @@ export default class MmoommEconomyPostingModule extends ExtensionModule {
         // TotalPrice is stamped by the economy service from the EconomyConstants
         // set: the positive monetary magnitude of the operation (trades: quantity
         // x server-resolved unit price; StarterGrant: StartingBalance).
-        const totalPrice = toNumber(operation.TotalPrice, 0)
+        // (totalPrice was normalized early above — the Mine branch uses it too.)
 
         const walletAmount = kind === 'buy' ? -totalPrice : totalPrice
         const inventoryQuantity = kind === 'starterGrant' ? quantity : kind === 'sell' ? -quantity : quantity

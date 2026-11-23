@@ -88,6 +88,36 @@ export const MMOOMM_ECONOMY_CONSTANT_CODES = [
     'MarketRadiusMeters'
 ] as const
 
+// ---------------------------------------------------------------------------
+// MMOOMM mining MVP (TZ DOC-2026-006) codenames — mirror the generator
+// constants in support/mmoommAppGeneratorData.ts.
+// ---------------------------------------------------------------------------
+
+export const MMOOMM_MINING_ASTEROID_CODENAME = 'Asteroid'
+
+export const MMOOMM_MINING_STATUS_ENUM_CODENAME = 'AsteroidStatus'
+
+export const MMOOMM_MINING_STATUS_VALUES = ['Active', 'Depleted'] as const
+
+export const MMOOMM_MINING_CONSTANTS_SET_CODENAME = 'MiningConstants'
+
+export const MMOOMM_MINING_CONSTANT_CODES = [
+    'MiningRadiusMeters',
+    'MiningCooldownMs',
+    'ChunksPerHitMin',
+    'ChunksPerHitMax',
+    'ChunkMassMinKg',
+    'ChunkMassMaxKg',
+    'ChunkMassSkew',
+    'ChunkVisualLifetimeMs',
+    'MiningStatePollMs'
+] as const
+
+export const MMOOMM_MINING_ASTEROID_CODES = ['AST-01', 'AST-02', 'AST-03', 'AST-04', 'AST-05'] as const
+
+/** Server-owned Asteroid fields the generic rows API must reject (TZ FR-004). */
+export const MMOOMM_MINING_ASTEROID_SERVER_OWNED_FIELDS = ['RemainingQuantityKg', 'Status', 'LastMinedAt'] as const
+
 export const MMOOMM_ECONOMY_WALLET_LEDGER_PROJECTIONS = ['walletBalance', 'walletTurnover'] as const
 export const MMOOMM_ECONOMY_INVENTORY_LEDGER_PROJECTIONS = ['stockBalance', 'stockTurnover'] as const
 
@@ -98,6 +128,8 @@ export type SnapshotEnvelope = Record<string, unknown> & {
         entities?: Record<string, { kind?: unknown; codename?: unknown; presentation?: { name?: unknown }; config?: unknown }>
         fixedValues?: Record<string, Array<{ codename?: unknown; dataType?: unknown; value?: unknown }>>
         optionValues?: Record<string, Array<{ codename?: unknown; isDefault?: unknown }>>
+        /** Design-time object records (codename-keyed `data`), keyed by entity id. */
+        elements?: Record<string, Array<{ id?: unknown; objectId?: unknown; data?: Record<string, unknown> }>>
         modules?: unknown[]
         layouts?: unknown[]
         scopedLayouts?: unknown[]

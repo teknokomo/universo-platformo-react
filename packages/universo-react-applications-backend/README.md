@@ -82,6 +82,14 @@ The MMOOMM economy MVP exposes three runtime routes mounted under `/applications
 -   Posting contract: the trade creates the `Operation` row and posts it through the shared posting core in one transaction; ledger movements come from the application-authored posting module wired via `recordBehavior.posting.moduleCodename` with `targetLedgers` covering both registers. Without the module, posting produces zero movements.
 -   Failures use the stable `ECONOMY_*` code set mapped to 404/409/422/500 statuses; error bodies carry `{ error, code }` only, with no SQL or internal identifier leakage.
 
+### Mining Runtime
+
+The MMOOMM mining MVP (TZ DOC-2026-006) adds two routes under the same controller:
+
+-   `GET .../economy/mining/state` — the belt snapshot for the client poll: asteroid codes/names/positions/scales, remainders rounded to 0.1 kg, `Active`/`Depleted` statuses, and the `MiningConstants` values (auth-only, `readLimiter`).
+-   `POST .../economy/mining/fire` — a server-authoritative fire (`writeLimiter`, `editContent`): the body carries only `asteroidCode` (missing/invalid → 400 `MINING_INVALID_TARGET`; server-owned/unknown fields → 422 `MINING_INVALID_PAYLOAD`). The flow checks the flight session through the read-only room bridge, locks the asteroid row (`SELECT … FOR UPDATE`) and re-checks the remainder, validates the TZ §9.2 effective radius, enforces the per-user cooldown (advisory lock `mining:<appId>:<userId>` + latest-Mine probe, soft-deleted rows included so deletes cannot bypass it), computes 1–3 uneven chunks server-side, then runs ONE transaction: create the `Mine`-stamped `Operation` → post through the authored module (an `InventoryLedger`-only movement group, `Cost = 0`, no wallet movement) → conditional remainder/status/`LastMinedAt` update with `RETURNING` fail-closed.
+-   `OperationKind`/`AsteroidCode` are additive server-owned STRING fields stamped on every new operation (TZ §10.3); the posting module branches on the kind and keeps the legacy heuristic for pre-field rows. Idempotency reuses the trade store with the `mine` kind bound into the fingerprint — no new tables or migrations.
+
 ## Database Access Rules
 
 -   Application-domain reads use `_upl_deleted = false AND _app_deleted = false`.

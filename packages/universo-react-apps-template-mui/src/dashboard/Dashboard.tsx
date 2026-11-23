@@ -141,11 +141,12 @@ export default function Dashboard(props: DashboardProps) {
     const showHeader = hasActiveTopWidget('header')
     const dockedSideMenuModes = availableSideMenuModes.filter((mode): mode is 'wide' | 'compact' => mode === 'wide' || mode === 'compact')
     const canToggleDockedSideMenuMode = sideMenuEnabled && dockedSideMenuModes.length > 1
-    // QA 2026-11-17: the standard desktop top offset follows the appNavbar
-    // placement itself, not right-zone content — a runtime page without
-    // right-zone widgets still renders its header row below the navbar frame
-    // instead of flush against the viewport top.
-    const showAppNavbarOnDesktop = showAppNavbar
+    // The desktop top offset must mirror the AppNavbar's actual md+ visibility
+    // (AppNavbar sx: `sideMenuMode === 'overlay' || rightWidgets`): a docked
+    // sidebar with no right-zone widgets hides the navbar, and reserving its
+    // 64px offset then leaves a dead empty band above the page title
+    // (UX report 2026-11-22; this restores the pre-#931 gating).
+    const showAppNavbarOnDesktop = showAppNavbar && (sideMenuMode === 'overlay' || rightWidgets.length > 0)
     const canOpenOverlaySideMenu = sideMenuEnabled && availableSideMenuModes.includes('overlay')
     const canToggleOverlaySideMenuMode = canOpenOverlaySideMenu && dockedSideMenuModes.length > 0
     const headerLeadingWidgets = showHeader ? activeTopWidgets.filter((widget) => HEADER_LEADING_WIDGET_KEYS.has(widget.widgetKey)) : []
@@ -244,6 +245,7 @@ export default function Dashboard(props: DashboardProps) {
                             placements={placements}
                             mode={sideMenuMode}
                             availableModes={availableSideMenuModes}
+                            topOffset={showAppNavbarOnDesktop ? 10 : 0}
                             onToggleDockedMode={canToggleDockedSideMenuMode ? toggleDockedSideMenuMode : undefined}
                             onToggleOverlayMode={canToggleOverlaySideMenuMode ? toggleOverlaySideMenuMode : undefined}
                             open={overlayOpen}
@@ -298,6 +300,11 @@ export default function Dashboard(props: DashboardProps) {
                                 maxWidth: '100%',
                                 boxSizing: 'border-box',
                                 px: { xs: 2, sm: 3 },
+                                // The standard top padding mirrors the horizontal
+                                // one: a hidden navbar removes the 64px offset but
+                                // the header row must not sit flush against the
+                                // viewport edge (UX report 2026-11-23).
+                                pt: { xs: 2, sm: 3 },
                                 pb: hasViewportBoundedCanvas ? { xs: 2, sm: 3 } : 5,
                                 mt: {
                                     xs: showAppNavbar ? 8 : 0,

@@ -22,17 +22,21 @@ import { resolveEconomyObjectCollection } from '../../services/runtimeEconomySup
 import { saveEconomyIdempotency } from '../../persistence/economyIdempotencyStore'
 
 /**
- * PostgreSQL integration for the runtime economy service (plan B8, TZ §14.2).
+ * PostgreSQL integration for the runtime economy service (plan B8, TZ §14.2),
+ * extended with the mining belt suite (mining plan B7, TZ DOC-2026-006 §14.2).
  *
  * Pragmatic harness level (documented deviation): the application schema is
  * created with raw DDL mirroring the runtime generator (system tables +
- * per-component physical `cmp_` columns + ledger tables), and the authored
- * `MmoommEconomyPostingModule` is simulated at the lifecycle-dispatch boundary —
- * the spy returns the exact movements the authored module emits (TZ FR-015),
- * while everything downstream (posting core, movement normalization, real
- * `appendFacts` inserts with source ids, projections, reversals) runs real SQL.
- * Module-bundle compilation is covered by the fixture contract (F5) and the E2E
- * economy journey (G2).
+ * per-component physical `cmp_` columns + ledger tables, plus the mining belt:
+ * `Asteroid` object table, `AsteroidStatus` enumeration and the `MiningConstants`
+ * set), and the authored `MmoommEconomyPostingModule` is simulated at the
+ * lifecycle-dispatch boundary — the spy returns the exact movements the authored
+ * module emits, branching on the server-stamped `OperationKind` (TZ §10.3):
+ * `Mine` → InventoryLedger-only group (TZ FR-012), StarterGrant/Sell/Buy → both
+ * registers (TZ FR-015), while everything downstream (posting core, movement
+ * normalization, real `appendFacts` inserts with source ids, projections,
+ * reversals) runs real SQL. Module-bundle compilation is covered by the fixture
+ * contract (F5) and the E2E economy journey (G2).
  */
 const mockDescribeFlightContext = jest.fn<Promise<unknown>, [string, string]>()
 
@@ -95,13 +99,19 @@ const NOMENCLATURE_OBJECT_ID = generateUuidV7()
 const WALLET_OBJECT_ID = generateUuidV7()
 const OPERATION_OBJECT_ID = generateUuidV7()
 const STATION_OBJECT_ID = generateUuidV7()
+const ASTEROID_OBJECT_ID = generateUuidV7()
 const OPERATION_TYPE_ENUM_ID = generateUuidV7()
 const STATUS_ENUM_ID = generateUuidV7()
+const ASTEROID_STATUS_ENUM_ID = generateUuidV7()
 const SET_ID = generateUuidV7()
+const MINING_SET_ID = generateUuidV7()
 const STARTER_TYPE_ID = generateUuidV7()
 const SELL_TYPE_ID = generateUuidV7()
 const BUY_TYPE_ID = generateUuidV7()
+const MINE_TYPE_ID = generateUuidV7()
 const ACTIVE_STATUS_ID = generateUuidV7()
+const ASTEROID_ACTIVE_VALUE_ID = generateUuidV7()
+const DEPLETED_VALUE_ID = generateUuidV7()
 const ORE_ROW_ID = generateUuidV7()
 const FUEL_ROW_ID = generateUuidV7()
 const STATION_ROW_ID = generateUuidV7()
@@ -114,6 +124,17 @@ const ORE_PRICE = 10
 const FUEL_PRICE = 5
 const MAX_CARGO_KG = 1000
 const MARKET_RADIUS_M = 100
+
+// Mining TZ §7.4 constants — the same fixed values the generator authors.
+const MINING_RADIUS_M = 80
+const MINING_COOLDOWN_MS = 350
+const CHUNKS_PER_HIT_MIN = 1
+const CHUNKS_PER_HIT_MAX = 3
+const CHUNK_MASS_MIN_KG = 0.8
+const CHUNK_MASS_MAX_KG = 3.2
+const CHUNK_MASS_SKEW = 1.6
+const CHUNK_VISUAL_LIFETIME_MS = 900
+const MINING_STATE_POLL_MS = 2000
 
 const SYSTEM_COLUMNS = `
     _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -193,10 +214,10 @@ const insertEnumValue = async (db: Knex, objectId: string, valueId: string, code
     ])
 }
 
-const insertConstantRow = async (db: Knex, codename: string, value: unknown, dataType: string) => {
+const insertConstantRow = async (db: Knex, codename: string, value: unknown, dataType: string, groupId: string = SET_ID) => {
     await db.raw(
         `INSERT INTO ${SCHEMA_IDENT}._app_constants (id, group_id, codename, data_type, value_json, sort_order) VALUES (?, ?, ?::jsonb, ?, ?::jsonb, 0)`,
-        [generateUuidV7(), SET_ID, codenameEnvelope(codename), dataType, JSON.stringify(value)]
+        [generateUuidV7(), groupId, codenameEnvelope(codename), dataType, JSON.stringify(value)]
     )
 }
 
@@ -332,6 +353,9 @@ const createSchemaFixture = async (db: Knex) => {
             quantity NUMERIC NOT NULL,
             unit_price NUMERIC NULL,
             total_price NUMERIC NULL,
+            -- Mining TZ §10.2/§10.3: server-stamped STRING discriminators.
+            operation_kind TEXT NULL,
+            asteroid_code TEXT NULL,
             occurred_at TIMESTAMPTZ NULL,
             _app_record_number VARCHAR(64) NULL,
             _app_record_date TIMESTAMPTZ NULL,
@@ -351,6 +375,29 @@ const createSchemaFixture = async (db: Knex) => {
             name TEXT NULL,
             market_enabled BOOLEAN NOT NULL DEFAULT true,
             market_fee_percent NUMERIC NOT NULL DEFAULT 0,
+            ${SYSTEM_COLUMNS}
+        )
+    `)
+    // Mining belt object (mining TZ §7.2): Status is a REF column storing the
+    // `_app_values` id of the AsteroidStatus enumeration, mirroring the
+    // generator's physical layout for the authored Asteroid object.
+    await db.raw(`
+        CREATE TABLE ${SCHEMA_IDENT}.obj_asteroid (
+            id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
+            code TEXT NOT NULL,
+            name TEXT NULL,
+            resource_code TEXT NULL,
+            position_x NUMERIC NULL,
+            position_y NUMERIC NULL,
+            position_z NUMERIC NULL,
+            scale NUMERIC NULL,
+            total_quantity_kg NUMERIC NULL,
+            remaining_quantity_kg NUMERIC NULL,
+            status_id UUID NULL,
+            visual_variant NUMERIC NULL,
+            chunk_min_kg NUMERIC NULL,
+            chunk_max_kg NUMERIC NULL,
+            last_mined_at TIMESTAMPTZ NULL,
             ${SYSTEM_COLUMNS}
         )
     `)
@@ -392,9 +439,12 @@ const insertMetadata = async (db: Knex) => {
     await insertObjectRow(db, WALLET_OBJECT_ID, 'object', 'Wallet', 'obj_wallet', null)
     await insertObjectRow(db, OPERATION_OBJECT_ID, 'object', 'Operation', 'obj_operation', economyBehaviorConfig)
     await insertObjectRow(db, STATION_OBJECT_ID, 'object', 'FlightStation', 'obj_flight_station', null)
+    await insertObjectRow(db, ASTEROID_OBJECT_ID, 'object', 'Asteroid', 'obj_asteroid', null)
     await insertObjectRow(db, OPERATION_TYPE_ENUM_ID, 'enumeration', 'OperationType', null, null)
     await insertObjectRow(db, STATUS_ENUM_ID, 'enumeration', 'Status', null, null)
+    await insertObjectRow(db, ASTEROID_STATUS_ENUM_ID, 'enumeration', 'AsteroidStatus', null, null)
     await insertObjectRow(db, SET_ID, 'set', 'EconomyConstants', null, null)
+    await insertObjectRow(db, MINING_SET_ID, 'set', 'MiningConstants', null, null)
     await insertObjectRow(db, WALLET_LEDGER_ID, 'ledger', 'WalletLedger', 'led_wallet', {
         ...LEDGER_CAPABILITIES_CONFIG,
         ledger: {
@@ -467,6 +517,9 @@ const insertMetadata = async (db: Knex) => {
                 ['Quantity', 'quantity', 'NUMBER', true],
                 ['UnitPrice', 'unit_price', 'NUMBER', false],
                 ['TotalPrice', 'total_price', 'NUMBER', false],
+                // Mining TZ §10.2/§10.3: server-stamped STRING discriminators.
+                ['OperationKind', 'operation_kind', 'STRING', false],
+                ['AsteroidCode', 'asteroid_code', 'STRING', false],
                 ['OccurredAt', 'occurred_at', 'DATE', false]
             ]
         ],
@@ -475,6 +528,25 @@ const insertMetadata = async (db: Knex) => {
             [
                 ['Name', 'name', 'STRING', false],
                 ['MarketEnabled', 'market_enabled', 'BOOLEAN', false]
+            ]
+        ],
+        [
+            ASTEROID_OBJECT_ID,
+            [
+                ['Code', 'code', 'STRING', true],
+                ['Name', 'name', 'STRING', false],
+                ['ResourceCode', 'resource_code', 'STRING', false],
+                ['PositionX', 'position_x', 'NUMBER', false],
+                ['PositionY', 'position_y', 'NUMBER', false],
+                ['PositionZ', 'position_z', 'NUMBER', false],
+                ['Scale', 'scale', 'NUMBER', false],
+                ['TotalQuantityKg', 'total_quantity_kg', 'NUMBER', false],
+                ['RemainingQuantityKg', 'remaining_quantity_kg', 'NUMBER', false],
+                ['Status', 'status_id', 'REF', false],
+                ['VisualVariant', 'visual_variant', 'NUMBER', false],
+                ['ChunkMinKg', 'chunk_min_kg', 'NUMBER', false],
+                ['ChunkMaxKg', 'chunk_max_kg', 'NUMBER', false],
+                ['LastMinedAt', 'last_mined_at', 'DATE', false]
             ]
         ]
     ]
@@ -502,6 +574,10 @@ const insertMetadata = async (db: Knex) => {
     await db.raw(
         `UPDATE ${SCHEMA_IDENT}._app_components SET target_object_id = ?, target_object_kind = 'enumeration' WHERE object_id = ? AND column_name = 'status_id'`,
         [STATUS_ENUM_ID, WALLET_OBJECT_ID]
+    )
+    await db.raw(
+        `UPDATE ${SCHEMA_IDENT}._app_components SET target_object_id = ?, target_object_kind = 'enumeration' WHERE object_id = ? AND column_name = 'status_id'`,
+        [ASTEROID_STATUS_ENUM_ID, ASTEROID_OBJECT_ID]
     )
 
     const ledgerFields: Array<[string, Array<[string, string]>, Array<[string, string]>]> = [
@@ -550,7 +626,10 @@ const insertMetadata = async (db: Knex) => {
     await insertEnumValue(db, OPERATION_TYPE_ENUM_ID, STARTER_TYPE_ID, 'StarterGrant')
     await insertEnumValue(db, OPERATION_TYPE_ENUM_ID, SELL_TYPE_ID, 'Sell')
     await insertEnumValue(db, OPERATION_TYPE_ENUM_ID, BUY_TYPE_ID, 'Buy')
+    await insertEnumValue(db, OPERATION_TYPE_ENUM_ID, MINE_TYPE_ID, 'Mine')
     await insertEnumValue(db, STATUS_ENUM_ID, ACTIVE_STATUS_ID, 'Active')
+    await insertEnumValue(db, ASTEROID_STATUS_ENUM_ID, ASTEROID_ACTIVE_VALUE_ID, 'Active')
+    await insertEnumValue(db, ASTEROID_STATUS_ENUM_ID, DEPLETED_VALUE_ID, 'Depleted')
 
     await insertConstantRow(db, 'CurrencyCode', 'CR', 'string')
     await insertConstantRow(db, 'StartingBalance', STARTING_BALANCE, 'number')
@@ -559,6 +638,73 @@ const insertMetadata = async (db: Knex) => {
     await insertConstantRow(db, 'FuelPricePerLiter', FUEL_PRICE, 'number')
     await insertConstantRow(db, 'MaxCargoMassKg', MAX_CARGO_KG, 'number')
     await insertConstantRow(db, 'MarketRadiusMeters', MARKET_RADIUS_M, 'number')
+
+    // Mining TZ §7.4: the fixed MiningConstants set (all 9 values, generator-parity).
+    await insertConstantRow(db, 'MiningRadiusMeters', MINING_RADIUS_M, 'number', MINING_SET_ID)
+    await insertConstantRow(db, 'MiningCooldownMs', MINING_COOLDOWN_MS, 'number', MINING_SET_ID)
+    await insertConstantRow(db, 'ChunksPerHitMin', CHUNKS_PER_HIT_MIN, 'number', MINING_SET_ID)
+    await insertConstantRow(db, 'ChunksPerHitMax', CHUNKS_PER_HIT_MAX, 'number', MINING_SET_ID)
+    await insertConstantRow(db, 'ChunkMassMinKg', CHUNK_MASS_MIN_KG, 'number', MINING_SET_ID)
+    await insertConstantRow(db, 'ChunkMassMaxKg', CHUNK_MASS_MAX_KG, 'number', MINING_SET_ID)
+    await insertConstantRow(db, 'ChunkMassSkew', CHUNK_MASS_SKEW, 'number', MINING_SET_ID)
+    await insertConstantRow(db, 'ChunkVisualLifetimeMs', CHUNK_VISUAL_LIFETIME_MS, 'number', MINING_SET_ID)
+    await insertConstantRow(db, 'MiningStatePollMs', MINING_STATE_POLL_MS, 'number', MINING_SET_ID)
+
+    // Five belt rows per the mining TZ §7.7 (AST-01/AST-02 geometry mirrors the
+    // values the unit harness pins to the shipped generator): all within
+    // MiningRadiusMeters of the default spawn so the fire distance check passes.
+    const asteroidSeeds: Array<{
+        code: string
+        name: string
+        x: number
+        y: number
+        z: number
+        scale: number
+        stock: number
+        variant: number
+    }> = [
+        { code: 'AST-01', name: 'Asteroid A-01', x: -249, y: 7, z: 274, scale: 7, stock: 120, variant: 1 },
+        { code: 'AST-02', name: 'Asteroid A-02', x: -229, y: 2, z: 290, scale: 9, stock: 160, variant: 2 },
+        { code: 'AST-03', name: 'Asteroid A-03', x: -243, y: 10, z: 288, scale: 6, stock: 90, variant: 3 },
+        { code: 'AST-04', name: 'Asteroid A-04', x: -215, y: 1, z: 298, scale: 8, stock: 200, variant: 4 },
+        { code: 'AST-05', name: 'Asteroid A-05', x: -235, y: 11, z: 298, scale: 5, stock: 80, variant: 5 }
+    ]
+    for (const seed of asteroidSeeds) {
+        await insertSeedRow(
+            db,
+            'obj_asteroid',
+            [
+                'code',
+                'name',
+                'resource_code',
+                'position_x',
+                'position_y',
+                'position_z',
+                'scale',
+                'total_quantity_kg',
+                'remaining_quantity_kg',
+                'status_id',
+                'visual_variant',
+                'chunk_min_kg',
+                'chunk_max_kg'
+            ],
+            [
+                seed.code,
+                seed.name,
+                'ORE',
+                seed.x,
+                seed.y,
+                seed.z,
+                seed.scale,
+                seed.stock,
+                seed.stock,
+                ASTEROID_ACTIVE_VALUE_ID,
+                seed.variant,
+                CHUNK_MASS_MIN_KG,
+                CHUNK_MASS_MAX_KG
+            ]
+        )
+    }
 
     await insertSeedRow(db, 'obj_nomenclature', ['id', 'code', 'name', 'unit', 'mass_per_unit'], [ORE_ROW_ID, 'ORE', 'Ore', 'Kg', 1])
     await insertSeedRow(
@@ -572,16 +718,19 @@ const insertMetadata = async (db: Knex) => {
 
 /**
  * The authored MmoommEconomyPostingModule.beforePost behavior (TZ FR-015),
- * simulated at the lifecycle-dispatch boundary: StarterGrant +50 CR-equivalent
- * (StartingBalance) & +StartingOreKg ORE; Sell +Quantity×OrePrice & −Quantity;
- * Buy −Quantity×FuelPrice & +Quantity, each fact carrying operation source ids.
+ * simulated at the lifecycle-dispatch boundary. TZ §10.3: the server stamps
+ * `OperationKind` on every new row and the module branches on it — `Mine`
+ * returns an InventoryLedger-ONLY movement group (Quantity = the
+ * server-computed chunk sum, Cost = 0, wallet untouched — TZ FR-012);
+ * StarterGrant +StartingBalance CR-equivalent & +StartingOreKg ORE; Sell
+ * +Quantity×OrePrice & −Quantity; Buy −Quantity×FuelPrice & +Quantity, each
+ * fact carrying operation source ids. Rows authored before the kind stamp fall
+ * back to the UnitPrice/type-REF heuristic.
  */
 const buildEconomyPostingMovements = (userId: string, previousRow: Record<string, unknown>): unknown[] => {
-    // Mirrors the authored module's kind detection (unitPrice === 0 marks the
-    // StarterGrant) instead of trusting the operation type REF directly.
-    const quantity = Number(previousRow.quantity ?? 0)
-    const type =
-        Number(previousRow.unit_price ?? -1) === 0 ? 'StarterGrant' : previousRow.operation_type_id === SELL_TYPE_ID ? 'Sell' : 'Buy'
+    // The owner derives from the row itself: two committed racers share the
+    // spy's actor global, so every fact must be owned by its row's creator.
+    const ownerKey = typeof previousRow._upl_created_by === 'string' ? previousRow._upl_created_by : userId
     const rowId = String(previousRow.id)
     const occurredAt =
         previousRow.occurred_at instanceof Date ? previousRow.occurred_at.toISOString() : String(previousRow.occurred_at ?? '')
@@ -589,6 +738,43 @@ const buildEconomyPostingMovements = (userId: string, previousRow: Record<string
         SourceObjectId: OPERATION_OBJECT_ID,
         SourceRowId: rowId
     }
+
+    // TZ FR-012: `Mine` posts ONLY into InventoryLedger — no wallet movement.
+    if (previousRow.operation_kind === 'Mine') {
+        return [
+            {
+                movements: [
+                    {
+                        ledgerCodename: 'InventoryLedger',
+                        facts: [
+                            {
+                                data: {
+                                    OwnerKey: ownerKey,
+                                    StationCode: 'STN-1',
+                                    NomenclatureCode: 'ORE',
+                                    Quantity: Number(previousRow.quantity ?? 0),
+                                    Cost: 0,
+                                    OccurredAt: occurredAt,
+                                    ...sourceIds,
+                                    SourceLineId: `${rowId}:inventory:1`
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+
+    // Mirrors the authored module's kind detection (the server-stamped
+    // OperationKind first, the legacy unitPrice === 0 StarterGrant heuristic
+    // for rows authored before the stamp) instead of trusting the operation
+    // type REF directly.
+    const quantity = Number(previousRow.quantity ?? 0)
+    const stampedKind = typeof previousRow.operation_kind === 'string' ? previousRow.operation_kind : null
+    const type =
+        stampedKind ??
+        (Number(previousRow.unit_price ?? -1) === 0 ? 'StarterGrant' : previousRow.operation_type_id === SELL_TYPE_ID ? 'Sell' : 'Buy')
 
     // Mirrors the authored posting module: amounts derive from the
     // server-stamped TotalPrice magnitude (positive), not baked price literals.
@@ -601,7 +787,7 @@ const buildEconomyPostingMovements = (userId: string, previousRow: Record<string
         facts: [
             {
                 data: {
-                    WalletKey: userId,
+                    WalletKey: ownerKey,
                     Currency: 'CR',
                     OperationType: type,
                     Amount: walletAmount,
@@ -617,7 +803,7 @@ const buildEconomyPostingMovements = (userId: string, previousRow: Record<string
         facts: [
             {
                 data: {
-                    OwnerKey: userId,
+                    OwnerKey: ownerKey,
                     StationCode: 'STN-1',
                     NomenclatureCode: type === 'Buy' ? 'FUEL' : 'ORE',
                     Quantity: type === 'Sell' ? -quantity : quantity,
@@ -674,6 +860,15 @@ describeIntegration('Runtime economy service PostgreSQL integration', () => {
     const dockAtStation = () =>
         mockDescribeFlightContext.mockResolvedValue({
             position: { x: 0, y: 0, z: 0 },
+            stations: [{ id: STATION_ROW_ID, position: { x: 1, y: 0, z: 0 } }]
+        })
+
+    // UX round 2026-11-23: the belt lives 450-465 m from the station, so the
+    // mining fires happen from a dedicated vantage ~27 m off AST-01 while the
+    // trade legs still see the station proximity context.
+    const dockAtBelt = () =>
+        mockDescribeFlightContext.mockResolvedValue({
+            position: { x: -230, y: 3, z: 255 },
             stations: [{ id: STATION_ROW_ID, position: { x: 1, y: 0, z: 0 } }]
         })
 
@@ -1339,5 +1534,512 @@ describeIntegration('Runtime economy service PostgreSQL integration', () => {
             await knex.raw(`DELETE FROM auth.users WHERE id = ?`, [userId])
             await knex.raw(`DELETE FROM applications.obj_applications WHERE id = ?`, [applicationId])
         }
+    })
+
+    // -------------------------------------------------------------------------
+    // Mining belt (mining plan B7, TZ DOC-2026-006 §14.2): same harness level —
+    // the authored posting module is simulated at the lifecycle-dispatch
+    // boundary, including its OperationKind='Mine' branch that returns an
+    // InventoryLedger-only movement group (TZ FR-012). Read-only and
+    // rollback-scoped flows reuse `withRollback`; flows that need REAL commits
+    // (sibling-transaction visibility for the cooldown probe, lock contention
+    // for the FOR UPDATE race) follow the double-spend pattern: one real
+    // transaction per fire plus a full fixture cleanup in `finally`.
+    // -------------------------------------------------------------------------
+    describe('mining belt (TZ DOC-2026-006 §14.2)', () => {
+        // The belt lives 450-465 m from the station (UX round 2026-11-23), so
+        // the mining fires default to the belt vantage; tests that trade at the
+        // station re-dock mid-test.
+        beforeEach(() => {
+            dockAtBelt()
+        })
+
+        const countMineRows = (executor: QueryExecutor, userId: string) =>
+            countRows(
+                executor,
+                `SELECT COUNT(*)::int AS count FROM ${SCHEMA_IDENT}.obj_operation WHERE operation_kind = 'Mine' AND _upl_created_by = $1`,
+                [userId]
+            )
+
+        const loadAsteroidDbRow = (executor: QueryExecutor, code: string) =>
+            executor.query<{
+                remaining_quantity_kg: string
+                total_quantity_kg: string
+                status_id: string | null
+                last_mined_at: Date | string | null
+            }>(
+                `SELECT remaining_quantity_kg, total_quantity_kg, status_id, last_mined_at FROM ${SCHEMA_IDENT}.obj_asteroid WHERE code = $1`,
+                [code]
+            )
+
+        const chunkSumOf = (outcome: { body: { chunks: Array<{ massKg: number }> } }) =>
+            Math.round(outcome.body.chunks.reduce((sum, chunk) => sum + chunk.massKg, 0) * 10) / 10
+
+        /**
+         * Committed-test cleanup (mirrors the double-spend race): restore the
+         * touched belt row and purge every user-scoped row the committed fires
+         * wrote, so the seeded belt stays pristine for the remaining tests.
+         */
+        const cleanupCommittedFixture = async (applicationId: string, userIds: string[], asteroidCode: string) => {
+            postingActorUserId = null
+            // knex.raw array bindings only substitute `?` placeholders — the
+            // PG-positional `$1/$2` style here made every committed-fire
+            // cleanup throw "Expected 2 bindings, saw 0" and cascade into the
+            // tests that follow (belt row left un-restored).
+            await knex.raw(
+                `UPDATE ${SCHEMA_IDENT}.obj_asteroid
+                 SET remaining_quantity_kg = total_quantity_kg, status_id = ?, last_mined_at = NULL
+                 WHERE code = ?`,
+                [ASTEROID_ACTIVE_VALUE_ID, asteroidCode]
+            )
+            for (const userId of userIds) {
+                await knex.raw(`DELETE FROM ${SCHEMA_IDENT}.led_wallet WHERE wallet_key = ?`, [userId])
+                await knex.raw(`DELETE FROM ${SCHEMA_IDENT}.led_inventory WHERE owner_key = ?`, [userId])
+                await knex.raw(`DELETE FROM ${SCHEMA_IDENT}.obj_operation WHERE _upl_created_by = ?`, [userId])
+                await knex.raw(`DELETE FROM ${SCHEMA_IDENT}.obj_wallet WHERE owner_key = ?`, [userId])
+                await knex.raw(`DELETE FROM applications.rel_application_users WHERE user_id = ?`, [userId])
+                await knex.raw(`DELETE FROM auth.users WHERE id = ?`, [userId])
+            }
+            await knex.raw(`DELETE FROM applications.obj_applications WHERE id = ?`, [applicationId])
+        }
+
+        const runCommittedFire = (applicationId: string, userId: string, asteroidCode: string) =>
+            knex.transaction(async (trx) => {
+                // Each fire pins ONE real transaction and runs the service on the
+                // savepoint executor over it (mirroring the request-scoped RLS
+                // executor): committed fires are what the per-user cooldown probe
+                // and the asteroid FOR UPDATE lock look like to sibling requests.
+                const executor = createSavepointExecutor(trx, true)
+                const fireService = buildService(executor, userId)
+                return fireService.executeMiningFire(buildCtx(executor, userId), applicationId, { asteroidCode })
+            })
+
+        it('returns the belt snapshot with TZ §7.7 seeds, rounded remainders and reflected depletion; empty belt yields []', async () => {
+            await withRollback(knex, async (trx) => {
+                // getMiningState is read-only and takes no application id — the
+                // membership fixture only mirrors the harness convention.
+                const { userId } = await setupApplicationUser(trx)
+                const executor = createSavepointExecutor(trx, true)
+                const service = buildService(executor, userId)
+                const ctx = buildCtx(executor, userId)
+
+                const state = await service.getMiningState(ctx)
+                expect(state.asteroids).toHaveLength(5)
+                const byCode = new Map(state.asteroids.map((asteroid) => [asteroid.code, asteroid]))
+                expect([...byCode.keys()].sort()).toEqual(['AST-01', 'AST-02', 'AST-03', 'AST-04', 'AST-05'])
+                expect(byCode.get('AST-01')).toMatchObject({
+                    name: 'Asteroid A-01',
+                    resourceCode: 'ORE',
+                    position: { x: -249, y: 7, z: 274 },
+                    scale: 7,
+                    totalQuantityKg: 120,
+                    remainingQuantityKg: 120,
+                    status: 'Active',
+                    visualVariant: 1
+                })
+
+                // fp artifacts never reach the payload: remainders round to 0.1 kg
+                // (TZ §8.1); a zero remainder flips the status through the Depleted
+                // REF value exactly like the fire UPDATE does.
+                await executor.query(
+                    `UPDATE ${SCHEMA_IDENT}.obj_asteroid SET remaining_quantity_kg = 117.90000000000001 WHERE code = 'AST-02'`
+                )
+                await executor.query(
+                    `UPDATE ${SCHEMA_IDENT}.obj_asteroid SET remaining_quantity_kg = 0, status_id = $1 WHERE code = 'AST-03'`,
+                    [DEPLETED_VALUE_ID]
+                )
+
+                const mutated = await service.getMiningState(ctx)
+                const mutatedByCode = new Map(mutated.asteroids.map((asteroid) => [asteroid.code, asteroid]))
+                expect(mutatedByCode.get('AST-02')).toMatchObject({ remainingQuantityKg: 117.9, status: 'Active' })
+                expect(mutatedByCode.get('AST-03')).toMatchObject({ remainingQuantityKg: 0, status: 'Depleted' })
+                expect(mutated.constants).toEqual({
+                    miningRadiusMeters: MINING_RADIUS_M,
+                    miningCooldownMs: MINING_COOLDOWN_MS,
+                    chunkMassMinKg: CHUNK_MASS_MIN_KG,
+                    chunkMassMaxKg: CHUNK_MASS_MAX_KG,
+                    chunkVisualLifetimeMs: CHUNK_VISUAL_LIFETIME_MS,
+                    statePollMs: MINING_STATE_POLL_MS
+                })
+
+                // Empty belt: soft-deleted rows drop out of the active-row
+                // condition — the endpoint still answers 200 with [].
+                await executor.query(`UPDATE ${SCHEMA_IDENT}.obj_asteroid SET _upl_deleted = true, _app_deleted = true`)
+                const empty = await service.getMiningState(ctx)
+                expect(empty.asteroids).toEqual([])
+            })
+        })
+
+        it('posts a Mine operation with ONE InventoryLedger fact, decrements the remainder and never touches the wallet', async () => {
+            await withRollback(knex, async (trx) => {
+                const { applicationId, userId } = await setupApplicationUser(trx)
+                const executor = createSavepointExecutor(trx, true)
+                const service = buildService(executor, userId)
+                const ctx = buildCtx(executor, userId)
+
+                // Economy bootstrap: wallet + once-only StarterGrant (10 kg ORE, 1000 CR).
+                await service.getEconomySummary(ctx, applicationId)
+                expect(
+                    await countRows(executor, `SELECT COUNT(*)::int AS count FROM ${SCHEMA_IDENT}.led_wallet WHERE wallet_key = $1`, [
+                        userId
+                    ])
+                ).toBe(1)
+                expect(
+                    await countRows(executor, `SELECT COUNT(*)::int AS count FROM ${SCHEMA_IDENT}.led_inventory WHERE owner_key = $1`, [
+                        userId
+                    ])
+                ).toBe(1)
+
+                const outcome = await service.executeMiningFire(ctx, applicationId, { asteroidCode: 'AST-01' })
+                expect(outcome.kind).toBe('executed')
+                if (outcome.kind !== 'executed') return
+                expect(outcome.status).toBe(200)
+                const chunkSum = chunkSumOf(outcome)
+                expect(outcome.body.chunks.length).toBeGreaterThanOrEqual(1)
+                expect(outcome.body.chunks.length).toBeLessThanOrEqual(3)
+                expect(outcome.body.asteroid).toEqual({
+                    code: 'AST-01',
+                    remainingQuantityKg: Math.round((120 - chunkSum) * 10) / 10,
+                    status: 'Active'
+                })
+
+                // Operation row: server-stamped Mine discriminators, zero prices,
+                // station/nomenclature REFs, posted state.
+                const mineRow = (
+                    await executor.query<{
+                        operation_kind: string
+                        asteroid_code: string
+                        quantity: string
+                        unit_price: string
+                        total_price: string
+                        station_id: string
+                        nomenclature_id: string
+                        operation_type_id: string
+                        _app_record_state: string
+                    }>(
+                        `SELECT operation_kind, asteroid_code, quantity, unit_price, total_price, station_id, nomenclature_id, operation_type_id, _app_record_state
+                         FROM ${SCHEMA_IDENT}.obj_operation WHERE id = $1`,
+                        [outcome.body.operationId]
+                    )
+                )[0]
+                expect(mineRow).toMatchObject({
+                    operation_kind: 'Mine',
+                    asteroid_code: 'AST-01',
+                    _app_record_state: 'posted'
+                })
+                expect(Number(mineRow.quantity)).toBe(chunkSum)
+                expect(Number(mineRow.unit_price)).toBe(0)
+                expect(Number(mineRow.total_price)).toBe(0)
+                expect(mineRow.station_id).toBe(STATION_ROW_ID)
+                expect(mineRow.nomenclature_id).toBe(ORE_ROW_ID)
+                expect(mineRow.operation_type_id).toBe(MINE_TYPE_ID)
+
+                // Exactly ONE new InventoryLedger fact (Quantity = chunk total,
+                // Cost = 0) and NO new WalletLedger fact (TZ FR-012).
+                const walletFacts = await executor.query<{ amount: string }>(
+                    `SELECT amount FROM ${SCHEMA_IDENT}.led_wallet WHERE wallet_key = $1`,
+                    [userId]
+                )
+                expect(walletFacts.map((row) => Number(row.amount))).toEqual([STARTING_BALANCE])
+                const mineFacts = await executor.query<{
+                    quantity: string
+                    cost: string
+                    station_code: string
+                    nomenclature_code: string
+                    source_row_id: string
+                }>(
+                    `SELECT quantity, cost, station_code, nomenclature_code, source_row_id
+                     FROM ${SCHEMA_IDENT}.led_inventory WHERE owner_key = $1 AND source_row_id = $2`,
+                    [userId, outcome.body.operationId]
+                )
+                expect(mineFacts).toHaveLength(1)
+                expect(Number(mineFacts[0].quantity)).toBe(chunkSum)
+                expect(Number(mineFacts[0].cost)).toBe(0)
+                expect(mineFacts[0].station_code).toBe('STN-1')
+                expect(mineFacts[0].nomenclature_code).toBe('ORE')
+
+                // The belt row decremented by EXACTLY the Operation quantity; the
+                // status stays Active above zero; LastMinedAt is stamped.
+                const [asteroidRow] = await loadAsteroidDbRow(executor, 'AST-01')
+                expect(Number(asteroidRow.remaining_quantity_kg)).toBeCloseTo(120 - chunkSum, 5)
+                expect(asteroidRow.status_id).toBe(ASTEROID_ACTIVE_VALUE_ID)
+                expect(asteroidRow.last_mined_at).not.toBeNull()
+
+                // Response echo: cargo grew by the chunk sum; the wallet is untouched.
+                expect(outcome.body.wallet).toEqual({ balance: STARTING_BALANCE, currency: 'CR' })
+                expect(outcome.body.cargo).toEqual({
+                    usedKg: Math.round((STARTING_ORE_KG + chunkSum) * 10) / 10,
+                    capacityKg: MAX_CARGO_KG
+                })
+            })
+        })
+
+        it('mines twice sequentially after the cooldown window expires; the second fire sees the decremented remainder', async () => {
+            await withRollback(knex, async (trx) => {
+                const { applicationId, userId } = await setupApplicationUser(trx)
+                const executor = createSavepointExecutor(trx, true)
+                const service = buildService(executor, userId)
+                const ctx = buildCtx(executor, userId)
+
+                const first = await service.executeMiningFire(ctx, applicationId, { asteroidCode: 'AST-01' })
+                expect(first.kind).toBe('executed')
+                if (first.kind !== 'executed') return
+                const firstSum = chunkSumOf(first)
+
+                // The per-user cooldown (TZ §9.5, 350 ms) must elapse between the
+                // user's own fires.
+                await new Promise((resolve) => setTimeout(resolve, MINING_COOLDOWN_MS + 150))
+
+                const second = await service.executeMiningFire(ctx, applicationId, { asteroidCode: 'AST-01' })
+                expect(second.kind).toBe('executed')
+                if (second.kind !== 'executed') return
+                const secondSum = chunkSumOf(second)
+
+                // Serialized on one asteroid: the sum can never exceed the stock and
+                // the second fire mined from the decremented remainder.
+                expect(firstSum + secondSum).toBeLessThanOrEqual(120)
+                expect(second.body.asteroid).toEqual({
+                    code: 'AST-01',
+                    remainingQuantityKg: Math.round((120 - firstSum - secondSum) * 10) / 10,
+                    status: 'Active'
+                })
+                expect(await countMineRows(executor, userId)).toBe(2)
+                const [asteroidRow] = await loadAsteroidDbRow(executor, 'AST-01')
+                expect(Number(asteroidRow.remaining_quantity_kg)).toBeCloseTo(120 - firstSum - secondSum, 5)
+            })
+        })
+
+        it('gives different users independent cooldowns, wallets and cargo over the shared belt remainder', async () => {
+            await withRollback(knex, async (trx) => {
+                const applicationId = await insertApplication(trx)
+                await trx.raw(`UPDATE applications.obj_applications SET schema_name = ? WHERE id = ?`, [SCHEMA_NAME, applicationId])
+                const userA = generateUuidV7()
+                const userB = generateUuidV7()
+                await insertApplicationMember(trx, applicationId, userA)
+                await insertApplicationMember(trx, applicationId, userB)
+                const executor = createSavepointExecutor(trx, true)
+
+                const first = await buildService(executor, userA).executeMiningFire(buildCtx(executor, userA), applicationId, {
+                    asteroidCode: 'AST-03'
+                })
+                expect(first.kind).toBe('executed')
+
+                // User B fires IMMEDIATELY after user A: the per-user cooldown never
+                // leaks across users (TZ §9.5 — per user, not per asteroid).
+                const second = await buildService(executor, userB).executeMiningFire(buildCtx(executor, userB), applicationId, {
+                    asteroidCode: 'AST-03'
+                })
+                expect(second.kind).toBe('executed')
+                if (first.kind !== 'executed' || second.kind !== 'executed') return
+                const sumA = chunkSumOf(first)
+                const sumB = chunkSumOf(second)
+
+                // Shared belt: the remainder is decremented by BOTH fires.
+                const [asteroidRow] = await loadAsteroidDbRow(executor, 'AST-03')
+                expect(Number(asteroidRow.remaining_quantity_kg)).toBeCloseTo(90 - sumA - sumB, 5)
+
+                // Separate wallets (mine-only users: no grant, balance 0) and
+                // owner-scoped cargo echoes.
+                const wallets = await executor.query<{ owner_key: string }>(
+                    `SELECT owner_key FROM ${SCHEMA_IDENT}.obj_wallet ORDER BY owner_key ASC`
+                )
+                expect(wallets.map((row) => row.owner_key).sort()).toEqual([userA, userB].sort())
+                expect(first.body.wallet).toEqual({ balance: 0, currency: 'CR' })
+                expect(second.body.wallet).toEqual({ balance: 0, currency: 'CR' })
+                expect(first.body.cargo.usedKg).toBeCloseTo(sumA, 5)
+                expect(second.body.cargo.usedKg).toBeCloseTo(sumB, 5)
+                const factsB = await executor.query<{ quantity: string }>(
+                    `SELECT quantity FROM ${SCHEMA_IDENT}.led_inventory WHERE owner_key = $1`,
+                    [userB]
+                )
+                expect(factsB.map((row) => Number(row.quantity))).toEqual([sumB])
+            })
+        })
+
+        it('rejects depleted targets, unknown codes, out-of-range shots and full cargo without writing rows', async () => {
+            await withRollback(knex, async (trx) => {
+                const { applicationId, userId } = await setupApplicationUser(trx)
+                const executor = createSavepointExecutor(trx, true)
+                const service = buildService(executor, userId)
+                const ctx = buildCtx(executor, userId)
+
+                // Depleted: the FOR UPDATE re-check refuses before any Operation exists.
+                await executor.query(
+                    `UPDATE ${SCHEMA_IDENT}.obj_asteroid SET remaining_quantity_kg = 0, status_id = $1 WHERE code = 'AST-03'`,
+                    [DEPLETED_VALUE_ID]
+                )
+                await expect(service.executeMiningFire(ctx, applicationId, { asteroidCode: 'AST-03' })).rejects.toMatchObject({
+                    statusCode: 409,
+                    body: { code: 'MINING_DEPLETED' }
+                })
+
+                // Unknown code → 404 MINING_TARGET_NOT_FOUND.
+                await expect(service.executeMiningFire(ctx, applicationId, { asteroidCode: 'AST-99' })).rejects.toMatchObject({
+                    statusCode: 404,
+                    body: { code: 'MINING_TARGET_NOT_FOUND' }
+                })
+
+                // Out of range: the authoritative ship position comes from the room
+                // bridge, never the client (TZ §9.1).
+                mockDescribeFlightContext.mockResolvedValue({
+                    position: { x: 900, y: 0, z: 0 },
+                    stations: [{ id: STATION_ROW_ID, position: { x: 1, y: 0, z: 0 } }]
+                })
+                await expect(service.executeMiningFire(ctx, applicationId, { asteroidCode: 'AST-01' })).rejects.toMatchObject({
+                    statusCode: 409,
+                    body: { code: 'MINING_OUT_OF_RANGE' }
+                })
+                // Back to the belt vantage: the capacity rejection below fires
+                // at AST-01, which sits beyond the mining radius from the
+                // station (UX round 2026-11-23).
+                dockAtBelt()
+
+                // Full cargo: a seeded 1000 kg ORE fact saturates MaxCargoMassKg →
+                // capacity rejection BEFORE any Operation is created (FR-016/FR-017).
+                // Direct register INSERT is harness-level seeding only — the
+                // registrar-only guard for service callers is covered above.
+                // The seeded fact must carry `_upl_created_by`: the InventoryLedger
+                // read scope is ownerOnly on that column, so an owner_key-only row
+                // stays invisible to the cargo projection and the fire would
+                // wrongly succeed.
+                await executor.query(
+                    `INSERT INTO ${SCHEMA_IDENT}.led_inventory (owner_key, _upl_created_by, station_code, nomenclature_code, quantity, cost) VALUES ($1, $1, 'STN-1', 'ORE', $2, 0)`,
+                    [userId, MAX_CARGO_KG]
+                )
+                await expect(service.executeMiningFire(ctx, applicationId, { asteroidCode: 'AST-01' })).rejects.toMatchObject({
+                    statusCode: 409,
+                    body: { code: 'ECONOMY_CAPACITY_EXCEEDED' }
+                })
+
+                // Nothing was written: no Mine operation and untouched remainders.
+                expect(await countMineRows(executor, userId)).toBe(0)
+                const rows = await executor.query<{ code: string; remaining_quantity_kg: string }>(
+                    `SELECT code, remaining_quantity_kg FROM ${SCHEMA_IDENT}.obj_asteroid WHERE code = ANY($1::text[])`,
+                    [['AST-01', 'AST-03']]
+                )
+                const remainderByCode = new Map(rows.map((row) => [row.code, Number(row.remaining_quantity_kg)]))
+                expect(remainderByCode.get('AST-01')).toBe(120)
+                expect(remainderByCode.get('AST-03')).toBe(0)
+            })
+        })
+
+        it('sells the freshly mined ore at a station: cargo is consumed and the wallet is credited', async () => {
+            await withRollback(knex, async (trx) => {
+                const { applicationId, userId } = await setupApplicationUser(trx)
+                const executor = createSavepointExecutor(trx, true)
+                const service = buildService(executor, userId)
+                const ctx = buildCtx(executor, userId)
+
+                await service.getEconomySummary(ctx, applicationId)
+                const mine = await service.executeMiningFire(ctx, applicationId, { asteroidCode: 'AST-01' })
+                expect(mine.kind).toBe('executed')
+                if (mine.kind !== 'executed') return
+                const chunkSum = chunkSumOf(mine)
+
+                // The sell trade is station-gated (market radius) — fly back
+                // from the belt vantage before trading (UX round 2026-11-23).
+                dockAtStation()
+                const trade = await service.executeTrade(ctx, applicationId, 'sell', { nomenclatureCode: 'ORE', quantity: chunkSum })
+                expect(trade.kind).toBe('executed')
+                if (trade.kind !== 'executed') return
+                expect(trade.body.walletBalance).toBe(STARTING_BALANCE + chunkSum * ORE_PRICE)
+                expect(trade.body.cargo).toEqual([
+                    { nomenclatureCode: 'ORE', nomenclatureName: 'Ore', quantity: STARTING_ORE_KG, unit: 'Kg', massKg: STARTING_ORE_KG }
+                ])
+
+                // Every operation carries its server-stamped kind: grant → mine → sell.
+                const kinds = await executor.query<{ operation_kind: string; quantity: string }>(
+                    `SELECT operation_kind, quantity FROM ${SCHEMA_IDENT}.obj_operation WHERE _upl_created_by = $1 ORDER BY id ASC`,
+                    [userId]
+                )
+                expect(kinds.map((row) => row.operation_kind)).toEqual(['StarterGrant', 'Mine', 'Sell'])
+                expect(Number(kinds[2].quantity)).toBe(chunkSum)
+
+                // Inventory net effect: grant + mine − sell = the starting stock.
+                // The facts are read in ascending quantity order — chunk sums are
+                // always below the 10 kg starter stock, so the sell's negative fact
+                // sorts first, then the mine's positive chunk, then the starter ore.
+                const inventoryFacts = await executor.query<{ quantity: string }>(
+                    `SELECT quantity FROM ${SCHEMA_IDENT}.led_inventory WHERE owner_key = $1 ORDER BY quantity ASC`,
+                    [userId]
+                )
+                expect(inventoryFacts.map((row) => Number(row.quantity))).toEqual([-chunkSum, chunkSum, STARTING_ORE_KG])
+            })
+        })
+
+        it('rejects the second fire with 409 MINING_COOLDOWN after the first fire commits (per-user probe, TZ §9.5)', async () => {
+            // Sibling-transaction visibility cannot share the outer rollback
+            // transaction: the first fire must COMMIT before the second runs so the
+            // latest-Mine probe reads it the way a second request would. Cleanup
+            // mirrors the double-spend race.
+            const applicationId = await insertApplication(knex)
+            const userId = generateUuidV7()
+            try {
+                await knex.raw(`UPDATE applications.obj_applications SET schema_name = ? WHERE id = ?`, [SCHEMA_NAME, applicationId])
+                await insertApplicationMember(knex, applicationId, userId)
+
+                const first = await runCommittedFire(applicationId, userId, 'AST-02')
+                expect(first.kind).toBe('executed')
+                if (first.kind !== 'executed') throw new Error('expected an executed fire')
+                const firstSum = chunkSumOf(first)
+
+                await expect(runCommittedFire(applicationId, userId, 'AST-02')).rejects.toMatchObject({
+                    statusCode: 409,
+                    body: { code: 'MINING_COOLDOWN' }
+                })
+
+                // The rejected fire left no Operation row and did not touch the belt.
+                const bootstrapExecutor = createSavepointExecutor(knex, false)
+                expect(await countMineRows(bootstrapExecutor, userId)).toBe(1)
+                const [asteroidRow] = await loadAsteroidDbRow(bootstrapExecutor, 'AST-02')
+                expect(Number(asteroidRow.remaining_quantity_kg)).toBeCloseTo(160 - firstSum, 5)
+            } finally {
+                await cleanupCommittedFixture(applicationId, [userId], 'AST-02')
+            }
+        })
+
+        it('serializes two concurrent different-user fires through the asteroid FOR UPDATE lock; the sum never exceeds the stock', async () => {
+            // Real concurrency needs real transactions (one per racer, mirroring the
+            // double-spend race): the savepoint executor shares one connection and
+            // cannot race against itself.
+            const applicationId = await insertApplication(knex)
+            const userA = generateUuidV7()
+            const userB = generateUuidV7()
+            try {
+                await knex.raw(`UPDATE applications.obj_applications SET schema_name = ? WHERE id = ?`, [SCHEMA_NAME, applicationId])
+                await insertApplicationMember(knex, applicationId, userA)
+                await insertApplicationMember(knex, applicationId, userB)
+
+                // Different users: independent cooldowns, so BOTH fires must succeed —
+                // the FOR UPDATE row lock is what serializes them on the belt.
+                const results = await Promise.allSettled([
+                    runCommittedFire(applicationId, userA, 'AST-01'),
+                    runCommittedFire(applicationId, userB, 'AST-01')
+                ])
+                const outcomes = results.map((result) => (result.status === 'fulfilled' ? result.value : result.reason))
+                const executed = outcomes.filter((outcome) => outcome?.kind === 'executed')
+                expect(executed).toHaveLength(2)
+                const minedTotal = Math.round(executed.reduce((sum, outcome) => sum + chunkSumOf(outcome), 0) * 10) / 10
+
+                const bootstrapExecutor = createSavepointExecutor(knex, false)
+                const [asteroidRow] = await loadAsteroidDbRow(bootstrapExecutor, 'AST-01')
+                expect(Number(asteroidRow.remaining_quantity_kg)).toBeCloseTo(120 - minedTotal, 5)
+                expect(Number(asteroidRow.remaining_quantity_kg)).toBeGreaterThanOrEqual(0)
+
+                // One Mine row per user; each InventoryLedger fact owned by its own
+                // racer (the posting spy derives OwnerKey from _upl_created_by).
+                expect(await countMineRows(bootstrapExecutor, userA)).toBe(1)
+                expect(await countMineRows(bootstrapExecutor, userB)).toBe(1)
+                const facts = await bootstrapExecutor.query<{ owner_key: string; quantity: string }>(
+                    `SELECT owner_key, quantity FROM ${SCHEMA_IDENT}.led_inventory
+                     WHERE nomenclature_code = 'ORE' AND owner_key = ANY($1::text[])`,
+                    [[userA, userB]]
+                )
+                expect(facts).toHaveLength(2)
+                expect(Math.round(facts.reduce((sum, row) => sum + Number(row.quantity), 0) * 10) / 10).toBe(minedTotal)
+            } finally {
+                await cleanupCommittedFixture(applicationId, [userA, userB], 'AST-01')
+            }
+        })
     })
 })

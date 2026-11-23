@@ -1,6 +1,9 @@
 import { z } from 'zod'
 import type { RecordsUnionDatasource, ReportFilter, RuntimeDatasourceFilter, RuntimeDatasourceSort } from '@universo-react/types'
 import {
+    economyMineRequestSchema,
+    economyMineResponseSchema,
+    economyMiningStateSchema,
     economySummarySchema,
     economyTradeResponseSchema,
     objectRecordBehaviorSchema,
@@ -11,6 +14,8 @@ import {
     reportDefinitionSchema,
     workflowActionSchema,
     readLocalizedTextValue,
+    type EconomyMineResponse,
+    type EconomyMiningState,
     type EconomySummary,
     type EconomyTradeResponse
 } from '@universo-react/types'
@@ -886,6 +891,68 @@ export async function postEconomyTrade(
     const parsed = economyTradeResponseSchema.safeParse(payload)
     if (!parsed.success) {
         throw new Error('Economy trade API response validation failed')
+    }
+    return parsed.data
+}
+
+/**
+ * GET /applications/:applicationId/runtime/economy/mining/state (mining TZ
+ * §8.1). Belt snapshot + constants for the 2 s poll; zod-validated against the
+ * shared `economyMiningStateSchema`.
+ */
+export async function fetchMiningState(apiBaseUrl: string, applicationId: string, signal?: AbortSignal): Promise<EconomyMiningState> {
+    const url = buildAppApiUrl(apiBaseUrl, applicationId, '/economy/mining/state')
+    const res = await fetch(url.toString(), { credentials: 'include', signal })
+    if (!res.ok) {
+        return throwAppsApiError(res, 'Mining state API request failed')
+    }
+
+    const parsed = economyMiningStateSchema.safeParse(await res.json())
+    if (!parsed.success) {
+        throw new Error('Mining state API response validation failed')
+    }
+    return parsed.data
+}
+
+/**
+ * POST /applications/:applicationId/runtime/economy/mining/fire (mining TZ
+ * §8.2). The body is validated against the shared strict
+ * `economyMineRequestSchema` (`{ asteroidCode }` only — FR-030) before it
+ * leaves the client; the optional `idempotencyKey` (UUID v7) travels in the
+ * `Idempotency-Key` header via `fetchWithCsrf`.
+ */
+export async function postMiningFire(
+    apiBaseUrl: string,
+    applicationId: string,
+    body: { asteroidCode: string },
+    idempotencyKey?: string
+): Promise<EconomyMineResponse> {
+    const bodyParse = economyMineRequestSchema.safeParse(body)
+    if (!bodyParse.success) {
+        throw new Error('Mining fire request validation failed')
+    }
+    const url = buildAppApiUrl(apiBaseUrl, applicationId, '/economy/mining/fire')
+    const res = await fetchWithCsrf(apiBaseUrl, url.toString(), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {})
+        },
+        body: JSON.stringify(bodyParse.data)
+    })
+    if (!res.ok) {
+        return throwAppsApiError(res, 'Mining fire API request failed')
+    }
+
+    let payload: unknown
+    try {
+        payload = await res.json()
+    } catch {
+        throw new Error('Mining fire API response validation failed')
+    }
+    const parsed = economyMineResponseSchema.safeParse(payload)
+    if (!parsed.success) {
+        throw new Error('Mining fire API response validation failed')
     }
     return parsed.data
 }

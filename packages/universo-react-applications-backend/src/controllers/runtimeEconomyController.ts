@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express'
 import type { DbExecutor } from '@universo-react/utils'
-import { economyTradeRequestSchema } from '@universo-react/types'
+import { economyMineRequestSchema, economyTradeRequestSchema } from '@universo-react/types'
 import { createQueryHelper, ensureRuntimePermission, resolveRuntimeSchema, UpdateFailure } from '../shared/runtimeHelpers'
 import { dispatchRuntimeLifecycleAfterCommit } from '../services/runtimeLifecycleDispatch'
 import {
@@ -13,18 +13,40 @@ import {
 } from '../services/runtimeEconomyService'
 
 /**
- * Runtime economy controller (MMOOMM plan B6).
+ * Runtime economy controller (MMOOMM plan B6), extended with the mining routes
+ * (mining plan B4, TZ DOC-2026-006 §8).
  *
  * - summary: runtime read convention (no content permission) — the payload is
  *   server-scoped to `ctx.userId` through ownerOnly filters.
  * - sell/buy: `editContent` permission (posting precedent), strict body schema,
  *   server-injected prices/balances, `Idempotency-Key` replay protection.
+ * - mining/state: auth-only read (belt snapshot + constants), member-only via
+ *   `resolveRuntimeSchema`.
+ * - mining/fire: `editContent` permission, TZ §8.2 400/422 split, strict body
+ *   schema, server-authoritative amounts, optional `Idempotency-Key`.
  */
 const FORBIDDEN_TRADE_BODY_KEYS: ReadonlySet<string> = new Set(['ownerkey', 'walletid', 'balance', 'price', 'status'])
+// Mining TZ §8.2 row MINING_INVALID_PAYLOAD: any server-owned economic field in
+// the fire body is rejected (never ignored) — 422 before any economy DB work.
+const FORBIDDEN_MINING_BODY_KEYS: ReadonlySet<string> = new Set([
+    'quantity',
+    'mass',
+    'masskg',
+    'yield',
+    'price',
+    'unitprice',
+    'totalprice',
+    'remaining',
+    'remainingquantitykg',
+    'cargo',
+    'walletid',
+    'balance',
+    'status'
+])
 
-const hasForbiddenTradeBodyKey = (body: unknown): boolean => {
+const hasForbiddenBodyKey = (body: unknown, forbidden: ReadonlySet<string>): boolean => {
     if (!body || typeof body !== 'object' || Array.isArray(body)) return false
-    return Object.keys(body).some((key) => FORBIDDEN_TRADE_BODY_KEYS.has(key.trim().toLowerCase()))
+    return Object.keys(body).some((key) => forbidden.has(key.trim().toLowerCase()))
 }
 
 const mapUpdateFailure = (res: Response, error: unknown): boolean => {
@@ -81,7 +103,7 @@ export function createRuntimeEconomyController(getDbExecutor: () => DbExecutor) 
 
         // TZ FR-023: any client-supplied server-owned economic field is rejected
         // 422 before any economy DB work (D9 maps INVALID_QUANTITY to 422).
-        if (hasForbiddenTradeBodyKey(req.body)) {
+        if (hasForbiddenBodyKey(req.body, FORBIDDEN_TRADE_BODY_KEYS)) {
             return res.status(422).json({ error: 'Trade payload contains server-owned fields', code: 'ECONOMY_INVALID_QUANTITY' })
         }
 
@@ -126,9 +148,86 @@ export function createRuntimeEconomyController(getDbExecutor: () => DbExecutor) 
         }
     }
 
+    const getMiningState = async (req: Request, res: Response) => {
+        const { applicationId } = req.params
+        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
+        if (!ctx) return
+        if (!ctx.userId) return res.status(401).json({ error: 'Current user is required' })
+
+        try {
+            // Belt snapshot + constants (TZ §8.1): member-only read, no
+            // `editContent` required, remainders rounded to 0.1 kg server-side.
+            const state = await service.getMiningState(ctx)
+            return res.json(state)
+        } catch (error) {
+            if (mapUpdateFailure(res, error)) return
+            respondUnexpectedFailure(res, error)
+        }
+    }
+
+    const fireMining = async (req: Request, res: Response) => {
+        const { applicationId } = req.params
+        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
+        if (!ctx) return
+        if (!ctx.userId) return res.status(401).json({ error: 'Current user is required' })
+        if (!ensureRuntimePermission(res, ctx, 'editContent')) return
+
+        // TZ §8.2 400/422 split (D5): a missing/invalid asteroidCode is row 1
+        // (400 MINING_INVALID_TARGET); server-owned/forbidden fields and unknown
+        // keys are MINING_INVALID_PAYLOAD (422) — never ignored. safeParse keeps
+        // ZodError from escaping as an unmapped 500 (trade uses a codeless 400
+        // here; mining maps it deliberately per the documented codes).
+        const rawAsteroidCode = typeof req.body?.asteroidCode === 'string' ? req.body.asteroidCode.trim() : ''
+        if (!rawAsteroidCode) {
+            return res.status(400).json({ error: 'Choose an asteroid', code: 'MINING_INVALID_TARGET' })
+        }
+        if (hasForbiddenBodyKey(req.body, FORBIDDEN_MINING_BODY_KEYS)) {
+            return res.status(422).json({ error: 'Invalid mining payload', code: 'MINING_INVALID_PAYLOAD' })
+        }
+        const parsedBody = economyMineRequestSchema.safeParse(req.body ?? {})
+        if (!parsedBody.success) {
+            return res.status(422).json({ error: 'Invalid mining payload', code: 'MINING_INVALID_PAYLOAD' })
+        }
+
+        // TZ §8.3: absent Idempotency-Key → no replay protection (allowed, the
+        // cooldown + asteroid lock protect the belt); malformed → 400.
+        const parsedKey = parseEconomyIdempotencyKey(req.header('Idempotency-Key'))
+        if (parsedKey.kind === 'malformed') {
+            return res.status(400).json({ error: 'Invalid Idempotency-Key header format', code: 'ECONOMY_IDEMPOTENCY_KEY_INVALID' })
+        }
+        const idempotency =
+            parsedKey.kind === 'ok'
+                ? {
+                      applicationId,
+                      userId: ctx.userId,
+                      workspaceId: ctx.currentWorkspaceId,
+                      keyHash: hashEconomyIdempotencyKey(parsedKey.key),
+                      // Fingerprint binds kind 'mine' + the VALIDATED body — a
+                      // key reused with a different asteroid always conflicts.
+                      fingerprint: fingerprintEconomyTradeBody('mine', parsedBody.data)
+                  }
+                : undefined
+
+        if (idempotency) await purgeEconomyIdempotencyFailSoft(ctx.manager)
+
+        try {
+            const outcome = await service.executeMiningFire(ctx, applicationId, parsedBody.data, idempotency)
+            if (outcome.kind === 'replayed') {
+                return res.status(outcome.status).json(outcome.body)
+            }
+            for (const request of outcome.afterLifecycleRequests) dispatchRuntimeLifecycleAfterCommit(ctx.manager, request)
+            return res.status(outcome.status).json(outcome.body)
+        } catch (error) {
+            if (mapUpdateFailure(res, error)) return
+            respondUnexpectedFailure(res, error)
+        }
+    }
+
     return {
         getSummary,
         sellTrade: createTradeHandler('sell'),
-        buyTrade: createTradeHandler('buy')
+        buyTrade: createTradeHandler('buy'),
+        getMiningState,
+        fireMining
     }
 }

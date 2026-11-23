@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import PlayCanvasCanvasWidget from '../PlayCanvasCanvasWidget'
+import { AppsApiError } from '../../../api/client'
 import { Script } from '@universo-react/playcanvas-engine'
 import { computeScriptArtifactDigest } from '../playcanvasScriptAssets'
 import { DashboardDetailsProvider } from '../../DashboardDetailsContext'
@@ -32,13 +33,50 @@ const colyseusMocks = vi.hoisted(() => ({
     joinOrCreate: vi.fn()
 }))
 
-vi.mock('react-i18next', () => ({
-    useTranslation: () => ({
-        t: (_key: string, fallback?: string | { defaultValue?: string }) =>
-            typeof fallback === 'object' ? fallback.defaultValue ?? _key : fallback ?? _key,
-        i18n: { language: 'en' }
-    })
+const apiMocks = vi.hoisted(() => ({
+    fetchMiningState: vi.fn(),
+    postMiningFire: vi.fn(),
+    fetchRuntimeEconomySummary: vi.fn()
 }))
+
+// Real i18next instance backed by the actual apps.json resources so mining
+// error localization (runtime.economyErrors.MINING_*) and interpolated HUD
+// strings (Cargo: {{used}} / {{max}} kg) render exactly like production.
+vi.mock('react-i18next', async () => {
+    const [{ createInstance }, enModule, ruModule] = await Promise.all([
+        import('i18next'),
+        import('../../../i18n/locales/en/apps.json'),
+        import('../../../i18n/locales/ru/apps.json')
+    ])
+    const instance = createInstance()
+    instance.init({
+        lng: 'en',
+        fallbackLng: 'en',
+        resources: { en: { apps: enModule.default }, ru: { apps: ruModule.default } },
+        interpolation: { escapeValue: false },
+        returnNull: false,
+        returnEmptyString: false
+    })
+    const fixedT = instance.getFixedT(null, 'apps')
+    // Normalize the call shapes the widget uses: t(key), t(key, defaultValue),
+    // t(key, options) and t(key, defaultValue, options) all funnel into
+    // t(key, { ...options, defaultValue }).
+    const t = (key: string, maybeDefault?: unknown, maybeOptions?: unknown) => {
+        if (typeof maybeDefault === 'string' && maybeOptions !== undefined && typeof maybeOptions === 'object') {
+            return fixedT(key, { ...(maybeOptions as Record<string, unknown>), defaultValue: maybeDefault })
+        }
+        if (typeof maybeDefault === 'string') {
+            return fixedT(key, { defaultValue: maybeDefault })
+        }
+        if (maybeDefault !== undefined && maybeDefault !== null && typeof maybeDefault === 'object') {
+            return fixedT(key, maybeDefault as Record<string, unknown>)
+        }
+        return fixedT(key)
+    }
+    return {
+        useTranslation: () => ({ t, i18n: instance })
+    }
+})
 
 vi.mock('../../runtime/browserModuleRuntime', () => ({
     executeClientModuleMethod: moduleRuntimeMocks.executeClientModuleMethod
@@ -307,7 +345,9 @@ vi.mock('@universo-react/playcanvas-engine', () => {
             return entity
         }
     )
-    playcanvasMocks.createTranslucentStandardMaterial.mockImplementation((options: unknown) => ({ options }))
+    // Real PlayCanvas materials expose `update()` for live property tweaks —
+    // the mining layer mutates glow opacity per hover/selection state.
+    playcanvasMocks.createTranslucentStandardMaterial.mockImplementation((options: unknown) => ({ options, update: () => undefined }))
 
     return {
         Color,
@@ -369,6 +409,23 @@ vi.mock('@universo-react/colyseus-client', () => ({
         }
     }
 }))
+
+// Mining/economy surfaces go through the typed api helpers, not raw fetch —
+// mock them the same way EconomyDialog.test.tsx does for deterministic belt,
+// HUD and fire payloads. `fetchRuntimePlayCanvasManifests` (and everything
+// else, e.g. fetchWithCsrf used by the module discovery) stays on the real
+// module so the published-manifest tests can keep stubbing global fetch.
+// NOTE: the specifier resolves relative to this __tests__/ file, hence the
+// extra `../` compared with EconomyDialog.test.tsx (components/).
+vi.mock('../../../api/api', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../../../api/api')>()
+    return {
+        ...actual,
+        fetchMiningState: apiMocks.fetchMiningState,
+        postMiningFire: apiMocks.postMiningFire,
+        fetchRuntimeEconomySummary: apiMocks.fetchRuntimeEconomySummary
+    }
+})
 
 const createQueryClient = () =>
     new QueryClient({
@@ -2040,7 +2097,7 @@ describe('PlayCanvasCanvasWidget', () => {
 
         renderWidget()
 
-        await waitFor(() => expect(screen.getByTestId('playcanvas-realtime-status')).toHaveTextContent('unauthorized'))
+        await waitFor(() => expect(screen.getByTestId('playcanvas-realtime-status')).toHaveTextContent('Realtime unavailable'))
         expect(screen.getByText('Realtime control is not available for your account.')).toBeInTheDocument()
         expect(screen.queryByText(/forbidden|room-1|csrf/i)).not.toBeInTheDocument()
     })
@@ -2082,7 +2139,7 @@ describe('PlayCanvasCanvasWidget', () => {
 
         renderWidget()
 
-        await waitFor(() => expect(screen.getByTestId('playcanvas-realtime-status')).toHaveTextContent('room_full'))
+        await waitFor(() => expect(screen.getByTestId('playcanvas-realtime-status')).toHaveTextContent('Realtime room full'))
         expect(screen.queryByText(/room-1|429/i)).not.toBeInTheDocument()
     })
 
@@ -2092,7 +2149,7 @@ describe('PlayCanvasCanvasWidget', () => {
 
         renderWidget()
 
-        await waitFor(() => expect(screen.getByTestId('playcanvas-realtime-status')).toHaveTextContent('room_full'))
+        await waitFor(() => expect(screen.getByTestId('playcanvas-realtime-status')).toHaveTextContent('Realtime room full'))
         expect(screen.getByText('Realtime room is full. Try again later.')).toBeInTheDocument()
         expect(screen.queryByText(/4421|room-unavailable|protocol|websocket/i)).not.toBeInTheDocument()
     })
@@ -2134,7 +2191,7 @@ describe('PlayCanvasCanvasWidget', () => {
 
         renderWidget()
 
-        await waitFor(() => expect(screen.getByTestId('playcanvas-realtime-status')).toHaveTextContent('version_mismatch'))
+        await waitFor(() => expect(screen.getByTestId('playcanvas-realtime-status')).toHaveTextContent('Realtime version mismatch'))
         expect(screen.queryByText(/room-2|426/i)).not.toBeInTheDocument()
     })
 
@@ -2227,7 +2284,7 @@ describe('PlayCanvasCanvasWidget', () => {
         act(() => {
             leaveHandler?.(4214)
         })
-        await waitFor(() => expect(screen.getByTestId('playcanvas-realtime-status')).toHaveTextContent('failed_reconnect'), {
+        await waitFor(() => expect(screen.getByTestId('playcanvas-realtime-status')).toHaveTextContent('Realtime reconnect failed'), {
             timeout: 2000
         })
     })
@@ -2490,7 +2547,7 @@ describe('PlayCanvasCanvasWidget', () => {
             leaveHandler?.(4003)
         })
 
-        await waitFor(() => expect(screen.getByTestId('playcanvas-realtime-status')).toHaveTextContent('failed_reconnect'))
+        await waitFor(() => expect(screen.getByTestId('playcanvas-realtime-status')).toHaveTextContent('Realtime reconnect failed'))
         expect(screen.getByText('Realtime control could not reconnect.')).toBeInTheDocument()
         expect(screen.queryByText(/4003|room|protocol|websocket/i)).not.toBeInTheDocument()
     })
@@ -2520,7 +2577,7 @@ describe('PlayCanvasCanvasWidget', () => {
             leaveHandler?.(4423)
         })
 
-        await waitFor(() => expect(screen.getByTestId('playcanvas-realtime-status')).toHaveTextContent('unauthorized'))
+        await waitFor(() => expect(screen.getByTestId('playcanvas-realtime-status')).toHaveTextContent('Realtime unavailable'))
         expect(screen.getByText('Realtime control is not available for your account.')).toBeInTheDocument()
         expect(screen.queryByText(/4423|room|protocol|websocket/i)).not.toBeInTheDocument()
     })
@@ -2550,7 +2607,7 @@ describe('PlayCanvasCanvasWidget', () => {
             leaveHandler?.(4421)
         })
 
-        await waitFor(() => expect(screen.getByTestId('playcanvas-realtime-status')).toHaveTextContent('room_full'))
+        await waitFor(() => expect(screen.getByTestId('playcanvas-realtime-status')).toHaveTextContent('Realtime room full'))
         expect(screen.getByText('Realtime room is full. Try again later.')).toBeInTheDocument()
         expect(screen.queryByText(/4421|protocol|websocket/i)).not.toBeInTheDocument()
     })
@@ -2968,5 +3025,362 @@ describe('PlayCanvasCanvasWidget', () => {
         expect(screen.getByTestId('playcanvas-participants-status')).toHaveTextContent('Ships: 2 (view only)')
         expect(screen.getByRole('button', { name: 'Move to target' })).toBeDisabled()
         expect(screen.getByRole('button', { name: 'Stop' })).toBeDisabled()
+    })
+
+    describe('mining belt wiring (mining TZ DOC-2026-006)', () => {
+        type MiningCanvas = HTMLCanvasElement & {
+            __playcanvasPickAsteroid?: (
+                clientX: number,
+                clientY: number
+            ) => { code: string; point: { x: number; y: number; z: number } } | null
+            __playcanvasPlayMiningEffect?: (detail: {
+                asteroidCode: string
+                chunkMassesKg: number[]
+                lifetimeMs: number
+                reducedMotion: boolean
+            }) => void
+        }
+
+        const beltState = {
+            asteroids: [
+                {
+                    code: 'AST-01',
+                    name: 'Ferrum Rock',
+                    resourceCode: 'ORE',
+                    position: { x: 36, y: 2, z: -26 },
+                    scale: 6,
+                    totalQuantityKg: 1200,
+                    remainingQuantityKg: 900,
+                    status: 'Active' as const,
+                    visualVariant: 1
+                }
+            ],
+            // Long poll/cooldown windows (server-driven constants) keep these
+            // assertions free of timer races inside the test run.
+            constants: {
+                miningRadiusMeters: 80,
+                miningCooldownMs: 60000,
+                chunkMassMinKg: 0.8,
+                chunkMassMaxKg: 3.2,
+                chunkVisualLifetimeMs: 900,
+                statePollMs: 60000
+            }
+        }
+
+        const economySummary = {
+            wallet: { currency: 'CR', balance: 500 },
+            cargo: [],
+            capacity: { usedKg: 12, maxKg: 40 },
+            market: [],
+            operations: [],
+            atStation: true,
+            stationName: 'Dock Alpha'
+        }
+
+        const fireResponse = {
+            operationId: '018f8a78-7b8f-7c1d-8111-2222333344e2',
+            asteroid: { code: 'AST-01', remainingQuantityKg: 896.5, status: 'Active' as const },
+            chunks: [
+                { id: 'chunk-1', massKg: 2.4, scale: 0.5 },
+                { id: 'chunk-2', massKg: 1.8, scale: 0.42 }
+            ],
+            cargo: { usedKg: 12.6, capacityKg: 40 },
+            wallet: { balance: 500, currency: 'CR' }
+        }
+
+        const connectRealtimeRoom = () => {
+            const room = {
+                state: { ship: { position: { x: 0, y: 0, z: 0 } } },
+                reconnection: { enabled: false, minUptime: 1000, maxRetries: 3, minDelay: 1000, maxDelay: 5000 },
+                send: vi.fn(),
+                leave: vi.fn(),
+                onStateChange: vi.fn(),
+                onMessage: vi.fn((_type: string, handler: (payload: unknown) => void) => {
+                    handler({ shipId: 'ship-local' })
+                }),
+                onDrop: vi.fn(),
+                onReconnect: vi.fn(),
+                onLeave: vi.fn()
+            }
+            colyseusMocks.joinOrCreate.mockResolvedValueOnce(room)
+            return room
+        }
+
+        const renderConnectedMiningWidget = async (
+            detailsOverrides: Record<string, unknown> = {},
+            options: { beltData?: boolean } = {}
+        ) => {
+            stubAvailableRuntimeModuleFetch()
+            if (options.beltData !== false) {
+                apiMocks.fetchMiningState.mockResolvedValue(beltState)
+            }
+            apiMocks.fetchRuntimeEconomySummary.mockResolvedValue(economySummary)
+            const room = connectRealtimeRoom()
+            const rendered = renderWidget({}, detailsOverrides)
+            const canvas = (await screen.findByTestId('playcanvas-canvas')) as MiningCanvas
+            await waitFor(() => expect(canvas).toHaveAttribute('data-realtime-status', 'connected'))
+            await waitFor(() => expect(screen.getByRole('button', { name: 'Stop' })).toBeEnabled())
+            return { rendered, canvas, room }
+        }
+
+        // The runtime effect owns the real belt raycast; the tests stub
+        // `__playcanvasPickAsteroid` to pin the hit deterministically instead of
+        // fighting the mocked engine camera math (mining TZ §11.2 contract).
+        const stubAsteroidPick = (canvas: MiningCanvas) => {
+            const pickAsteroid = vi.fn(() => ({ code: 'AST-01', point: { x: 36, y: 2, z: -26 } }))
+            canvas.__playcanvasPickAsteroid = pickAsteroid
+            return pickAsteroid
+        }
+
+        // pointerDown → tiny pointerMove (< 5 px manhattan) → pointerUp → click:
+        // the pressed-button move stays under the drag threshold so the click
+        // still reaches the asteroid pick.
+        const targetAsteroidWithShortPointerSequence = (canvas: MiningCanvas) => {
+            act(() => {
+                fireEvent.pointerDown(canvas, { pointerId: 1, clientX: 100, clientY: 100, button: 0, buttons: 1 })
+                fireEvent.pointerMove(canvas, { pointerId: 1, clientX: 103, clientY: 100, buttons: 1 })
+                fireEvent.pointerUp(canvas, { pointerId: 1, clientX: 103, clientY: 100 })
+                fireEvent.click(canvas, { clientX: 103, clientY: 100 })
+            })
+        }
+
+        it('renders the fire control in member mode and keeps it disabled while no asteroid is targeted', async () => {
+            const { rendered } = await renderConnectedMiningWidget({}, { beltData: false })
+            const fireButton = screen.getByTestId('mining-fire-button')
+            // The fire control is an icon-only toolbar button in the shared
+            // style: its accessible name carries the guidance while unarmed
+            // and the selected-target name lives in the canvas HUD instead.
+            expect(screen.getByRole('button', { name: 'Click an asteroid to target it' })).toBe(fireButton)
+            expect(fireButton).not.toHaveTextContent(/\S/)
+            expect(fireButton).toBeDisabled()
+            expect(apiMocks.postMiningFire).not.toHaveBeenCalled()
+
+            rendered.unmount()
+            // The member-mode belt poll ran once even without a resolved payload.
+            const memberModePollCalls = apiMocks.fetchMiningState.mock.calls.length
+
+            // The mining surfaces (fire control + belt poll) are member-only.
+            renderWidget({}, { runtimeAccessMode: 'public' })
+            const publicCanvas = (await screen.findByTestId('playcanvas-canvas')) as MiningCanvas
+            await waitFor(() => expect(publicCanvas).toHaveAttribute('data-realtime-status', 'connected'))
+            expect(screen.queryByTestId('mining-fire-button')).not.toBeInTheDocument()
+            expect(apiMocks.fetchMiningState.mock.calls.length).toBe(memberModePollCalls)
+        })
+
+        it('targets the asteroid on a short pointer sequence and leaves the flight intent path untouched', async () => {
+            const { canvas, room } = await renderConnectedMiningWidget()
+            const pickAsteroid = stubAsteroidPick(canvas)
+            const fireButton = screen.getByTestId('mining-fire-button')
+            expect(fireButton).toBeDisabled()
+
+            targetAsteroidWithShortPointerSequence(canvas)
+
+            await waitFor(() => expect(fireButton).toBeEnabled())
+            expect(pickAsteroid).toHaveBeenCalledTimes(1)
+            expect(pickAsteroid).toHaveBeenCalledWith(103, 100)
+            // An asteroid hit selects the fire target and must NOT emit the
+            // move_to_object flight intent (mining TZ §11.2).
+            expect(room.send).not.toHaveBeenCalledWith('intent', expect.anything())
+            expect(canvas).not.toHaveAttribute('data-last-intent-kind')
+            expect(apiMocks.postMiningFire).not.toHaveBeenCalled()
+        })
+
+        it('clears the fire target when the selected asteroid is clicked again (UX round 2026-11-23)', async () => {
+            const { canvas } = await renderConnectedMiningWidget()
+            const pickAsteroid = stubAsteroidPick(canvas)
+            const fireButton = screen.getByTestId('mining-fire-button')
+            const targetEvents: Array<CustomEvent<{ code: string | null; hoverCode: string | null }>> = []
+            canvas.addEventListener('playcanvas-mining-target', (event) => {
+                targetEvents.push(event as CustomEvent<{ code: string | null; hoverCode: string | null }>)
+            })
+
+            targetAsteroidWithShortPointerSequence(canvas)
+            await waitFor(() => expect(fireButton).toBeEnabled())
+            expect(targetEvents.some((event) => event.detail.code === 'AST-01')).toBe(true)
+
+            // A second short-pointer click on the SAME asteroid clears the
+            // selection: the fire control disarms again and the target event
+            // carries a null code for the runtime to drop its glow.
+            targetAsteroidWithShortPointerSequence(canvas)
+            await waitFor(() => expect(fireButton).toBeDisabled())
+            expect(targetEvents.at(-1)?.detail.code).toBeNull()
+            expect(pickAsteroid).toHaveBeenCalledTimes(2)
+        })
+
+        it('ignores asteroid targeting after a drag beyond the 5 px click threshold', async () => {
+            const { canvas, room } = await renderConnectedMiningWidget()
+            const pickAsteroid = stubAsteroidPick(canvas)
+            const fireButton = screen.getByTestId('mining-fire-button')
+
+            act(() => {
+                fireEvent.pointerDown(canvas, { pointerId: 1, clientX: 100, clientY: 100, button: 0, buttons: 1 })
+                // 12 px manhattan distance — over the 5 px threshold, so the
+                // click handler early-returns through draggedRef.
+                fireEvent.pointerMove(canvas, { pointerId: 1, clientX: 112, clientY: 100, buttons: 1 })
+                fireEvent.pointerUp(canvas, { pointerId: 1, clientX: 112, clientY: 100 })
+                fireEvent.click(canvas, { clientX: 112, clientY: 100 })
+            })
+
+            expect(pickAsteroid).not.toHaveBeenCalled()
+            expect(fireButton).toBeDisabled()
+            expect(room.send).not.toHaveBeenCalledWith('intent', expect.anything())
+            expect(canvas).not.toHaveAttribute('data-last-intent-kind')
+        })
+
+        it('fires at the targeted asteroid with an idempotency key and applies the belt and cargo patches', async () => {
+            const { canvas, room } = await renderConnectedMiningWidget()
+            stubAsteroidPick(canvas)
+            targetAsteroidWithShortPointerSequence(canvas)
+            const fireButton = screen.getByTestId('mining-fire-button')
+            await waitFor(() => expect(fireButton).toBeEnabled())
+
+            const playMiningEffect = vi.fn()
+            canvas.__playcanvasPlayMiningEffect = playMiningEffect
+            const beltEvents: Array<CustomEvent<{ asteroids?: Array<{ code: string; remainingQuantityKg: number; status: string }> }>> = []
+            canvas.addEventListener('playcanvas-mining-update', (event) => {
+                beltEvents.push(event as CustomEvent<{ asteroids?: Array<{ code: string; remainingQuantityKg: number; status: string }> }>)
+            })
+            apiMocks.postMiningFire.mockResolvedValue(fireResponse)
+            room.send.mockClear()
+
+            act(() => {
+                fireButton.click()
+            })
+
+            await waitFor(() => expect(apiMocks.postMiningFire).toHaveBeenCalledTimes(1))
+            const [firedApiBaseUrl, firedApplicationId, firedBody, idempotencyKey] = apiMocks.postMiningFire.mock.calls[0]
+            expect(firedApiBaseUrl).toBe('/api/v1')
+            expect(firedApplicationId).toBe('app-1')
+            expect(firedBody).toEqual({ asteroidCode: 'AST-01' })
+            // UUID v7 idempotency key (version nibble 7) travels with the shot.
+            expect(idempotencyKey).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
+
+            // Own-shot local update (TZ §11.5): the cargo HUD shows the fire
+            // response value without waiting for the next poll.
+            await waitFor(() => expect(screen.getByTestId('mining-cargo-value')).toHaveTextContent('Cargo: 12.6 / 40.0 kg'))
+            expect(playMiningEffect).toHaveBeenCalledWith(expect.objectContaining({ asteroidCode: 'AST-01', chunkMassesKg: [2.4, 1.8] }))
+            const lastBeltEvent = beltEvents.at(-1)
+            expect(lastBeltEvent).toBeDefined()
+            const patchedAsteroid = lastBeltEvent?.detail.asteroids?.find((asteroid) => asteroid.code === 'AST-01')
+            expect(patchedAsteroid?.remainingQuantityKg).toBe(896.5)
+            expect(patchedAsteroid?.status).toBe('Active')
+            // A mining shot is not a flight intent.
+            expect(room.send).not.toHaveBeenCalledWith('intent', expect.anything())
+        })
+
+        it('does not fire on the F key while no asteroid is targeted and fires once a target exists (FR-032/FR-034)', async () => {
+            const { canvas, room } = await renderConnectedMiningWidget()
+            stubAsteroidPick(canvas)
+            const fireButton = screen.getByTestId('mining-fire-button')
+            expect(fireButton).toBeDisabled()
+
+            act(() => {
+                fireEvent.keyDown(canvas, { key: 'f' })
+                fireEvent.keyDown(canvas, { key: 'F' })
+            })
+
+            expect(apiMocks.postMiningFire).not.toHaveBeenCalled()
+            expect(room.send).not.toHaveBeenCalledWith('intent', expect.anything())
+
+            act(() => {
+                fireEvent.click(canvas, { clientX: 100, clientY: 100 })
+            })
+            await waitFor(() => expect(fireButton).toBeEnabled())
+
+            apiMocks.postMiningFire.mockResolvedValue(fireResponse)
+            act(() => {
+                fireEvent.keyDown(canvas, { key: 'f' })
+            })
+            await waitFor(() => expect(apiMocks.postMiningFire).toHaveBeenCalledTimes(1))
+            expect(apiMocks.postMiningFire.mock.calls[0]?.[2]).toEqual({ asteroidCode: 'AST-01' })
+        })
+
+        it('localizes a MINING_OUT_OF_RANGE fire failure without leaking protocol details', async () => {
+            const { canvas } = await renderConnectedMiningWidget()
+            stubAsteroidPick(canvas)
+            targetAsteroidWithShortPointerSequence(canvas)
+            apiMocks.postMiningFire.mockRejectedValue(new AppsApiError('Mining fire API request failed', 422, 'MINING_OUT_OF_RANGE'))
+
+            act(() => {
+                screen.getByTestId('mining-fire-button').click()
+            })
+
+            const alert = await screen.findByTestId('mining-error')
+            expect(alert).toHaveTextContent('The asteroid is too far away. Fly closer.')
+            expect(alert).toHaveTextContent((enApps.runtime as { economyErrors: Record<string, string> }).economyErrors.MINING_OUT_OF_RANGE)
+            expect(alert.textContent).not.toMatch(/422|MINING_OUT_OF_RANGE/i)
+        })
+
+        it('routes an ECONOMY_CAPACITY_EXCEEDED fire failure to the localized Sell ore action', async () => {
+            const { canvas } = await renderConnectedMiningWidget()
+            stubAsteroidPick(canvas)
+            targetAsteroidWithShortPointerSequence(canvas)
+            apiMocks.postMiningFire.mockRejectedValue(
+                new AppsApiError('Economy trade API request failed', 422, 'ECONOMY_CAPACITY_EXCEEDED')
+            )
+
+            act(() => {
+                screen.getByTestId('mining-fire-button').click()
+            })
+
+            expect(await screen.findByTestId('mining-error')).toHaveTextContent('This purchase would exceed the hold capacity.')
+            const sellOreButton = screen.getByRole('button', { name: 'Sell ore' })
+            act(() => {
+                sellOreButton.click()
+            })
+            expect(await screen.findByTestId('economy-panel')).toBeInTheDocument()
+        })
+
+        it('renders the cargo HUD from the economy summary and warns near capacity', async () => {
+            const { rendered } = await renderConnectedMiningWidget()
+            expect(screen.getByTestId('mining-hud')).toBeInTheDocument()
+            await waitFor(() => expect(screen.getByTestId('mining-cargo-value')).toHaveTextContent('Cargo: 12.0 / 40.0 kg'))
+            expect(screen.queryByText('Cargo almost full — sell ore at the station')).not.toBeInTheDocument()
+
+            rendered.unmount()
+            connectRealtimeRoom()
+            apiMocks.fetchRuntimeEconomySummary.mockResolvedValue({
+                ...economySummary,
+                capacity: { usedKg: 36, maxKg: 40 }
+            })
+            renderWidget()
+            await waitFor(() => expect(screen.getByTestId('mining-cargo-value')).toHaveTextContent('Cargo: 36.0 / 40.0 kg'))
+            // 36 / 40 = 0.9 — exactly at the ≥ 0.9 near-full threshold.
+            expect(screen.getByText('Cargo almost full — sell ore at the station')).toBeInTheDocument()
+        })
+
+        it('removes the mining canvas contract methods on teardown', async () => {
+            const { rendered, canvas } = await renderConnectedMiningWidget()
+            expect(canvas.__playcanvasPickAsteroid).toEqual(expect.any(Function))
+            expect(canvas.__playcanvasPlayMiningEffect).toEqual(expect.any(Function))
+
+            rendered.unmount()
+
+            expect(canvas.__playcanvasPickAsteroid).toBeUndefined()
+            expect(canvas.__playcanvasPlayMiningEffect).toBeUndefined()
+        })
+
+        it('keeps the pre-wired Mine operation label rendering in the economy dialog', async () => {
+            await renderConnectedMiningWidget()
+            apiMocks.fetchRuntimeEconomySummary.mockResolvedValue({
+                ...economySummary,
+                operations: [
+                    {
+                        id: '018f8a78-7b8f-7c1d-8111-2222333344e3',
+                        type: 'Mine',
+                        quantity: 3,
+                        total: 3,
+                        occurredAt: '2026-11-18T10:00:00.000Z'
+                    }
+                ]
+            })
+
+            act(() => {
+                screen.getByTestId('economy-open-button').click()
+            })
+
+            expect(await screen.findByTestId('economy-panel')).toBeInTheDocument()
+            expect(screen.getByTestId('economy-operations-list')).toHaveTextContent('Mining')
+        })
     })
 })

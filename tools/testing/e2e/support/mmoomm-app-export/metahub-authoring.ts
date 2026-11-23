@@ -24,6 +24,14 @@ import { entityDialogSelectors, toolbarSelectors } from '../selectors/contracts'
 import { MMOOMM_APP_CANONICAL_METAHUB } from '../mmoommAppFixtureContract'
 import {
     APP_RUNTIME_TIMEOUT,
+    ASTEROID_CODE,
+    ASTEROID_STATUS_ENUM,
+    CHUNK_MASS_MAX_KG,
+    CHUNK_MASS_MIN_KG,
+    CHUNK_MASS_SKEW,
+    CHUNKS_PER_HIT_MAX,
+    CHUNKS_PER_HIT_MIN,
+    CHUNK_VISUAL_LIFETIME_MS,
     CURRENCY_CODE,
     ECONOMY_CONSTANTS_CODE,
     ECONOMY_POSTING_MODULE_CODE,
@@ -32,6 +40,10 @@ import {
     INVENTORY_LEDGER_CODE,
     MARKET_RADIUS_METERS,
     MAX_CARGO_MASS_KG,
+    MINING_COOLDOWN_MS,
+    MINING_CONSTANTS_CODE,
+    MINING_RADIUS_METERS,
+    MINING_STATE_POLL_MS,
     NOMENCLATURE_CODE,
     ORE_PRICE_PER_KG,
     OPERATION_CODE,
@@ -45,6 +57,8 @@ import {
     WALLET_LEDGER_CODE,
     WELCOME_SECTION_CODENAME,
     economyPostingModuleSource,
+    localizedInput,
+    localizedText,
     readRequestJson
 } from '../mmoommAppGeneratorData'
 import {
@@ -399,7 +413,7 @@ const createFixedValueThroughBrowser = async (
     page: Page,
     metahubId: string,
     setId: string,
-    values: { name: string; codename: string; value: number | string; dataType?: 'Number' | 'String' }
+    values: { name: string; codename: string; value: number | string; dataType?: 'Number' | 'String'; scale?: number }
 ) => {
     const dataType = values.dataType ?? 'Number'
     await page.goto(`/metahub/${metahubId}/entities/set/instance/${setId}/fixed-values`)
@@ -411,6 +425,7 @@ const createFixedValueThroughBrowser = async (
     await dialog.getByLabel('Data Type').click()
     await page.getByRole('option', { name: dataType }).click()
     await dialog.getByRole('tab', { name: 'Value' }).click()
+    await expect(dialog.getByRole('textbox', { name: 'Value' })).toBeVisible({ timeout: 15_000 })
     await dialog.getByRole('textbox', { name: 'Value' }).fill(String(values.value))
 
     const createResponse = waitForSettledMutationResponse(
@@ -986,6 +1001,107 @@ export const createEconomyConstantsThroughBrowser = async (page: Page, metahubId
     }
 }
 
+/**
+ * Mining belt metadata (mining TZ §7.3/§7.4): the `AsteroidStatus` enumeration
+ * (Active/Depleted) and the `MiningConstants` set with the nine baked values
+ * the runtime service resolves fail-closed.
+ */
+export const createMiningEnumerationAndConstantsThroughBrowser = async (page: Page, metahubId: string, api: ApiContext): Promise<void> => {
+    const statusEnumId = await createStandardEntityThroughBrowser(page, metahubId, 'enumeration', {
+        name: 'Asteroid Status',
+        codename: ASTEROID_STATUS_ENUM
+    })
+    await expect
+        .poll(async () => {
+            const payload = (await listOptionLists(api, metahubId, { limit: 200, offset: 0 })) as { items?: Array<{ id?: string }> }
+            return payload.items?.some((item) => item.id === statusEnumId) ?? false
+        })
+        .toBe(true)
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await expect(page.getByText('Asteroid Status', { exact: true }).first()).toBeVisible({ timeout: 60_000 })
+
+    for (const value of [
+        { codename: 'Active', name: 'Active', isDefault: true },
+        { codename: 'Depleted', name: 'Depleted', isDefault: false }
+    ]) {
+        const createdId = await createEnumerationValueThroughBrowser(page, metahubId, statusEnumId, value)
+        await expect
+            .poll(async () => {
+                const payload = (await listOptionValues(api, metahubId, statusEnumId, { limit: 200, offset: 0 })) as {
+                    items?: Array<{ id?: string }>
+                }
+                return payload.items?.some((item) => item.id === createdId) ?? false
+            })
+            .toBe(true)
+    }
+
+    const miningSetId = await createStandardEntityThroughBrowser(page, metahubId, 'set', {
+        name: 'Mining Constants',
+        codename: MINING_CONSTANTS_CODE
+    })
+    await expect
+        .poll(async () => {
+            const payload = (await listValueGroups(api, metahubId, { limit: 200, offset: 0 })) as { items?: Array<{ id?: string }> }
+            return payload.items?.some((item) => item.id === miningSetId) ?? false
+        })
+        .toBe(true)
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await expect(page.getByText('Mining Constants', { exact: true }).first()).toBeVisible({ timeout: 60_000 })
+
+    // Integer constants go through the browser UI; the fractional chunk-mass
+    // constants are created through the API with `validationRules.scale = 3` —
+    // the fixed-value dialog defaults NUMBER scale to 0 (decimals are nulled),
+    // and driving the hidden Type Settings input from the generator proved
+    // flaky across runs.
+    for (const constant of [
+        { codename: 'MiningRadiusMeters', name: 'Mining radius, m', value: MINING_RADIUS_METERS },
+        { codename: 'MiningCooldownMs', name: 'Mining cooldown, ms', value: MINING_COOLDOWN_MS },
+        { codename: 'ChunksPerHitMin', name: 'Chunks per hit, min', value: CHUNKS_PER_HIT_MIN },
+        { codename: 'ChunksPerHitMax', name: 'Chunks per hit, max', value: CHUNKS_PER_HIT_MAX },
+        { codename: 'ChunkVisualLifetimeMs', name: 'Chunk visual lifetime, ms', value: CHUNK_VISUAL_LIFETIME_MS },
+        { codename: 'MiningStatePollMs', name: 'Mining state poll, ms', value: MINING_STATE_POLL_MS }
+    ]) {
+        const createdId = await createFixedValueThroughBrowser(page, metahubId, miningSetId, constant)
+        await expect
+            .poll(async () => {
+                const payload = (await listFixedValues(api, metahubId, miningSetId, { limit: 100, offset: 0 })) as {
+                    items?: Array<{ id?: string }>
+                }
+                return payload.items?.some((item) => item.id === createdId) ?? false
+            })
+            .toBe(true)
+    }
+
+    for (const constant of [
+        { codename: 'ChunkMassMinKg', name: 'Chunk mass min, kg', value: CHUNK_MASS_MIN_KG, sortOrder: 5 },
+        { codename: 'ChunkMassMaxKg', name: 'Chunk mass max, kg', value: CHUNK_MASS_MAX_KG, sortOrder: 6 },
+        { codename: 'ChunkMassSkew', name: 'Chunk mass skew', value: CHUNK_MASS_SKEW, sortOrder: 7 }
+    ]) {
+        const response = await apiSend(api, 'POST', `/api/v1/metahub/${metahubId}/entities/set/instance/${miningSetId}/fixed-values`, {
+            codename: localizedText(constant.codename, constant.codename),
+            dataType: 'NUMBER',
+            name: localizedInput(constant.name, constant.name),
+            namePrimaryLocale: 'en',
+            validationRules: { scale: 3 },
+            value: constant.value,
+            sortOrder: constant.sortOrder
+        })
+        if (!response.ok) {
+            const bodyText = await response.text()
+            throw new Error(`Creating fixed value ${constant.codename} failed with ${response.status} ${response.statusText}: ${bodyText}`)
+        }
+    }
+
+    await expect
+        .poll(async () => {
+            const payload = (await listFixedValues(api, metahubId, miningSetId, { limit: 100, offset: 0 })) as {
+                items?: Array<{ id?: string; value?: unknown }>
+            }
+            return payload.items?.filter((item) => item.value !== null && item.value !== undefined).length ?? 0
+        })
+        .toBe(9)
+}
+
 const openObjectEditDialogThroughBrowser = async (page: Page, metahubId: string, entityId: string, objectName: string) => {
     await page.goto(`/metahub/${metahubId}/entities/object/instances`, { waitUntil: 'domcontentloaded', timeout: APP_RUNTIME_TIMEOUT })
     await expect(page.getByRole('heading', { name: 'Objects' })).toBeVisible({ timeout: APP_RUNTIME_TIMEOUT })
@@ -1239,7 +1355,11 @@ export const createEconomyObjectsThroughBrowser = async (page: Page, api: ApiCon
         { codename: 'OccurredAt', dataType: 'DATE', required: true },
         // Operation.Status stays optional: the economy service creates rows
         // without it and a required missing field fails row creation.
-        { codename: 'Status', dataType: 'STRING' }
+        { codename: 'Status', dataType: 'STRING' },
+        // Mining TZ §10.2: server-stamped STRING discriminators — OperationKind
+        // drives the posting-module Mine branch, AsteroidCode pins the source.
+        { codename: 'OperationKind', dataType: 'STRING' },
+        { codename: 'AsteroidCode', dataType: 'STRING' }
     ])
 
     // Greptile P1 fix: the economy amount fields are server-owned — the generic
@@ -1254,7 +1374,7 @@ export const createEconomyObjectsThroughBrowser = async (page: Page, api: ApiCon
         const codenameText = readCodenameTextForAuthoring(component.codename)
         if (codenameText) componentIdByCodename.set(codenameText, String(component.id))
     }
-    for (const amountCodename of ['Quantity', 'UnitPrice', 'TotalPrice']) {
+    for (const amountCodename of ['Quantity', 'UnitPrice', 'TotalPrice', 'OperationKind', 'AsteroidCode']) {
         const componentId = componentIdByCodename.get(amountCodename)
         expect(componentId, `Operation component ${amountCodename} must exist`).toBeTruthy()
         await updateComponent(api, metahubId, operationId, String(componentId), { uiConfig: { serverOwned: true } })
@@ -1264,6 +1384,152 @@ export const createEconomyObjectsThroughBrowser = async (page: Page, api: ApiCon
     await applyEconomyRecordAccessThroughApi(api, metahubId, operationId)
 
     return { nomenclatureId, walletId, operationId }
+}
+
+export interface MiningObjectIds {
+    asteroidId: string
+}
+
+/**
+ * Mining belt object (mining TZ §7.2): the `Asteroid` object with its fields,
+ * where `RemainingQuantityKg`/`Status`/`LastMinedAt` are server-owned (the
+ * generic rows API rejects client writes — the fire flow is the only writer).
+ */
+export const createMiningObjectsThroughBrowser = async (page: Page, api: ApiContext, metahubId: string): Promise<MiningObjectIds> => {
+    const asteroidId = await createStandardEntityThroughBrowser(page, metahubId, 'object', {
+        name: ASTEROID_CODE,
+        codename: ASTEROID_CODE,
+        localizedName: { en: ASTEROID_CODE, ru: 'Астероид' }
+    })
+
+    await createObjectComponentsThroughBrowser(page, api, metahubId, asteroidId, [
+        { codename: 'Code', dataType: 'STRING', required: true },
+        { codename: 'Name', dataType: 'STRING' },
+        { codename: 'ResourceCode', dataType: 'STRING', required: true },
+        { codename: 'PositionX', dataType: 'NUMBER', required: true },
+        { codename: 'PositionY', dataType: 'NUMBER', required: true },
+        { codename: 'PositionZ', dataType: 'NUMBER', required: true },
+        { codename: 'Scale', dataType: 'NUMBER', required: true },
+        { codename: 'TotalQuantityKg', dataType: 'NUMBER', required: true, scale: 3 },
+        { codename: 'RemainingQuantityKg', dataType: 'NUMBER', required: true, scale: 3 },
+        { codename: 'Status', dataType: 'REF', ref: { kind: 'enumeration', codename: ASTEROID_STATUS_ENUM } },
+        { codename: 'VisualVariant', dataType: 'NUMBER' },
+        { codename: 'ChunkMinKg', dataType: 'NUMBER', scale: 3 },
+        { codename: 'ChunkMaxKg', dataType: 'NUMBER', scale: 3 },
+        { codename: 'LastMinedAt', dataType: 'DATE' }
+    ])
+
+    const asteroidComponents = (await listComponentsQuiet(api, metahubId, asteroidId)) as {
+        items?: Array<{ id?: unknown; codename?: unknown }>
+    }
+    const componentIdByCodename = new Map<string, string>()
+    for (const component of asteroidComponents.items ?? []) {
+        const codenameText = readCodenameTextForAuthoring(component.codename)
+        if (codenameText) componentIdByCodename.set(codenameText, String(component.id))
+    }
+    for (const serverOwnedCodename of ['RemainingQuantityKg', 'Status', 'LastMinedAt']) {
+        const componentId = componentIdByCodename.get(serverOwnedCodename)
+        expect(componentId, `Asteroid component ${serverOwnedCodename} must exist`).toBeTruthy()
+        await updateComponent(api, metahubId, asteroidId, String(componentId), { uiConfig: { serverOwned: true } })
+    }
+
+    return { asteroidId }
+}
+
+/**
+ * Five belt asteroids (mining TZ §7.7): global, non-ownerOnly, never primary
+ * nav; positions clear the station guard zone and the ship spawn; Status REFs
+ * seed with the target enumeration value id (the REF convention).
+ */
+export const seedAsteroidRowsThroughApi = async (api: ApiContext, metahubId: string, asteroidId: string): Promise<void> => {
+    const statusEnumerationId = await resolveEnumerationIdByCodename(api, metahubId, ASTEROID_STATUS_ENUM)
+    const activeStatusValueId = await resolveEnumerationValueIdByCodename(api, metahubId, statusEnumerationId, 'Active')
+
+    const asteroidRows = [
+        // UX round 2026-11-23 belt layout (5x distance): the belt lives 450-465 m
+        // from the station — five times the previous 88-93 m — so mining always
+        // requires a real flight, and 385-398 m from the ship spawn, clear of
+        // the spawn→station flight corridor the occupiedSpheres colliders guard.
+        // The relative belt shape is preserved (the rocks stay ~12-30 m apart).
+        {
+            Code: 'AST-01',
+            Name: 'Asteroid A-01',
+            PositionX: -249,
+            PositionY: 7,
+            PositionZ: 274,
+            Scale: 7,
+            TotalQuantityKg: 120,
+            VisualVariant: 1
+        },
+        {
+            Code: 'AST-02',
+            Name: 'Asteroid A-02',
+            PositionX: -229,
+            PositionY: 2,
+            PositionZ: 290,
+            Scale: 9,
+            TotalQuantityKg: 160,
+            VisualVariant: 2
+        },
+        {
+            Code: 'AST-03',
+            Name: 'Asteroid A-03',
+            PositionX: -243,
+            PositionY: 10,
+            PositionZ: 288,
+            Scale: 6,
+            TotalQuantityKg: 90,
+            VisualVariant: 3
+        },
+        {
+            Code: 'AST-04',
+            Name: 'Asteroid A-04',
+            PositionX: -215,
+            PositionY: 1,
+            PositionZ: 298,
+            Scale: 10,
+            TotalQuantityKg: 200,
+            VisualVariant: 4
+        },
+        {
+            Code: 'AST-05',
+            Name: 'Asteroid A-05',
+            PositionX: -235,
+            PositionY: 11,
+            PositionZ: 298,
+            Scale: 8,
+            TotalQuantityKg: 140,
+            VisualVariant: 5
+        }
+    ]
+
+    // Mining targets resolve by Code (`loadAsteroidByCodeForUpdate`) and the
+    // client keys belt records by it — duplicate codes would make fire
+    // targeting ambiguous, so the generator fails fast instead of seeding.
+    const beltCodes = asteroidRows.map((row) => row.Code)
+    if (new Set(beltCodes).size !== beltCodes.length) {
+        throw new Error('Asteroid belt records must have unique Code values')
+    }
+
+    for (const row of asteroidRows) {
+        await createRecord(api, metahubId, asteroidId, {
+            data: {
+                Code: row.Code,
+                Name: row.Name,
+                ResourceCode: 'ORE',
+                PositionX: row.PositionX,
+                PositionY: row.PositionY,
+                PositionZ: row.PositionZ,
+                Scale: row.Scale,
+                TotalQuantityKg: row.TotalQuantityKg,
+                RemainingQuantityKg: row.TotalQuantityKg,
+                Status: activeStatusValueId,
+                VisualVariant: row.VisualVariant,
+                ChunkMinKg: 0.8,
+                ChunkMaxKg: 3.2
+            }
+        })
+    }
 }
 
 const WALLET_LEDGER_COMPONENTS: EconomyComponentSpec[] = [
@@ -1499,6 +1765,10 @@ export const configureOperationPostingThroughBrowser = async (
         throw new Error('Operation recordBehavior config did not persist')
     }
     expect(recordBehavior.mode).toBe('transactional')
+    // Posted-row immutability is the defense behind Mine postings (QA MEDIUM
+    // backlog): posted operations must reject generic edits/copies via
+    // RECORD_IMMUTABLE, so the persisted config must carry it explicitly.
+    expect(recordBehavior.immutability).toBe('posted')
 }
 
 export const addFlightStationMarketComponentsThroughBrowser = async (page: Page, api: ApiContext, metahubId: string): Promise<void> => {

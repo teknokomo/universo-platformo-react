@@ -247,6 +247,9 @@ export function createApplicationsRoutes(
     router.get('/:applicationId/runtime/economy/summary', readLimiter, asyncHandler(economy.getSummary))
     router.post('/:applicationId/runtime/economy/sell', writeLimiter, asyncHandler(economy.sellTrade))
     router.post('/:applicationId/runtime/economy/buy', writeLimiter, asyncHandler(economy.buyTrade))
+    // ── Runtime economy mining (MMOOMM, TZ DOC-2026-006 §8) ──
+    router.get('/:applicationId/runtime/economy/mining/state', readLimiter, asyncHandler(economy.getMiningState))
+    router.post('/:applicationId/runtime/economy/mining/fire', writeLimiter, asyncHandler(economy.fireMining))
 
     // ── Runtime workspaces ──
     router.get('/:applicationId/runtime/workspaces', readLimiter, asyncHandler(workspace.listWorkspaces))

@@ -791,6 +791,61 @@ describe('applications realtime fixed tick room', () => {
         expect(options.guardBoxes).toEqual([{ center: { x: 72, y: 0, z: -48 }, halfExtents: { x: 24, y: 8, z: 8 } }])
     })
 
+    it('parses authored asteroid colliders into occupied spheres and drops invalid entries', () => {
+        const options = __applicationsRealtimeRuntimeTestUtils.parseRoomOptions({
+            scopeId: '018f8a78-7b8f-7c1d-a111-2222333346aa:member:workspace:widget:module',
+            accessMode: 'member',
+            applicationId: '018f8a78-7b8f-7c1d-a111-2222333346aa',
+            currentUserId: '018f8a78-7b8f-7c1d-a111-2222333346ab',
+            clientCanControl: true,
+            occupiedSpheres: [
+                { code: 'AST-01', position: { x: 36, y: 2, z: -26 }, radius: 3.5 },
+                { code: 'AST-02', position: { x: 50, y: -3, z: -18 }, radius: 0 },
+                { code: 'AST-03', position: { x: 28, y: 5, z: -42 }, radius: -2 },
+                { code: 'AST-04', position: { x: Number.NaN, y: 0, z: 0 }, radius: 4 },
+                { code: 'AST-05', position: { x: 42, y: 6, z: -52 }, radius: 1001 }
+            ]
+        })
+
+        expect(options.occupiedSpheres).toEqual([{ code: 'AST-01', position: { x: 36, y: 2, z: -26 }, radius: 3.5 }])
+    })
+
+    it('feeds authored asteroid spheres and the ship body radius into the fixed-tick movement step', async () => {
+        const RoomClass = createRoomClass()
+        const room = new RoomClass() as never as {
+            state: { ships: Map<string, { shipId: string }> }
+            onCreate(options: unknown): void
+            onJoin(client: RealtimeTestRoomClient, options?: unknown): Promise<void>
+            __emitMessage(type: string, client: RealtimeTestRoomClient, payload: unknown): void
+            __tick(deltaMs: number): void
+        }
+        const asteroidSpheres = [{ code: 'AST-01', position: { x: 36, y: 2, z: -26 }, radius: 3.5 }]
+        room.onCreate(createSignedRoomOptions({ occupiedSpheres: asteroidSpheres }))
+        const client = createClient('session-1', createRoomAuth('018f8a78-7b8f-7c1d-a111-2222333346ab'))
+        await room.onJoin(client)
+
+        room.__emitMessage('intent', client, { type: 'move_to_point', seq: 1, target: { x: 20, y: 0, z: 0 } })
+        await flushRealtimeTasks()
+        room.__tick(50)
+
+        expect(stepFixedTickMovement).toHaveBeenCalledWith(
+            expect.objectContaining({ position: expect.objectContaining({ x: expect.any(Number) }) }),
+            0.05,
+            expect.objectContaining({
+                occupiedEntities: asteroidSpheres,
+                bodyRadius: 6
+            })
+        )
+        // Move intents resolve outside the asteroid spheres too.
+        expect(resolveSafeTargetOutsideOccupiedEntities).toHaveBeenCalledWith(
+            expect.anything(),
+            { x: 20, y: 0, z: 0 },
+            expect.arrayContaining([expect.objectContaining({ code: 'AST-01', position: { x: 36, y: 2, z: -26 }, radius: 3.5 })]),
+            expect.anything(),
+            expect.anything()
+        )
+    })
+
     it('sets a finite Colyseus message rate limit before intent payload handling', () => {
         const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {

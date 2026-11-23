@@ -1,7 +1,15 @@
 import { z } from 'zod'
 import type { DbExecutor } from '@universo-react/utils'
+import { acquireAdvisoryXactLock } from '@universo-react/utils/database'
 import { resolveApplicationLifecycleContractFromConfig } from '@universo-react/utils'
-import { economyTradeKindSchema, type EconomyCargoEntry, type EconomySummary } from '@universo-react/types'
+import {
+    economyAsteroidStateSchema,
+    economyMarketSideSchema,
+    economyTradeKindSchema,
+    type EconomyAsteroidState,
+    type EconomyCargoEntry,
+    type EconomySummary
+} from '@universo-react/types'
 import { loadApplicationRuntimeConstants } from './applicationRuntimeConstants'
 import {
     buildRuntimeActiveRowCondition,
@@ -24,7 +32,8 @@ import type { RuntimeResolvedObjectCollection } from '../controllers/runtimeRowC
 
 /**
  * Pure resolution/reading helpers for the runtime economy service
- * (MMOOMM plan B4/B4a/B5, decisions D2/D3/D8/D9).
+ * (MMOOMM plan B4/B4a/B5, decisions D2/D3/D8/D9), extended with the mining
+ * belt machinery (mining plan B2, TZ DOC-2026-006 §7/§9).
  *
  * All SQL is schema-qualified and parameterized over per-component physical
  * columns (`attr.column_name` resolved from `_app_components`); entity tables
@@ -33,24 +42,29 @@ import type { RuntimeResolvedObjectCollection } from '../controllers/runtimeRowC
  * generic ledger projection machinery (`RuntimeLedgerService.queryProjection`)
  * with the requester's scope injected via `readScope` (Phase H) and remaining
  * filters keyed by ledger FIELD CODENAMES — never client-supplied (D8).
- * Everything fails closed with the stable D9 codes.
+ * Everything fails closed with the stable D9/mining codes.
  */
 
 export const ECONOMY_CONSTANTS_SET_CODE = 'EconomyConstants'
+export const MINING_CONSTANTS_SET_CODE = 'MiningConstants'
 export const NOMENCLATURE_ENTITY_CODE = 'Nomenclature'
 export const WALLET_ENTITY_CODE = 'Wallet'
 export const OPERATION_ENTITY_CODE = 'Operation'
 export const STATION_ENTITY_CODE = 'FlightStation'
+export const ASTEROID_ENTITY_CODE = 'Asteroid'
 export const WALLET_LEDGER_CODE = 'WalletLedger'
 export const INVENTORY_LEDGER_CODE = 'InventoryLedger'
 export const WALLET_BALANCE_PROJECTION = 'walletBalance'
 export const STOCK_BALANCE_PROJECTION = 'stockBalance'
 export const ORE_NOMENCLATURE_CODE = 'ORE'
 export const FUEL_NOMENCLATURE_CODE = 'FUEL'
+export const MINE_OPERATION_TYPE_CODE = 'Mine'
+export const MINE_OPERATION_KIND = 'Mine'
 
 const RECENT_OPERATIONS_LIMIT = 5
 
 export type EconomyTradeKind = z.infer<typeof economyTradeKindSchema>
+export type EconomyMarketSide = z.infer<typeof economyMarketSideSchema>
 
 /**
  * Market sides are derived from the EconomyConstants price constants: each
@@ -59,7 +73,7 @@ export type EconomyTradeKind = z.infer<typeof economyTradeKindSchema>
  */
 export const MARKET_SIDE_CONFIGS: ReadonlyArray<{
     nomenclatureCode: string
-    side: EconomyTradeKind
+    side: EconomyMarketSide
     priceConstant: string
     fallbackUnit: string
 }> = [
@@ -113,7 +127,19 @@ const ECONOMY_ERROR_STATUS_BY_CODE = {
     ECONOMY_CAPACITY_EXCEEDED: 409,
     ECONOMY_MARKET_DISABLED: 409,
     ECONOMY_IDEMPOTENCY_CONFLICT: 409,
-    ECONOMY_POSTING_FAILED: 500
+    // Drift fix (mining plan B2): the types whitelist carries this code, the
+    // backend map historically did not.
+    ECONOMY_IDEMPOTENCY_KEY_INVALID: 400,
+    ECONOMY_POSTING_FAILED: 500,
+    // Mining TZ DOC-2026-006 §8.2 (401/403 stay on the shared runtime guard).
+    MINING_INVALID_TARGET: 400,
+    MINING_TARGET_NOT_FOUND: 404,
+    MINING_NO_FLIGHT_SESSION: 409,
+    MINING_OUT_OF_RANGE: 409,
+    MINING_DEPLETED: 409,
+    MINING_COOLDOWN: 409,
+    MINING_INVALID_PAYLOAD: 422,
+    MINING_POSTING_FAILED: 500
 } as const
 
 export type EconomyErrorCode = keyof typeof ECONOMY_ERROR_STATUS_BY_CODE
@@ -123,6 +149,35 @@ export type EconomyErrorCode = keyof typeof ECONOMY_ERROR_STATUS_BY_CODE
 export function throwEconomyFailure(code: EconomyErrorCode, error: string): never {
     throw new UpdateFailure(ECONOMY_ERROR_STATUS_BY_CODE[code], { error, code })
 }
+
+/**
+ * NFR §12/D9 observability: one structured line per economy/mining mutation
+ * carrying the correlation triad (`operationId`/`applicationId`/`principalId`).
+ * Ids only — never secrets, key hashes, or raw trade payloads.
+ */
+export const logEconomyEvent = (event: string, fields: Record<string, unknown>): void => {
+    console.info(`[runtimeEconomy] ${event}`, fields)
+}
+
+/**
+ * TZ §8.1: belt/fire remainders are rounded to 0.1 kg so fp artifacts
+ * (`120 − 2.1 = 117.90000000000001`) never reach the JSON payloads.
+ */
+export const roundToTenth = (value: number): number => Math.round(value * 10) / 10
+
+/**
+ * TZ §9.2 effective radius — the ONE shared formula for the server distance
+ * check and the client sphere pick/render: `radius = scale * effectiveScale *
+ * 0.5` with `effectiveScale = 0.55 + 0.45 * remaining/total`.
+ */
+export const asteroidEffectiveRadius = (scale: number, remainingKg: number, totalKg: number): number => {
+    if (!(totalKg > 0)) return scale * 0.5
+    const effectiveScale = 0.55 + 0.45 * (Math.min(Math.max(remainingKg, 0), totalKg) / totalKg)
+    return scale * effectiveScale * 0.5
+}
+
+export const distance3D = (a: { x: number; y: number; z: number }, b: { x: number; y: number; z: number }): number =>
+    Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2)
 
 // ---------------------------------------------------------------------------
 // Pure value helpers
@@ -134,9 +189,6 @@ export const toFiniteNumber = (value: unknown): number | null => {
 }
 
 const resolveRowText = (value: unknown): string => resolveLocalizedContent(value, 'en', '')
-
-const distance3D = (a: { x: number; y: number; z: number }, b: { x: number; y: number; z: number }): number =>
-    Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2)
 
 // ---------------------------------------------------------------------------
 // Metadata resolution helpers (fail closed with D9 codes)
@@ -411,7 +463,7 @@ const loadStationRowByIds = async (
     }
 }
 
-const loadFirstStationRow = async (
+export const loadFirstStationRow = async (
     executor: DbExecutor,
     ctx: RuntimeSchemaContext,
     economy: EconomyResolvedConfig
@@ -689,4 +741,300 @@ export const buildRecentOperations = async (executor: DbExecutor, ctx: RuntimeSc
             occurredAt
         }
     })
+}
+
+// ---------------------------------------------------------------------------
+// Mining belt machinery (mining plan B2, TZ DOC-2026-006 §7/§9)
+// ---------------------------------------------------------------------------
+
+export const REQUIRED_MINING_CONSTANT_CODES = [
+    'MiningRadiusMeters',
+    'MiningCooldownMs',
+    'ChunksPerHitMin',
+    'ChunksPerHitMax',
+    'ChunkMassMinKg',
+    'ChunkMassMaxKg',
+    'ChunkMassSkew',
+    'ChunkVisualLifetimeMs',
+    'MiningStatePollMs'
+] as const
+
+export type MiningConstants = {
+    miningRadiusMeters: number
+    miningCooldownMs: number
+    chunksPerHitMin: number
+    chunksPerHitMax: number
+    chunkMassMinKg: number
+    chunkMassMaxKg: number
+    chunkMassSkew: number
+    chunkVisualLifetimeMs: number
+    statePollMs: number
+}
+
+export type MiningResolvedConfig = {
+    constants: MiningConstants
+    asteroid: EconomyCollection
+    /** Resolved `_app_values` UUID of the `Depleted` enumeration value — REF columns store value ids, never text. */
+    depletedValueId: string
+}
+
+export type AsteroidRuntimeRow = {
+    rowId: string
+    code: string
+    name: string
+    resourceCode: string
+    position: { x: number; y: number; z: number }
+    scale: number
+    totalQuantityKg: number
+    remainingQuantityKg: number
+    status: 'Active' | 'Depleted'
+    statusValueId: string | null
+    visualVariant: number
+    chunkMinKg: number | null
+    chunkMaxKg: number | null
+}
+
+const MINING_STATUS_VALUES = new Set(['Active', 'Depleted'])
+
+/**
+ * QA MEDIUM backlog: presence checks alone cannot catch semantically broken
+ * constants (max < min, skew <= 0) that would corrupt the chunk math or spin
+ * the poller — every mining consumer fails closed on an insane config.
+ */
+const assertMiningConstantsSane = (constants: MiningConstants): void => {
+    const violations: string[] = []
+    if (!(constants.miningRadiusMeters > 0)) violations.push('MiningRadiusMeters must be > 0')
+    if (!(constants.miningCooldownMs >= 0)) violations.push('MiningCooldownMs must be >= 0')
+    if (!(constants.chunksPerHitMin >= 1)) violations.push('ChunksPerHitMin must be >= 1')
+    if (constants.chunksPerHitMax < constants.chunksPerHitMin) violations.push('ChunksPerHitMax must be >= ChunksPerHitMin')
+    if (!(constants.chunkMassMinKg > 0)) violations.push('ChunkMassMinKg must be > 0')
+    if (constants.chunkMassMaxKg < constants.chunkMassMinKg) violations.push('ChunkMassMaxKg must be >= ChunkMassMinKg')
+    if (!(constants.chunkMassSkew > 0)) violations.push('ChunkMassSkew must be > 0')
+    if (!(constants.chunkVisualLifetimeMs > 0)) violations.push('ChunkVisualLifetimeMs must be > 0')
+    if (!(constants.statePollMs > 0)) violations.push('MiningStatePollMs must be > 0')
+    if (violations.length > 0) {
+        throwEconomyFailure('MINING_POSTING_FAILED', `Mining constants are invalid: ${violations.join('; ')}`)
+    }
+}
+
+const resolveMiningConstants = async (executor: DbExecutor, ctx: RuntimeSchemaContext): Promise<MiningConstants> => {
+    const allConstants = await loadApplicationRuntimeConstants(executor, ctx.schemaName)
+    const groupRows = (await executor.query(
+        `
+      SELECT id
+      FROM ${ctx.schemaIdent}._app_objects
+      WHERE kind = 'set'
+        AND ${runtimeCodenameTextSql('codename')} = $1
+        AND _upl_deleted = false
+        AND _app_deleted = false
+      LIMIT 1
+    `,
+        [MINING_CONSTANTS_SET_CODE]
+    )) as Array<{ id: string }>
+
+    const groupId = groupRows[0]?.id
+    if (!groupId) throwEconomyFailure('MINING_POSTING_FAILED', 'Mining constants set is not configured')
+
+    const constants = new Map<string, unknown>()
+    for (const constant of allConstants) {
+        if (constant.groupId === groupId) constants.set(constant.codenameText, constant.value)
+    }
+    for (const requiredCode of REQUIRED_MINING_CONSTANT_CODES) {
+        if (!constants.has(requiredCode)) {
+            throwEconomyFailure('MINING_POSTING_FAILED', `Mining constant ${requiredCode} is not configured`)
+        }
+    }
+
+    const resolved: MiningConstants = {
+        miningRadiusMeters: readNumberConstant(constants, 'MiningRadiusMeters'),
+        miningCooldownMs: readNumberConstant(constants, 'MiningCooldownMs'),
+        chunksPerHitMin: readNumberConstant(constants, 'ChunksPerHitMin'),
+        chunksPerHitMax: readNumberConstant(constants, 'ChunksPerHitMax'),
+        chunkMassMinKg: readNumberConstant(constants, 'ChunkMassMinKg'),
+        chunkMassMaxKg: readNumberConstant(constants, 'ChunkMassMaxKg'),
+        chunkMassSkew: readNumberConstant(constants, 'ChunkMassSkew'),
+        chunkVisualLifetimeMs: readNumberConstant(constants, 'ChunkVisualLifetimeMs'),
+        statePollMs: readNumberConstant(constants, 'MiningStatePollMs')
+    }
+    assertMiningConstantsSane(resolved)
+    return resolved
+}
+
+/**
+ * Resolves the mining belt config: `MiningConstants` values (fail-closed), the
+ * `Asteroid` object collection with its attrs, and the `Depleted` enum REF
+ * value id (REF columns store `_app_values` UUIDs — a missing value must fail
+ * closed rather than NULL the status on depletion).
+ */
+export const resolveMiningConfig = async (executor: DbExecutor, ctx: RuntimeSchemaContext): Promise<MiningResolvedConfig> => {
+    const [constants, asteroid] = await Promise.all([
+        resolveMiningConstants(executor, ctx),
+        resolveEconomyObjectCollection(executor, ctx.schemaIdent, ASTEROID_ENTITY_CODE)
+    ])
+
+    const statusAttr = requireAttr(asteroid, 'Status')
+    if (typeof statusAttr.target_object_id !== 'string') {
+        throwEconomyFailure('MINING_POSTING_FAILED', 'Asteroid Status field does not reference an enumeration')
+    }
+    const depletedValueId = await resolveEconomyEnumValueId(executor, ctx.schemaIdent, statusAttr.target_object_id, 'Depleted')
+    if (!depletedValueId) throwEconomyFailure('MINING_POSTING_FAILED', 'AsteroidStatus value Depleted is not configured')
+
+    return { constants, asteroid, depletedValueId }
+}
+
+const buildAsteroidRow = async (
+    executor: DbExecutor,
+    ctx: RuntimeSchemaContext,
+    mining: MiningResolvedConfig,
+    row: Record<string, unknown>
+): Promise<AsteroidRuntimeRow | null> => {
+    const code = resolveRowText(row.code_value).trim()
+    if (!code) return null
+    const statusValueId = typeof row.status_value === 'string' ? row.status_value : null
+    const labels = statusValueId ? await resolveEnumValueLabels(executor, ctx.schemaIdent, [statusValueId]) : new Map<string, string>()
+    const statusLabel = statusValueId ? labels.get(statusValueId) ?? '' : ''
+    if (!MINING_STATUS_VALUES.has(statusLabel)) {
+        // Corrupt status REF (unknown enumeration value) — fail closed instead
+        // of rendering an unknown belt state.
+        throwEconomyFailure('MINING_POSTING_FAILED', 'Asteroid status value is not recognized')
+    }
+    const position = {
+        x: toFiniteNumber(row.position_x) ?? 0,
+        y: toFiniteNumber(row.position_y) ?? 0,
+        z: toFiniteNumber(row.position_z) ?? 0
+    }
+    return {
+        rowId: String(row.id),
+        code,
+        name: resolveRowText(row.name_value) || code,
+        resourceCode: resolveRowText(row.resource_code_value).trim() || ORE_NOMENCLATURE_CODE,
+        position,
+        scale: toFiniteNumber(row.scale_value) ?? 0,
+        totalQuantityKg: toFiniteNumber(row.total_quantity) ?? 0,
+        remainingQuantityKg: Math.max(0, toFiniteNumber(row.remaining_quantity) ?? 0),
+        status: statusLabel as 'Active' | 'Depleted',
+        statusValueId,
+        visualVariant: Math.round(toFiniteNumber(row.visual_variant) ?? 0),
+        chunkMinKg: toFiniteNumber(row.chunk_min_kg),
+        chunkMaxKg: toFiniteNumber(row.chunk_max_kg)
+    }
+}
+
+const buildAsteroidSelectList = (mining: MiningResolvedConfig): string => {
+    const select = (codename: string, alias: string) => `${quoteIdentifier(requireAttr(mining.asteroid, codename).column_name)} AS ${alias}`
+    return [
+        select('Code', 'code_value'),
+        select('Name', 'name_value'),
+        select('ResourceCode', 'resource_code_value'),
+        select('PositionX', 'position_x'),
+        select('PositionY', 'position_y'),
+        select('PositionZ', 'position_z'),
+        select('Scale', 'scale_value'),
+        select('TotalQuantityKg', 'total_quantity'),
+        select('RemainingQuantityKg', 'remaining_quantity'),
+        select('Status', 'status_value'),
+        select('VisualVariant', 'visual_variant'),
+        select('ChunkMinKg', 'chunk_min_kg'),
+        select('ChunkMaxKg', 'chunk_max_kg')
+    ].join(',\n             ')
+}
+
+/** Belt snapshot rows for `GET mining/state` — remainders rounded to 0.1 kg (TZ §8.1). */
+export const loadAsteroidStateRows = async (
+    executor: DbExecutor,
+    ctx: RuntimeSchemaContext,
+    mining: MiningResolvedConfig
+): Promise<EconomyAsteroidState[]> => {
+    const rows = (await executor.query(
+        `
+      SELECT id,
+             ${buildAsteroidSelectList(mining)}
+      FROM ${ctx.schemaIdent}.${quoteIdentifier(mining.asteroid.table_name)}
+      WHERE ${buildEconomyActiveCondition(ctx, mining.asteroid)}
+    `,
+        []
+    )) as Array<Record<string, unknown>>
+
+    const asteroids: EconomyAsteroidState[] = []
+    for (const row of rows) {
+        const asteroidRow = await buildAsteroidRow(executor, ctx, mining, row)
+        if (!asteroidRow) continue
+        asteroids.push(
+            economyAsteroidStateSchema.parse({
+                code: asteroidRow.code,
+                name: asteroidRow.name,
+                resourceCode: asteroidRow.resourceCode,
+                position: asteroidRow.position,
+                scale: asteroidRow.scale,
+                totalQuantityKg: asteroidRow.totalQuantityKg,
+                remainingQuantityKg: roundToTenth(asteroidRow.remainingQuantityKg),
+                status: asteroidRow.status,
+                visualVariant: asteroidRow.visualVariant
+            })
+        )
+    }
+    return asteroids
+}
+
+/**
+ * Loads ONE asteroid row FOR UPDATE inside the fire transaction (TZ §9.4 step
+ * 1). Duplicate `Code` rows are an authoring error — the pick is deterministic
+ * (`ORDER BY id LIMIT 1`) and duplicates fail closed at the service boundary.
+ */
+export const loadAsteroidByCodeForUpdate = async (
+    executor: DbExecutor,
+    ctx: RuntimeSchemaContext,
+    mining: MiningResolvedConfig,
+    code: string
+): Promise<AsteroidRuntimeRow | null> => {
+    const codeAttr = requireAttr(mining.asteroid, 'Code')
+    const rows = (await executor.query(
+        `
+      SELECT id,
+             ${buildAsteroidSelectList(mining)}
+      FROM ${ctx.schemaIdent}.${quoteIdentifier(mining.asteroid.table_name)}
+      WHERE ${buildEconomyActiveCondition(ctx, mining.asteroid)}
+        AND ${quoteIdentifier(codeAttr.column_name)} = $1
+      ORDER BY id
+      LIMIT 1
+      FOR UPDATE
+    `,
+        [code]
+    )) as Array<Record<string, unknown>>
+
+    const row = rows[0]
+    if (!row) return null
+    return buildAsteroidRow(executor, ctx, mining, row)
+}
+
+/**
+ * Per-user cooldown (mining TZ §9.5): the advisory lock serializes the user's
+ * own fires, then the latest Mine operation is checked against
+ * `MiningCooldownMs`. The query deliberately omits the active-row condition —
+ * soft-deleted Mine rows still count, so deleting rows cannot bypass the
+ * cooldown (mirrors the StarterGrant once-only rationale).
+ */
+export const assertMiningCooldown = async (
+    executor: DbExecutor,
+    ctx: RuntimeSchemaContext,
+    applicationId: string,
+    economy: EconomyResolvedConfig,
+    mining: MiningResolvedConfig
+): Promise<void> => {
+    await acquireAdvisoryXactLock(executor, `mining:${applicationId}:${ctx.userId}`)
+    const kindAttr = requireAttr(economy.operation, 'OperationKind') // STRING component → physical TEXT column
+    const occurredAttr = requireAttr(economy.operation, 'OccurredAt') // DATE+'datetime' → physical TIMESTAMPTZ
+    const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(economy.operation.table_name)}`
+    const rows = (await executor.query(
+        `
+      SELECT 1
+      FROM ${dataTableIdent}
+      WHERE _upl_created_by = $1
+        AND ${quoteIdentifier(kindAttr.column_name)} = $2
+        AND ${quoteIdentifier(occurredAttr.column_name)} > $3
+      LIMIT 1
+    `,
+        [ctx.userId, MINE_OPERATION_KIND, new Date(Date.now() - mining.constants.miningCooldownMs)]
+    )) as Array<Record<string, unknown>>
+    if (rows.length > 0) throwEconomyFailure('MINING_COOLDOWN', 'Laser is recharging')
 }

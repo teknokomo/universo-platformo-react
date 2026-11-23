@@ -13,10 +13,14 @@ import type { PlayCanvasRuntimeScriptManifest, MmoommVisualLabScene } from '@uni
 import {
     createBasicApplication,
     createBoxEntity,
+    createLowPolySphereEntity,
+    createPrimitiveEntity,
     createStandardMaterial,
+    createTranslucentStandardMaterial,
     resizeApplicationCanvas,
     type Vector3Like
 } from '@universo-react/playcanvas-engine'
+import type { EconomyAsteroidState } from '@universo-react/types'
 import {
     addVector,
     crossVector,
@@ -87,6 +91,13 @@ export type RealtimeStatus =
 export type PlayCanvasControlCanvas = HTMLCanvasElement & {
     __playcanvasMoveToTarget?: (target: Vector3Like | null, objectId?: string) => void
     __playcanvasPickAt?: (clientX: number, clientY: number, includeFlightPlane: boolean) => CanvasPickResult | null
+    __playcanvasPickAsteroid?: (clientX: number, clientY: number) => { code: string; point: Vector3Like } | null
+    __playcanvasPlayMiningEffect?: (detail: {
+        asteroidCode: string
+        chunkMassesKg: number[]
+        lifetimeMs: number
+        reducedMotion: boolean
+    }) => void
 }
 
 export const isRealtimeMovementEnabled = (status: RealtimeStatus, canControlScene: boolean): boolean =>
@@ -522,9 +533,300 @@ export const usePlayCanvasCanvasRuntime = ({
                 }
             }
 
+            // ── Mining belt layer (mining plan C3, TZ DOC-2026-006 §11) ──
+            // Asteroids live OUTSIDE `sceneObjects` on purpose: the strict
+            // published-scene zod schema must stay untouched, and the generic
+            // pick path converts any sceneObjects hit into a `move_to_object`
+            // intent (asteroid clicks select a target instead). The layer is
+            // rebuilt from `playcanvas-mining-update` CustomEvents pushed by the
+            // React widget — poll updates never tear the canvas down.
+            const miningLayer = new Map<
+                string,
+                {
+                    core: pc.Entity
+                    glow: pc.Entity
+                    glowMaterial: pc.StandardMaterial
+                    /** Depleted asteroids never take fire — no hover highlight. */
+                    hoverable: boolean
+                    position: Vector3Like
+                    effectiveRadius: number
+                    code: string
+                }
+            >()
+            const miningOwnedMaterials: pc.StandardMaterial[] = []
+            let miningTargetCode: string | null = null
+            let miningHoverCode: string | null = null
+            let miningRadiusMeters: number | null = null
+            let lastMiningTargetStateKey = ''
+            interface MiningEffect {
+                entity: pc.Entity
+                bornAt: number
+                lifetimeMs: number
+                baseScale: Vector3Like
+                velocity: Vector3Like
+                spin: number
+            }
+            const miningEffects: MiningEffect[] = []
+            const miningRandom = (): number => Math.random()
+            const MINING_GLOW_OPACITY = 0.22
+            const MINING_GLOW_HOVER_OPACITY = 0.1
+            const MINING_CORE_COLORS = [
+                new pc.Color(0.52, 0.48, 0.42),
+                new pc.Color(0.42, 0.44, 0.52),
+                new pc.Color(0.5, 0.4, 0.36),
+                new pc.Color(0.4, 0.5, 0.46),
+                new pc.Color(0.55, 0.5, 0.55)
+            ]
+
+            const destroyMiningLayer = (): void => {
+                for (const entry of miningLayer.values()) {
+                    entry.core.destroy()
+                    entry.glow.destroy()
+                }
+                miningLayer.clear()
+                for (const material of miningOwnedMaterials) {
+                    material.destroy?.()
+                }
+                miningOwnedMaterials.length = 0
+            }
+
+            const buildMiningLayer = (asteroids: EconomyAsteroidState[]): void => {
+                if (!app) return
+                destroyMiningLayer()
+                for (const asteroid of asteroids) {
+                    // TZ §9.2: the rendered size and the server's distance check
+                    // share ONE formula — effectiveScale = 0.55 + 0.45 * remaining/total.
+                    const effectiveScale =
+                        0.55 +
+                        0.45 * (Math.min(Math.max(asteroid.remainingQuantityKg, 0), asteroid.totalQuantityKg) / asteroid.totalQuantityKg)
+                    const visualScale = asteroid.scale * effectiveScale
+                    const colorIndex =
+                        ((asteroid.visualVariant % MINING_CORE_COLORS.length) + MINING_CORE_COLORS.length) % MINING_CORE_COLORS.length
+                    const depleted = asteroid.status === 'Depleted'
+                    // TZ §11.1: Depleted asteroids are dimmed (dark, non-emissive
+                    // shell) but stay in the belt — no respawn in the MVP.
+                    const coreMaterial = depleted
+                        ? createTranslucentStandardMaterial({
+                              color: new pc.Color(0.08, 0.08, 0.1),
+                              emissive: new pc.Color(0.05, 0.05, 0.06),
+                              emissiveIntensity: 0,
+                              opacity: 0.45
+                          })
+                        : createStandardMaterial(MINING_CORE_COLORS[colorIndex])
+                    const glowMaterial = depleted
+                        ? createTranslucentStandardMaterial({
+                              color: new pc.Color(0.1, 0.1, 0.12),
+                              emissive: new pc.Color(0.05, 0.05, 0.06),
+                              emissiveIntensity: 0,
+                              opacity: 0.08
+                          })
+                        : createTranslucentStandardMaterial({
+                              color: new pc.Color(0.35, 0.7, 1),
+                              emissive: new pc.Color(0.25, 0.6, 1),
+                              emissiveIntensity: 8,
+                              opacity: MINING_GLOW_OPACITY,
+                              additive: true
+                          })
+                    miningOwnedMaterials.push(coreMaterial, glowMaterial)
+                    const core = createLowPolySphereEntity(app, {
+                        name: `mining-asteroid-${asteroid.code}`,
+                        position: asteroid.position,
+                        scale: { x: visualScale, y: visualScale, z: visualScale },
+                        material: coreMaterial,
+                        latitudeBands: 5,
+                        longitudeBands: 6
+                    })
+                    const glow = createLowPolySphereEntity(app, {
+                        name: `mining-asteroid-${asteroid.code}-glow`,
+                        position: asteroid.position,
+                        scale: { x: visualScale * 1.18, y: visualScale * 1.18, z: visualScale * 1.18 },
+                        material: glowMaterial,
+                        latitudeBands: 5,
+                        longitudeBands: 6
+                    })
+                    glow.enabled = false
+                    app.root.addChild(core)
+                    app.root.addChild(glow)
+                    miningLayer.set(asteroid.code, {
+                        core,
+                        glow,
+                        glowMaterial,
+                        hoverable: !depleted,
+                        position: asteroid.position,
+                        effectiveRadius: asteroid.scale * effectiveScale * 0.5,
+                        code: asteroid.code
+                    })
+                }
+                canvas.dataset.miningAsteroidCount = String(miningLayer.size)
+                applyMiningTargetVisuals()
+            }
+
+            // UX review 2026-11-22: the SELECTED target (a click — what the laser
+            // shoots) keeps the full glow; a hovered asteroid only faintly lights
+            // up so the two states are never confused.
+            const applyMiningTargetVisuals = (): void => {
+                for (const [entryCode, entry] of miningLayer) {
+                    const isSelected = entryCode === miningTargetCode
+                    const isHovered = !isSelected && entry.hoverable && entryCode === miningHoverCode
+                    entry.glow.enabled = isSelected || isHovered
+                    entry.glowMaterial.opacity = isSelected ? MINING_GLOW_OPACITY : MINING_GLOW_HOVER_OPACITY
+                    entry.glowMaterial.update()
+                }
+            }
+
+            const setMiningTargetByCode = (code: string | null, hoverCode: string | null): void => {
+                miningTargetCode = code
+                miningHoverCode = hoverCode
+                applyMiningTargetVisuals()
+            }
+
+            const pickAsteroidAt = (clientX: number, clientY: number): { code: string; point: Vector3Like } | null => {
+                const ray = resolveCanvasRay(clientX, clientY)
+                if (!ray || miningLayer.size === 0) return null
+                let best: { code: string; distance: number } | null = null
+                for (const entry of miningLayer.values()) {
+                    const lx = ray.origin.x - entry.position.x
+                    const ly = ray.origin.y - entry.position.y
+                    const lz = ray.origin.z - entry.position.z
+                    const halfB = 2 * (ray.direction.x * lx + ray.direction.y * ly + ray.direction.z * lz)
+                    const c = lx * lx + ly * ly + lz * lz - entry.effectiveRadius * entry.effectiveRadius
+                    const discriminant = halfB * halfB - 4 * c
+                    if (discriminant < 0) continue
+                    const root = Math.sqrt(discriminant)
+                    let t = (-halfB - root) / 2
+                    if (t < 0) t = (-halfB + root) / 2
+                    if (t < 0) continue
+                    if (!best || t < best.distance) {
+                        best = { code: entry.code, distance: t }
+                    }
+                }
+                if (!best) return null
+                const entry = miningLayer.get(best.code)
+                return entry ? { code: entry.code, point: entry.position } : null
+            }
+
+            const spawnMiningChunk = (center: Vector3Like, size: number, lifetimeMs: number, reducedMotion: boolean): void => {
+                if (!app) return
+                const material = createTranslucentStandardMaterial({
+                    color: new pc.Color(0.55, 0.5, 0.42),
+                    emissive: new pc.Color(0.2, 0.15, 0.1),
+                    emissiveIntensity: 2,
+                    opacity: 0.85
+                })
+                miningOwnedMaterials.push(material)
+                const offset = {
+                    x: (miningRandom() - 0.5) * 1.6,
+                    y: miningRandom() * 0.9,
+                    z: (miningRandom() - 0.5) * 1.6
+                }
+                const position = { x: center.x + offset.x * 0.4, y: center.y + offset.y * 0.4, z: center.z + offset.z * 0.4 }
+                const entity = createLowPolySphereEntity(app, {
+                    name: 'mining-chunk',
+                    position,
+                    scale: { x: size, y: size, z: size },
+                    material,
+                    latitudeBands: 3,
+                    longitudeBands: 4
+                })
+                app.root.addChild(entity)
+                miningEffects.push({
+                    entity,
+                    bornAt: Date.now(),
+                    lifetimeMs,
+                    baseScale: { x: size, y: size, z: size },
+                    velocity: reducedMotion ? { x: 0, y: 0, z: 0 } : offset,
+                    spin: reducedMotion ? 0 : 1 + miningRandom() * 2
+                })
+            }
+
+            const playMiningFireEffect = (detail: {
+                asteroidCode: string
+                chunkMassesKg: number[]
+                lifetimeMs: number
+                reducedMotion: boolean
+            }): void => {
+                const entry = miningLayer.get(detail.asteroidCode)
+                const controlledEntity = entities.get(controlledObjectId)
+                if (!entry || !controlledEntity || !app) return
+                const nowMs = Date.now()
+
+                // Laser beam: a thin symmetric box centered on the nose→asteroid
+                // midpoint (the symmetric span is orientation-safe with lookAt).
+                if (!detail.reducedMotion) {
+                    const beamMaterial = createTranslucentStandardMaterial({
+                        color: new pc.Color(1, 0.55, 0.2),
+                        emissive: new pc.Color(1, 0.45, 0.12),
+                        emissiveIntensity: 10,
+                        opacity: 0.5,
+                        additive: true
+                    })
+                    miningOwnedMaterials.push(beamMaterial)
+                    const nose = controlledEntity.getPosition()
+                    const target = new pc.Vec3(entry.position.x, entry.position.y, entry.position.z)
+                    const beamVector = new pc.Vec3(target.x - nose.x, target.y - nose.y, target.z - nose.z)
+                    const beamLength = beamVector.length()
+                    if (beamLength > 0.01) {
+                        const midpoint = new pc.Vec3(nose.x + beamVector.x / 2, nose.y + beamVector.y / 2, nose.z + beamVector.z / 2)
+                        const beam = createPrimitiveEntity({
+                            name: 'mining-beam',
+                            position: { x: midpoint.x, y: midpoint.y, z: midpoint.z },
+                            scale: { x: 0.12, y: 0.12, z: beamLength },
+                            material: beamMaterial
+                        })
+                        beam.lookAt(target)
+                        app.root.addChild(beam)
+                        miningEffects.push({
+                            entity: beam,
+                            bornAt: nowMs,
+                            lifetimeMs: Math.min(150, Math.max(80, detail.lifetimeMs / 6)),
+                            baseScale: { x: 0.12, y: 0.12, z: beamLength },
+                            velocity: { x: 0, y: 0, z: 0 },
+                            spin: 0
+                        })
+                    }
+                }
+
+                for (const massKg of detail.chunkMassesKg.slice(0, 3)) {
+                    const size = Math.max(0.25, entry.effectiveRadius * 0.55 * Math.min(1, 0.35 + 0.18 * massKg))
+                    spawnMiningChunk(entry.position, size, detail.lifetimeMs, detail.reducedMotion)
+                }
+            }
+
+            const handleMiningUpdate = (event: Event): void => {
+                const detail = (event as CustomEvent<{ asteroids?: EconomyAsteroidState[]; radiusMeters?: number | null }>).detail
+                if (Array.isArray(detail?.asteroids)) buildMiningLayer(detail.asteroids)
+                miningRadiusMeters = typeof detail?.radiusMeters === 'number' && detail.radiusMeters > 0 ? detail.radiusMeters : null
+                // Solo-prediction consistency (UX report 2026-11-22): the server
+                // collides ships against the authored occupiedSpheres — the same
+                // belt geometry feeds the client prediction/reconciliation clamps
+                // so a solo ship stops at the rock instead of rubber-banding.
+                const flightControlInstance = resolveFlightControl()
+                if (flightControlInstance && typeof flightControlInstance.setAsteroidObstacles === 'function') {
+                    flightControlInstance.setAsteroidObstacles(
+                        Array.from(miningLayer.values()).map((entry) => ({
+                            code: entry.code,
+                            position: entry.position,
+                            radius: entry.effectiveRadius
+                        }))
+                    )
+                }
+            }
+            const handleMiningTarget = (event: Event): void => {
+                const detail = (event as CustomEvent<{ code?: string | null; hoverCode?: string | null }>).detail
+                setMiningTargetByCode(
+                    typeof detail?.code === 'string' ? detail.code : null,
+                    typeof detail?.hoverCode === 'string' ? detail.hoverCode : null
+                )
+            }
+            canvas.addEventListener('playcanvas-mining-update', handleMiningUpdate)
+            canvas.addEventListener('playcanvas-mining-target', handleMiningTarget)
+            ;(canvas as PlayCanvasControlCanvas).__playcanvasPickAsteroid = (clientX, clientY) => pickAsteroidAt(clientX, clientY)
+            ;(canvas as PlayCanvasControlCanvas).__playcanvasPlayMiningEffect = (detail) => playMiningFireEffect(detail)
+
             // PlayCanvas invokes update/postUpdate on manifest-attached scripts;
-            // the widget only projects room/camera state into HUD markers here.
-            app.on('update', () => {
+            // the widget only projects room/camera state into HUD markers and
+            // animates the mining effects here.
+            app.on('update', (updateDt: number) => {
                 const controlledEntity = entities.get(controlledObjectId)
                 if (!controlledEntity) return
 
@@ -559,6 +861,86 @@ export const usePlayCanvasCanvasRuntime = ({
                     canvas.dataset.shipNoseScreenY = noseScreen.y.toFixed(1)
                     canvas.dataset.stationScreenX = stationScreen.x.toFixed(1)
                     canvas.dataset.stationScreenY = stationScreen.y.toFixed(1)
+                }
+
+                // Mining effects (mining TZ §11.3): drift + spin + end-of-life
+                // shrink/fade, destroyed at `chunkVisualLifetimeMs`.
+                const nowMs = Date.now()
+                for (let effectIndex = miningEffects.length - 1; effectIndex >= 0; effectIndex -= 1) {
+                    const effect = miningEffects[effectIndex]
+                    const age = nowMs - effect.bornAt
+                    if (age >= effect.lifetimeMs) {
+                        effect.entity.destroy()
+                        miningEffects.splice(effectIndex, 1)
+                        continue
+                    }
+                    if (effect.velocity.x !== 0 || effect.velocity.y !== 0 || effect.velocity.z !== 0) {
+                        const currentPosition = effect.entity.getPosition()
+                        effect.entity.setPosition(
+                            currentPosition.x + effect.velocity.x * updateDt,
+                            currentPosition.y + effect.velocity.y * updateDt,
+                            currentPosition.z + effect.velocity.z * updateDt
+                        )
+                    }
+                    if (effect.spin !== 0) {
+                        effect.entity.rotate(0, effect.spin * updateDt * 20, effect.spin * updateDt * 12)
+                    }
+                    const lifeRatio = age / effect.lifetimeMs
+                    if (lifeRatio > 0.6) {
+                        const shrink = Math.max(0.15, 1 - (lifeRatio - 0.6) / 0.4)
+                        effect.entity.setLocalScale(effect.baseScale.x * shrink, effect.baseScale.y * shrink, effect.baseScale.z * shrink)
+                    }
+                }
+
+                // Mining belt oracles (E2E): count, target code, target screen coords
+                // + the throttled hover/selection state for the React HUD (FR-031).
+                canvas.dataset.miningAsteroidCount = String(miningLayer.size)
+                if (miningTargetCode) {
+                    canvas.dataset.miningTargetCode = miningTargetCode
+                    const cameraComponentForMining = camera.camera
+                    const targetEntry = miningLayer.get(miningTargetCode)
+                    if (cameraComponentForMining && targetEntry) {
+                        const targetScreen = cameraComponentForMining.worldToScreen(
+                            new pc.Vec3(targetEntry.position.x, targetEntry.position.y, targetEntry.position.z)
+                        )
+                        canvas.dataset.miningTargetScreenX = targetScreen.x.toFixed(1)
+                        canvas.dataset.miningTargetScreenY = targetScreen.y.toFixed(1)
+                    }
+                    const controlledForMining = entities.get(controlledObjectId)
+                    if (controlledForMining && targetEntry) {
+                        const shipPosition = controlledForMining.getPosition()
+                        const distanceMeters = Math.sqrt(
+                            (shipPosition.x - targetEntry.position.x) ** 2 +
+                                (shipPosition.y - targetEntry.position.y) ** 2 +
+                                (shipPosition.z - targetEntry.position.z) ** 2
+                        )
+                        const inRange =
+                            miningRadiusMeters === null ? true : distanceMeters <= miningRadiusMeters + targetEntry.effectiveRadius
+                        canvas.dataset.miningTargetDistanceMeters = distanceMeters.toFixed(1)
+                        // Throttled round-trip to the React HUD: only on change.
+                        const stateKey = `${miningTargetCode}:${distanceMeters.toFixed(1)}:${inRange}`
+                        if (stateKey !== lastMiningTargetStateKey) {
+                            lastMiningTargetStateKey = stateKey
+                            canvas.dispatchEvent(
+                                new CustomEvent('playcanvas-mining-target-state', {
+                                    detail: {
+                                        code: miningTargetCode,
+                                        distanceMeters: Math.round(distanceMeters * 10) / 10,
+                                        inRange
+                                    }
+                                })
+                            )
+                        }
+                    }
+                } else {
+                    delete canvas.dataset.miningTargetCode
+                    delete canvas.dataset.miningTargetScreenX
+                    delete canvas.dataset.miningTargetScreenY
+                    delete canvas.dataset.miningTargetDistanceMeters
+                    if (lastMiningTargetStateKey) {
+                        lastMiningTargetStateKey = ''
+                        canvas.dispatchEvent(new CustomEvent('playcanvas-mining-target-state', { detail: { code: null } }))
+                    }
                 }
             })
 
@@ -978,11 +1360,22 @@ export const usePlayCanvasCanvasRuntime = ({
                 canvas.removeEventListener('webglcontextlost', handleWebGLContextLost)
                 canvas.removeEventListener('playcanvas-camera-control', handleCameraControl)
                 canvas.removeEventListener('playcanvas-camera-drag', handleCameraDrag)
+                canvas.removeEventListener('playcanvas-mining-update', handleMiningUpdate)
+                canvas.removeEventListener('playcanvas-mining-target', handleMiningTarget)
                 container.removeEventListener('wheel', handleNativeWheel, { capture: true })
                 setReady(false)
                 predictionQueueRef.current = []
                 delete (canvas as PlayCanvasControlCanvas).__playcanvasMoveToTarget
                 delete (canvas as PlayCanvasControlCanvas).__playcanvasPickAt
+                delete (canvas as PlayCanvasControlCanvas).__playcanvasPickAsteroid
+                delete (canvas as PlayCanvasControlCanvas).__playcanvasPlayMiningEffect
+                miningEffects.length = 0
+                destroyMiningLayer()
+                delete canvas.dataset.miningAsteroidCount
+                delete canvas.dataset.miningTargetCode
+                delete canvas.dataset.miningTargetScreenX
+                delete canvas.dataset.miningTargetScreenY
+                delete canvas.dataset.miningTargetDistanceMeters
                 if (app) {
                     delete (app as unknown as { __universoHost?: unknown }).__universoHost
                 }

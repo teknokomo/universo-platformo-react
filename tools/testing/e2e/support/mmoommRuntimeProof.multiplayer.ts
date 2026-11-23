@@ -88,6 +88,14 @@ export const expectMmoommSecondClientAndReconnect = async (
                 .toBe(true)
         }
 
+        // Park the ship mid-route before the offline dance: the room keeps
+        // ticking while the client is offline, so an unparked ship can already
+        // sit at the station when the client restores — the post-reconnect
+        // move intent would then be a no-op and the movement trace empty
+        // (observed in the collision-era runtime journey, 2026-11-22).
+        await primaryWidget.getByRole('button', { name: MMOOMM_STOP_BUTTON_NAME }).click()
+        await expect(primaryCanvas).toHaveAttribute('data-last-intent-kind', 'stop', { timeout: 15_000 })
+
         await primaryPage.context().setOffline(true)
         await expect(primaryCanvas).toHaveAttribute('data-realtime-status', 'reconnecting', { timeout: 15_000 })
         await expect(primaryWidget.getByTestId('playcanvas-realtime-status')).toContainText(/reconnecting/i)
@@ -103,12 +111,16 @@ export const expectMmoommSecondClientAndReconnect = async (
         await primaryWidget.getByRole('button', { name: MMOOMM_MOVE_TO_TARGET_BUTTON_NAME }).click()
         await expect(primaryCanvas).toHaveAttribute('data-last-intent-kind', 'move_to_object', { timeout: 15_000 })
         // Capture the movement while the second post-reconnect intent is still
-        // connected. The next step deliberately takes the client offline to
-        // verify the failed-reconnect state, where controls are disabled and
-        // no new movement should be expected from the browser oracle.
+        // connected. The window is generous (3 s): the reconnect bookkeeping
+        // (state re-sync, intent-sequence rebind) can delay the first visible
+        // step for a few hundred milliseconds, and a 1.4 s window occasionally
+        // raced it (2026-11-22 collision-era journeys). The next step
+        // deliberately takes the client offline to verify the failed-reconnect
+        // state, where controls are disabled and no new movement should be
+        // expected from the browser oracle.
         const movementTrace = await captureMmoommRuntimeParityTrace(primaryPage, primaryCanvas, {
-            samples: 14,
-            intervalMs: 100
+            samples: 20,
+            intervalMs: 150
         })
         expectMmoommRuntimeParityTrace(movementTrace, 'MMOOMM published script-assets movement')
         expectMmoommTraceShowsMovement(movementTrace)
