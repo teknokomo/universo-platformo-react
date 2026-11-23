@@ -126,7 +126,7 @@
         "redos-detector": "6.1.4",
         "async-mutex": "catalog:",
         "json-stable-stringify": "catalog:",
-        "zod": "3.25.76",
+        "zod": "4.6.6",
         "uuidv7": "catalog:"
     },
     "peerDependencies": {

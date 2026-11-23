@@ -21,7 +21,7 @@
         "express": "^4.18.2",
         "swagger-ui-express": "^5.0.1",
         "yaml": "2.8.3",
-        "zod": "^4.1.12"
+        "zod": "^4.6.6"
     },
     "devDependencies": {
         "@redocly/openapi-cli": "^1.0.0-beta.95",
