@@ -131,10 +131,9 @@ Issues found are graded as CRITICAL (blocker), HIGH (fix before merge), MEDIUM (
     4.  **Use Request Executor**: In route handlers, obtain the request-scoped executor via `getRequestDbExecutor(req, getDbExecutor())` from `@universo-react/utils`. This ensures RLS context is applied.
 
 <!-- ontoindex:start -->
-
 # OntoIndex — Code Intelligence
 
-This project is indexed by OntoIndex as **universo-platformo-react** (91253 symbols, 160373 relationships, 300 execution flows). Use the OntoIndex MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by OntoIndex as **universo-platformo-react**. Use the OntoIndex MCP tools to understand code, assess impact, and navigate safely.
 
 > Always query OntoIndex first. Repo queries refresh stale indexes in the background; dirty edits use the automatic overlay. Use stale/refreshing results with freshness labels; verify edited or new code from source. Never fall back to grep-only because the index is stale. Manual `ontoindex analyze` is only for immediate refresh with no active job. Sub-agents never start reindex jobs; refresh-on-query covers them.
 
@@ -149,30 +148,30 @@ Use OntoIndex in this order:
 
 ## Never Do
 
--   NEVER edit a function, class, or method without first running MCP `impact` or CLI `ontoindex impact` on it.
--   NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
--   NEVER rename symbols with find-and-replace — use MCP `refactor({action: "rename", ...})` which understands the call graph.
--   NEVER commit changes without step 4 verification.
+- NEVER edit a function, class, or method without first running MCP `impact` or CLI `ontoindex impact` on it.
+- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
+- NEVER rename symbols with find-and-replace — use MCP `refactor({action: "rename", ...})` which understands the call graph.
+- NEVER commit changes without step 4 verification.
 
 ## Resources
 
-| Resource                                                   | Use for                                  |
-| ---------------------------------------------------------- | ---------------------------------------- |
-| `ontoindex://repo/universo-platformo-react/context`        | Codebase overview, check index freshness |
-| `ontoindex://repo/universo-platformo-react/clusters`       | All functional areas                     |
-| `ontoindex://repo/universo-platformo-react/processes`      | All execution flows                      |
-| `ontoindex://repo/universo-platformo-react/process/{name}` | Step-by-step execution trace             |
+| Resource | Use for |
+|----------|---------|
+| `ontoindex://repo/universo-platformo-react/context` | Codebase overview, check index freshness |
+| `ontoindex://repo/universo-platformo-react/clusters` | All functional areas |
+| `ontoindex://repo/universo-platformo-react/processes` | All execution flows |
+| `ontoindex://repo/universo-platformo-react/process/{name}` | Step-by-step execution trace |
 
 ## CLI
 
-| Task                                         | Read this skill file                                          |
-| -------------------------------------------- | ------------------------------------------------------------- |
-| Start here, any task                         | `.claude/skills/ontoindex/ontoindex-navigation/SKILL.md`      |
-| Understand architecture / "How does X work?" | `.claude/skills/ontoindex/ontoindex-exploring/SKILL.md`       |
-| Blast radius / "What breaks if I change X?"  | `.claude/skills/ontoindex/ontoindex-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?"             | `.claude/skills/ontoindex/ontoindex-debugging/SKILL.md`       |
-| Rename / extract / split / refactor          | `.claude/skills/ontoindex/ontoindex-refactoring/SKILL.md`     |
-| Tools, resources, schema reference           | `.claude/skills/ontoindex/ontoindex-guide/SKILL.md`           |
-| Index, status, clean, wiki CLI commands      | `.claude/skills/ontoindex/ontoindex-cli/SKILL.md`             |
+| Task | Read this skill file |
+|------|---------------------|
+| Start here, any task | `.claude/skills/ontoindex/ontoindex-navigation/SKILL.md` |
+| Understand architecture / "How does X work?" | `.claude/skills/ontoindex/ontoindex-exploring/SKILL.md` |
+| Blast radius / "What breaks if I change X?" | `.claude/skills/ontoindex/ontoindex-impact-analysis/SKILL.md` |
+| Trace bugs / "Why is X failing?" | `.claude/skills/ontoindex/ontoindex-debugging/SKILL.md` |
+| Rename / extract / split / refactor | `.claude/skills/ontoindex/ontoindex-refactoring/SKILL.md` |
+| Tools, resources, schema reference | `.claude/skills/ontoindex/ontoindex-guide/SKILL.md` |
+| Index, status, clean, wiki CLI commands | `.claude/skills/ontoindex/ontoindex-cli/SKILL.md` |
 
 <!-- ontoindex:end -->

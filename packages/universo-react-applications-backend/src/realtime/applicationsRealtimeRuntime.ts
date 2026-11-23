@@ -26,6 +26,7 @@ import {
     type Client as RoomClient,
     type FixedTickMovementState,
     type FixedTickMovementResult,
+    type OccupiedEntityLike,
     type Transport
 } from '@universo-react/colyseus-server'
 import { ensureApplicationAccess, resolveEffectiveRolePermissions, type ApplicationRole, type RolePermission } from '../routes/guards'
@@ -71,6 +72,8 @@ interface FixedTickSceneRoomOptions {
     initialPosition: RealtimeVector3
     targetObjects: Record<string, RealtimeVector3>
     guardBoxes: Array<{ center: RealtimeVector3; halfExtents: RealtimeVector3 }>
+    /** Static spherical obstacles (e.g. the MMOOMM asteroid belt) authored by the runtime module. */
+    occupiedSpheres: Array<{ code: string; position: RealtimeVector3; radius: number }>
     controlledHalfExtents: RealtimeVector3
     spawnSafetyMargin: number
     spawnMaxAttempts: number
@@ -105,6 +108,7 @@ const DEFAULT_ROOM_OPTIONS: FixedTickSceneRoomOptions = {
     initialPosition: DEFAULT_POSITION,
     targetObjects: { target: DEFAULT_TARGET_OBJECT },
     guardBoxes: [DEFAULT_GUARD],
+    occupiedSpheres: [],
     controlledHalfExtents: { x: 6, y: 2, z: 2 },
     spawnSafetyMargin: 8,
     spawnMaxAttempts: 64,
@@ -332,6 +336,33 @@ const toGuardBoxes = (value: unknown): Array<{ center: RealtimeVector3; halfExte
         .slice(0, 16)
 
     return boxes.length ? boxes : null
+}
+
+const MAX_OCCUPIED_SPHERES = 64
+
+const toOccupiedSpheres = (value: unknown): FixedTickSceneRoomOptions['occupiedSpheres'] | null => {
+    if (!Array.isArray(value)) {
+        return null
+    }
+
+    const spheres = value
+        .map((entry) => {
+            const record = toRoomOptionRecord(entry)
+            const position = toBoundedVector(record.position)
+            const radius = Number(record.radius)
+            if (!position || !Number.isFinite(radius) || radius <= 0 || radius > 1000) {
+                return null
+            }
+            return {
+                code: typeof record.code === 'string' && record.code.trim() ? record.code.trim().slice(0, 128) : '',
+                position,
+                radius
+            }
+        })
+        .filter((entry): entry is { code: string; position: RealtimeVector3; radius: number } => Boolean(entry))
+        .slice(0, MAX_OCCUPIED_SPHERES)
+
+    return spheres.length ? spheres : null
 }
 
 interface RuntimeSceneObjectConfig {
@@ -625,10 +656,18 @@ const loadRoomOptionsFromApplicationSchema = async (
         typeof params.objectCollectionId === 'string' && params.objectCollectionId.trim() ? params.objectCollectionId.trim() : 'default'
     const moduleTargetObjects = toTargetObjects(moduleRoomOptions.targetObjects)
     const moduleGuardBoxes = toGuardBoxes(moduleRoomOptions.guardBoxes)
+    const moduleOccupiedSpheres = toOccupiedSpheres(moduleRoomOptions.occupiedSpheres)
+    // Belt colliders are volatile gameplay state (their radii shrink as mining
+    // progresses) and must NOT be part of the room identity: hashing them split
+    // players into different rooms after the first mine (Greptile P1, PR #934).
+    // The colliders are still signed into the room auth and cached for the room
+    // lifetime — stale radii only stay LARGER than the rendered rocks, which is
+    // the safe stop-early direction for the movement clamp.
+    const { occupiedSpheres: _volatileOccupiedSpheres, ...roomIdentityServerOptions } = moduleRoomOptions as Record<string, unknown>
     const roomConfigHash = hashRoomConfig({
         applicationSettings: application.settings ?? null,
         widgetConfig: parsed.data as Record<string, unknown>,
-        serverRoomOptions: moduleRoomOptions
+        serverRoomOptions: roomIdentityServerOptions
     })
     const moduleKey = runtimeModuleId
         ? `${runtimeModuleId}:${runtimeModuleChecksum ?? 'runtime'}:${roomConfigHash}`
@@ -649,6 +688,7 @@ const loadRoomOptionsFromApplicationSchema = async (
             DEFAULT_ROOM_OPTIONS.initialPosition,
         targetObjects: moduleTargetObjects ?? (Object.keys(targetObjects).length ? targetObjects : DEFAULT_ROOM_OPTIONS.targetObjects),
         guardBoxes: moduleGuardBoxes ?? (guardBoxes.length ? guardBoxes : DEFAULT_ROOM_OPTIONS.guardBoxes),
+        occupiedSpheres: moduleOccupiedSpheres ?? DEFAULT_ROOM_OPTIONS.occupiedSpheres,
         controlledHalfExtents:
             toBoundedVector(moduleRoomOptions.controlledHalfExtents) ??
             (controlledScale
@@ -854,6 +894,8 @@ const parseRoomOptions = (value: unknown): FixedTickSceneRoomOptions => {
               .slice(0, 16)
         : DEFAULT_ROOM_OPTIONS.guardBoxes
 
+    const occupiedSpheres = toOccupiedSpheres(candidate.occupiedSpheres) ?? DEFAULT_ROOM_OPTIONS.occupiedSpheres
+
     return {
         scopeId:
             typeof candidate.scopeId === 'string' && candidate.scopeId.trim()
@@ -877,6 +919,7 @@ const parseRoomOptions = (value: unknown): FixedTickSceneRoomOptions => {
         initialPosition: isBoundedVector3(candidate.initialPosition) ? candidate.initialPosition : DEFAULT_ROOM_OPTIONS.initialPosition,
         targetObjects: Object.keys(targetObjects).length ? targetObjects : DEFAULT_ROOM_OPTIONS.targetObjects,
         guardBoxes,
+        occupiedSpheres,
         controlledHalfExtents: isBoundedVector3(candidate.controlledHalfExtents)
             ? candidate.controlledHalfExtents
             : DEFAULT_ROOM_OPTIONS.controlledHalfExtents,
@@ -1304,11 +1347,22 @@ const createFixedTickSceneRoom = (
                             deceleration: this.roomOptions.deceleration,
                             arrivalRadius: this.roomOptions.arrivalRadius,
                             guards: this.roomOptions.guardBoxes,
+                            // Authored asteroid belt (UX report 2026-11-22): ships
+                            // must stop at the rock surface instead of flying
+                            // through it. The blocked handling below is native.
+                            occupiedEntities: this.roomOptions.occupiedSpheres,
+                            bodyRadius: resolveBodyRadius(this.roomOptions.controlledHalfExtents),
                             controlledHalfExtents: this.roomOptions.controlledHalfExtents
                         })
                     )
                 }
 
+                // Reserved-for-reconnect ships (owner offline, reconnect window
+                // open) keep ticking for state decay but must NOT act as
+                // physical obstacles: a ghost parked on a corridor pinned every
+                // other ship until the window expired (CI, PR #934 — a docked
+                // ship could never depart after its wingman dropped).
+                const collidableRuntimes = activeRuntimes.filter((runtime) => !runtime.reconnectingUntil)
                 const collisionContactStates = new Map<string, { state: FixedTickMovementState; contactTime: number }>()
                 const registerCollisionContact = (shipId: string, state: FixedTickMovementState, contactTime: number): void => {
                     const current = collisionContactStates.get(shipId)
@@ -1316,10 +1370,10 @@ const createFixedTickSceneRoom = (
                         collisionContactStates.set(shipId, { state, contactTime })
                     }
                 }
-                for (let leftIndex = 0; leftIndex < activeRuntimes.length; leftIndex += 1) {
-                    for (let rightIndex = leftIndex + 1; rightIndex < activeRuntimes.length; rightIndex += 1) {
-                        const left = activeRuntimes[leftIndex]
-                        const right = activeRuntimes[rightIndex]
+                for (let leftIndex = 0; leftIndex < collidableRuntimes.length; leftIndex += 1) {
+                    for (let rightIndex = leftIndex + 1; rightIndex < collidableRuntimes.length; rightIndex += 1) {
+                        const left = collidableRuntimes[leftIndex]
+                        const right = collidableRuntimes[rightIndex]
                         const leftResult = movementResults.get(left.shipId)
                         const rightResult = movementResults.get(right.shipId)
                         const leftBefore = movementSnapshot.get(left.shipId)
@@ -1374,9 +1428,11 @@ const createFixedTickSceneRoom = (
                     const resolvedResult = collisionState ? { state: collisionState, arrived: false, blocked: true } : result
                     runtime.movement = resolvedResult.state
                     runtime.heading = resolveMovementHeading(runtime.movement, runtime.heading)
+
                     if (resolvedResult.arrived || resolvedResult.blocked || !runtime.movement.target) {
                         runtime.currentCommand = createStoppedCommandState()
                     }
+
                     const shipState = currentState.ships.get(runtime.shipId)
                     if (shipState) {
                         assignMovementState(shipState, runtime.movement)
@@ -1593,12 +1649,14 @@ const createFixedTickSceneRoom = (
             const spawn = findFreeSpawnPosition({
                 origin: this.roomOptions.initialPosition,
                 blockers: this.roomOptions.guardBoxes,
-                occupiedEntities: Array.from(this.ships.values()).map((runtime) => ({
-                    position: runtime.movement.position,
-                    radius: resolveBodyRadius(this.roomOptions.controlledHalfExtents),
-                    halfExtents: this.roomOptions.controlledHalfExtents,
-                    heading: runtime.heading
-                })),
+                occupiedEntities: Array.from(this.ships.values())
+                    .filter((runtime) => !runtime.reconnectingUntil)
+                    .map((runtime) => ({
+                        position: runtime.movement.position,
+                        radius: resolveBodyRadius(this.roomOptions.controlledHalfExtents),
+                        halfExtents: this.roomOptions.controlledHalfExtents,
+                        heading: runtime.heading
+                    })),
                 bodyRadius: resolveBodyRadius(this.roomOptions.controlledHalfExtents),
                 safetyMargin: this.roomOptions.spawnSafetyMargin,
                 maxAttempts: this.roomOptions.spawnMaxAttempts,
@@ -1750,22 +1808,33 @@ const createFixedTickSceneRoom = (
         }
 
         private applyIntent(runtime: ShipRuntime, intent: MovementIntent): void {
-            const occupiedEntities = Array.from(this.ships.values())
-                .filter((candidate) => candidate.shipId !== runtime.shipId)
-                .map((candidate) => ({
-                    position: candidate.movement.position,
-                    radius: resolveBodyRadius(this.roomOptions.controlledHalfExtents),
-                    halfExtents: this.roomOptions.controlledHalfExtents,
-                    heading: candidate.heading
-                }))
+            const occupiedEntities: OccupiedEntityLike[] = [
+                ...Array.from(this.ships.values())
+                    .filter((candidate) => candidate.shipId !== runtime.shipId && !candidate.reconnectingUntil)
+                    .map((candidate) => ({
+                        position: candidate.movement.position,
+                        radius: resolveBodyRadius(this.roomOptions.controlledHalfExtents),
+                        halfExtents: this.roomOptions.controlledHalfExtents,
+                        heading: candidate.heading
+                    })),
+                // Asteroid spheres keep move intents from resolving inside a rock.
+                ...this.roomOptions.occupiedSpheres
+            ]
             const resolveSafeIntentTarget = (target: RealtimeVector3): RealtimeVector3 =>
                 resolveSafeTargetOutsideOccupiedEntities(
                     runtime.movement.position,
+                    // The guard clearance matches the ship body radius: a ship
+                    // parked only the 0.02 m default from its docking approach
+                    // swings its tail back into the guard box when it turns to
+                    // depart, and the client-side obstacle clamp then glued the
+                    // target to the docked position forever (UX report
+                    // 2026-11-23 — ships could never leave the station).
                     resolveSafeTargetOutsideGuards(
                         runtime.movement.position,
                         target,
                         this.roomOptions.guardBoxes,
-                        this.roomOptions.controlledHalfExtents
+                        this.roomOptions.controlledHalfExtents,
+                        resolveBodyRadius(this.roomOptions.controlledHalfExtents)
                     ),
                     occupiedEntities,
                     this.roomOptions.controlledHalfExtents,
@@ -1785,7 +1854,8 @@ const createFixedTickSceneRoom = (
             if (intent.type === 'move_to_object') {
                 const objectTarget = this.roomOptions.targetObjects[intent.objectId ?? '']
                 if (objectTarget) {
-                    runtime.movement = applyMoveToPointIntent(runtime.movement, resolveSafeIntentTarget(objectTarget))
+                    const resolvedTarget = resolveSafeIntentTarget(objectTarget)
+                    runtime.movement = applyMoveToPointIntent(runtime.movement, resolvedTarget)
                     runtime.currentCommand = { type: 'move_to_object', objectId: intent.objectId ?? '' }
                 }
             }

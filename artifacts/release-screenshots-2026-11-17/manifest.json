@@ -1,0 +1,143 @@
+{
+  "capturedOn": "2026-11-17",
+  "sourceCommit": "aac43aeaed181f7ce7f72ec6d7ae59e8499ecb1d",
+  "method": "Fresh Chromium viewport screenshots; 1920x1080 CSS viewport, device scale 1; no compositing, image enlargement or UI text replacement.",
+  "environment": "Dedicated local Supabase E2E instance; app port 3100; full reset disabled. Disposable fixtures were created and cleaned by the repository wrapper.",
+  "notes": [
+    "Captured on the current build, illustrating features of the five target releases; not isolated historical-tag builds.",
+    "The visible English Sixth Muse title, description, first block and first question were translated in the disposable snapshot before import. The committed fixture and original assessment were not modified.",
+    "Messenger and Interpretation Network were captured in explicitly empty browser contexts; the network capture asserts no Add/Create mutation actions.",
+    "Economy screenshots show the open dialog over the full runtime page after actual sell/buy operations. The ship can be covered by the modal.",
+    "Primary screenshots cover the complete 1920x1080 viewport, not an element crop. Two block-introduction alternatives are included.",
+    "The Messenger RU screenshot preserves the current product pagination label “Rows per page” in English; no image text was retouched."
+  ],
+  "verification": {
+    "finalFocusedCaptureRun": "5 passed (48.5s), including authentication setup and four capture scenarios",
+    "pngDimensions": "12 of 12 are exactly 1920x1080",
+    "localePairs": "Five primary EN/RU pairs have distinct checksums",
+    "horizontalOverflow": "Page-level horizontal overflow assertion passed for every capture",
+    "scope": "Screenshot readiness checks; not a complete product acceptance or historical compatibility audit"
+  },
+  "screenshots": [
+    {
+      "file": "0.86.0-block-intro-en.png",
+      "release": "0.86.0-alpha",
+      "locale": "en",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 35204,
+      "sha256": "95737039ef7e443403ea21910b300875318735cf99be03734595965b8909638a",
+      "primary": false
+    },
+    {
+      "file": "0.86.0-block-intro-ru.png",
+      "release": "0.86.0-alpha",
+      "locale": "ru",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 35489,
+      "sha256": "2e35166eef61c648615ec2e5787e8f2a70b530aaf84dc778a5419fca430b8c46",
+      "primary": false
+    },
+    {
+      "file": "0.86.0-block-quiz-en.png",
+      "release": "0.86.0-alpha",
+      "locale": "en",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 44585,
+      "sha256": "870769bcd25e8cad2c32cbf8c9b84459aeacc9ed8b8d7baf204cc09de7cb7f54",
+      "primary": true
+    },
+    {
+      "file": "0.86.0-block-quiz-ru.png",
+      "release": "0.86.0-alpha",
+      "locale": "ru",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 47099,
+      "sha256": "a756768ad8368769ebe31d49e8c1ce2a0eae3b660f414b9541e7fdaf63d1b0b2",
+      "primary": true
+    },
+    {
+      "file": "0.87.0-public-network-en.png",
+      "release": "0.87.0-alpha",
+      "locale": "en",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 39112,
+      "sha256": "ce02bc2f37d1cdae2693a32bc9cd5a14fbd2996395a3cafea0ef082db28f635e",
+      "primary": true
+    },
+    {
+      "file": "0.87.0-public-network-ru.png",
+      "release": "0.87.0-alpha",
+      "locale": "ru",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 42522,
+      "sha256": "26e0bfeb04e365a1d642475fdd27828202fb0759699df1b6f7b097e3c4c3f64c",
+      "primary": true
+    },
+    {
+      "file": "0.88.0-messenger-en.png",
+      "release": "0.88.0-alpha",
+      "locale": "en",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 58216,
+      "sha256": "ee8d0d5c588751703825371155c46dc800b17c09f6a4c9c07625f76f2e86c715",
+      "primary": true
+    },
+    {
+      "file": "0.88.0-messenger-ru.png",
+      "release": "0.88.0-alpha",
+      "locale": "ru",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 62703,
+      "sha256": "9730fb7b5300b6f5d41468137023081013514ce6b45dd5684432394513af04b4",
+      "primary": true
+    },
+    {
+      "file": "0.89.0-theme-manager-en.png",
+      "release": "0.89.0-alpha",
+      "locale": "en",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 145559,
+      "sha256": "b1f2a3f29790fcc29295a9cdfd73eedab9fb42f6749bf47a796c794650ff6705",
+      "primary": true
+    },
+    {
+      "file": "0.89.0-theme-manager-ru.png",
+      "release": "0.89.0-alpha",
+      "locale": "ru",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 154100,
+      "sha256": "963065db1eb19ebced0de13105126a2c5080d47b6d2196edb807fff43199e440",
+      "primary": true
+    },
+    {
+      "file": "0.90.0-economy-en.png",
+      "release": "0.90.0-alpha",
+      "locale": "en",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 72815,
+      "sha256": "9ecdd9d382c486d8bba336cb8fd7d2adc281a47468bb16a5da44ebfe1319dc36",
+      "primary": true
+    },
+    {
+      "file": "0.90.0-economy-ru.png",
+      "release": "0.90.0-alpha",
+      "locale": "ru",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 79529,
+      "sha256": "0a49f178243f3ee7162a3a0cd7757829c8261764bfca9587729525f673aa3f8a",
+      "primary": true
+    }
+  ]
+}

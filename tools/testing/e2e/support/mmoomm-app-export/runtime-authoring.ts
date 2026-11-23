@@ -502,6 +502,30 @@ const configurePlayCanvasCanvasWidgetThroughBrowser = async (
     expect(savedWidgets.items?.filter((widget) => widget?.widgetKey === 'playcanvasCanvas' && widget.zone === 'center')).toHaveLength(1)
 }
 
+/**
+ * Persists a layout behavior config through the canonical layout PATCH with
+ * the expected version (interpretation-network precedent).
+ */
+export const applyLayoutBehaviorConfig = async (
+    api: ApiContext,
+    metahubId: string,
+    layoutId: string,
+    behaviorConfig: Record<string, unknown>
+): Promise<void> => {
+    const layout = (await getMetahubLayout(api, metahubId, layoutId)) as {
+        version?: number
+        config?: Record<string, unknown> | null
+    }
+    const layoutResponse = await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahubId}/layout/${layoutId}`, {
+        config: {
+            ...(layout.config && typeof layout.config === 'object' ? layout.config : {}),
+            ...behaviorConfig
+        },
+        expectedVersion: layout.version
+    })
+    expect(layoutResponse.ok).toBe(true)
+}
+
 export const createScopedDashboardLayout = async (
     api: ApiContext,
     metahubId: string,
@@ -526,21 +550,8 @@ export const createScopedDashboardLayout = async (
     expect(response?.scopeEntityId ?? response?.data?.scopeEntityId).toBe(scopeEntityId)
     expect(response?.baseLayoutId ?? response?.data?.baseLayoutId).toBe(baseLayoutId)
 
-    // Layout behavior config (interpretation-network precedent): persisted
-    // through the canonical layout PATCH with the expected version.
     if (options.behaviorConfig) {
-        const layout = (await getMetahubLayout(api, metahubId, layoutId)) as {
-            version?: number
-            config?: Record<string, unknown> | null
-        }
-        const layoutResponse = await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahubId}/layout/${layoutId}`, {
-            config: {
-                ...(layout.config && typeof layout.config === 'object' ? layout.config : {}),
-                ...options.behaviorConfig
-            },
-            expectedVersion: layout.version
-        })
-        expect(layoutResponse.ok).toBe(true)
+        await applyLayoutBehaviorConfig(api, metahubId, layoutId, options.behaviorConfig)
     }
 
     return layoutId

@@ -6,7 +6,7 @@
 
 # Universo Platformo React
 
-[![Version](https://img.shields.io/badge/version-0.88.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
+[![Version](https://img.shields.io/badge/version-0.91.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
 [![License: Omsk Open License](https://img.shields.io/badge/license-Omsk%20Open%20License-green)](LICENSE.md)
 
 **Attention, please read this carefully.**
@@ -63,7 +63,7 @@ Website: [https://universo.pro](https://universo.pro)
 
 ## Current Status
 
-**Current version**: 0.88.0-alpha (November 2026). The project remains in alpha and is being prepared for a more stable beta phase.
+**Current version**: 0.91.0-alpha (November 2026). The project remains in alpha and is being prepared for a more stable beta phase.
 
 ## Tech Stack
 
@@ -124,6 +124,11 @@ Key capabilities are expected to include:
 -   **Exploration and research** across large virtual spaces and experimental scenarios.
 -   **Construction and territorial development** for bases, stations, settlements, and industrial facilities.
 -   **Technology trees and scientific progress** that connect simulation outcomes with real-world planning experiments.
+
+Current implementation status inside Universo Platformo: the flight simulator
+sandbox is live with the trading economy and the asteroid-mining loop (server
+-authoritative mining operations over ledger registers); see the
+[MMOOMM guides](docs/en/SUMMARY.md).
 
 ## Universo Kiberplano Functionality (planned)
 

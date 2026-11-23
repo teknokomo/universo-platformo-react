@@ -61,10 +61,13 @@ import {
     createEconomyEnumerationsThroughBrowser,
     createEconomyConstantsThroughBrowser,
     createEconomyObjectsThroughBrowser,
+    createMiningEnumerationAndConstantsThroughBrowser,
+    createMiningObjectsThroughBrowser,
     configureEconomyRegistersThroughBrowser,
     createEconomyPostingModuleThroughBrowser,
     configureOperationPostingThroughBrowser,
     addFlightStationMarketComponentsThroughBrowser,
+    seedAsteroidRowsThroughApi,
     seedEconomyRowsThroughApi
 } from './metahub-authoring'
 import {
@@ -72,6 +75,7 @@ import {
     openFullscreenEditorThroughBrowser,
     publishPlayCanvasProjectThroughBrowser,
     createScopedDashboardLayout,
+    applyLayoutBehaviorConfig,
     configureRuntimeLayoutThroughBrowser,
     createAndVerifyPublishedRuntimeBeforeExport
 } from './runtime-authoring'
@@ -162,6 +166,16 @@ export const generateMmoommAppExport = async (
     await addFlightStationMarketComponentsThroughBrowser(page, api, metahubId)
     await seedEconomyRowsThroughApi(api, metahubId)
 
+    // MMOOMM mining MVP (TZ DOC-2026-006). The Asteroid REF components target
+    // the AsteroidStatus enumeration, so the enumeration + MiningConstants set
+    // are authored BEFORE the Asteroid object (the economy block's ordering
+    // rule). The posting module is already authored above — its source now
+    // branches on the server-stamped OperationKind ('Mine'), so no extra module
+    // authoring step is required.
+    await createMiningEnumerationAndConstantsThroughBrowser(page, metahubId, api)
+    const miningObjectIds = await createMiningObjectsThroughBrowser(page, api, metahubId)
+    await seedAsteroidRowsThroughApi(api, metahubId, miningObjectIds.asteroidId)
+
     // Author the builtin gameplay scripts through the Editor ("+" → Script):
     // createScript uploads the builtin source, the editor parses it through the
     // ESM worker, and the compatibility backend mirrors the parse result into
@@ -199,7 +213,9 @@ export const generateMmoommAppExport = async (
         name: 'Fixed Tick Flight Runtime',
         role: 'module',
         sourceCode: serverModuleSource,
-        capabilities: ['metadata.read']
+        // records.read lets createRealtimeRoomOptions read the Asteroid belt
+        // rows and emit the occupiedSpheres ship colliders.
+        capabilities: ['metadata.read', 'records.read']
     })
 
     // Bind every authored gameplay script before publishing so the generated
@@ -374,6 +390,10 @@ export const generateMmoommAppExport = async (
     // "Create" host action is disabled on both scoped layouts (interpretation
     // network precedent — the canonical layout behavior switch).
     const scopedBehaviorConfig = { objectBehavior: { showCreateButton: false } } as const
+    // The Welcome hub section renders on the default layout: the generic
+    // "Create" host action is meaningless there too — the MMOOMM gameplay
+    // services create rows server-side, never the user (UX report 2026-11-23).
+    await applyLayoutBehaviorConfig(api, metahubId, layout.id, scopedBehaviorConfig)
     const spaceLayoutId = await createScopedDashboardLayout(
         api,
         metahubId,

@@ -16,6 +16,12 @@ import {
     MMOOMM_ECONOMY_UNIT_VALUES,
     MMOOMM_ECONOMY_WALLET_CODENAME,
     MMOOMM_ECONOMY_WALLET_LEDGER_CODENAME,
+    MMOOMM_MINING_ASTEROID_CODES,
+    MMOOMM_MINING_ASTEROID_CODENAME,
+    MMOOMM_MINING_CONSTANT_CODES,
+    MMOOMM_MINING_CONSTANTS_SET_CODENAME,
+    MMOOMM_MINING_STATUS_ENUM_CODENAME,
+    MMOOMM_MINING_STATUS_VALUES,
     MMOOMM_SPACE_SECTION_CODENAME,
     MMOOMM_VISUAL_LINKUP_LAB_PROJECT_NAME,
     MMOOMM_VISUAL_LINKUP_LAB_SECTION_CODENAME
@@ -300,6 +306,7 @@ export const assertDomainModel = (snapshot: NonNullable<SnapshotEnvelope['snapsh
         'ArrivalRadiusMeters'
     ])
     assertEconomyDomainModel(snapshot)
+    assertMiningDomainModel(snapshot)
     const allEntities = Object.values(snapshot.entities ?? {}) as Array<{
         id?: string
         kind?: string
@@ -415,6 +422,16 @@ const assertEconomyDomainModel = (snapshot: NonNullable<SnapshotEnvelope['snapsh
     if (posting?.moduleCodename !== MMOOMM_ECONOMY_POSTING_MODULE_CODENAME) {
         throw new Error(`MMOOMM app fixture Operation posting must bind the ${MMOOMM_ECONOMY_POSTING_MODULE_CODENAME} module`)
     }
+    // QA MEDIUM backlog (defense-in-depth): the economy service posts Operation
+    // rows and never edits them again — generic update/delete/copy paths only
+    // stay blocked because the entity keeps `recordBehavior.immutability =
+    // 'posted'` (RECORD_IMMUTABLE). A dropped config would silently un-guard
+    // every posted Mine/Sell/Buy row, so the fixture contract fails loudly.
+    if (recordBehavior?.mode !== 'transactional' || recordBehavior?.immutability !== 'posted') {
+        throw new Error(
+            'MMOOMM app fixture Operation must keep transactional record mode with posted-row immutability — posted operations rely on RECORD_IMMUTABLE against generic edits and copies'
+        )
+    }
 
     // QA 2026-11-16 UX redesign: the economy UI lives in a canonical dialog
     // opened from the flight canvas toolbar (platform code, not layout
@@ -432,6 +449,37 @@ const assertEconomyDomainModel = (snapshot: NonNullable<SnapshotEnvelope['snapsh
         throw new Error(
             'MMOOMM app fixture must not place an economyPanel zone widget — the economy UI opens from the flight canvas toolbar'
         )
+    }
+}
+
+/**
+ * Mining MVP contract (mining TZ DOC-2026-006 §7): the Asteroid object, the
+ * AsteroidStatus enumeration (Active/Depleted), the MiningConstants set with
+ * the nine runtime constants, and the five design-time belt records (which
+ * serialize via `_mhb_elements` and seed into the app schema at import).
+ */
+const assertMiningDomainModel = (snapshot: NonNullable<SnapshotEnvelope['snapshot']>): void => {
+    const asteroidId = requireEntityId(snapshot, 'object', MMOOMM_MINING_ASTEROID_CODENAME)
+    const statusEnumId = requireEntityId(snapshot, 'enumeration', MMOOMM_MINING_STATUS_ENUM_CODENAME)
+    requireChildCodenames('AsteroidStatus enumeration', snapshot.optionValues?.[statusEnumId], MMOOMM_MINING_STATUS_VALUES)
+    const miningConstantsId = requireEntityId(snapshot, 'set', MMOOMM_MINING_CONSTANTS_SET_CODENAME)
+    requireChildCodenames('MiningConstants set', snapshot.fixedValues?.[miningConstantsId], MMOOMM_MINING_CONSTANT_CODES)
+
+    const asteroidElements = snapshot.elements?.[asteroidId]
+    if (!Array.isArray(asteroidElements) || asteroidElements.length === 0) {
+        throw new Error('MMOOMM app fixture Asteroid entity must serialize its design-time belt records')
+    }
+    for (const expectedCode of MMOOMM_MINING_ASTEROID_CODES) {
+        const match = asteroidElements.some((element) => element?.data?.Code === expectedCode)
+        if (!match) {
+            throw new Error(`MMOOMM app fixture Asteroid belt must include the ${expectedCode} design-time record`)
+        }
+    }
+    // Fire targeting resolves asteroids by Code — duplicate belt codes would
+    // make targeting ambiguous (QA MEDIUM backlog: unique Asteroid.Code).
+    const beltCodes = asteroidElements.map((element) => element?.data?.Code).filter((code): code is string => typeof code === 'string')
+    if (new Set(beltCodes).size !== beltCodes.length) {
+        throw new Error('MMOOMM app fixture Asteroid belt codes must be unique — fire targeting resolves asteroids by Code')
     }
 }
 

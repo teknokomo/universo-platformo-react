@@ -133,4 +133,5 @@
 -   [Application Template View Settings](guides/app-template-views.md)
 -   [MMOOMM Flight Simulator](guides/mmoomm-flight-simulator.md)
 -   [MMOOMM Economy Guide](guides/mmoomm-economy.md)
+-   [MMOOMM Mining Guide](guides/mmoomm-mining.md)
 -   [Interpretation Network](guides/interpretation-network.md)

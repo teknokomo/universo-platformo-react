@@ -38,6 +38,8 @@ export interface FlightControlRuntimeApi {
     updateDesiredOrientation(from: Vector3Like, to: Vector3Like): void
     syncPosition(position: Vector3Like): void
     resolveTarget?: (target: Vector3Like) => Vector3Like
+    /** Belt colliders published by the widget so solo prediction stops like the server (optional for older scripts). */
+    setAsteroidObstacles?(spheres: ReadonlyArray<{ code: string; position: Vector3Like; radius: number }>): void
     getForward(): Vector3Like
 }
 

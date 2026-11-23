@@ -1,14 +1,18 @@
-import crypto from 'node:crypto'
 import type { DbExecutor } from '@universo-react/utils'
 import { acquireAdvisoryXactLock, withTransactionSavepoint } from '@universo-react/utils/database'
-import { isUuidV7 } from '@universo-react/utils'
 import {
+    economyMineResponseSchema,
+    economyMiningStateSchema,
     economySummarySchema,
     economyTradeResponseSchema,
+    type EconomyMineRequest,
+    type EconomyMineResponse,
+    type EconomyMiningState,
     type EconomySummary,
     type EconomyTradeRequest,
     type EconomyTradeResponse
 } from '@universo-react/types'
+import { describeFlightContext } from './runtimeFlightRoomBridge'
 import {
     IDENTIFIER_REGEX,
     RUNTIME_WRITABLE_TYPES,
@@ -21,12 +25,7 @@ import { RuntimeLedgerService } from './runtimeLedgersService'
 import { RuntimePostingMovementService } from './runtimePostingMovements'
 import { normalizeRuntimeRecordBehavior, RuntimeRecordCommandService } from './runtimeRecordBehavior'
 import type { RuntimeLifecycleDispatchRequest } from './runtimeLifecycleDispatch'
-import {
-    findEconomyIdempotency,
-    purgeExpiredEconomyIdempotency,
-    saveEconomyIdempotency,
-    type StoredEconomyIdempotency
-} from '../persistence/economyIdempotencyStore'
+import { runIdempotencyGateInTx, saveIdempotentResponseInTx, type EconomyIdempotencyScope } from './runtimeEconomyIdempotency'
 import { createRecordStateCommandHandlers } from '../controllers/runtimeRowCommandHandlers/posting'
 import type { RuntimeRowCommandHandlerDeps } from '../controllers/runtimeRowCommandHandlers/types'
 import {
@@ -35,14 +34,24 @@ import {
     validateCreatePendingRow
 } from '../controllers/runtimeRowWriteHandlers/create'
 import { collectTouchedComponentIds } from '../controllers/runtimeRowSupport/rows'
+import { computeMiningChunks } from './miningChunks'
 import {
+    assertMiningCooldown,
+    asteroidEffectiveRadius,
     buildEconomyActiveCondition,
     buildMarketEntries,
     buildRecentOperations,
     computeCargo,
     computeWalletBalance,
+    distance3D,
     INVENTORY_LEDGER_CODE,
+    loadAsteroidByCodeForUpdate,
+    loadAsteroidStateRows,
+    loadFirstStationRow,
     loadNomenclatureRowsByCode,
+    logEconomyEvent,
+    MINE_OPERATION_KIND,
+    MINE_OPERATION_TYPE_CODE,
     MARKET_SIDE_CONFIGS,
     NOMENCLATURE_ENTITY_CODE,
     ORE_NOMENCLATURE_CODE,
@@ -53,9 +62,11 @@ import {
     resolveAttrValueByCodename,
     resolveEconomyConstants,
     resolveEconomyObjectCollection,
+    resolveMiningConfig,
     resolveOperationTypeValueId,
     resolveStationProximity,
     REQUIRED_CONSTANT_CODES,
+    roundToTenth,
     STATION_ENTITY_CODE,
     throwEconomyFailure,
     WALLET_ENTITY_CODE,
@@ -66,9 +77,11 @@ import {
 } from './runtimeEconomySupport'
 
 /**
- * Runtime economy service (MMOOMM plan B4/B4a/B5, decisions D5/D6/D7/D11).
- * Pure resolution/reading helpers live in `runtimeEconomySupport.ts`; this
- * module owns the idempotency gate and the transactional flows.
+ * Runtime economy service (MMOOMM plan B4/B4a/B5, decisions D5/D6/D7/D11),
+ * extended with the mining belt flows (mining plan B3, TZ DOC-2026-006).
+ * Pure resolution/reading helpers live in `runtimeEconomySupport.ts`; the
+ * idempotency codecs/gate/save live in `runtimeEconomyIdempotency.ts` (B0
+ * mechanical extraction); this module owns the transactional flows.
  *
  * Ledger movements are NOT composed here: Operation rows are posted through the
  * shared `runRecordStateCommandCore` (D5) so the authored
@@ -87,9 +100,6 @@ const STARTER_GRANT_TYPE_CODE = 'StarterGrant'
 const SELL_OPERATION_TYPE_CODE = 'Sell'
 const BUY_OPERATION_TYPE_CODE = 'Buy'
 const WALLET_ACTIVE_STATUS_CODE = 'Active'
-/** Replay window for stored trade responses (mirrors the guest TTL approach). */
-const ECONOMY_IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000
-const IDEMPOTENCY_LOCK_PREFIX = 'economy-idem:'
 /** Float comparison slack for funds/capacity checks against NUMERIC aggregates. */
 const NUMERIC_EPSILON = 1e-9
 
@@ -99,16 +109,22 @@ export { type EconomyTradeKind } from './runtimeEconomySupport'
 // gate and the client API surface validate against ONE shared contract.
 export { economyTradeResponseSchema, type EconomyTradeResponse }
 
-export type EconomyIdempotencyScope = {
-    applicationId: string
-    userId: string
-    workspaceId: string | null
-    keyHash: string
-    fingerprint: string
-}
+// Idempotency machinery lives in `runtimeEconomyIdempotency.ts` (B0); these
+// re-exports keep the controller/test import surface stable.
+export {
+    fingerprintEconomyTradeBody,
+    hashEconomyIdempotencyKey,
+    parseEconomyIdempotencyKey,
+    purgeEconomyIdempotencyFailSoft,
+    type EconomyIdempotencyScope
+} from './runtimeEconomyIdempotency'
 
 export type EconomyTradeOutcome =
     | { kind: 'executed'; status: number; body: EconomyTradeResponse; afterLifecycleRequests: RuntimeLifecycleDispatchRequest[] }
+    | { kind: 'replayed'; status: number; body: unknown }
+
+export type EconomyMineOutcome =
+    | { kind: 'executed'; status: number; body: EconomyMineResponse; afterLifecycleRequests: RuntimeLifecycleDispatchRequest[] }
     | { kind: 'replayed'; status: number; body: unknown }
 
 export type EconomySummaryResult = {
@@ -116,148 +132,11 @@ export type EconomySummaryResult = {
     afterLifecycleRequests: RuntimeLifecycleDispatchRequest[]
 }
 
-// ---------------------------------------------------------------------------
-// Idempotency codecs (guest `guestSessionIdempotency.ts` precedent)
-// ---------------------------------------------------------------------------
-
-let developmentFallbackSecret: string | null = null
-
-const resolveEconomyIdempotencySecret = (): string => {
-    const configured = process.env.UNIVERSO_ECONOMY_IDEMPOTENCY_SECRET?.trim() || process.env.SESSION_SECRET?.trim()
-    if (configured) return configured
-    if (process.env.NODE_ENV === 'production') {
-        throw new Error('UNIVERSO_ECONOMY_IDEMPOTENCY_SECRET or SESSION_SECRET must be configured in production')
-    }
-    developmentFallbackSecret ??= crypto.randomBytes(32).toString('base64url')
-    return developmentFallbackSecret
-}
-
-export const parseEconomyIdempotencyKey = (
-    rawKey: string | undefined
-): { kind: 'absent' } | { kind: 'ok'; key: string } | { kind: 'malformed' } => {
-    const trimmed = rawKey?.trim() ?? ''
-    if (trimmed.length === 0) return { kind: 'absent' }
-    // TZ §6.2: an absent key means no replay protection (still allowed); a
-    // present key must be a UUID v7 — anything else is a client bug → 400.
-    return isUuidV7(trimmed) ? { kind: 'ok', key: trimmed.toLowerCase() } : { kind: 'malformed' }
-}
-
-export const hashEconomyIdempotencyKey = (key: string): string => crypto.createHash('sha256').update(key, 'utf8').digest('hex')
-
-const canonicalizeEconomyValue = (value: unknown): unknown => {
-    if (Array.isArray(value)) return value.map(canonicalizeEconomyValue)
-    if (value && typeof value === 'object') {
-        const source = value as Record<string, unknown>
-        return Object.keys(source)
-            .sort()
-            .reduce<Record<string, unknown>>((acc, itemKey) => {
-                acc[itemKey] = canonicalizeEconomyValue(source[itemKey])
-                return acc
-            }, {})
-    }
-    return value
-}
-
 /**
- * HMAC-SHA256 of the canonical JSON body under a server secret — raw keys and
- * bodies are never stored verbatim. The trade kind is bound into the
- * fingerprint so one key can never replay a response across the /sell and /buy
- * endpoints (scoped-unique is (application, user, key) — endpoint identity
- * must be part of the payload identity, not an implicit assumption).
+ * NFR §13 observability counters (mining TZ §12: "счётчики успешных/
+ * отклонённых") — in-memory process counters; structured logs carry the ids.
  */
-export const fingerprintEconomyTradeBody = (kind: EconomyTradeKind, body: Record<string, unknown>): string =>
-    crypto
-        .createHmac('sha256', resolveEconomyIdempotencySecret())
-        .update(JSON.stringify({ kind, body: canonicalizeEconomyValue(body) }), 'utf8')
-        .digest('hex')
-
-const matchesEconomyFingerprint = (stored: string, fingerprint: string): boolean => {
-    if (!/^[a-f0-9]{64}$/u.test(stored) || !/^[a-f0-9]{64}$/u.test(fingerprint)) return false
-    return crypto.timingSafeEqual(Buffer.from(stored, 'hex'), Buffer.from(fingerprint, 'hex'))
-}
-
-/**
- * NFR §12/D9 observability: one structured line per economy mutation carrying
- * the correlation triad (`operationId`/`applicationId`/`principalId`). Ids
- * only — never secrets, key hashes, or raw trade payloads.
- */
-const logEconomyEvent = (event: string, fields: Record<string, unknown>): void => {
-    console.info(`[runtimeEconomy] ${event}`, fields)
-}
-
-/** Best-effort on-request purge before the gate (guest precedent). Fail-soft: a purge failure never blocks a trade. */
-export const purgeEconomyIdempotencyFailSoft = async (executor: DbExecutor): Promise<void> => {
-    try {
-        await purgeExpiredEconomyIdempotency(executor)
-    } catch {
-        // Expiry is also enforced by the `expires_at > NOW()` read predicate;
-        // the failure is logged as an opaque event (Thermos logging rule: raw
-        // database error text never reaches logs), never surfaced to the trade.
-        logEconomyEvent('idempotency purge failed', {})
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Idempotency gate (D7/B7)
-// ---------------------------------------------------------------------------
-
-/**
- * The idempotency gate runs INSIDE the trade transaction (plan B7 primary
- * pattern): scoped lookup → advisory lock on the key hash → trade → INSERT of
- * the stored response, all atomic with the trade facts. A crash between the
- * trade commit and the idempotency insert is therefore impossible. Only
- * successful (200) trades are stored — failed trades roll back entirely and
- * stay retryable with the same key.
- */
-const runIdempotencyGateInTx = async (executor: DbExecutor, scope: EconomyIdempotencyScope): Promise<StoredEconomyIdempotency | null> => {
-    // Advisory lock keys are application-scoped (LOW hygiene fix): two distinct
-    // applications must never contend on the same lock key.
-    await acquireAdvisoryXactLock(executor, `${IDEMPOTENCY_LOCK_PREFIX}${scope.applicationId}:${scope.userId}:${scope.keyHash}`)
-    const stored = await findEconomyIdempotency(executor, {
-        applicationId: scope.applicationId,
-        userId: scope.userId,
-        keyHash: scope.keyHash
-    })
-    if (stored && !matchesEconomyFingerprint(stored.bodyFingerprint, scope.fingerprint)) {
-        logEconomyEvent('idempotency key reuse with a different payload', {
-            applicationId: scope.applicationId,
-            principalId: scope.userId
-        })
-        throwEconomyFailure('ECONOMY_IDEMPOTENCY_CONFLICT', 'Idempotency key was already used with a different payload')
-    }
-    return stored
-}
-
-/** Persist the trade response for replay. Returns a stored row only when this call lost the scoped-unique race. */
-const saveIdempotentResponseInTx = async (
-    executor: DbExecutor,
-    scope: EconomyIdempotencyScope,
-    body: EconomyTradeResponse
-): Promise<StoredEconomyIdempotency | null> => {
-    const saved = await saveEconomyIdempotency(executor, {
-        applicationId: scope.applicationId,
-        userId: scope.userId,
-        workspaceId: scope.workspaceId,
-        keyHash: scope.keyHash,
-        bodyFingerprint: scope.fingerprint,
-        response: body,
-        statusCode: 200,
-        expiresAt: new Date(Date.now() + ECONOMY_IDEMPOTENCY_TTL_MS).toISOString()
-    })
-    if (saved) return null
-    // Lost the scoped-unique race (defensive; the advisory lock above normally
-    // serializes same-key racers) — hand back the winner's stored response.
-    const stored = await findEconomyIdempotency(executor, {
-        applicationId: scope.applicationId,
-        userId: scope.userId,
-        keyHash: scope.keyHash
-    })
-    if (!stored) return null
-    if (!matchesEconomyFingerprint(stored.bodyFingerprint, scope.fingerprint)) {
-        throwEconomyFailure('ECONOMY_IDEMPOTENCY_CONFLICT', 'Idempotency key was already used with a different payload')
-    }
-    return stored
-}
+export const miningMetrics = { firesSucceeded: 0, firesDeclined: 0 }
 
 // ---------------------------------------------------------------------------
 // Factory
@@ -500,8 +379,11 @@ export function createRuntimeEconomyService({ getDbExecutor, query }: RuntimeEco
         // grant posts Quantity=StartingOreKg, UnitPrice=0 and TotalPrice=
         // StartingBalance (server-resolved constants); the posting module
         // composes the actual ledger movements from those row fields.
+        // TZ §10.3: new rows carry the server-stamped `OperationKind` so the
+        // posting module classifies by kind, not by the UnitPrice heuristic.
         const grant = await createEconomyRow(executor, ctx, applicationId, economy.operation, {
             OperationType: grantTypeValueId,
+            OperationKind: STARTER_GRANT_TYPE_CODE,
             Wallet: walletId,
             Station: String(stationId),
             Nomenclature: oreRow.id,
@@ -701,6 +583,7 @@ export function createRuntimeEconomyService({ getDbExecutor, query }: RuntimeEco
             )
             const created = await createEconomyRow(tx, ctx, applicationId, economy.operation, {
                 OperationType: operationTypeValueId,
+                OperationKind: kind === 'sell' ? SELL_OPERATION_TYPE_CODE : BUY_OPERATION_TYPE_CODE,
                 Wallet: wallet.walletId,
                 Station: proximity.stationId,
                 Nomenclature: nomenclatureRow.id,
@@ -742,5 +625,243 @@ export function createRuntimeEconomyService({ getDbExecutor, query }: RuntimeEco
             return { kind: 'executed' as const, status: 200, body: tradeResponse, afterLifecycleRequests }
         })
 
-    return { getEconomySummary, executeTrade, ensureWalletForUser }
+    // -------------------------------------------------------------------------
+    // Mining belt flows (mining plan B3, TZ DOC-2026-006 §8/§9)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Belt snapshot for the 2 s client poll (TZ §8.1): asteroid rows + mining
+     * constants, remainders rounded to 0.1 kg, no cache (five rows; TZ §9.6
+     * cache is optional). Read-only — no lifecycle dispatch.
+     */
+    const getMiningState = async (ctx: RuntimeSchemaContext): Promise<EconomyMiningState> => {
+        const mining = await resolveMiningConfig(ctx.manager, ctx)
+        const asteroids = await loadAsteroidStateRows(ctx.manager, ctx, mining)
+        return economyMiningStateSchema.parse({
+            asteroids,
+            constants: {
+                miningRadiusMeters: mining.constants.miningRadiusMeters,
+                miningCooldownMs: mining.constants.miningCooldownMs,
+                chunkMassMinKg: mining.constants.chunkMassMinKg,
+                chunkMassMaxKg: mining.constants.chunkMassMaxKg,
+                chunkVisualLifetimeMs: mining.constants.chunkVisualLifetimeMs,
+                statePollMs: mining.constants.statePollMs
+            }
+        })
+    }
+
+    /**
+     * Server-authoritative fire (TZ §9.1 order): member/auth/permission are
+     * route-level; this flow checks the flight session, the target, distance,
+     * cooldown and capacity, then runs the TZ §9.4 transaction — asteroid
+     * `SELECT … FOR UPDATE` + re-check → Operation row (stamped
+     * `OperationKind`/`AsteroidCode`) → posting (InventoryLedger-only via the
+     * authored module) → remainder/status/LastMinedAt update with `RETURNING`
+     * fail-closed. The wallet is ensured (Operation.Wallet is a required REF)
+     * but receives no ledger movement from `Mine`.
+     */
+    const executeMiningFire = async (
+        ctx: RuntimeSchemaContext,
+        applicationId: string,
+        body: EconomyMineRequest,
+        idempotency?: EconomyIdempotencyScope
+    ): Promise<EconomyMineOutcome> =>
+        withTransactionSavepoint(ctx.manager, async (tx) => {
+            // ① Idempotency gate: scoped lookup + same-key serialization; the
+            // fingerprint binds kind 'mine' + { asteroidCode } (D5).
+            if (idempotency) {
+                const stored = await runIdempotencyGateInTx(tx, idempotency)
+                if (stored) {
+                    logEconomyEvent('mining fire replayed from stored response', {
+                        applicationId,
+                        principalId: ctx.userId
+                    })
+                    return { kind: 'replayed' as const, status: stored.statusCode, body: stored.response }
+                }
+            }
+
+            // ② Economy + mining configs (Operation attrs for the cooldown
+            // query; asteroid collection for the belt read).
+            const economy = await resolveEconomyConfig(tx, ctx)
+            const mining = await resolveMiningConfig(tx, ctx)
+
+            // ④ Target: FOR UPDATE row + re-check under the lock (TZ §9.4
+            // steps 1-2 — the TOCTOU guard). Unknown code ⇒ 404.
+            const asteroid = await loadAsteroidByCodeForUpdate(tx, ctx, mining, body.asteroidCode)
+            if (!asteroid) {
+                throwEconomyFailure('MINING_TARGET_NOT_FOUND', 'Asteroid is not available')
+            }
+            if (asteroid.status !== 'Active' || asteroid.remainingQuantityKg <= 0) {
+                throwEconomyFailure('MINING_DEPLETED', 'Asteroid is depleted')
+            }
+
+            // ③ Flight session via the read-only room bridge (never the client).
+            // Read AFTER the asteroid lock so the range check below uses the
+            // freshest authoritative ship position (CodeRabbit, PR #934): a
+            // pre-lock read lets a ship that already flew out of range still
+            // land a shot.
+            const flightContext = await describeFlightContext(applicationId, ctx.userId, ctx.currentWorkspaceId)
+            if (!flightContext?.position) {
+                throwEconomyFailure('MINING_NO_FLIGHT_SESSION', 'Mining requires an active flight session')
+            }
+
+            // ⑤ Distance vs the TZ §9.2 effective radius (same formula as the
+            // client); no line-of-sight check in MVP (D7).
+            const effectiveRadius = asteroidEffectiveRadius(asteroid.scale, asteroid.remainingQuantityKg, asteroid.totalQuantityKg)
+            if (distance3D(flightContext.position, asteroid.position) > mining.constants.miningRadiusMeters + effectiveRadius) {
+                throwEconomyFailure('MINING_OUT_OF_RANGE', 'Asteroid is out of range')
+            }
+
+            // ⑥ Per-user cooldown under the mining advisory lock (TZ §9.5).
+            await assertMiningCooldown(tx, ctx, applicationId, economy, mining)
+
+            // ⑦ Capacity read from the ledger projection (server-injected).
+            // Free space rounds DOWN to the tenth: trades accept fractional
+            // quantities (fuel weighs 0.8 kg/L), so the true headroom can sit
+            // between tenths and a round-to-nearest shot could overfill the
+            // hold by up to 0.05 kg (Greptile P1, PR #934).
+            const cargo = await computeCargo(ledgerService, tx, ctx, economy)
+            const capacityLeftKg = Math.floor((economy.maxCargoMassKg - cargo.usedKg) * 10) / 10
+
+            // ⑧ Chunk computation (TZ §9.3) — per-asteroid bounds override the
+            // constants; rejections happen BEFORE any Operation is created.
+            const chunkResult = computeMiningChunks(
+                Math.random,
+                {
+                    chunksPerHitMin: mining.constants.chunksPerHitMin,
+                    chunksPerHitMax: mining.constants.chunksPerHitMax,
+                    chunkMassMinKg: asteroid.chunkMinKg ?? mining.constants.chunkMassMinKg,
+                    chunkMassMaxKg: asteroid.chunkMaxKg ?? mining.constants.chunkMassMaxKg,
+                    chunkMassSkew: mining.constants.chunkMassSkew
+                },
+                asteroid.remainingQuantityKg,
+                capacityLeftKg
+            )
+            if (!chunkResult.ok) {
+                miningMetrics.firesDeclined += 1
+                if (chunkResult.reason === 'capacity') {
+                    throwEconomyFailure('ECONOMY_CAPACITY_EXCEEDED', 'Cargo capacity would be exceeded')
+                }
+                throwEconomyFailure('MINING_DEPLETED', 'Asteroid is depleted')
+            }
+
+            // ⑨ Wallet ensure — Operation.Wallet is a required REF; the wallet
+            // gets NO ledger movement from Mine (TZ FR-012). The trade lock key
+            // is reused so concurrent trade/mine cannot interleave wallet rows.
+            const afterLifecycleRequests: RuntimeLifecycleDispatchRequest[] = []
+            await acquireAdvisoryXactLock(tx, `${applicationId}:${ctx.userId}:${economy.currencyCode}`)
+            const wallet = await ensureWalletForUserInTx(
+                tx,
+                ctx,
+                applicationId,
+                economy.wallet,
+                economy.currencyCode,
+                afterLifecycleRequests
+            )
+
+            const [oreRow] = await loadNomenclatureRowsByCode(tx, ctx, economy, [ORE_NOMENCLATURE_CODE])
+            if (!oreRow) {
+                throwEconomyFailure('ECONOMY_UNKNOWN_NOMENCLATURE', 'Nomenclature is not available')
+            }
+            const mineTypeValueId = await resolveOperationTypeValueId(tx, ctx, economy, MINE_OPERATION_TYPE_CODE)
+
+            // TZ §7.6/§10.2: the InventoryLedger `StationCode` dimension is
+            // required, so the Mine fact stamps the first active station row
+            // (trade fallback, D2) — no station row ⇒ fail closed, never null.
+            const stationRow = await loadFirstStationRow(tx, ctx, economy)
+            if (!stationRow) {
+                throwEconomyFailure('MINING_POSTING_FAILED', 'No flight station is available for mining')
+            }
+
+            // ⑩ Create + post the Mine Operation: UnitPrice/TotalPrice are 0
+            // and Quantity is the server-computed chunk sum; the posting module
+            // branches on `OperationKind = 'Mine'` and returns the
+            // InventoryLedger-only movement group (wallet untouched, TZ FR-012).
+            const created = await createEconomyRow(tx, ctx, applicationId, economy.operation, {
+                OperationType: mineTypeValueId,
+                OperationKind: MINE_OPERATION_KIND,
+                AsteroidCode: asteroid.code,
+                Wallet: wallet.walletId,
+                Station: stationRow.id,
+                Nomenclature: oreRow.id,
+                Quantity: chunkResult.totalKg,
+                UnitPrice: 0,
+                TotalPrice: 0,
+                OccurredAt: new Date().toISOString()
+            })
+            afterLifecycleRequests.push(created.afterCreateLifecycleRequest)
+            const posted = await postOperationRow(tx, ctx, applicationId, economy, created.rowId)
+            if (posted) afterLifecycleRequests.push(posted)
+
+            // ⑪ Remainder/status/LastMinedAt update in the SAME transaction
+            // (TZ §9.4 step 5): conditional UPDATE with RETURNING + fail-closed
+            // on zero rows (AGENTS.md Mutation Rule) — two concurrent fires on
+            // one asteroid serialize on the FOR UPDATE row lock, so the sum can
+            // never exceed the stock.
+            const remainingAttr = requireAttr(mining.asteroid, 'RemainingQuantityKg')
+            const statusAttr = requireAttr(mining.asteroid, 'Status')
+            const lastMinedAttr = findRuntimeAttrByFieldKey(mining.asteroid.attrs, 'LastMinedAt')
+            if (!lastMinedAttr || !IDENTIFIER_REGEX.test(lastMinedAttr.column_name)) {
+                throwEconomyFailure('MINING_POSTING_FAILED', 'Asteroid entity is missing the LastMinedAt field')
+            }
+            const updateResult = (await tx.query(
+                `
+      UPDATE ${ctx.schemaIdent}.${quoteIdentifier(mining.asteroid.table_name)}
+      SET ${quoteIdentifier(remainingAttr.column_name)} = ${quoteIdentifier(remainingAttr.column_name)} - $1,
+          ${quoteIdentifier(statusAttr.column_name)} = CASE
+              WHEN ${quoteIdentifier(remainingAttr.column_name)} - $1 <= 0 THEN $2
+              ELSE ${quoteIdentifier(statusAttr.column_name)} END,
+          ${quoteIdentifier(lastMinedAttr.column_name)} = NOW()
+      WHERE id = $3
+        AND ${quoteIdentifier(remainingAttr.column_name)} >= $1
+      RETURNING id, ${quoteIdentifier(remainingAttr.column_name)} AS remaining_quantity
+    `,
+                [chunkResult.totalKg, mining.depletedValueId, asteroid.rowId]
+            )) as Array<{ id: string; remaining_quantity: unknown }>
+            const updatedRow = updateResult[0]
+            if (!updatedRow) {
+                throwEconomyFailure('MINING_POSTING_FAILED', 'Mining update did not affect any row')
+            }
+            const remainingAfterMine = roundToTenth(Math.max(0, Number(updatedRow.remaining_quantity) || 0))
+            const asteroidStatusAfterMine = remainingAfterMine > 0 ? 'Active' : 'Depleted'
+
+            // ⑫ Fresh reads for the response (TZ §8.2) — remainder from the
+            // RETURNING row, cargo/wallet re-read post-posting.
+            const [walletBalance, freshCargo] = await Promise.all([
+                computeWalletBalance(ledgerService, tx, ctx, economy),
+                computeCargo(ledgerService, tx, ctx, economy)
+            ])
+            const mineResponse = economyMineResponseSchema.parse({
+                operationId: created.rowId,
+                asteroid: {
+                    code: asteroid.code,
+                    remainingQuantityKg: remainingAfterMine,
+                    status: asteroidStatusAfterMine
+                },
+                chunks: chunkResult.chunks,
+                cargo: { usedKg: roundToTenth(freshCargo.usedKg), capacityKg: economy.maxCargoMassKg },
+                wallet: { balance: walletBalance, currency: economy.currencyCode }
+            })
+
+            if (idempotency) {
+                const raceReplay = await saveIdempotentResponseInTx(tx, idempotency, mineResponse)
+                if (raceReplay) {
+                    logEconomyEvent('mining fire replayed after scoped-unique race', {
+                        applicationId,
+                        principalId: ctx.userId
+                    })
+                    return { kind: 'replayed' as const, status: raceReplay.statusCode, body: raceReplay.response }
+                }
+            }
+            miningMetrics.firesSucceeded += 1
+            logEconomyEvent('mining fire executed', {
+                applicationId,
+                principalId: ctx.userId,
+                operationId: created.rowId,
+                asteroidCode: asteroid.code
+            })
+            return { kind: 'executed' as const, status: 200, body: mineResponse, afterLifecycleRequests }
+        })
+
+    return { getEconomySummary, executeTrade, getMiningState, executeMiningFire, ensureWalletForUser }
 }

@@ -17,12 +17,15 @@ const drawerWidth = 240
 const compactDrawerWidth = 72
 
 const Drawer = styled(MuiDrawer, {
-    shouldForwardProp: (prop) => prop !== 'menuMode'
-})<{ menuMode: 'wide' | 'compact' | 'overlay' }>(({ menuMode }) => ({
+    shouldForwardProp: (prop) => prop !== 'menuMode' && prop !== 'topOffset'
+})<{ menuMode: 'wide' | 'compact' | 'overlay'; topOffset: number }>(({ menuMode, topOffset }) => ({
     width: menuMode === 'overlay' ? undefined : menuMode === 'compact' ? compactDrawerWidth : drawerWidth,
     flexShrink: 0,
     boxSizing: 'border-box',
-    mt: 10,
+    // The docked drawer must reserve the fixed navbar's height only while the
+    // navbar actually renders on desktop — otherwise the offset is a dead
+    // empty band above the first nav item (UX report 2026-11-22).
+    mt: topOffset,
     [`& .${drawerClasses.paper}`]: {
         width: menuMode === 'compact' ? compactDrawerWidth : drawerWidth,
         boxSizing: 'border-box'
@@ -34,6 +37,8 @@ interface SideMenuProps {
     placements?: readonly RuntimePlacement[]
     mode?: DashboardSideMenuMode
     availableModes?: DashboardSideMenuMode[]
+    /** Vertical offset mirroring the fixed navbar's desktop visibility. */
+    topOffset?: number
     onToggleDockedMode?: () => void
     onToggleOverlayMode?: () => void
     open?: boolean
@@ -45,6 +50,7 @@ export default function SideMenu({
     placements = [],
     mode = 'wide',
     availableModes = ['wide'],
+    topOffset = 10,
     onToggleDockedMode,
     onToggleOverlayMode,
     open = false,
@@ -117,6 +123,7 @@ export default function SideMenu({
     return (
         <Drawer
             menuMode={mode}
+            topOffset={isOverlay ? 0 : topOffset}
             variant={isOverlay ? 'temporary' : 'permanent'}
             open={isOverlay ? open : true}
             onClose={onClose}

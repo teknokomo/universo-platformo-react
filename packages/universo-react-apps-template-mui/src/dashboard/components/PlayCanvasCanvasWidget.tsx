@@ -8,15 +8,17 @@ import {
     type PointerEvent as ReactPointerEvent
 } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
 import Stack from '@mui/material/Stack'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import AccountBalanceWalletRoundedIcon from '@mui/icons-material/AccountBalanceWalletRounded'
 import CenterFocusStrongRoundedIcon from '@mui/icons-material/CenterFocusStrongRounded'
+import LocalFireDepartmentRoundedIcon from '@mui/icons-material/LocalFireDepartmentRounded'
 import MyLocationRoundedIcon from '@mui/icons-material/MyLocationRounded'
 import PauseRoundedIcon from '@mui/icons-material/PauseRounded'
 import RotateLeftRoundedIcon from '@mui/icons-material/RotateLeftRounded'
@@ -29,7 +31,8 @@ import {
     readLocalizedTextValue,
     type MmoommVisualLabScene
 } from '@universo-react/types'
-import { fetchRuntimePlayCanvasManifests } from '../../api/api'
+import { generateUuidV7 } from '@universo-react/utils'
+import { fetchRuntimeEconomySummary, fetchRuntimePlayCanvasManifests, postMiningFire } from '../../api/api'
 import { useDashboardDetails } from '../DashboardDetailsContext'
 import {
     isFiniteVector3,
@@ -39,6 +42,8 @@ import {
     type RealtimeStatus,
     type SceneObjectConfig
 } from './playcanvasCanvasWidgetRuntime'
+import { applyFireResult, MINING_STATE_QUERY_KEY_PREFIX, useMiningState } from './useMiningState'
+import { extractRuntimeErrorCode, localizeRuntimeError } from './runtimeErrorLocalization'
 import EconomyDialog from './EconomyDialog'
 import { executeClientModuleMethod } from '../runtime/browserModuleRuntime'
 import { createClientModuleContext, isClientModuleMethodTarget, useRuntimeWidgetClientModule } from './runtimeWidgetHelpers'
@@ -474,6 +479,168 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
     const movementControlsEnabled =
         ready && !isVisualLabScene && localShipAssigned && isRealtimeMovementEnabled(realtimeStatus, canControlScene)
 
+    // ── Mining belt wiring (mining TZ §11, plan C4) ──
+    const queryClient = useQueryClient()
+    const [miningTargetCode, setMiningTargetCode] = useState<string | null>(null)
+    const [miningHoverCode, setMiningHoverCode] = useState<string | null>(null)
+    const [miningTargetState, setMiningTargetState] = useState<{ code: string; distanceMeters: number | null; inRange: boolean } | null>(
+        null
+    )
+    const [miningAlert, setMiningAlert] = useState<{ message: string; capacityHint: boolean } | null>(null)
+    const [miningCooldownUntilMs, setMiningCooldownUntilMs] = useState(0)
+    const [hudCargoOverrideKg, setHudCargoOverrideKg] = useState<number | null>(null)
+    const miningEnabled = Boolean(applicationId) && ready && !isVisualLabScene && runtimeAccessMode === 'member'
+    const miningQuery = useMiningState({
+        apiBaseUrl,
+        applicationId: applicationId ?? '',
+        workspaceId: currentWorkspaceId,
+        enabled: miningEnabled
+    })
+    const miningAsteroids = miningQuery.data?.asteroids ?? null
+    const miningConstants = miningQuery.data?.constants ?? null
+    const miningReducedMotion = useMemo(() => {
+        try {
+            return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        } catch {
+            return false
+        }
+    }, [])
+
+    // The cargo HUD (used/max) backs onto the economy summary with a slow poll;
+    // own-fire responses patch the used value locally (TZ §11.4/§11.5). The key
+    // lives INSIDE the `economy-summary` family so firing (which invalidates
+    // the family) refreshes it immediately — previously a separate family was
+    // only refreshed by the 15 s poll.
+    const economySummaryHudQuery = useQuery({
+        queryKey: [queryKeyPrefix, 'economy-summary', 'hud', apiBaseUrl, applicationId],
+        enabled: Boolean(applicationId) && ready && runtimeAccessMode === 'member',
+        refetchInterval: 15_000,
+        queryFn: ({ signal }) => fetchRuntimeEconomySummary(apiBaseUrl, applicationId ?? '', currentWorkspaceId, signal)
+    })
+    const hudCapacityKg = economySummaryHudQuery.data?.capacity.maxKg ?? null
+    const hudCargoUsedKg = hudCargoOverrideKg ?? economySummaryHudQuery.data?.capacity.usedKg ?? null
+
+    // A fresher summary supersedes the optimistic own-fire value: without this
+    // the HUD cargo (and the near-full warning) stayed frozen at the last
+    // shot's number after sells/buys even once the poll succeeded (Greptile
+    // P2, PR #934).
+    const hudSummaryUpdatedAt = economySummaryHudQuery.dataUpdatedAt
+    useEffect(() => {
+        setHudCargoOverrideKg(null)
+    }, [hudSummaryUpdatedAt])
+
+    // Push the belt payload into the canvas layer. The events are identity-keyed
+    // so poll updates rebuild ONLY the asteroid layer — the canvas never tears
+    // down on mining state changes.
+    useEffect(() => {
+        const canvas = canvasRef.current
+        if (!canvas || !ready || isVisualLabScene || !miningAsteroids) return
+        canvas.dispatchEvent(
+            new CustomEvent('playcanvas-mining-update', {
+                detail: { asteroids: miningAsteroids, radiusMeters: miningConstants?.miningRadiusMeters ?? null }
+            })
+        )
+    }, [miningAsteroids, miningConstants?.miningRadiusMeters, ready, isVisualLabScene])
+
+    useEffect(() => {
+        const canvas = canvasRef.current
+        if (!canvas || !ready || isVisualLabScene) return
+        // Selection (a click) drives Fire, the glow and the HUD target info;
+        // hover is a faint, secondary highlight so the user can always tell
+        // where the laser would actually shoot (runtime UX review 2026-11-22).
+        canvas.dispatchEvent(
+            new CustomEvent('playcanvas-mining-target', { detail: { code: miningTargetCode, hoverCode: miningHoverCode } })
+        )
+    }, [miningHoverCode, miningTargetCode, ready, isVisualLabScene])
+
+    useEffect(() => {
+        const canvas = canvasRef.current
+        if (!canvas) return
+        const handler = (event: Event): void => {
+            const detail = (event as CustomEvent<{ code?: string; distanceMeters?: number; inRange?: boolean }>).detail
+            if (detail?.code) {
+                setMiningTargetState({
+                    code: detail.code,
+                    distanceMeters: typeof detail.distanceMeters === 'number' ? detail.distanceMeters : null,
+                    inRange: detail.inRange === true
+                })
+            } else {
+                setMiningTargetState(null)
+            }
+        }
+        canvas.addEventListener('playcanvas-mining-target-state', handler)
+        return () => canvas.removeEventListener('playcanvas-mining-target-state', handler)
+        // The canvas node mounts only once the scene is ready — attaching on
+        // the first render left the listener detached forever and the HUD
+        // never received distances (Greptile P2, PR #934).
+    }, [ready, sceneReady])
+
+    const miningCooldownActive = Date.now() < miningCooldownUntilMs
+
+    useEffect(() => {
+        if (!miningCooldownActive) return
+        const timer = window.setTimeout(() => setMiningCooldownUntilMs(0), Math.max(0, miningCooldownUntilMs - Date.now()))
+        return () => window.clearTimeout(timer)
+    }, [miningCooldownActive, miningCooldownUntilMs])
+
+    const miningFireMutation = useMutation({
+        mutationFn: (vars: { asteroidCode: string; idempotencyKey: string }) =>
+            postMiningFire(apiBaseUrl, applicationId ?? '', { asteroidCode: vars.asteroidCode }, currentWorkspaceId, vars.idempotencyKey),
+        onSuccess: async (response) => {
+            setMiningAlert(null)
+            // A fire changes cargo/balance server-side — invalidate the economy
+            // summary family so the Economy dialog opens with fresh numbers
+            // instead of a pre-fire cached snapshot (15 s poll caught it late).
+            await queryClient.invalidateQueries({
+                queryKey: [
+                    ...(Array.isArray(details?.runtimeQueryKeyPrefix) ? details.runtimeQueryKeyPrefix : ['economy']),
+                    'economy-summary'
+                ]
+            })
+            if (miningQuery.data) {
+                // Own-shot local update (TZ §11.5): patch the belt payload so the
+                // HUD/target info reflects the fire without waiting for a poll.
+                queryClient.setQueryData([MINING_STATE_QUERY_KEY_PREFIX, apiBaseUrl, applicationId, currentWorkspaceId ?? null], {
+                    ...miningQuery.data,
+                    asteroids: applyFireResult(miningQuery.data.asteroids, response)
+                })
+            }
+            setHudCargoOverrideKg(response.cargo.usedKg)
+            // TZ §11.1/plan D8: a Depleted fire response drops the target — the
+            // asteroid no longer accepts fire (server 409s MINING_DEPLETED).
+            if (response.asteroid.status === 'Depleted') {
+                setMiningTargetCode((current) => (current === response.asteroid.code ? null : current))
+            }
+            const canvas = canvasRef.current as PlayCanvasControlCanvas | null
+            canvas?.__playcanvasPlayMiningEffect?.({
+                asteroidCode: response.asteroid.code,
+                chunkMassesKg: response.chunks.map((chunk) => chunk.massKg),
+                lifetimeMs: miningConstants?.chunkVisualLifetimeMs ?? 900,
+                reducedMotion: miningReducedMotion
+            })
+            setMiningCooldownUntilMs(Date.now() + (miningConstants?.miningCooldownMs ?? 350) + 50)
+        },
+        onError: (error) => {
+            setMiningAlert({
+                message: localizeRuntimeError(error, t),
+                capacityHint: extractRuntimeErrorCode(error) === 'ECONOMY_CAPACITY_EXCEEDED'
+            })
+        }
+    })
+
+    const fireAtTarget = (): void => {
+        // FR-034: no shot queue — a cooldown/in-flight/target-less press is a
+        // no-op on the client (the server re-validates anyway).
+        if (!miningTargetCode || !movementControlsEnabled || miningCooldownActive || miningFireMutation.isPending) return
+        miningFireMutation.mutate({ asteroidCode: miningTargetCode, idempotencyKey: generateUuidV7() })
+    }
+    const miningFireTooltip = !miningTargetCode
+        ? t('playcanvasCanvas.mining.needTarget', 'Click an asteroid to target it')
+        : miningCooldownActive
+        ? t('playcanvasCanvas.mining.cooldown', 'Laser is recharging')
+        : t('playcanvasCanvas.mining.fire', 'Fire mining laser')
+    const miningTargetInfo = miningAsteroids?.find((asteroid) => asteroid.code === (miningTargetState?.code ?? miningTargetCode)) ?? null
+
     const moveToConfiguredTarget = () => {
         if (!movementControlsEnabled) {
             return
@@ -528,10 +695,18 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
     }
 
     const handlePointerMove = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+        // Hover targeting (TZ §11.2/FR-031): a no-button move raycasts the belt
+        // and highlights the asteroid under the cursor via the glow shell.
+        if (event.buttons === 0) {
+            const canvas = canvasRef.current as PlayCanvasControlCanvas | null
+            const hoverHit = canvas?.__playcanvasPickAsteroid?.(event.clientX, event.clientY)
+            setMiningHoverCode((current) => (current === (hoverHit?.code ?? null) ? current : hoverHit?.code ?? null))
+            return
+        }
         if (!dragRef.current || event.buttons !== 1) return
         const deltaX = event.clientX - dragRef.current.x
         const deltaY = event.clientY - dragRef.current.y
-        if (Math.abs(deltaX) + Math.abs(deltaY) > 2) {
+        if (Math.abs(deltaX) + Math.abs(deltaY) > 5) {
             draggedRef.current = true
         }
         dragRef.current = { x: event.clientX, y: event.clientY }
@@ -556,6 +731,16 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
             return
         }
         const canvas = canvasRef.current as PlayCanvasControlCanvas | null
+        // Mining targeting (TZ §11.2): an asteroid hit selects the fire target
+        // and must NOT emit the move_to_object flight intent.
+        const asteroidHit = canvas?.__playcanvasPickAsteroid?.(event.clientX, event.clientY)
+        if (asteroidHit) {
+            // Mining targeting toggle (UX report 2026-11-23): clicking the
+            // already-selected asteroid again clears the fire target — the
+            // selection must be as easy to undo as it is to make.
+            setMiningTargetCode((current) => (current === asteroidHit.code ? null : asteroidHit.code))
+            return
+        }
         const picked = canvas?.__playcanvasPickAt?.(event.clientX, event.clientY, false)
         if (picked?.objectId) {
             canvas?.__playcanvasMoveToTarget?.(picked.point, picked.objectId)
@@ -582,6 +767,9 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
             releaseCapturedPointer(event.currentTarget)
             dragRef.current = null
             stop()
+        } else if (event.key === 'f' || event.key === 'F') {
+            event.preventDefault()
+            fireAtTarget()
         } else if (event.key === '+' || event.key === '=') {
             event.preventDefault()
             updateCamera('zoomIn')
@@ -744,6 +932,24 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                         </span>
                     </Tooltip>
                 ) : null}
+                {runtimeAccessMode === 'member' && !isVisualLabScene ? (
+                    <Tooltip title={miningFireTooltip}>
+                        <span>
+                            <IconButton
+                                aria-label={miningFireTooltip}
+                                data-testid='mining-fire-button'
+                                onClick={fireAtTarget}
+                                disabled={
+                                    !movementControlsEnabled || !miningTargetCode || miningCooldownActive || miningFireMutation.isPending
+                                }
+                                size='small'
+                                sx={{ '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 } }}
+                            >
+                                <LocalFireDepartmentRoundedIcon fontSize='small' />
+                            </IconButton>
+                        </span>
+                    </Tooltip>
+                ) : null}
                 <Tooltip title={t('playcanvasCanvas.moveToTarget', 'Move to target')}>
                     <span>
                         <IconButton
@@ -814,6 +1020,22 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                 <Alert severity='info'>{t('playcanvasCanvas.loading', 'Loading 3D scene...')}</Alert>
             ) : null}
             {ready && realtimeAlert && !error ? <Alert severity={realtimeAlert.severity}>{realtimeAlert.message}</Alert> : null}
+            {miningAlert ? (
+                <Alert
+                    data-testid='mining-error'
+                    severity='error'
+                    onClose={() => setMiningAlert(null)}
+                    action={
+                        miningAlert.capacityHint ? (
+                            <Button color='inherit' size='small' onClick={() => setEconomyDialogOpen(true)}>
+                                {t('playcanvasCanvas.mining.sellOre', 'Sell ore')}
+                            </Button>
+                        ) : undefined
+                    }
+                >
+                    {miningAlert.message}
+                </Alert>
+            ) : null}
             {isVisualLabScene && visualLabVariants.length > 0 ? (
                 <Box
                     data-testid='playcanvas-visual-lab-legend'
@@ -938,7 +1160,10 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                 </Box>
             ) : null}
             {sceneReady ? (
-                <Box ref={containerRef} sx={{ width: '100%', minWidth: 0, height: canvasHeight, bgcolor: '#020611', overflow: 'hidden' }}>
+                <Box
+                    ref={containerRef}
+                    sx={{ position: 'relative', width: '100%', minWidth: 0, height: canvasHeight, bgcolor: '#020611', overflow: 'hidden' }}
+                >
                     <canvas
                         ref={canvasRef}
                         data-testid='playcanvas-canvas'
@@ -954,6 +1179,48 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                         onPointerLeave={handlePointerCancel}
                         style={{ display: 'block', width: '100%', height: '100%', touchAction: 'none', backgroundColor: '#020611' }}
                     />
+                    {ready && runtimeAccessMode === 'member' && !isVisualLabScene ? (
+                        <Box
+                            data-testid='mining-hud'
+                            sx={{
+                                position: 'absolute',
+                                top: 8,
+                                left: 8,
+                                p: 1,
+                                borderRadius: 1,
+                                bgcolor: 'rgba(2, 6, 17, 0.72)',
+                                pointerEvents: 'none',
+                                maxWidth: 'calc(100% - 16px)'
+                            }}
+                        >
+                            <Typography data-testid='mining-cargo-value' variant='caption' sx={{ display: 'block', color: '#e2e8f0' }}>
+                                {hudCapacityKg !== null && hudCargoUsedKg !== null
+                                    ? t('playcanvasCanvas.mining.cargo', 'Cargo: {{used}} / {{max}} kg', {
+                                          used: hudCargoUsedKg.toFixed(1),
+                                          max: hudCapacityKg.toFixed(1)
+                                      })
+                                    : t('playcanvasCanvas.mining.cargoPending', 'Cargo: …')}
+                            </Typography>
+                            {hudCapacityKg !== null && hudCargoUsedKg !== null && hudCargoUsedKg / hudCapacityKg >= 0.9 ? (
+                                <Typography variant='caption' sx={{ display: 'block', color: 'warning.light' }}>
+                                    {t('playcanvasCanvas.mining.cargoNearFull', 'Cargo almost full — sell ore at the station')}
+                                </Typography>
+                            ) : null}
+                            {miningTargetInfo ? (
+                                <Typography data-testid='mining-target-info' variant='caption' sx={{ display: 'block', color: '#cbd5f5' }}>
+                                    {miningTargetState
+                                        ? t('playcanvasCanvas.mining.targetInfo', '{{name}} — {{distance}} m ({{range}})', {
+                                              name: miningTargetInfo.name,
+                                              distance: miningTargetState.distanceMeters ?? '—',
+                                              range: miningTargetState.inRange
+                                                  ? t('playcanvasCanvas.mining.inRange', 'in range')
+                                                  : t('playcanvasCanvas.mining.outOfRange', 'out of range')
+                                          })
+                                        : miningTargetInfo.name}
+                                </Typography>
+                            ) : null}
+                        </Box>
+                    ) : null}
                 </Box>
             ) : null}
         </Box>

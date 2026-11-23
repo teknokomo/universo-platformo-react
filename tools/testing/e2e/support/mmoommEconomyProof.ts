@@ -13,7 +13,7 @@ import {
 } from './mmoommAppFixtureContract.shared'
 
 /** Minimal body-readable response: satisfied by both `fetch` and Playwright responses. */
-type BodyReadable = { text: () => Promise<string> }
+export type BodyReadable = { text: () => Promise<string> }
 
 /**
  * MMOOMM economy proof helpers (plan Phase G2/G3).
@@ -61,7 +61,7 @@ const SAFE_IDENTIFIER_PATTERN = /^[a-z_][a-z0-9_]*$/i
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
-const readJsonBody = async (response: BodyReadable): Promise<Record<string, unknown> | null> => {
+export const readJsonBody = async (response: BodyReadable): Promise<Record<string, unknown> | null> => {
     const text = await response.text()
     if (!text) return null
     try {
@@ -274,7 +274,8 @@ export const tradeViaUi = async (
 // REST (runtime economy + runtime ledgers) helpers
 // ---------------------------------------------------------------------------
 
-const postWithCsrf = async (
+/** Shared CSRF POST used by the trade and mining fire helpers. */
+export const postWithCsrf = async (
     api: EconomyApiSession,
     url: string,
     body: unknown,

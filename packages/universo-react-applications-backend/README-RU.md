@@ -45,6 +45,24 @@
 
 Маршруты `POST /public/a/:applicationId/runtime/attempts/start`, `GET /public/a/:applicationId/runtime/attempts/:attemptId`, `POST /public/a/:applicationId/runtime/attempts/:attemptId/continue`, `PUT /public/a/:applicationId/runtime/attempts/:attemptId/answers` и `POST /public/a/:applicationId/runtime/attempts/:attemptId/finalize` хранят фазу, текущий блок, дедлайн таймера, ответы и результат. Таймер идёт на страницах блоков по умолчанию, а конфигурация теста может его останавливать; нумерация вопросов бывает сквозной или внутри блока. Одношаговый маршрут отправки старого формата удалён: связанное приложение нужно опубликовать с актуальным runtime-шаблоном.
 
+## Economy Runtime
+
+Runtime-маршруты экономики MMOOMM смонтированы под `/applications/:applicationId/runtime/economy` (`createRuntimeEconomyController`):
+
+-   `GET .../economy/summary` — серверная агрегация баланса кошелька, груза, вместимости, рыночных цен, последних операций и близости к станции (`readLimiter`). Первый вызов также создаёт кошелёк и проводит однократный StarterGrant (1000 CR / 10 кг руды) под advisory-локом на (пользователь, валюта).
+-   `POST .../economy/sell` и `POST .../economy/buy` — серверно-авторитетные сделки (`writeLimiter`, требуется `editContent`); server-owned поля тела отклоняются с 422 до любой работы с БД.
+-   Близость к станции резолвится сервером через read-only room-мост; `Idempotency-Key` (UUID v7) работает через `applications.obj_economy_idempotency` (sha256-хэш ключа, UNIQUE по `(application_id, user_id, key_hash)`, HMAC-fingerprint тела, тот же ключ + то же тело → replay, тот же ключ + другое тело → 409 `ECONOMY_IDEMPOTENCY_CONFLICT`).
+-   Контракт постинга: операция создаётся и постится через общий posting core в одной транзакции; движения формирует авторский постинг-модуль, подключённый через `recordBehavior.posting.moduleCodename` с `targetLedgers` на оба регистра.
+-   Ошибки используют стабильный набор `ECONOMY_*` кодов со статусами 404/409/422/500; тела ошибок несут только `{ error, code }`.
+
+### Mining Runtime
+
+Mining MVP MMOOMM (TZ DOC-2026-006) добавляет два маршрута в тот же контроллер:
+
+-   `GET .../economy/mining/state` — снимок пояса для клиентского опроса: коды/имена/позиции/масштабы астероидов, остатки, округлённые до 0.1 кг, статусы `Active`/`Depleted` и значения `MiningConstants` (auth-only, `readLimiter`).
+-   `POST .../economy/mining/fire` — серверно-авторитетный выстрел (`writeLimiter`, `editContent`): тело несёт только `asteroidCode` (отсутствие/неверность → 400 `MINING_INVALID_TARGET`; server-owned/неизвестные поля → 422 `MINING_INVALID_PAYLOAD`). Поток проверяет летную сессию через read-only room-мост, блокирует строку астероида (`SELECT … FOR UPDATE`) и перепроверяет остаток, валидирует эффективный радиус по TZ §9.2, применяет per-user cooldown (advisory-лок `mining:<appId>:<userId>` + проба последней Mine-операции, включая мягко удалённые строки), считает 1–3 неравномерных куска на сервере и выполняет ОДНУ транзакцию: создание `Mine`-операции → постинг через авторский модуль (группа движений только в `InventoryLedger`, `Cost = 0`, без движения кошелька) → условный UPDATE остатка/статуса/`LastMinedAt` с `RETURNING` и fail-closed.
+-   `OperationKind`/`AsteroidCode` — аддитивные server-owned STRING-поля, штампуемые на каждой новой операции (TZ §10.3); постинг-модуль ветвится по kind и сохраняет legacy-эвристику для строк до появления поля. Идемпотентность переиспользует store торговли с kind `mine` в fingerprint — новых таблиц и миграций нет.
+
 ## Database Access Rules
 
 -   Чтения в application-домене используют `_upl_deleted = false AND _app_deleted = false`.

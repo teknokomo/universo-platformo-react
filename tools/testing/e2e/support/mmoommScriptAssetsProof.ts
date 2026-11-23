@@ -783,7 +783,12 @@ export const expectMmoommTraceShowsMovement = (trace: MmoommRuntimeParityTrace, 
         const previous = trace.samples[index]?.ship
         return previous && sample.ship ? distanceBetween(previous, sample.ship) > 0.1 : false
     })
-    expect(moved, `${label} must move the local ship after a published-script control intent`).toBe(true)
+    expect(
+        moved,
+        `${label} must move the local ship after a published-script control intent. Trace: ${JSON.stringify(
+            trace.samples.map((sample) => sample.ship)
+        )}`
+    ).toBe(true)
 }
 
 export const expectMmoommTraceShowsCameraChange = (

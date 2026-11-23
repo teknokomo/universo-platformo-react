@@ -203,4 +203,5 @@ market with `ECONOMY_MARKET_DISABLED`.
 ## Related Documentation
 
 -   [Ledgers Guide](ledgers.md) — ledger source policies, projections, and reversal semantics shared with the economy registers.
+-   [MMOOMM Mining Guide](mmoomm-mining.md) — the mining loop that feeds ore into the same `InventoryLedger` register.
 -   [MMOOMM Flight Simulator](mmoomm-flight-simulator.md) — the flight scene, realtime room, and canvas widget that the economy attaches to.

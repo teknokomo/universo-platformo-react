@@ -171,6 +171,25 @@ flight movement, and camera behavior without exposing internal ids in the UI.
 -   **Idempotent trades**: Sell/Buy actions POST to the economy trade routes with a UUID v7 `Idempotency-Key` header generated per logical click and reused until the response settles, so a retry can never double spend.
 -   **Gating and feedback**: trade buttons are disabled with a localized tooltip while the summary reports `atStation: false` and when `editContent` is denied. Server error codes render through the localized `runtime.economyErrors.*` dictionary (EN/RU) with an English fallback, and every dialog string has EN and RU entries.
 
+### Mining canvas controls
+
+-   **Belt layer**: the canvas renders the asteroid belt from
+    `GET .../runtime/economy/mining/state` into a dedicated entity layer
+    (outside the published scene objects — clicking an asteroid selects a
+    target instead of emitting a flight intent). Asteroid visual scale and the
+    server's distance check share the TZ §9.2 effective-scale formula; hover
+    highlights the asteroid under the cursor with a glow shell, and the HUD
+    shows the target name, distance and range status.
+-   **Fire controls**: a Fire IconButton (`data-testid='mining-fire-button'`)
+    in the toolbar plus the `F` hotkey fire at the selected target; the button
+    is disabled without a target, during the per-user cooldown, and while a
+    shot is in flight (no client shot queue).
+-   **Effects and HUD**: server-computed chunks spawn as short-lived
+    low-poly meshes with a laser beam flash (`prefers-reduced-motion` mutes
+    them); the mining HUD (`data-testid='mining-hud'`) shows cargo
+    `used / max kg` with a ≥ 90 % warning and errors render through the
+    localized `runtime.economyErrors.MINING_*` dictionary (EN/RU).
+
 ## Installation
 
 ```bash
